@@ -117,6 +117,10 @@
         grid-template-columns: repeat(5, minmax(11rem, 1fr));
         margin-bottom: 1.2rem;
 
+        &--compact {
+            grid-template-columns: repeat(4, minmax(11rem, 1fr));
+        }
+
         @include mobile-or-tablet-screen {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -186,7 +190,11 @@
     &__ideas {
         display: grid;
         gap: 1.2rem;
-        grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
+        grid-template-columns: repeat(5, minmax(11rem, 1fr));
+
+        &--compact {
+            grid-template-columns: repeat(4, minmax(11rem, 1fr));
+        }
 
         @include mobile-or-tablet-screen {
             grid-template-columns: 1fr;
@@ -199,8 +207,13 @@
     border: 1px solid var(--border-normal);
     border-inline-start: 0.4rem solid #2960c2;
     border-radius: 0.8rem;
+    grid-column: span 2;
     min-height: 18rem;
     padding: 1.4rem;
+
+    @include mobile-or-tablet-screen {
+        grid-column: auto;
+    }
 
     h3 {
         margin: 0.8rem 0;

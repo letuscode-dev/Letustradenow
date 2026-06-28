@@ -75,7 +75,6 @@ const Analysis = () => {
     );
     const isDigitFamily = optionFamily !== 'rise_fall';
     const isOverUnderFamily = optionFamily === 'over_under';
-    const digitSampleSize = snapshot.digitStats?.sampleSize || 0;
 
     const updatedAt = lastUpdated
         ? new Intl.DateTimeFormat(undefined, {
@@ -195,7 +194,11 @@ const Analysis = () => {
                 </Button>
             </div>
 
-            <div className='analysis__status-row'>
+            <div
+                className={classNames('analysis__status-row', {
+                    'analysis__status-row--compact': isDigitFamily,
+                })}
+            >
                 <div className='analysis__stat'>
                     <Text size='xxs' weight='bold' color='less-prominent'>
                         {localize('Status')}
@@ -216,12 +219,14 @@ const Analysis = () => {
                     </Text>
                     <strong>{isDigitFamily ? snapshot.digitStats?.lastDigit ?? '-' : snapshot.trend}</strong>
                 </div>
-                <div className='analysis__stat'>
-                    <Text size='xxs' weight='bold' color='less-prominent'>
-                        {isDigitFamily ? localize('Sample') : localize('RSI')}
-                    </Text>
-                    <strong>{isDigitFamily ? digitSampleSize : snapshot.rsi === null ? '-' : Math.round(snapshot.rsi)}</strong>
-                </div>
+                {!isDigitFamily ? (
+                    <div className='analysis__stat'>
+                        <Text size='xxs' weight='bold' color='less-prominent'>
+                            {localize('RSI')}
+                        </Text>
+                        <strong>{snapshot.rsi === null ? '-' : Math.round(snapshot.rsi)}</strong>
+                    </div>
+                ) : null}
                 <div className='analysis__stat'>
                     <Text size='xxs' weight='bold' color='less-prominent'>
                         {localize('Updated')}
@@ -239,7 +244,12 @@ const Analysis = () => {
             ) : null}
 
             <div className='analysis__body'>
-                <div className='analysis__ideas' aria-live='polite'>
+                <div
+                    className={classNames('analysis__ideas', {
+                        'analysis__ideas--compact': isDigitFamily,
+                    })}
+                    aria-live='polite'
+                >
                     {snapshot.ideas.map(idea => (
                         <article
                             className={classNames('analysis-idea', `analysis-idea--${idea.direction}`)}
