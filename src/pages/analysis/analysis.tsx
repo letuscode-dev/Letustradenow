@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import classNames from 'classnames';
 import Button from '@/components/shared_ui/button';
 import Text from '@/components/shared_ui/text';
 import { localize } from '@deriv-com/translations';
 import { generateAnalysisSnapshot, formatAnalysisPrice } from './analysis-engine';
+import type { OptionFamily } from './analysis-types';
 import PriceSparkline from './price-sparkline';
 import { TIMEFRAME_OPTIONS, useAnalysisMarketData } from './use-analysis-market-data';
 import './analysis.scss';
@@ -16,13 +18,27 @@ const statusLabel = {
 };
 
 const directionLabel = {
+    differs: localize('Differs'),
+    even: localize('Even'),
     fall: localize('Fall'),
+    matches: localize('Matches'),
+    odd: localize('Odd'),
+    over: localize('Over'),
     rise: localize('Rise'),
+    under: localize('Under'),
     wait: localize('Wait'),
     watch: localize('Watch'),
 };
 
+const OPTION_FAMILIES: Array<{ label: string; value: OptionFamily }> = [
+    { label: localize('Rise/Fall'), value: 'rise_fall' },
+    { label: localize('Matches/Differs'), value: 'matches_differs' },
+    { label: localize('Over/Under'), value: 'over_under' },
+    { label: localize('Even/Odd'), value: 'even_odd' },
+];
+
 const Analysis = () => {
+    const [optionFamily, setOptionFamily] = useState<OptionFamily>('rise_fall');
     const {
         candles,
         error,
@@ -34,13 +50,16 @@ const Analysis = () => {
         setTimeframe,
         status,
         symbols,
+        ticks,
         timeframe,
     } = useAnalysisMarketData();
 
     const snapshot = useMemo(
-        () => generateAnalysisSnapshot(candles, selectedSymbolInfo, timeframe),
-        [candles, selectedSymbolInfo, timeframe]
+        () => generateAnalysisSnapshot(candles, ticks, selectedSymbolInfo, timeframe, optionFamily),
+        [candles, optionFamily, selectedSymbolInfo, ticks, timeframe]
     );
+    const isDigitFamily = optionFamily !== 'rise_fall';
+    const digitSampleSize = snapshot.digitStats?.sampleSize || 0;
 
     const updatedAt = lastUpdated
         ? new Intl.DateTimeFormat(undefined, {
@@ -69,6 +88,30 @@ const Analysis = () => {
                             </option>
                         ))}
                     </select>
+                </div>
+
+                <div className='analysis__control'>
+                    <Text size='xxs' weight='bold' color='less-prominent'>
+                        {localize('Option')}
+                    </Text>
+                    <div
+                        className='analysis__segments analysis__segments--families'
+                        role='group'
+                        aria-label='Derived option family'
+                    >
+                        {OPTION_FAMILIES.map(option => (
+                            <button
+                                key={option.value}
+                                className={classNames('analysis__segment', {
+                                    'analysis__segment--active': option.value === optionFamily,
+                                })}
+                                type='button'
+                                onClick={() => setOptionFamily(option.value)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 <div className='analysis__control'>
@@ -113,15 +156,15 @@ const Analysis = () => {
                 </div>
                 <div className='analysis__stat'>
                     <Text size='xxs' weight='bold' color='less-prominent'>
-                        {localize('Trend')}
+                        {isDigitFamily ? localize('Last digit') : localize('Trend')}
                     </Text>
-                    <strong>{snapshot.trend}</strong>
+                    <strong>{isDigitFamily ? snapshot.digitStats?.lastDigit ?? '-' : snapshot.trend}</strong>
                 </div>
                 <div className='analysis__stat'>
                     <Text size='xxs' weight='bold' color='less-prominent'>
-                        {localize('RSI')}
+                        {isDigitFamily ? localize('Sample') : localize('RSI')}
                     </Text>
-                    <strong>{snapshot.rsi === null ? '-' : Math.round(snapshot.rsi)}</strong>
+                    <strong>{isDigitFamily ? digitSampleSize : snapshot.rsi === null ? '-' : Math.round(snapshot.rsi)}</strong>
                 </div>
                 <div className='analysis__stat'>
                     <Text size='xxs' weight='bold' color='less-prominent'>
@@ -157,13 +200,43 @@ const Analysis = () => {
                         </span>
                     </div>
                     <PriceSparkline candles={candles} trend={snapshot.trend} />
+                    {isDigitFamily && snapshot.digitStats ? (
+                        <div className='analysis__digit-grid' aria-label='Last digit distribution'>
+                            {snapshot.digitStats.counts.map((count, digit) => (
+                                <div className='analysis__digit' key={digit}>
+                                    <span>{digit}</span>
+                                    <strong>{count}</strong>
+                                    <i
+                                        style={
+                                            {
+                                                '--digit-weight': `${Math.max(
+                                                    8,
+                                                    (count / Math.max(1, digitSampleSize)) * 100
+                                                )}%`,
+                                            } as CSSProperties
+                                        }
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
                     <div className='analysis__metrics'>
-                        <span>EMA 9 {formatAnalysisPrice(snapshot.emaFast, selectedSymbolInfo?.pip)}</span>
-                        <span>EMA 21 {formatAnalysisPrice(snapshot.emaSlow, selectedSymbolInfo?.pip)}</span>
-                        <span>
-                            Range{' '}
-                            {snapshot.rangeRatio === null ? '-' : `${Number(snapshot.rangeRatio).toFixed(2)}x`}
-                        </span>
+                        {isDigitFamily ? (
+                            <>
+                                <span>Hot {snapshot.digitStats ? snapshot.digitStats.hotDigit : '-'}</span>
+                                <span>Cold {snapshot.digitStats ? snapshot.digitStats.coldDigit : '-'}</span>
+                                <span>Ticks {digitSampleSize}</span>
+                            </>
+                        ) : (
+                            <>
+                                <span>EMA 9 {formatAnalysisPrice(snapshot.emaFast, selectedSymbolInfo?.pip)}</span>
+                                <span>EMA 21 {formatAnalysisPrice(snapshot.emaSlow, selectedSymbolInfo?.pip)}</span>
+                                <span>
+                                    Range{' '}
+                                    {snapshot.rangeRatio === null ? '-' : `${Number(snapshot.rangeRatio).toFixed(2)}x`}
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -182,6 +255,7 @@ const Analysis = () => {
                             </Text>
                             <div className='analysis-idea__meta'>
                                 <span>{formatAnalysisPrice(idea.price, selectedSymbolInfo?.pip)}</span>
+                                {idea.prediction ? <span>{idea.prediction}</span> : null}
                                 <span>{idea.horizon}</span>
                             </div>
                             <div className='analysis-idea__reasons'>
