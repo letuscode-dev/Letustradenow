@@ -48,15 +48,16 @@ export type AnalysisIdea = {
 };
 
 export type DigitStats = {
+    barrierCount: number;
     coldDigit: number;
     counts: number[];
     evenCount: number;
     hotDigit: number;
     lastDigit: number | null;
     oddCount: number;
-    overFourCount: number;
+    overCount: number;
     sampleSize: number;
-    underFiveCount: number;
+    underCount: number;
 };
 
 export type AnalysisSnapshot = {

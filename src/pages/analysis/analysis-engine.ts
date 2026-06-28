@@ -8,6 +8,12 @@ import type {
     OptionFamily,
     TimeframeOption,
 } from './analysis-types';
+import {
+    DEFAULT_OVER_UNDER_BARRIER,
+    DEFAULT_TICK_SAMPLE_SIZE,
+    MAX_TICK_SAMPLE_SIZE,
+    MIN_TICK_SAMPLE_SIZE,
+} from './analysis-constants';
 
 const formatPrice = (value: number | null, pip?: number) => {
     if (value === null || Number.isNaN(value)) return '-';
@@ -78,6 +84,11 @@ const clampConfidence = (value: number) => Math.max(35, Math.min(88, Math.round(
 
 const toPercent = (value: number, sampleSize: number) => (sampleSize ? Math.round((value / sampleSize) * 100) : 0);
 
+const clampDigitBarrier = (barrier: number) => Math.max(0, Math.min(9, Math.round(barrier)));
+
+const clampTickSampleSize = (sampleSize: number) =>
+    Math.max(MIN_TICK_SAMPLE_SIZE, Math.min(MAX_TICK_SAMPLE_SIZE, Math.round(sampleSize)));
+
 const buildIdea = ({
     direction,
     title,
@@ -108,8 +119,9 @@ const buildIdea = ({
     title,
 });
 
-const getDigitStats = (ticks: AnalysisTick[]): DigitStats | null => {
-    const sample = ticks.slice(-100);
+const getDigitStats = (ticks: AnalysisTick[], tickSampleSize: number, overUnderBarrier: number): DigitStats | null => {
+    const barrier = clampDigitBarrier(overUnderBarrier);
+    const sample = ticks.slice(-clampTickSampleSize(tickSampleSize));
     if (!sample.length) return null;
 
     const counts = Array(10).fill(0);
@@ -121,22 +133,24 @@ const getDigitStats = (ticks: AnalysisTick[]): DigitStats | null => {
 
     const evenCount = counts[0] + counts[2] + counts[4] + counts[6] + counts[8];
     const oddCount = counts[1] + counts[3] + counts[5] + counts[7] + counts[9];
-    const underFiveCount = counts.slice(0, 5).reduce((sum, count) => sum + count, 0);
-    const overFourCount = counts.slice(5).reduce((sum, count) => sum + count, 0);
+    const underCount = counts.slice(0, barrier).reduce((sum, count) => sum + count, 0);
+    const overCount = counts.slice(barrier + 1).reduce((sum, count) => sum + count, 0);
+    const barrierCount = counts[barrier];
     const hotDigit = counts.reduce((hotIndex, count, index) => (count > counts[hotIndex] ? index : hotIndex), 0);
     const coldDigit = counts.reduce((coldIndex, count, index) => (count < counts[coldIndex] ? index : coldIndex), 0);
     const lastDigit = sample[sample.length - 1]?.digit ?? null;
 
     return {
+        barrierCount,
         coldDigit,
         counts,
         evenCount,
         hotDigit,
         lastDigit,
         oddCount,
-        overFourCount,
+        overCount,
         sampleSize: sample.length,
-        underFiveCount,
+        underCount,
     };
 };
 
@@ -271,6 +285,7 @@ const buildRiseFallIdeas = ({
 };
 
 const buildDigitIdeas = ({
+    overUnderBarrier,
     digitStats,
     lastPrice,
     optionFamily,
@@ -278,20 +293,22 @@ const buildDigitIdeas = ({
     digitStats: DigitStats;
     lastPrice: number;
     optionFamily: OptionFamily;
+    overUnderBarrier: number;
 }) => {
     const sampleSize = digitStats.sampleSize;
     const horizon = `${sampleSize} ticks`;
     const ideas: AnalysisIdea[] = [];
     const coldCount = digitStats.counts[digitStats.coldDigit];
     const hotCount = digitStats.counts[digitStats.hotDigit];
+    const barrier = clampDigitBarrier(overUnderBarrier);
 
-    if (sampleSize < 30) {
+    if (sampleSize < MIN_TICK_SAMPLE_SIZE) {
         return [
             buildIdea({
                 confidence: 40,
                 direction: 'wait',
                 horizon,
-                invalidation: 'At least 30 ticks collected',
+                invalidation: `At least ${MIN_TICK_SAMPLE_SIZE} ticks collected`,
                 price: lastPrice,
                 reasons: [`Sample ${sampleSize} ticks`],
                 title: 'Waiting for digit sample',
@@ -334,9 +351,10 @@ const buildDigitIdeas = ({
     }
 
     if (optionFamily === 'over_under') {
-        const overPercent = toPercent(digitStats.overFourCount, sampleSize);
-        const underPercent = toPercent(digitStats.underFiveCount, sampleSize);
-        const isOver = digitStats.overFourCount >= digitStats.underFiveCount;
+        const overPercent = toPercent(digitStats.overCount, sampleSize);
+        const underPercent = toPercent(digitStats.underCount, sampleSize);
+        const barrierPercent = toPercent(digitStats.barrierCount, sampleSize);
+        const isOver = digitStats.overCount >= digitStats.underCount;
         const spread = Math.abs(overPercent - underPercent);
 
         if (spread < 6) {
@@ -347,7 +365,11 @@ const buildDigitIdeas = ({
                     horizon,
                     invalidation: 'Over/Under spread widens beyond 6%',
                     price: lastPrice,
-                    reasons: [`Digits 5-9 ${overPercent}%`, `Digits 0-4 ${underPercent}%`],
+                    reasons: [
+                        `Digits > ${barrier}: ${overPercent}%`,
+                        `Digits < ${barrier}: ${underPercent}%`,
+                        `Digit = ${barrier}: ${barrierPercent}%`,
+                    ],
                     title: 'Over/Under balanced',
                 }),
             ];
@@ -358,11 +380,15 @@ const buildDigitIdeas = ({
                 confidence: 52 + spread,
                 direction: isOver ? 'over' : 'under',
                 horizon,
-                invalidation: 'Digit distribution returns to balance',
-                prediction: isOver ? 'Over 4' : 'Under 5',
+                invalidation: `Digit distribution returns to balance around barrier ${barrier}`,
+                prediction: isOver ? `Over ${barrier}` : `Under ${barrier}`,
                 price: lastPrice,
-                reasons: [`Digits 5-9 ${overPercent}%`, `Digits 0-4 ${underPercent}%`, `Last digit ${digitStats.lastDigit}`],
-                title: isOver ? 'Digit Over 4 idea' : 'Digit Under 5 idea',
+                reasons: [
+                    `Digits > ${barrier}: ${overPercent}%`,
+                    `Digits < ${barrier}: ${underPercent}%`,
+                    `Last digit ${digitStats.lastDigit}`,
+                ],
+                title: isOver ? `Digit Over ${barrier} idea` : `Digit Under ${barrier} idea`,
             })
         );
     }
@@ -412,7 +438,9 @@ export const generateAnalysisSnapshot = (
     ticks: AnalysisTick[],
     symbol: AnalysisSymbol | null,
     timeframe: TimeframeOption,
-    optionFamily: OptionFamily
+    optionFamily: OptionFamily,
+    tickSampleSize = DEFAULT_TICK_SAMPLE_SIZE,
+    overUnderBarrier = DEFAULT_OVER_UNDER_BARRIER
 ): AnalysisSnapshot => {
     const closes = candles.map(candle => candle.close);
     const lastCandle = candles[candles.length - 1];
@@ -424,7 +452,7 @@ export const generateAnalysisSnapshot = (
     const momentum = closes.length > 8 ? closes[closes.length - 1] - closes[closes.length - 8] : null;
     const rangeRatio = getRangeRatio(candles);
     const volatility = classifyVolatility(rangeRatio);
-    const digitStats = getDigitStats(ticks);
+    const digitStats = getDigitStats(ticks, tickSampleSize, overUnderBarrier);
     const pip = symbol?.pip;
 
     const trend =
@@ -474,6 +502,7 @@ export const generateAnalysisSnapshot = (
                   digitStats: digitStats as DigitStats,
                   lastPrice: lastPrice as number,
                   optionFamily,
+                  overUnderBarrier,
               });
 
     return {

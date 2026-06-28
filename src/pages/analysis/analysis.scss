@@ -14,29 +14,38 @@
 
     &__toolbar {
         align-items: end;
-        display: grid;
+        display: flex;
+        flex-wrap: wrap;
         gap: 1.2rem;
-        grid-template-columns: minmax(22rem, 1fr) minmax(34rem, 46rem) auto auto;
         margin-bottom: 1.2rem;
 
         @include mobile-or-tablet-screen {
             align-items: stretch;
-            grid-template-columns: 1fr;
         }
     }
 
     &__control {
         display: flex;
         flex-direction: column;
+        flex: 0 0 auto;
         gap: 0.6rem;
         min-width: 0;
 
         &--market {
+            flex: 1 1 24rem;
             max-width: 48rem;
 
             @include mobile-or-tablet-screen {
                 max-width: none;
             }
+        }
+
+        &--compact {
+            width: 12rem;
+        }
+
+        @include mobile-or-tablet-screen {
+            width: 100%;
         }
     }
 
@@ -65,6 +74,7 @@
         &--families {
             grid-template-columns: repeat(4, minmax(8.8rem, 1fr));
             max-width: 46rem;
+            min-width: min(46rem, 100%);
             width: 100%;
 
             .analysis__segment {

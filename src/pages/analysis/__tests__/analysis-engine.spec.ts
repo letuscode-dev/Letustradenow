@@ -73,12 +73,34 @@ describe('generateAnalysisSnapshot', () => {
             4,
         ];
 
-        const snapshot = generateAnalysisSnapshot([], makeTicks(digits), symbol, timeframe, 'over_under');
+        const snapshot = generateAnalysisSnapshot([], makeTicks(digits), symbol, timeframe, 'over_under', 100, 4);
 
-        expect(snapshot.digitStats?.overFourCount).toBeGreaterThan(snapshot.digitStats?.underFiveCount ?? 0);
+        expect(snapshot.digitStats?.overCount).toBeGreaterThan(snapshot.digitStats?.underCount ?? 0);
         expect(snapshot.ideas[0]).toMatchObject({
             direction: 'over',
             prediction: 'Over 4',
+        });
+    });
+
+    it('uses the selected tick sample size and Over/Under barrier', () => {
+        const olderOverDigits = Array.from({ length: 60 }, () => 8);
+        const recentUnderDigits = Array.from({ length: 30 }, () => 2);
+
+        const snapshot = generateAnalysisSnapshot(
+            [],
+            makeTicks([...olderOverDigits, ...recentUnderDigits]),
+            symbol,
+            timeframe,
+            'over_under',
+            30,
+            7
+        );
+
+        expect(snapshot.digitStats?.sampleSize).toBe(30);
+        expect(snapshot.digitStats?.underCount).toBe(30);
+        expect(snapshot.ideas[0]).toMatchObject({
+            direction: 'under',
+            prediction: 'Under 7',
         });
     });
 
@@ -91,7 +113,7 @@ describe('generateAnalysisSnapshot', () => {
             ...Array.from({ length: 4 }, () => [4, 5, 6, 8, 9]).flat(),
         ];
 
-        const snapshot = generateAnalysisSnapshot([], makeTicks(digits), symbol, timeframe, 'matches_differs');
+        const snapshot = generateAnalysisSnapshot([], makeTicks(digits), symbol, timeframe, 'matches_differs', 100, 4);
 
         expect(snapshot.digitStats?.coldDigit).toBe(3);
         expect(snapshot.ideas.some(idea => idea.direction === 'differs' && idea.prediction === 'Differs 3')).toBe(true);

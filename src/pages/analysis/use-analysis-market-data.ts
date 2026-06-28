@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import chart_api from '@/external/bot-skeleton/services/api/chart-api';
+import { MAX_TICK_SAMPLE_SIZE } from './analysis-constants';
 import type { AnalysisCandle, AnalysisSymbol, AnalysisTick, MarketStatus, TimeframeOption } from './analysis-types';
 
 type RawSymbol = {
@@ -19,7 +20,6 @@ type RawSymbol = {
 };
 
 const CANDLE_COUNT = 140;
-const TICK_COUNT = 100;
 
 export const TIMEFRAME_OPTIONS: TimeframeOption[] = [
     { granularity: 60, horizon: '1-3 candles', label: '1m' },
@@ -142,7 +142,7 @@ const fetchCandles = async (symbol: string, granularity: number): Promise<Analys
 const fetchTicks = async (symbol: string, pip?: number): Promise<AnalysisTick[]> => {
     const api = await waitForChartApi();
     const response = await api.send({
-        count: TICK_COUNT,
+        count: MAX_TICK_SAMPLE_SIZE,
         end: 'latest',
         style: 'ticks',
         ticks_history: symbol,
@@ -353,7 +353,7 @@ export const useAnalysisMarketData = () => {
 
                 cleanupTicks = await subscribeToTicks(selectedSymbol, pip, tick => {
                     if (!mountedRef.current) return;
-                    setTicks(current => [...current, tick].slice(-TICK_COUNT));
+                    setTicks(current => [...current, tick].slice(-MAX_TICK_SAMPLE_SIZE));
                     setLastUpdated(Date.now());
                     setStatus('live');
                 });
