@@ -17,6 +17,21 @@ import './app-root.scss';
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
 
+const TAB_HASHES = new Set(['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial']);
+
+const redirectInitialTabHashToMainUrl = () => {
+    if (isPreviewMode() || typeof window === 'undefined') return;
+
+    const url = new URL(window.location.href);
+    const tab_hash = url.hash.replace('#', '');
+
+    if (!TAB_HASHES.has(tab_hash) || url.searchParams.has('code')) return;
+
+    window.history.replaceState(null, document.title, url.origin);
+};
+
+redirectInitialTabHashToMainUrl();
+
 /**
  * Component wrapper to handle language URL parameter
  * Uses the useLanguageFromURL hook to process language switching
