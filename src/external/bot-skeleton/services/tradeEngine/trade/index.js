@@ -113,6 +113,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         // Earlier this used to happen as soon as we get ticks_history response and by the time GetTotalRuns gets called we have required info.
         this.accountInfo = api_base.account_info;
         this.token = api_base.token;
+        if (!api_base.api) {
+            return Promise.resolve();
+        }
         return new Promise(resolve => {
             // Try to recover from a situation where API doesn't give us a correct response on
             // "proposal_open_contract" which would make the bot run forever. When there's a "sell"
@@ -132,9 +135,9 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                         }
                     }, 1500);
                 }
-                resolve();
             });
             api_base.pushSubscription(subscription);
+            resolve();
         });
     }
 

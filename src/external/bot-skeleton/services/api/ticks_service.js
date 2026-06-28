@@ -54,6 +54,31 @@ export default class TicksService {
         this.observe();
     }
 
+    getCachedData(options) {
+        const { symbol, granularity } = options;
+        const style = getType(granularity);
+
+        if (style === 'ticks' && this.ticks.has(symbol)) {
+            return this.ticks.get(symbol);
+        }
+
+        if (style === 'candles' && this.candles.hasIn([symbol, Number(granularity)])) {
+            return this.candles.getIn([symbol, Number(granularity)]);
+        }
+
+        return undefined;
+    }
+
+    getCachedTicks(symbol) {
+        return this.ticks.get(symbol);
+    }
+
+    getLatestTick(symbol) {
+        const ticks = this.getCachedTicks(symbol);
+
+        return ticks?.length ? getLast(ticks) : undefined;
+    }
+
     requestPipSizes() {
         if (this.pipSizes) {
             return Promise.resolve(this.pipSizes);
@@ -69,26 +94,15 @@ export default class TicksService {
     }
 
     async request(options) {
-        return new Promise((resolve, reject) => {
-            const { symbol, granularity } = options;
+        const { granularity } = options;
+        const style = getType(granularity);
+        const cached_data = this.getCachedData(options);
 
-            const style = getType(granularity);
+        if (cached_data !== undefined) {
+            return cached_data;
+        }
 
-            if (style === 'ticks' && this.ticks.has(symbol)) {
-                resolve(this.ticks.get(symbol));
-            }
-
-            if (style === 'candles' && this.candles.hasIn([symbol, Number(granularity)])) {
-                resolve(this.candles.getIn([symbol, Number(granularity)]));
-            }
-            this.requestStream({ ...options, style })
-                .then(res => {
-                    resolve(res);
-                })
-                .catch(e => {
-                    reject(e);
-                });
-        });
+        return this.requestStream({ ...options, style });
     }
 
     monitor(options) {
@@ -178,7 +192,7 @@ export default class TicksService {
         const listeners = this.tickListeners.get(symbol);
 
         if (listeners) {
-            listeners.forEach(callback => callback(this.ticks.get(symbol)));
+            listeners.forEach(callback => callback(ticks));
         }
     }
 
@@ -191,7 +205,7 @@ export default class TicksService {
         const listeners = this.ohlcListeners.getIn(address);
 
         if (listeners) {
-            listeners.forEach(callback => callback(this.candles.getIn(address)));
+            listeners.forEach(callback => callback(candles));
         }
     }
 

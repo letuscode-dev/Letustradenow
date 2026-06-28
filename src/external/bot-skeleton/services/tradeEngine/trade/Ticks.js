@@ -26,7 +26,7 @@ export default Engine =>
                     if (this.is_proposal_subscription_required) {
                         this.checkProposalReady();
                     }
-                    const lastTick = ticks.slice(-1)[0];
+                    const lastTick = getLast(ticks);
                     const { epoch } = lastTick;
                     this.store.dispatch({ type: constants.NEW_TICK, payload: epoch });
                 };
@@ -41,46 +41,44 @@ export default Engine =>
         }
 
         getTicks(toString = false) {
-            return new Promise(resolve => {
-                this.$scope.ticksService.request({ symbol: this.symbol }).then(ticks => {
-                    const ticks_list = ticks.map(tick => {
-                        if (toString) {
-                            return tick.quote.toFixed(this.getPipSize());
-                        }
-                        return tick.quote;
-                    });
-
-                    resolve(ticks_list);
+            return this.$scope.ticksService.request({ symbol: this.symbol }).then(ticks => {
+                return ticks.map(tick => {
+                    if (toString) {
+                        return tick.quote.toFixed(this.getPipSize());
+                    }
+                    return tick.quote;
                 });
             });
         }
 
         getLastTick(raw, toString = false) {
-            return new Promise((resolve, reject) =>
-                this.$scope.ticksService
-                    .request({ symbol: this.symbol })
-                    .then(ticks => {
-                        try {
-                            let last_tick = raw ? getLast(ticks) : getLast(ticks).quote;
-                            if (!raw && toString) {
-                                last_tick = last_tick.toFixed(this.getPipSize());
-                            }
-                            resolve(last_tick);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    })
-                    .catch(e => {
-                        if (e.code === 'MarketIsClosed') {
-                            const localizedError = {
-                                ...e,
-                                message: getLocalizedErrorMessage(e.code, e.details),
-                            };
-                            globalObserver.emit('Error', localizedError);
-                            resolve(e.code);
-                        }
-                    })
-            );
+            const formatTick = tick => {
+                let last_tick = raw ? tick : tick.quote;
+                if (!raw && toString) {
+                    last_tick = last_tick.toFixed(this.getPipSize());
+                }
+                return last_tick;
+            };
+            const latest_tick = this.$scope.ticksService.getLatestTick(this.symbol);
+
+            if (latest_tick) {
+                return Promise.resolve(formatTick(latest_tick));
+            }
+
+            return this.$scope.ticksService
+                .request({ symbol: this.symbol })
+                .then(ticks => formatTick(getLast(ticks)))
+                .catch(e => {
+                    if (e.code === 'MarketIsClosed') {
+                        const localizedError = {
+                            ...e,
+                            message: getLocalizedErrorMessage(e.code, e.details),
+                        };
+                        globalObserver.emit('Error', localizedError);
+                        return e.code;
+                    }
+                    throw e;
+                });
         }
 
         getLastDigit() {
@@ -98,11 +96,13 @@ export default Engine =>
         }
 
         checkDirection(dir) {
-            return new Promise(resolve =>
-                this.$scope.ticksService
-                    .request({ symbol: this.symbol })
-                    .then(ticks => resolve(getDirection(ticks) === dir))
-            );
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+
+            if (cached_ticks?.length >= 2) {
+                return Promise.resolve(getDirection(cached_ticks) === dir);
+            }
+
+            return this.$scope.ticksService.request({ symbol: this.symbol }).then(ticks => getDirection(ticks) === dir);
         }
 
         getOhlc(args) {

@@ -155,6 +155,9 @@ export default Engine =>
                 });
 
                 if (has_equal_proposals) {
+                    if (this.store.getState().proposalsReady) {
+                        return;
+                    }
                     this.startPromise.then(() => this.store.dispatch(proposalsReady()));
                 }
             }
