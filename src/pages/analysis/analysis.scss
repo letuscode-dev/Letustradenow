@@ -180,174 +180,17 @@
     }
 
     &__body {
-        display: grid;
-        gap: 1.2rem;
-        grid-template-columns: minmax(0, 1fr) minmax(28rem, 38rem);
-
-        @include mobile-or-tablet-screen {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    &__chart-panel {
-        background: var(--general-section-1);
-        border: 1px solid var(--border-normal);
-        border-radius: 0.8rem;
-        min-height: 38rem;
         min-width: 0;
-        padding: 1.6rem;
-    }
-
-    &__chart-header {
-        align-items: start;
-        display: flex;
-        gap: 1.2rem;
-        justify-content: space-between;
-        margin-bottom: 1.2rem;
-
-        h2 {
-            margin: 0 0 0.4rem;
-        }
-    }
-
-    &__volatility {
-        border-radius: 10rem;
-        font-size: 1.2rem;
-        font-weight: 700;
-        min-width: 8.8rem;
-        padding: 0.5rem 1rem;
-        text-align: center;
-        text-transform: capitalize;
-
-        &--compressed {
-            background: rgba(41, 96, 194, 0.12);
-            color: #2960c2;
-        }
-
-        &--stable {
-            background: rgba(0, 148, 117, 0.12);
-            color: #008568;
-        }
-
-        &--expanding {
-            background: rgba(230, 136, 0, 0.14);
-            color: #a86600;
-        }
-
-        &--spike {
-            background: rgba(236, 63, 63, 0.12);
-            color: #d33636;
-        }
-    }
-
-    &__metrics {
-        display: grid;
-        gap: 0.8rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin-top: 1.2rem;
-
-        @include mobile-or-tablet-screen {
-            grid-template-columns: 1fr;
-        }
-
-        span {
-            background: var(--general-main-1);
-            border: 1px solid var(--border-normal);
-            border-radius: 0.8rem;
-            color: var(--text-general);
-            font-size: 1.3rem;
-            min-height: 3.6rem;
-            overflow: hidden;
-            padding: 1rem;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-    }
-
-    &__digit-grid {
-        display: grid;
-        gap: 0.8rem;
-        grid-template-columns: repeat(10, minmax(0, 1fr));
-        margin-top: 1.2rem;
-
-        @include mobile-or-tablet-screen {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-        }
-    }
-
-    &__digit {
-        background: var(--general-main-1);
-        border: 1px solid var(--border-normal);
-        border-radius: 0.8rem;
-        min-height: 6.8rem;
-        overflow: hidden;
-        padding: 0.8rem;
-        position: relative;
-
-        span,
-        strong {
-            display: block;
-            position: relative;
-            z-index: 1;
-        }
-
-        span {
-            color: var(--text-less-prominent);
-            font-size: 1.2rem;
-            font-weight: 700;
-        }
-
-        strong {
-            color: var(--text-prominent);
-            font-size: 1.8rem;
-            margin-top: 0.8rem;
-        }
-
-        i {
-            background: rgba(41, 96, 194, 0.12);
-            bottom: 0;
-            display: block;
-            height: var(--digit-weight);
-            left: 0;
-            position: absolute;
-            right: 0;
-        }
     }
 
     &__ideas {
         display: grid;
         gap: 1.2rem;
-    }
-}
+        grid-template-columns: repeat(auto-fit, minmax(28rem, 1fr));
 
-.analysis-sparkline {
-    background: var(--general-main-1);
-    border: 1px solid var(--border-normal);
-    border-radius: 0.8rem;
-    display: block;
-    height: 24rem;
-    width: 100%;
-
-    &__grid {
-        stroke: var(--border-normal);
-        stroke-dasharray: 6 6;
-        stroke-width: 1;
-    }
-
-    &__line {
-        fill: none;
-        stroke: #2960c2;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        stroke-width: 3;
-    }
-
-    &--up &__line {
-        stroke: #008568;
-    }
-
-    &--down &__line {
-        stroke: #d33636;
+        @include mobile-or-tablet-screen {
+            grid-template-columns: 1fr;
+        }
     }
 }
 

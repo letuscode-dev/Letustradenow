@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
 import classNames from 'classnames';
 import Button from '@/components/shared_ui/button';
 import Text from '@/components/shared_ui/text';
@@ -12,7 +11,6 @@ import {
 } from './analysis-constants';
 import { generateAnalysisSnapshot, formatAnalysisPrice } from './analysis-engine';
 import type { OptionFamily } from './analysis-types';
-import PriceSparkline from './price-sparkline';
 import { TIMEFRAME_OPTIONS, useAnalysisMarketData } from './use-analysis-market-data';
 import './analysis.scss';
 
@@ -241,78 +239,6 @@ const Analysis = () => {
             ) : null}
 
             <div className='analysis__body'>
-                <div className='analysis__chart-panel'>
-                    <div className='analysis__chart-header'>
-                        <div>
-                            <Text as='h2' size='s' weight='bold'>
-                                {selectedSymbolInfo?.displayName || selectedSymbol || localize('Market')}
-                            </Text>
-                            <Text size='xxs' color='less-prominent'>
-                                {[selectedSymbolInfo?.marketDisplayName, selectedSymbolInfo?.submarketDisplayName]
-                                    .filter(Boolean)
-                                    .join(' / ')}
-                            </Text>
-                        </div>
-                        <span className={`analysis__volatility analysis__volatility--${snapshot.volatility}`}>
-                            {snapshot.volatility}
-                        </span>
-                    </div>
-                    <PriceSparkline candles={candles} trend={snapshot.trend} />
-                    {isDigitFamily && snapshot.digitStats ? (
-                        <div className='analysis__digit-grid' aria-label='Last digit distribution'>
-                            {snapshot.digitStats.counts.map((count, digit) => (
-                                <div className='analysis__digit' key={digit}>
-                                    <span>{digit}</span>
-                                    <strong>{count}</strong>
-                                    <i
-                                        style={
-                                            {
-                                                '--digit-weight': `${Math.max(
-                                                    8,
-                                                    (count / Math.max(1, digitSampleSize)) * 100
-                                                )}%`,
-                                            } as CSSProperties
-                                        }
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    ) : null}
-                    <div className='analysis__metrics'>
-                        {isOverUnderFamily ? (
-                            <>
-                                <span>
-                                    Over {overUnderBarrier}:{' '}
-                                    {snapshot.digitStats ? snapshot.digitStats.overCount : '-'}
-                                </span>
-                                <span>
-                                    Under {overUnderBarrier}:{' '}
-                                    {snapshot.digitStats ? snapshot.digitStats.underCount : '-'}
-                                </span>
-                                <span>
-                                    Equal {overUnderBarrier}:{' '}
-                                    {snapshot.digitStats ? snapshot.digitStats.barrierCount : '-'}
-                                </span>
-                            </>
-                        ) : isDigitFamily ? (
-                            <>
-                                <span>Hot {snapshot.digitStats ? snapshot.digitStats.hotDigit : '-'}</span>
-                                <span>Cold {snapshot.digitStats ? snapshot.digitStats.coldDigit : '-'}</span>
-                                <span>Ticks {digitSampleSize}</span>
-                            </>
-                        ) : (
-                            <>
-                                <span>EMA 9 {formatAnalysisPrice(snapshot.emaFast, selectedSymbolInfo?.pip)}</span>
-                                <span>EMA 21 {formatAnalysisPrice(snapshot.emaSlow, selectedSymbolInfo?.pip)}</span>
-                                <span>
-                                    Range{' '}
-                                    {snapshot.rangeRatio === null ? '-' : `${Number(snapshot.rangeRatio).toFixed(2)}x`}
-                                </span>
-                            </>
-                        )}
-                    </div>
-                </div>
-
                 <div className='analysis__ideas' aria-live='polite'>
                     {snapshot.ideas.map(idea => (
                         <article
