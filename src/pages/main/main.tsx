@@ -33,6 +33,7 @@ import {
 import {
     LabelPairedChartCandlestickCaptionRegularIcon,
     LabelPairedChartLineCaptionRegularIcon,
+    LabelPairedClapperboardPlayCaptionRegularIcon,
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
 } from '@deriv/quill-icons/LabelPaired';
@@ -41,6 +42,7 @@ import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import Analysis from '../analysis';
+import AutomatedStrategies from '../automated-strategies';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
@@ -80,7 +82,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'automated_strategies'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -468,6 +470,21 @@ const AppWrapper = observer(() => {
                                         <Tutorial handleTabChange={handleTabChange} />
                                     </Suspense>
                                 </div>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LabelPairedClapperboardPlayCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
+                                            fill='var(--text-general)'
+                                        />
+                                        <Localize i18n_default_text='Automated' />
+                                    </>
+                                }
+                                id='id-automated-strategies'
+                            >
+                                <AutomatedStrategies />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}

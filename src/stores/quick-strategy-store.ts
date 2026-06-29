@@ -2,7 +2,7 @@
 import { action, makeObservable, observable, reaction } from 'mobx';
 import { ApiHelpers, config as qs_config, load } from '@/external/bot-skeleton';
 import { save_types } from '@/external/bot-skeleton/constants/save-type';
-import { addDynamicBlockToDOM } from '@/utils/xml-dom-quick-strategy';
+import { addBarrierBlocksToDOM, addDynamicBlockToDOM } from '@/utils/xml-dom-quick-strategy';
 import { STRATEGIES } from '../pages/bot-builder/quick-strategy/config';
 import { TFormData } from '../pages/bot-builder/quick-strategy/types';
 import { getSetting, storeSetting } from '../utils/settings';
@@ -166,6 +166,7 @@ export default class QuickStrategyStore implements IQuickStrategyStore {
         const strategy_xml = await import(/* webpackChunkName: `[request]` */ `../xml/${selected_strategy.name}.xml`);
         const strategy_dom = window.Blockly.utils.xml.textToDom(strategy_xml.default);
         addDynamicBlockToDOM('PREDICTION', 'last_digit_prediction', trade_type_cat, strategy_dom);
+        addBarrierBlocksToDOM(data.tradetype?.toString(), strategy_dom);
 
         const modifyValueInputs = (key: string, value: number) => {
             const el_value_inputs = strategy_dom?.querySelectorAll(`value[strategy_value="${key}"]`);
