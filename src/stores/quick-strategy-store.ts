@@ -165,7 +165,7 @@ export default class QuickStrategyStore implements IQuickStrategyStore {
         storeSetting('selected_strategy_for_notofy', this.selected_strategy);
         const strategy_xml = await import(/* webpackChunkName: `[request]` */ `../xml/${selected_strategy.name}.xml`);
         const strategy_dom = window.Blockly.utils.xml.textToDom(strategy_xml.default);
-        addDynamicBlockToDOM('PREDICTION', 'last_digit_prediction', trade_type_cat, strategy_dom);
+        addDynamicBlockToDOM('PREDICTION', 'last_digit_prediction', data.tradetype?.toString(), strategy_dom);
         addBarrierBlocksToDOM(data.tradetype?.toString(), strategy_dom);
 
         const modifyValueInputs = (key: string, value: number) => {

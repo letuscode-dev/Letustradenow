@@ -1,10 +1,12 @@
 export const addDynamicBlockToDOM = (
     name_block: string,
     strategy_value: string,
-    trade_type_cat: string,
+    trade_type: string,
     strategy_dom: HTMLElement
 ) => {
-    if (trade_type_cat === 'digits' || trade_type_cat === 'highlowticks') {
+    const supports_prediction = ['matchesdiffers', 'overunder', 'highlowticks'].includes(trade_type);
+
+    if (supports_prediction) {
         const block = document.createElement('value');
         block.setAttribute('name', name_block);
         block.setAttribute('strategy_value', strategy_value);

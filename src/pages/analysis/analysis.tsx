@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import classNames from 'classnames';
 import Button from '@/components/shared_ui/button';
 import Text from '@/components/shared_ui/text';
+import { DBOT_TABS } from '@/constants/bot-contents';
+import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
+import { observer } from 'mobx-react-lite';
 import {
     DEFAULT_OVER_UNDER_BARRIER,
     DEFAULT_TICK_SAMPLE_SIZE,
@@ -11,6 +14,13 @@ import {
 } from './analysis-constants';
 import { generateAnalysisSnapshot, formatAnalysisPrice } from './analysis-engine';
 import type { OptionFamily } from './analysis-types';
+import {
+    buildSignalBotFormData,
+    isActionableSignalDirection,
+    shouldBlockSignalBotRun,
+    type SignalBotAction,
+    type SignalBotStrategy,
+} from './signal-to-bot';
 import { TIMEFRAME_OPTIONS, useAnalysisMarketData } from './use-analysis-market-data';
 import './analysis.scss';
 
@@ -41,10 +51,23 @@ const OPTION_FAMILIES: Array<{ label: string; value: OptionFamily }> = [
     { label: localize('Even/Odd'), value: 'even_odd' },
 ];
 
+const SIGNAL_BOT_STRATEGIES: Array<{ label: string; value: SignalBotStrategy }> = [
+    { label: localize('Martingale'), value: 'MARTINGALE' },
+    { label: localize("D'Alembert"), value: 'D_ALEMBERT' },
+    { label: localize('Reverse Martingale'), value: 'REVERSE_MARTINGALE' },
+    { label: localize("Reverse D'Alembert"), value: 'REVERSE_D_ALEMBERT' },
+    { label: localize("Oscar's Grind"), value: 'OSCARS_GRIND' },
+    { label: localize('1-3-2-6'), value: 'STRATEGY_1_3_2_6' },
+];
+
 const Analysis = () => {
+    const store = useStore();
     const [optionFamily, setOptionFamily] = useState<OptionFamily>('rise_fall');
     const [overUnderBarrier, setOverUnderBarrier] = useState(DEFAULT_OVER_UNDER_BARRIER);
+    const [signalBotStatus, setSignalBotStatus] = useState('');
+    const [signalBotStrategy, setSignalBotStrategy] = useState<SignalBotStrategy>('MARTINGALE');
     const [tickSampleSize, setTickSampleSize] = useState(DEFAULT_TICK_SAMPLE_SIZE);
+    const [useVolatilityGuard, setUseVolatilityGuard] = useState(true);
     const {
         candles,
         error,
@@ -75,6 +98,7 @@ const Analysis = () => {
     );
     const isDigitFamily = optionFamily !== 'rise_fall';
     const isOverUnderFamily = optionFamily === 'over_under';
+    const isVolatilityRunBlocked = shouldBlockSignalBotRun(snapshot, useVolatilityGuard);
 
     const updatedAt = lastUpdated
         ? new Intl.DateTimeFormat(undefined, {
@@ -83,6 +107,56 @@ const Analysis = () => {
               second: '2-digit',
           }).format(lastUpdated)
         : '-';
+
+    const handleSignalBotAction = async (idea: (typeof snapshot.ideas)[number], action: SignalBotAction) => {
+        const form_data = buildSignalBotFormData({
+            action,
+            idea,
+            option_family: optionFamily,
+            over_under_barrier: overUnderBarrier,
+            symbol: selectedSymbol,
+        });
+
+        if (!form_data) {
+            setSignalBotStatus(localize('This signal is watch-only and cannot be converted into a bot yet.'));
+            return;
+        }
+
+        if (!store?.quick_strategy || !store?.dashboard || !store?.run_panel) {
+            setSignalBotStatus(localize('Bot Builder is still getting ready. Try again in a moment.'));
+            return;
+        }
+
+        if (action === 'RUN' && store.run_panel.is_running) {
+            setSignalBotStatus(localize('Stop the running bot before starting another signal bot.'));
+            return;
+        }
+
+        if (action === 'RUN' && isVolatilityRunBlocked) {
+            setSignalBotStatus(localize('Volatility guard blocked the live run while the recent range is spiking.'));
+            return;
+        }
+
+        try {
+            setSignalBotStatus(action === 'RUN' ? localize('Preparing signal bot...') : localize('Loading signal bot...'));
+            store.quick_strategy.setSelectedStrategy(signalBotStrategy);
+            await store.quick_strategy.onSubmit(form_data);
+
+            if (action === 'LOAD') {
+                store.dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+            }
+
+            setSignalBotStatus(
+                action === 'RUN'
+                    ? localize('{{title}} is running as a bot.', { title: idea.title })
+                    : localize('{{title}} loaded in Bot Builder.', { title: idea.title })
+            );
+        } catch (bot_error) {
+            const message =
+                bot_error?.message || bot_error?.error?.message || localize('Could not create a bot from this signal.');
+            setSignalBotStatus(message);
+        }
+    };
 
     return (
         <section className='analysis'>
@@ -189,6 +263,33 @@ const Analysis = () => {
                     </div>
                 </div>
 
+                <div className='analysis__control analysis__control--bot-style'>
+                    <Text as='label' size='xxs' weight='bold' color='less-prominent' htmlFor='analysis-bot-style'>
+                        {localize('Bot style')}
+                    </Text>
+                    <select
+                        id='analysis-bot-style'
+                        className='analysis__select'
+                        value={signalBotStrategy}
+                        onChange={event => setSignalBotStrategy(event.target.value as SignalBotStrategy)}
+                    >
+                        {SIGNAL_BOT_STRATEGIES.map(strategy => (
+                            <option key={strategy.value} value={strategy.value}>
+                                {strategy.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <label className='analysis__toggle'>
+                    <input
+                        checked={useVolatilityGuard}
+                        onChange={event => setUseVolatilityGuard(event.target.checked)}
+                        type='checkbox'
+                    />
+                    <span>{localize('Volatility guard')}</span>
+                </label>
+
                 <Button className='analysis__refresh' tertiary type='button' onClick={refresh}>
                     {localize('Refresh')}
                 </Button>
@@ -243,6 +344,14 @@ const Analysis = () => {
                 </div>
             ) : null}
 
+            {signalBotStatus ? (
+                <div className='analysis__signal-status'>
+                    <Text size='xs' weight='bold'>
+                        {signalBotStatus}
+                    </Text>
+                </div>
+            ) : null}
+
             <div className='analysis__body'>
                 <div
                     className={classNames('analysis__ideas', {
@@ -250,37 +359,66 @@ const Analysis = () => {
                     })}
                     aria-live='polite'
                 >
-                    {snapshot.ideas.map(idea => (
-                        <article
-                            className={classNames('analysis-idea', `analysis-idea--${idea.direction}`)}
-                            key={idea.id}
-                        >
-                            <div className='analysis-idea__header'>
-                                <span className='analysis-idea__direction'>{directionLabel[idea.direction]}</span>
-                                <span className='analysis-idea__confidence'>{idea.confidence}%</span>
-                            </div>
-                            <Text as='h3' size='s' weight='bold'>
-                                {idea.title}
-                            </Text>
-                            <div className='analysis-idea__meta'>
-                                <span>{formatAnalysisPrice(idea.price, selectedSymbolInfo?.pip)}</span>
-                                {idea.prediction ? <span>{idea.prediction}</span> : null}
-                                <span>{idea.horizon}</span>
-                            </div>
-                            <div className='analysis-idea__reasons'>
-                                {idea.reasons.map(reason => (
-                                    <span key={reason}>{reason}</span>
-                                ))}
-                            </div>
-                            <Text size='xxs' color='less-prominent'>
-                                {idea.invalidation}
-                            </Text>
-                        </article>
-                    ))}
+                    {snapshot.ideas.map(idea => {
+                        const is_actionable = isActionableSignalDirection(idea.direction);
+                        const is_run_disabled =
+                            Boolean(store?.run_panel?.is_running) || Boolean(isVolatilityRunBlocked);
+
+                        return (
+                            <article
+                                className={classNames('analysis-idea', `analysis-idea--${idea.direction}`)}
+                                key={idea.id}
+                            >
+                                <div className='analysis-idea__header'>
+                                    <span className='analysis-idea__direction'>{directionLabel[idea.direction]}</span>
+                                    <span className='analysis-idea__confidence'>{idea.confidence}%</span>
+                                </div>
+                                <Text as='h3' size='s' weight='bold'>
+                                    {idea.title}
+                                </Text>
+                                <div className='analysis-idea__meta'>
+                                    <span>{formatAnalysisPrice(idea.price, selectedSymbolInfo?.pip)}</span>
+                                    {idea.prediction ? <span>{idea.prediction}</span> : null}
+                                    <span>{idea.horizon}</span>
+                                </div>
+                                <div className='analysis-idea__reasons'>
+                                    {idea.reasons.map(reason => (
+                                        <span key={reason}>{reason}</span>
+                                    ))}
+                                </div>
+                                <Text size='xxs' color='less-prominent'>
+                                    {idea.invalidation}
+                                </Text>
+                                {is_actionable ? (
+                                    <div className='analysis-idea__actions'>
+                                        <Button
+                                            className='analysis-idea__button'
+                                            onClick={() => handleSignalBotAction(idea, 'LOAD')}
+                                            secondary
+                                            small
+                                            type='button'
+                                        >
+                                            {localize('Load bot')}
+                                        </Button>
+                                        <Button
+                                            className='analysis-idea__button'
+                                            is_disabled={is_run_disabled}
+                                            onClick={() => handleSignalBotAction(idea, 'RUN')}
+                                            primary
+                                            small
+                                            type='button'
+                                        >
+                                            {localize('Run bot')}
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </article>
+                        );
+                    })}
                 </div>
             </div>
         </section>
     );
 };
 
-export default Analysis;
+export default observer(Analysis);
