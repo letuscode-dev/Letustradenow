@@ -1,5 +1,6 @@
 import {
     buildSignalBotFormData,
+    getSignalBotTargets,
     getSignalContract,
     isActionableSignalDirection,
     shouldBlockSignalBotRun,
@@ -101,5 +102,34 @@ describe('signal-to-bot bridge', () => {
         expect(shouldBlockSignalBotRun(spike, true)).toBe(true);
         expect(shouldBlockSignalBotRun(spike, false)).toBe(false);
         expect(shouldBlockSignalBotRun(makeSnapshot({ volatility: 'stable' }), true)).toBe(false);
+    });
+
+    it('always exposes both targets for paired option families', () => {
+        const snapshot = makeSnapshot({
+            digitStats: {
+                barrierCount: 3,
+                coldDigit: 2,
+                counts: [5, 4, 1, 6, 3, 7, 5, 4, 8, 2],
+                evenCount: 22,
+                hotDigit: 8,
+                lastDigit: 8,
+                oddCount: 23,
+                overCount: 26,
+                sampleSize: 45,
+                underCount: 16,
+            },
+            ideas: [makeIdea({ direction: 'differs', prediction: 'Differs 2' })],
+        });
+
+        expect(getSignalBotTargets(snapshot, 'matches_differs', 4).map(target => target.direction)).toEqual([
+            'matches',
+            'differs',
+        ]);
+        expect(getSignalBotTargets(snapshot, 'over_under', 4).map(target => target.prediction)).toEqual([
+            'Over 4',
+            'Under 4',
+        ]);
+        expect(getSignalBotTargets(snapshot, 'even_odd', 4).map(target => target.direction)).toEqual(['even', 'odd']);
+        expect(getSignalBotTargets(snapshot, 'rise_fall', 4).map(target => target.direction)).toEqual(['rise', 'fall']);
     });
 });

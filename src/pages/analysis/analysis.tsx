@@ -16,6 +16,7 @@ import { generateAnalysisSnapshot, formatAnalysisPrice } from './analysis-engine
 import type { OptionFamily } from './analysis-types';
 import {
     buildSignalBotFormData,
+    getSignalBotTargets,
     isActionableSignalDirection,
     shouldBlockSignalBotRun,
     type SignalBotAction,
@@ -99,6 +100,10 @@ const Analysis = () => {
     const isDigitFamily = optionFamily !== 'rise_fall';
     const isOverUnderFamily = optionFamily === 'over_under';
     const isVolatilityRunBlocked = shouldBlockSignalBotRun(snapshot, useVolatilityGuard);
+    const signalBotTargets = useMemo(
+        () => getSignalBotTargets(snapshot, optionFamily, overUnderBarrier),
+        [optionFamily, overUnderBarrier, snapshot]
+    );
 
     const updatedAt = lastUpdated
         ? new Intl.DateTimeFormat(undefined, {
@@ -351,6 +356,59 @@ const Analysis = () => {
                     </Text>
                 </div>
             ) : null}
+
+            <div className='analysis__bot-actions'>
+                <div className='analysis__bot-actions-header'>
+                    <Text size='xxs' weight='bold' color='less-prominent'>
+                        {localize('Signal bots')}
+                    </Text>
+                    {isVolatilityRunBlocked ? (
+                        <span className='analysis__bot-actions-guard'>{localize('Guard active')}</span>
+                    ) : null}
+                </div>
+                <div className='analysis__bot-actions-grid'>
+                    {signalBotTargets.map(target => {
+                        const is_run_disabled =
+                            Boolean(store?.run_panel?.is_running) || Boolean(isVolatilityRunBlocked);
+
+                        return (
+                            <div
+                                className={classNames(
+                                    'analysis-signal-bot',
+                                    `analysis-signal-bot--${target.direction}`
+                                )}
+                                key={target.id}
+                            >
+                                <div className='analysis-signal-bot__summary'>
+                                    <span>{directionLabel[target.direction]}</span>
+                                    {target.prediction ? <strong>{target.prediction}</strong> : null}
+                                </div>
+                                <div className='analysis-signal-bot__buttons'>
+                                    <Button
+                                        className='analysis-signal-bot__button'
+                                        onClick={() => handleSignalBotAction(target, 'LOAD')}
+                                        secondary
+                                        small
+                                        type='button'
+                                    >
+                                        {localize('Load bot')}
+                                    </Button>
+                                    <Button
+                                        className='analysis-signal-bot__button'
+                                        is_disabled={is_run_disabled}
+                                        onClick={() => handleSignalBotAction(target, 'RUN')}
+                                        primary
+                                        small
+                                        type='button'
+                                    >
+                                        {localize('Run bot')}
+                                    </Button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
 
             <div className='analysis__body'>
                 <div

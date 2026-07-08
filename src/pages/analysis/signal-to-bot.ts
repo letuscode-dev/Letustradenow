@@ -83,6 +83,55 @@ export const getSignalContract = (idea: AnalysisIdea, fallback_digit = 0): TSign
 export const shouldBlockSignalBotRun = (snapshot: AnalysisSnapshot, use_volatility_guard: boolean) =>
     use_volatility_guard && snapshot.volatility === 'spike';
 
+const SIGNAL_DIRECTIONS_BY_FAMILY: Record<OptionFamily, IdeaDirection[]> = {
+    even_odd: ['even', 'odd'],
+    matches_differs: ['matches', 'differs'],
+    over_under: ['over', 'under'],
+    rise_fall: ['rise', 'fall'],
+};
+
+const getTargetPrediction = (direction: IdeaDirection, snapshot: AnalysisSnapshot, over_under_barrier: number) => {
+    switch (direction) {
+        case 'differs':
+            return `Differs ${snapshot.digitStats?.coldDigit ?? clampDigit(over_under_barrier)}`;
+        case 'matches':
+            return `Matches ${snapshot.digitStats?.hotDigit ?? clampDigit(over_under_barrier)}`;
+        case 'over':
+            return `Over ${clampDigit(over_under_barrier)}`;
+        case 'under':
+            return `Under ${clampDigit(over_under_barrier)}`;
+        case 'even':
+            return 'Even';
+        case 'odd':
+            return 'Odd';
+        default:
+            return undefined;
+    }
+};
+
+export const getSignalBotTargets = (
+    snapshot: AnalysisSnapshot,
+    option_family: OptionFamily,
+    over_under_barrier: number
+): AnalysisIdea[] =>
+    SIGNAL_DIRECTIONS_BY_FAMILY[option_family].map(direction => {
+        const existing_idea = snapshot.ideas.find(idea => idea.direction === direction);
+
+        if (existing_idea) return existing_idea;
+
+        return {
+            confidence: 50,
+            direction,
+            horizon: option_family === 'rise_fall' ? '5 ticks' : `${snapshot.digitStats?.sampleSize ?? 30} ticks`,
+            id: `signal-bot-target-${direction}`,
+            invalidation: 'Review live market conditions before running',
+            prediction: getTargetPrediction(direction, snapshot, over_under_barrier),
+            price: snapshot.lastPrice ?? 0,
+            reasons: ['Manual signal bot action'],
+            title: `${direction.charAt(0).toUpperCase()}${direction.slice(1)} bot`,
+        };
+    });
+
 export const buildSignalBotFormData = ({
     action,
     idea,
