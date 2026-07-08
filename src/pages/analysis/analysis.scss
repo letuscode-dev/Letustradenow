@@ -263,6 +263,7 @@
         @include mobile-or-tablet-screen {
             grid-template-columns: 1fr;
             min-width: 0;
+            padding-bottom: calc(12rem + env(safe-area-inset-bottom));
         }
     }
 }
