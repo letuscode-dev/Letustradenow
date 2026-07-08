@@ -246,7 +246,7 @@
         min-width: 0;
 
         @include mobile-or-tablet-screen {
-            overflow-x: auto;
+            overflow-x: hidden;
             padding-bottom: 0.6rem;
         }
     }
@@ -261,9 +261,8 @@
         }
 
         @include mobile-or-tablet-screen {
-            display: flex;
-            min-width: min-content;
-            padding-bottom: 0.2rem;
+            grid-template-columns: 1fr;
+            min-width: 0;
         }
     }
 }
@@ -278,8 +277,8 @@
     padding: 1.4rem;
 
     @include mobile-or-tablet-screen {
-        flex: 0 0 min(31rem, calc(100vw - 3.2rem));
         grid-column: auto;
+        width: 100%;
     }
 
     h3 {
