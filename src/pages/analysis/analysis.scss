@@ -226,40 +226,29 @@
         padding: 1.2rem;
     }
 
-    &__bot-actions {
-        margin-bottom: 1.2rem;
-    }
-
-    &__bot-actions-header {
-        align-items: center;
+    &__guard-note {
         display: flex;
-        gap: 0.8rem;
-        justify-content: space-between;
+        justify-content: flex-end;
         margin-bottom: 0.8rem;
-    }
 
-    &__bot-actions-guard {
-        background: rgba(168, 102, 0, 0.12);
-        border-radius: 10rem;
-        color: #a86600;
-        font-size: 1.2rem;
-        font-weight: 700;
-        min-height: 2.4rem;
-        padding: 0.5rem 0.9rem;
-    }
-
-    &__bot-actions-grid {
-        display: grid;
-        gap: 0.8rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-
-        @include mobile-or-tablet-screen {
-            grid-template-columns: 1fr;
+        span {
+            background: rgba(168, 102, 0, 0.12);
+            border-radius: 10rem;
+            color: #a86600;
+            font-size: 1.2rem;
+            font-weight: 700;
+            min-height: 2.4rem;
+            padding: 0.5rem 0.9rem;
         }
     }
 
     &__body {
         min-width: 0;
+
+        @include mobile-or-tablet-screen {
+            overflow-x: auto;
+            padding-bottom: 0.6rem;
+        }
     }
 
     &__ideas {
@@ -272,80 +261,10 @@
         }
 
         @include mobile-or-tablet-screen {
-            grid-template-columns: 1fr;
+            display: flex;
+            min-width: min-content;
+            padding-bottom: 0.2rem;
         }
-    }
-}
-
-.analysis-signal-bot {
-    align-items: center;
-    background: var(--general-section-1);
-    border: 1px solid var(--border-normal);
-    border-inline-start: 0.4rem solid #2960c2;
-    border-radius: 0.8rem;
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: minmax(9rem, 1fr) minmax(16rem, auto);
-    min-width: 0;
-    padding: 1rem;
-
-    @include mobile-or-tablet-screen {
-        grid-template-columns: 1fr;
-    }
-
-    &--rise,
-    &--matches,
-    &--over,
-    &--even {
-        border-inline-start-color: #008568;
-    }
-
-    &--fall,
-    &--differs,
-    &--under,
-    &--odd {
-        border-inline-start-color: #d33636;
-    }
-
-    &__summary {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
-        min-width: 0;
-
-        span {
-            color: var(--text-prominent);
-            font-size: 1.4rem;
-            font-weight: 700;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        strong {
-            color: var(--text-general);
-            font-size: 1.2rem;
-            font-weight: 700;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-    }
-
-    &__buttons {
-        display: grid;
-        gap: 0.8rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        min-width: 16rem;
-
-        @include mobile-or-tablet-screen {
-            min-width: 0;
-        }
-    }
-
-    &__button {
-        min-width: 0;
-        width: 100%;
     }
 }
 
@@ -359,6 +278,7 @@
     padding: 1.4rem;
 
     @include mobile-or-tablet-screen {
+        flex: 0 0 min(31rem, calc(100vw - 3.2rem));
         grid-column: auto;
     }
 

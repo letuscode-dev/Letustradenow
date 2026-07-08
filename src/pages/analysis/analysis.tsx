@@ -13,7 +13,7 @@ import {
     TICK_SAMPLE_OPTIONS,
 } from './analysis-constants';
 import { generateAnalysisSnapshot, formatAnalysisPrice } from './analysis-engine';
-import type { OptionFamily } from './analysis-types';
+import type { AnalysisIdea, OptionFamily } from './analysis-types';
 import {
     buildSignalBotFormData,
     getSignalBotTargets,
@@ -104,6 +104,12 @@ const Analysis = () => {
         () => getSignalBotTargets(snapshot, optionFamily, overUnderBarrier),
         [optionFamily, overUnderBarrier, snapshot]
     );
+    const displayIdeas = useMemo(() => {
+        const paired_directions = new Set(signalBotTargets.map(target => target.direction));
+        const supporting_ideas = snapshot.ideas.filter(idea => !paired_directions.has(idea.direction));
+
+        return [...signalBotTargets, ...supporting_ideas];
+    }, [signalBotTargets, snapshot.ideas]);
 
     const updatedAt = lastUpdated
         ? new Intl.DateTimeFormat(undefined, {
@@ -113,7 +119,7 @@ const Analysis = () => {
           }).format(lastUpdated)
         : '-';
 
-    const handleSignalBotAction = async (idea: (typeof snapshot.ideas)[number], action: SignalBotAction) => {
+    const handleSignalBotAction = async (idea: AnalysisIdea, action: SignalBotAction) => {
         const form_data = buildSignalBotFormData({
             action,
             idea,
@@ -357,67 +363,19 @@ const Analysis = () => {
                 </div>
             ) : null}
 
-            <div className='analysis__bot-actions'>
-                <div className='analysis__bot-actions-header'>
-                    <Text size='xxs' weight='bold' color='less-prominent'>
-                        {localize('Signal bots')}
-                    </Text>
-                    {isVolatilityRunBlocked ? (
-                        <span className='analysis__bot-actions-guard'>{localize('Guard active')}</span>
-                    ) : null}
-                </div>
-                <div className='analysis__bot-actions-grid'>
-                    {signalBotTargets.map(target => {
-                        const is_run_disabled =
-                            Boolean(store?.run_panel?.is_running) || Boolean(isVolatilityRunBlocked);
-
-                        return (
-                            <div
-                                className={classNames(
-                                    'analysis-signal-bot',
-                                    `analysis-signal-bot--${target.direction}`
-                                )}
-                                key={target.id}
-                            >
-                                <div className='analysis-signal-bot__summary'>
-                                    <span>{directionLabel[target.direction]}</span>
-                                    {target.prediction ? <strong>{target.prediction}</strong> : null}
-                                </div>
-                                <div className='analysis-signal-bot__buttons'>
-                                    <Button
-                                        className='analysis-signal-bot__button'
-                                        onClick={() => handleSignalBotAction(target, 'LOAD')}
-                                        secondary
-                                        small
-                                        type='button'
-                                    >
-                                        {localize('Load bot')}
-                                    </Button>
-                                    <Button
-                                        className='analysis-signal-bot__button'
-                                        is_disabled={is_run_disabled}
-                                        onClick={() => handleSignalBotAction(target, 'RUN')}
-                                        primary
-                                        small
-                                        type='button'
-                                    >
-                                        {localize('Run bot')}
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
             <div className='analysis__body'>
+                {isVolatilityRunBlocked ? (
+                    <div className='analysis__guard-note'>
+                        <span>{localize('Volatility guard active')}</span>
+                    </div>
+                ) : null}
                 <div
                     className={classNames('analysis__ideas', {
                         'analysis__ideas--compact': isDigitFamily,
                     })}
                     aria-live='polite'
                 >
-                    {snapshot.ideas.map(idea => {
+                    {displayIdeas.map(idea => {
                         const is_actionable = isActionableSignalDirection(idea.direction);
                         const is_run_disabled =
                             Boolean(store?.run_panel?.is_running) || Boolean(isVolatilityRunBlocked);
