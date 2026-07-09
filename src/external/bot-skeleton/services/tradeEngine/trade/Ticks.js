@@ -41,6 +41,10 @@ export default Engine =>
         }
 
         getTicks(toString = false) {
+            if (!this.symbol) {
+                return Promise.resolve([]);
+            }
+
             return this.$scope.ticksService.request({ symbol: this.symbol }).then(ticks => {
                 return ticks.map(tick => {
                     if (toString) {
@@ -86,6 +90,10 @@ export default Engine =>
         }
 
         requestLastDigitList() {
+            if (!this.symbol) {
+                return Promise.resolve([]);
+            }
+
             return new Promise(resolve => this.getTicks().then(ticks => resolve(this.getLastDigitsFromList(ticks))));
         }
 
@@ -108,7 +116,7 @@ export default Engine =>
                 return Promise.resolve(this.getLastDigitsFromList(cached_ticks));
             }
 
-            return this.requestLastDigitList();
+            return Promise.resolve([]);
         }
         getLastDigitsFromList(ticks) {
             const digits = ticks.map(tick => {
