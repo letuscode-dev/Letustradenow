@@ -12,7 +12,7 @@ const getOverrideContractTypeOptions = () => {
 
             if (!contract_types.has(contract_type)) {
                 contract_types.add(contract_type);
-                options.push([`${localize(label)} (${contract_type})`, contract_type]);
+                options.push([localize(label), contract_type]);
             }
         });
     });
