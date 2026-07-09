@@ -162,6 +162,7 @@ export const ToolboxItems = () =>
                 <Block type='before_purchase' />
                 <Block type='last_digits_condition' />
                 <Block type='last_digits_odd_even_condition' />
+                <Block type='override_contract_type_purchase' />
                 <Block type='purchase' />
             </Category>
             <Category id='sell_conditions' name={localize('Sell conditions (optional)')}>

@@ -5,7 +5,28 @@ import { minusIconDark, plusIconDark } from '../../images';
 export const MIN_TICK_COUNT = 1;
 export const MAX_TICK_COUNT = 1000;
 
+const RUN_ONCE_INPUT = 'INITIALIZATION';
+
 export const createTickCountField = () => new window.Blockly.FieldNumber(1, MIN_TICK_COUNT, MAX_TICK_COUNT, 1);
+
+const getTopLevelInputName = block => {
+    let child_block = block;
+    let parent_block = child_block.getParent();
+    let input_name;
+
+    while (parent_block) {
+        const input = parent_block.getInputWithBlock(child_block);
+
+        if (input && input.name) {
+            input_name = input.name;
+        }
+
+        child_block = parent_block;
+        parent_block = parent_block.getParent();
+    }
+
+    return input_name || block.getRootInputTargetBlock();
+};
 
 export const getTickCount = (block, index) => {
     const value = Math.floor(Number(block.getFieldValue(`TICK_COUNT${index}`)));
@@ -265,10 +286,27 @@ export const createLastDigitsConditionBlock = ({
             DELETE_ICON: `DELETE_ICON${idx}`,
             DO: `DO${idx}`,
         }),
+        onchange(event) {
+            if (!this.workspace || window.Blockly.derivWorkspace.isFlyoutVisible || this.workspace.isDragging()) {
+                return;
+            }
+
+            const is_create_event = event.type === window.Blockly.Events.BLOCK_CREATE && event.ids.includes(this.id);
+            const is_drag_end_event = event.type === window.Blockly.Events.BLOCK_DRAG && !event.isStart;
+
+            if (!is_create_event && !is_drag_end_event) {
+                return;
+            }
+
+            if (this.is_user_disabled_state) {
+                return;
+            }
+
+            this.setDisabled(getTopLevelInputName(this) === RUN_ONCE_INPUT);
+        },
         customContextMenu(menu) {
             modifyContextMenu(menu);
         },
-        restricted_parents: ['before_purchase'],
     };
 
     window.Blockly.JavaScript.javascriptGenerator.forBlock[type] = block => {
