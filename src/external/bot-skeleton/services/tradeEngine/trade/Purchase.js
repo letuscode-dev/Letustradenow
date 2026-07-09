@@ -77,7 +77,7 @@ export default Engine =>
 
         purchaseOverrideContractType(contract_type) {
             // Prevent calling purchase twice
-            if (this.store.getState().scope !== BEFORE_PURCHASE) {
+            if (!contract_type || this.store.getState().scope !== BEFORE_PURCHASE) {
                 return Promise.resolve();
             }
 

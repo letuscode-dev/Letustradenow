@@ -98,7 +98,7 @@ createLastDigitsConditionBlock({
     meta: () => ({
         display_name: localize('Last digit odd/even condition'),
         description: localize(
-            'Use this Purchase conditions block to check whether every last digit in the selected tick window is odd or even. It requires at least n ticks in history and supports else and else if branches.'
+            'Use this block to check whether every last digit in the selected tick window is odd or even. It requires at least n ticks in history, supports else and else if branches, and cannot be used in Run once at start.'
         ),
         key_words: localize('last digit, digits, tick, odd, even'),
     }),

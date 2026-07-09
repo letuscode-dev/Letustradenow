@@ -310,6 +310,10 @@ export const createLastDigitsConditionBlock = ({
     };
 
     window.Blockly.JavaScript.javascriptGenerator.forBlock[type] = block => {
+        if (getTopLevelInputName(block) === RUN_ONCE_INPUT) {
+            return '';
+        }
+
         let n = 0;
         let code = '';
 

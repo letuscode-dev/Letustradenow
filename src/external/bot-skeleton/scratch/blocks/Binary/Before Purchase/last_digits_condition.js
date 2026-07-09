@@ -44,7 +44,7 @@ const getConditionCode = (block, index) => {
             }
             return BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount).every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
-                return BinaryBotPrivateDigit ${operator} BinaryBotPrivateTargetDigit;
+                return !isNaN(BinaryBotPrivateDigit) && BinaryBotPrivateDigit ${operator} BinaryBotPrivateTargetDigit;
             });
         })()`;
 };
@@ -124,7 +124,7 @@ createLastDigitsConditionBlock({
     meta: () => ({
         display_name: localize('Last digit condition'),
         description: localize(
-            'Use this Purchase conditions block to check whether all of the last n tick digits are greater than, greater than or equal to, less than, less than or equal to, equal to, or not equal to a selected digit. It updates on each new tick and cannot be used in Run once at start.'
+            'Use this block to check whether all of the last n tick digits are greater than, greater than or equal to, less than, less than or equal to, equal to, or not equal to a selected digit. It updates on each new tick and cannot be used in Run once at start.'
         ),
         key_words: localize('last digit, digits, tick, comparison, over, under, matches, differs'),
     }),

@@ -12,6 +12,36 @@ import BlockConversion from '../backward-compatibility';
 import DBotStore from '../dbot-store';
 import { saveAs } from '../shared';
 
+const PURCHASE_SUBSTITUTE_BLOCK_TYPES = ['purchase', 'override_contract_type_purchase'];
+
+const isPurchaseSubstituteBlock = block => PURCHASE_SUBSTITUTE_BLOCK_TYPES.includes(block?.type);
+
+const isInPurchaseConditions = block => {
+    if (block?.type === 'before_purchase' || block?.isDescendantOf?.('before_purchase')) {
+        return true;
+    }
+
+    let parent_block = block?.getParent?.();
+    while (parent_block) {
+        if (parent_block.type === 'before_purchase') {
+            return true;
+        }
+        parent_block = parent_block.getParent?.();
+    }
+
+    return false;
+};
+
+const isRequiredBlockPresent = (workspace, required_block_type) => {
+    return workspace.getAllBlocks().some(block => {
+        if (required_block_type === 'purchase') {
+            return isPurchaseSubstituteBlock(block) && isInPurchaseConditions(block);
+        }
+
+        return block.type === required_block_type;
+    });
+};
+
 export const inject_workspace_options = {
     // Getter (not a literal) so the public-path prefix is read when the options are spread
     // into Blockly.inject at runtime — after public-path.ts has set window.__webpack_public_path__
@@ -82,15 +112,27 @@ export const validateErrorOnBlockDelete = () => {
     const blockX = blockRect?.left || 0;
     const blockY = blockRect?.top || 0;
     const mandatory_trade_option_block = getSelectedTradeType();
-    const required_block_types = [mandatory_trade_option_block, 'trade_definition', 'purchase', 'before_purchase'];
-    if (required_block_types?.includes(window.Blockly?.getSelected()?.type)) {
+    const selected_block = window.Blockly?.getSelected();
+    const purchase_substitute_count = window.Blockly?.derivWorkspace
+        ?.getAllBlocks()
+        .filter(
+            block =>
+                block.id !== selected_block?.id && isPurchaseSubstituteBlock(block) && isInPurchaseConditions(block)
+        )
+        .length;
+    const required_block_types = [mandatory_trade_option_block, 'trade_definition', 'before_purchase'];
+    const is_last_purchase_substitute =
+        isPurchaseSubstituteBlock(selected_block) && isInPurchaseConditions(selected_block) && purchase_substitute_count === 0;
+
+    if (required_block_types?.includes(selected_block?.type) || is_last_purchase_substitute) {
         if (
             blockY >= translate_Y - translate_offset &&
             blockY <= translate_Y + translate_offset &&
             blockX >= translate_X - translate_offset &&
             blockX <= translate_X + translate_offset
         ) {
-            globalObserver.emit('ui.log.error', error_message_map?.()?.[window.Blockly?.getSelected()?.type]?.default);
+            const error_block_type = isPurchaseSubstituteBlock(selected_block) ? 'purchase' : selected_block?.type;
+            globalObserver.emit('ui.log.error', error_message_map?.()?.[error_block_type]?.default);
         }
     }
 };
@@ -396,6 +438,10 @@ export const addDomAsBlock = (el_block, parent_block = null) => {
 
 const getAllRequiredBlocks = (workspace, required_block_types) => {
     return workspace.getAllBlocks().filter(block => {
+        if (required_block_types.includes('purchase') && isPurchaseSubstituteBlock(block)) {
+            return isInPurchaseConditions(block);
+        }
+
         if (required_block_types.includes(block.type)) {
             return (
                 (block.childBlocks_.length === 0 && required_block_types.includes(block.category_)) ||
@@ -407,21 +453,36 @@ const getAllRequiredBlocks = (workspace, required_block_types) => {
 
 const getMissingBlocks = (workspace, required_block_types) => {
     return required_block_types.filter(blockType => {
-        return !workspace.getAllBlocks().some(block => block.type === blockType);
+        return !isRequiredBlockPresent(workspace, blockType);
     });
 };
 
 const getDisabledBlocks = required_blocks_check => {
     const workspace = window.Blockly.derivWorkspace;
-    const required_block_types = [getSelectedTradeType(workspace), ...config().mandatoryMainBlocks];
-    const disabled_blocks = Object.fromEntries(
+    const required_block_types = [
+        getSelectedTradeType(workspace),
+        ...config().mandatoryMainBlocks,
+        'override_contract_type_purchase',
+    ];
+    const disabled_block_types = new Set(
         workspace
             .getAllBlocks()
-            .filter(block => required_block_types.includes(block.type))
-            .map(block => [block.type, block.disabled])
+            .filter(
+                block =>
+                    required_block_types.includes(block.type) &&
+                    block.disabled &&
+                    (block.type !== 'override_contract_type_purchase' || isInPurchaseConditions(block))
+            )
+            .map(block => block.type)
     );
-    const mandatory_blocks = ['before_purchase', 'purchase', 'trade_definition', 'trade_definition_tradeoptions'];
-    const has_disabled_blocks = mandatory_blocks.some(type => disabled_blocks[type]);
+    const mandatory_blocks = [
+        'before_purchase',
+        'purchase',
+        'override_contract_type_purchase',
+        'trade_definition',
+        'trade_definition_tradeoptions',
+    ];
+    const has_disabled_blocks = mandatory_blocks.some(type => disabled_block_types.has(type));
 
     return has_disabled_blocks
         ? required_blocks_check.filter(block => block.disabled || block.childBlocks_?.some(child => child.disabled))
