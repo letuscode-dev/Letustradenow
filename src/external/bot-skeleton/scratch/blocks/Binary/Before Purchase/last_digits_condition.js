@@ -37,7 +37,7 @@ const getConditionCode = (block, index) => {
 
     return `(function () {
             var BinaryBotPrivateTickCount = ${tick_count};
-            var BinaryBotPrivateLastDigits = Bot.getLiveLastDigitList(BinaryBotPrivateTickCount);
+            var BinaryBotPrivateLastDigits = Bot.getCachedLastDigitList(BinaryBotPrivateTickCount);
             var BinaryBotPrivateTargetDigit = ${digit};
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
                 return false;

@@ -118,6 +118,18 @@ export default Engine =>
 
             return Promise.resolve([]);
         }
+
+        getCachedLastDigitList(minimum_tick_count = 1) {
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            const requested_tick_count = Math.floor(Number(minimum_tick_count));
+            const required_tick_count = Number.isFinite(requested_tick_count) ? Math.max(1, requested_tick_count) : 1;
+
+            if (cached_ticks?.length >= required_tick_count) {
+                return this.getLastDigitsFromList(cached_ticks);
+            }
+
+            return [];
+        }
         getLastDigitsFromList(ticks) {
             const digits = ticks.map(tick => {
                 const quote = typeof tick === 'object' && tick !== null ? tick.quote : tick;
@@ -161,7 +173,7 @@ export default Engine =>
         }
 
         getPipSize() {
-            return this.$scope.ticksService.pipSizes[this.symbol];
+            return this.$scope.ticksService.pipSizes?.[this.symbol] ?? 0;
         }
 
         async requestAccumulatorStats() {

@@ -98,6 +98,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         const validated_trade_options = this.validateTradeOptions(tradeOptions);
 
         this.tradeOptions = { ...validated_trade_options, symbol: this.options.symbol };
+        this.resetPurchaseAttempt?.();
         this.store.dispatch(start());
         this.checkLimits(validated_trade_options);
 

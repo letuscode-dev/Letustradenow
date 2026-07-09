@@ -12,6 +12,7 @@ const getBotInterface = tradeEngine => {
         purchaseOverrideContractType: contract_type => tradeEngine.purchaseOverrideContractType(contract_type),
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
+        getCachedLastDigitList: tick_count => tradeEngine.getCachedLastDigitList(tick_count),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),

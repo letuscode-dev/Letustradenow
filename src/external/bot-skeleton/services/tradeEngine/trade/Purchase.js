@@ -1,7 +1,7 @@
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
-import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy } from '../utils/helpers';
+import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy, tradeOptionToOverrideBuy } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
 
@@ -41,8 +41,29 @@ export default Engine =>
             });
         }
 
-        purchaseDirect(contract_type) {
-            const trade_option = tradeOptionToBuy(contract_type, this.tradeOptions);
+        resetPurchaseAttempt() {
+            this.is_purchase_attempt_in_progress = false;
+        }
+
+        canAttemptPurchase(contract_type) {
+            return (
+                !!contract_type &&
+                this.store.getState().scope === BEFORE_PURCHASE &&
+                !this.is_purchase_attempt_in_progress
+            );
+        }
+
+        markPurchaseAttempt() {
+            this.is_purchase_attempt_in_progress = true;
+        }
+
+        resetPurchaseAttemptOnError(error) {
+            this.resetPurchaseAttempt();
+            throw error;
+        }
+
+        purchaseDirect(contract_type, purchase_builder = tradeOptionToBuy) {
+            const trade_option = purchase_builder(contract_type, this.tradeOptions);
             const action = () => api_base.api.send(trade_option);
 
             this.isSold = false;
@@ -53,7 +74,9 @@ export default Engine =>
             });
 
             if (!this.options.timeMachineEnabled) {
-                return doUntilDone(action).then(response => this.handlePurchaseSuccess(response, contract_type));
+                return doUntilDone(action)
+                    .then(response => this.handlePurchaseSuccess(response, contract_type))
+                    .catch(error => this.resetPurchaseAttemptOnError(error));
             }
 
             return recoverFromError(
@@ -62,6 +85,7 @@ export default Engine =>
                     if (errorCode === 'DisconnectError') {
                         this.clearProposals();
                     }
+                    this.resetPurchaseAttempt();
                     const unsubscribe = this.store.subscribe(() => {
                         const { scope } = this.store.getState();
                         if (scope === BEFORE_PURCHASE) {
@@ -72,26 +96,39 @@ export default Engine =>
                 },
                 ['PriceMoved', 'InvalidContractProposal'],
                 delayIndex++
-            ).then(response => this.handlePurchaseSuccess(response, contract_type));
+            )
+                .then(response => this.handlePurchaseSuccess(response, contract_type))
+                .catch(error => this.resetPurchaseAttemptOnError(error));
         }
 
         purchaseOverrideContractType(contract_type) {
-            // Prevent calling purchase twice
-            if (!contract_type || this.store.getState().scope !== BEFORE_PURCHASE) {
+            if (!this.canAttemptPurchase(contract_type)) {
                 return Promise.resolve();
             }
 
-            return this.purchaseDirect(contract_type);
+            this.markPurchaseAttempt();
+
+            return this.purchaseDirect(contract_type, tradeOptionToOverrideBuy);
         }
 
         purchase(contract_type) {
-            // Prevent calling purchase twice
-            if (this.store.getState().scope !== BEFORE_PURCHASE) {
+            if (!this.canAttemptPurchase(contract_type)) {
                 return Promise.resolve();
             }
 
+            this.markPurchaseAttempt();
+
             if (this.is_proposal_subscription_required) {
-                const { id, askPrice } = this.selectProposal(contract_type);
+                let proposal;
+
+                try {
+                    proposal = this.selectProposal(contract_type);
+                } catch (error) {
+                    this.resetPurchaseAttempt();
+                    return Promise.reject(error);
+                }
+
+                const { id, askPrice } = proposal;
 
                 const action = () => api_base.api.send({ buy: id, price: askPrice });
 
@@ -103,7 +140,9 @@ export default Engine =>
                 });
 
                 if (!this.options.timeMachineEnabled) {
-                    return doUntilDone(action).then(response => this.handlePurchaseSuccess(response, contract_type));
+                    return doUntilDone(action)
+                        .then(response => this.handlePurchaseSuccess(response, contract_type))
+                        .catch(error => this.resetPurchaseAttemptOnError(error));
                 }
 
                 return recoverFromError(
@@ -116,6 +155,7 @@ export default Engine =>
                             this.clearProposals();
                         }
 
+                        this.resetPurchaseAttempt();
                         const unsubscribe = this.store.subscribe(() => {
                             const { scope, proposalsReady } = this.store.getState();
                             if (scope === BEFORE_PURCHASE && proposalsReady) {
@@ -126,7 +166,9 @@ export default Engine =>
                     },
                     ['PriceMoved', 'InvalidContractProposal'],
                     delayIndex++
-                ).then(response => this.handlePurchaseSuccess(response, contract_type));
+                )
+                    .then(response => this.handlePurchaseSuccess(response, contract_type))
+                    .catch(error => this.resetPurchaseAttemptOnError(error));
             }
 
             return this.purchaseDirect(contract_type);
