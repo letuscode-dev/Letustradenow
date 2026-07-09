@@ -72,7 +72,15 @@ export const getSuccessJournalMessage = (message: string, extra: TExtra) => {
             return localize('Resale of this contract is not offered.');
         }
         case LogTypes.PURCHASE: {
-            return localize('Bought: {{longcode}} (ID: {{transaction_id}})', { longcode, transaction_id });
+            const purchase_description =
+                typeof longcode === 'string' && longcode.trim()
+                    ? longcode.replace(/\s+/g, ' ').trim()
+                    : localize('Contract purchased');
+
+            return localize('Bought: {{purchase_description}} (ID: {{transaction_id}})', {
+                purchase_description,
+                transaction_id,
+            });
         }
         case LogTypes.SELL: {
             return localize('Sold for: {{sold_for}}', { sold_for });
