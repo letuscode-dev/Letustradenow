@@ -7,55 +7,37 @@ import {
     getTickCount,
 } from './last_digits_condition_base';
 
-const DIGIT_OPTIONS = Array.from({ length: 10 }, (_, digit) => [String(digit), String(digit)]);
-
-const OPERATOR_OPTIONS = [
-    ['>', 'GT'],
-    ['\u2265', 'GTE'],
-    ['<', 'LT'],
-    ['\u2264', 'LTE'],
-    ['=', 'EQ'],
-    ['\u2260', 'NEQ'],
+const PARITY_OPTIONS = [
+    [localize('Odd'), 'ODD'],
+    [localize('Even'), 'EVEN'],
 ];
 
-const OPERATOR_CODE = {
-    GT: '>',
-    GTE: '>=',
-    LT: '<',
-    LTE: '<=',
-    EQ: '===',
-    NEQ: '!==',
-};
-
-const createOperatorField = () => new window.Blockly.FieldDropdown(OPERATOR_OPTIONS);
-const createDigitField = () => new window.Blockly.FieldDropdown(DIGIT_OPTIONS);
+const createParityField = () => new window.Blockly.FieldDropdown(PARITY_OPTIONS);
 
 const getConditionCode = (block, index) => {
     const tick_count = getTickCount(block, index);
-    const operator = OPERATOR_CODE[block.getFieldValue(`OPERATOR${index}`)] || OPERATOR_CODE.EQ;
-    const digit = Number(block.getFieldValue(`DIGIT${index}`));
+    const parity = block.getFieldValue(`PARITY${index}`) === 'EVEN' ? 'EVEN' : 'ODD';
+    const remainder = parity === 'EVEN' ? 0 : 1;
 
     return `(function () {
             var BinaryBotPrivateLastDigits = Bot.getLastDigitList();
             var BinaryBotPrivateTickCount = ${tick_count};
-            var BinaryBotPrivateTargetDigit = ${digit};
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
                 return false;
             }
             return BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount).every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
-                return BinaryBotPrivateDigit ${operator} BinaryBotPrivateTargetDigit;
+                return !isNaN(BinaryBotPrivateDigit) && Math.abs(BinaryBotPrivateDigit % 2) === ${remainder};
             });
         })()`;
 };
 
 createLastDigitsConditionBlock({
-    type: 'last_digits_condition',
+    type: 'last_digits_odd_even_condition',
     definition: () => ({
-        message0: localize('if last {{ tick_count }} digit(s) are {{ operator }} {{ digit }} then', {
+        message0: localize('if last {{ tick_count }} digit(s) are {{ odd_even }} then', {
             tick_count: '%1',
-            operator: '%2',
-            digit: '%3',
+            odd_even: '%2',
         }),
         message1: '%1',
         message2: '%1',
@@ -70,13 +52,8 @@ createLastDigitsConditionBlock({
             },
             {
                 type: 'field_dropdown',
-                name: 'OPERATOR0',
-                options: OPERATOR_OPTIONS,
-            },
-            {
-                type: 'field_dropdown',
-                name: 'DIGIT0',
-                options: DIGIT_OPTIONS,
+                name: 'PARITY0',
+                options: PARITY_OPTIONS,
             },
         ],
         args1: [
@@ -99,33 +76,30 @@ createLastDigitsConditionBlock({
         colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
         previousStatement: null,
         nextStatement: null,
-        tooltip: localize('Runs the branch when every one of the last selected tick digits matches the comparison.'),
+        tooltip: localize('Runs the branch when every one of the last selected tick digits is odd or even.'),
         category: window.Blockly.Categories.Before_Purchase,
     }),
     appendConditionFields: (input, index) => {
         input.appendField(localize('else if last'))
             .appendField(createTickCountField(), `TICK_COUNT${index}`)
             .appendField(localize('digit(s) are'))
-            .appendField(createOperatorField(), `OPERATOR${index}`)
-            .appendField(createDigitField(), `DIGIT${index}`)
+            .appendField(createParityField(), `PARITY${index}`)
             .appendField(localize('then'));
     },
     getConditionCode,
     getConditionValue: (block, index) => ({
         tick_count: block.getFieldValue(`TICK_COUNT${index}`),
-        operator: block.getFieldValue(`OPERATOR${index}`),
-        digit: block.getFieldValue(`DIGIT${index}`),
+        parity: block.getFieldValue(`PARITY${index}`),
     }),
     restoreConditionValue: (block, index, condition) => {
         block.setFieldValue(condition.tick_count || String(MIN_TICK_COUNT), `TICK_COUNT${index}`);
-        block.setFieldValue(condition.operator || 'GT', `OPERATOR${index}`);
-        block.setFieldValue(condition.digit || '0', `DIGIT${index}`);
+        block.setFieldValue(condition.parity || 'ODD', `PARITY${index}`);
     },
     meta: () => ({
-        display_name: localize('Last digit condition'),
+        display_name: localize('Last digit odd/even condition'),
         description: localize(
-            'Use this Purchase conditions block to check whether all of the last n tick digits are greater than, greater than or equal to, less than, less than or equal to, equal to, or not equal to a selected digit. It updates on each new tick and cannot be used in Run once at start.'
+            'Use this Purchase conditions block to check whether every last digit in the selected tick window is odd or even. It requires at least n ticks in history and supports else and else if branches.'
         ),
-        key_words: localize('last digit, digits, tick, comparison, over, under, matches, differs'),
+        key_words: localize('last digit, digits, tick, odd, even'),
     }),
 });
