@@ -3,25 +3,21 @@ import { config } from '../../../../constants/config';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
 
 const getOverrideContractTypeOptions = () => {
-    const labels_by_contract = new Map();
+    const contract_types = new Set();
+    const options = [];
 
     Object.values(config().opposites).forEach(contract_group => {
         contract_group.forEach(contract_type_config => {
             const [contract_type, label] = Object.entries(contract_type_config)[0];
-            const labels = labels_by_contract.get(contract_type) || [];
 
-            if (!labels.includes(label)) {
-                labels.push(label);
+            if (!contract_types.has(contract_type)) {
+                contract_types.add(contract_type);
+                options.push([`${localize(label)} (${contract_type})`, contract_type]);
             }
-
-            labels_by_contract.set(contract_type, labels);
         });
     });
 
-    return Array.from(labels_by_contract.entries()).map(([contract_type, labels]) => [
-        `${labels.map(label => localize(label)).join(' / ')} (${contract_type})`,
-        contract_type,
-    ]);
+    return options;
 };
 
 window.Blockly.Blocks.override_contract_type_purchase = {

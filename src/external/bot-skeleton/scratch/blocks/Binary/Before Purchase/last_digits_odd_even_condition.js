@@ -20,8 +20,8 @@ const getConditionCode = (block, index) => {
     const remainder = parity === 'EVEN' ? 0 : 1;
 
     return `(function () {
-            var BinaryBotPrivateLastDigits = Bot.getLastDigitList();
             var BinaryBotPrivateTickCount = ${tick_count};
+            var BinaryBotPrivateLastDigits = Bot.getLiveLastDigitList(BinaryBotPrivateTickCount);
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
                 return false;
             }
@@ -98,7 +98,7 @@ createLastDigitsConditionBlock({
     meta: () => ({
         display_name: localize('Last digit odd/even condition'),
         description: localize(
-            'Use this block to check whether every last digit in the selected tick window is odd or even. It requires at least n ticks in history, supports else and else if branches, and cannot be used in Run once at start.'
+            'Use this block to check every live tick and run a branch when every last digit in the selected tick window is odd or even. It requires at least n ticks in history, supports else and else if branches, and cannot be used in Run once at start.'
         ),
         key_words: localize('last digit, digits, tick, odd, even'),
     }),

@@ -36,8 +36,8 @@ const getConditionCode = (block, index) => {
     const digit = Number(block.getFieldValue(`DIGIT${index}`));
 
     return `(function () {
-            var BinaryBotPrivateLastDigits = Bot.getLastDigitList();
             var BinaryBotPrivateTickCount = ${tick_count};
+            var BinaryBotPrivateLastDigits = Bot.getLiveLastDigitList(BinaryBotPrivateTickCount);
             var BinaryBotPrivateTargetDigit = ${digit};
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
                 return false;
@@ -124,7 +124,7 @@ createLastDigitsConditionBlock({
     meta: () => ({
         display_name: localize('Last digit condition'),
         description: localize(
-            'Use this block to check whether all of the last n tick digits are greater than, greater than or equal to, less than, less than or equal to, equal to, or not equal to a selected digit. It updates on each new tick and cannot be used in Run once at start.'
+            'Use this block to check every live tick and run a branch when all of the last n tick digits are greater than, greater than or equal to, less than, less than or equal to, equal to, or not equal to a selected digit. It cannot be used in Run once at start.'
         ),
         key_words: localize('last digit, digits, tick, comparison, over, under, matches, differs'),
     }),

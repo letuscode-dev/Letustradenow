@@ -85,12 +85,41 @@ export default Engine =>
             return new Promise(resolve => this.getLastTick(false, true).then(tick => resolve(getLastDigit(tick))));
         }
 
-        getLastDigitList() {
+        requestLastDigitList() {
             return new Promise(resolve => this.getTicks().then(ticks => resolve(this.getLastDigitsFromList(ticks))));
+        }
+
+        getLastDigitList() {
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+
+            if (cached_ticks?.length) {
+                return Promise.resolve(this.getLastDigitsFromList(cached_ticks));
+            }
+
+            return this.requestLastDigitList();
+        }
+
+        getLiveLastDigitList(minimum_tick_count = 1) {
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            const requested_tick_count = Math.floor(Number(minimum_tick_count));
+            const required_tick_count = Number.isFinite(requested_tick_count) ? Math.max(1, requested_tick_count) : 1;
+
+            if (cached_ticks?.length >= required_tick_count) {
+                return Promise.resolve(this.getLastDigitsFromList(cached_ticks));
+            }
+
+            return this.requestLastDigitList();
         }
         getLastDigitsFromList(ticks) {
             const digits = ticks.map(tick => {
-                return getLastDigit(tick.toFixed(this.getPipSize()));
+                const quote = typeof tick === 'object' && tick !== null ? tick.quote : tick;
+                const numeric_quote = Number(quote);
+
+                if (!Number.isFinite(numeric_quote)) {
+                    return NaN;
+                }
+
+                return getLastDigit(numeric_quote.toFixed(this.getPipSize()));
             });
             return digits;
         }
