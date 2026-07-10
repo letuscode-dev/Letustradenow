@@ -4,6 +4,7 @@ import {
     MIN_TICK_COUNT,
     createLastDigitsConditionBlock,
     createTickCountField,
+    getLastDigitsConditionNotifyCode,
     getTickCount,
 } from './last_digits_condition_base';
 
@@ -27,25 +28,68 @@ const OPERATOR_CODE = {
     NEQ: '!==',
 };
 
+const OPERATOR_LABEL = {
+    GT: '>',
+    GTE: '\u2265',
+    LT: '<',
+    LTE: '\u2264',
+    EQ: '=',
+    NEQ: '\u2260',
+};
+
 const createOperatorField = () => new window.Blockly.FieldDropdown(OPERATOR_OPTIONS);
 const createDigitField = () => new window.Blockly.FieldDropdown(DIGIT_OPTIONS);
 
 const getConditionCode = (block, index) => {
     const tick_count = getTickCount(block, index);
-    const operator = OPERATOR_CODE[block.getFieldValue(`OPERATOR${index}`)] || OPERATOR_CODE.EQ;
+    const operator_key = block.getFieldValue(`OPERATOR${index}`) || 'EQ';
+    const operator = OPERATOR_CODE[operator_key] || OPERATOR_CODE.EQ;
+    const operator_label = OPERATOR_LABEL[operator_key] || OPERATOR_LABEL.EQ;
     const digit = Number(block.getFieldValue(`DIGIT${index}`));
+    const notify_code = getLastDigitsConditionNotifyCode({
+        block_id: block.id,
+        matched_var: 'BinaryBotPrivateMatched',
+        message_var: 'BinaryBotPrivateMessage',
+    });
 
     return `(function () {
             var BinaryBotPrivateTickCount = ${tick_count};
             var BinaryBotPrivateLastDigits = Bot.getCachedLastDigitList(BinaryBotPrivateTickCount);
             var BinaryBotPrivateTargetDigit = ${digit};
+            var BinaryBotPrivateOperatorLabel = ${JSON.stringify(operator_label)};
+            var BinaryBotPrivateMatched = false;
+            var BinaryBotPrivateDigitsWindow = [];
+            var BinaryBotPrivateMessage = '';
+
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
+                BinaryBotPrivateMessage =
+                    'Last digit condition not met: need ' +
+                    BinaryBotPrivateTickCount +
+                    ' digit(s), got ' +
+                    (BinaryBotPrivateLastDigits ? BinaryBotPrivateLastDigits.length : 0);
+                ${notify_code}
                 return false;
             }
-            return BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount).every(function (BinaryBotPrivateDigit) {
+
+            BinaryBotPrivateDigitsWindow = BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount);
+            BinaryBotPrivateMatched = BinaryBotPrivateDigitsWindow.every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
                 return !isNaN(BinaryBotPrivateDigit) && BinaryBotPrivateDigit ${operator} BinaryBotPrivateTargetDigit;
             });
+            BinaryBotPrivateMessage =
+                (BinaryBotPrivateMatched
+                    ? 'Last digit condition met: last '
+                    : 'Last digit condition not met: last ') +
+                BinaryBotPrivateTickCount +
+                ' digit(s) [' +
+                BinaryBotPrivateDigitsWindow.join(', ') +
+                ']' +
+                (BinaryBotPrivateMatched ? ' are all ' : ' are not all ') +
+                BinaryBotPrivateOperatorLabel +
+                ' ' +
+                BinaryBotPrivateTargetDigit;
+            ${notify_code}
+            return BinaryBotPrivateMatched;
         })()`;
 };
 

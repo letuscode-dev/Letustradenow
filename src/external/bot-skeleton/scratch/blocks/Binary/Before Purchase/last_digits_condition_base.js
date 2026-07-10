@@ -38,6 +38,19 @@ export const getTickCount = (block, index) => {
     return Math.min(MAX_TICK_COUNT, Math.max(MIN_TICK_COUNT, value));
 };
 
+/**
+ * Emits a Journal notify call from generated condition code.
+ * Green (success) when matched, red (error) otherwise.
+ */
+export const getLastDigitsConditionNotifyCode = ({ block_id, matched_var, message_var }) => `
+            Bot.notify({
+                className: ${matched_var} ? 'journal__text--success' : 'journal__text--error',
+                message: ${message_var},
+                sound: 'silent',
+                block_id: ${JSON.stringify(block_id)},
+                variable_name: null
+            });`;
+
 export const createLastDigitsConditionBlock = ({
     type,
     definition,

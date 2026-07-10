@@ -4,6 +4,7 @@ import {
     MIN_TICK_COUNT,
     createLastDigitsConditionBlock,
     createTickCountField,
+    getLastDigitsConditionNotifyCode,
     getTickCount,
 } from './last_digits_condition_base';
 
@@ -18,17 +19,48 @@ const getConditionCode = (block, index) => {
     const tick_count = getTickCount(block, index);
     const parity = block.getFieldValue(`PARITY${index}`) === 'EVEN' ? 'EVEN' : 'ODD';
     const remainder = parity === 'EVEN' ? 0 : 1;
+    const parity_label = parity === 'EVEN' ? 'Even' : 'Odd';
+    const notify_code = getLastDigitsConditionNotifyCode({
+        block_id: block.id,
+        matched_var: 'BinaryBotPrivateMatched',
+        message_var: 'BinaryBotPrivateMessage',
+    });
 
     return `(function () {
             var BinaryBotPrivateTickCount = ${tick_count};
             var BinaryBotPrivateLastDigits = Bot.getCachedLastDigitList(BinaryBotPrivateTickCount);
+            var BinaryBotPrivateParityLabel = ${JSON.stringify(parity_label)};
+            var BinaryBotPrivateMatched = false;
+            var BinaryBotPrivateDigitsWindow = [];
+            var BinaryBotPrivateMessage = '';
+
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
+                BinaryBotPrivateMessage =
+                    'Last digit odd/even condition not met: need ' +
+                    BinaryBotPrivateTickCount +
+                    ' digit(s), got ' +
+                    (BinaryBotPrivateLastDigits ? BinaryBotPrivateLastDigits.length : 0);
+                ${notify_code}
                 return false;
             }
-            return BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount).every(function (BinaryBotPrivateDigit) {
+
+            BinaryBotPrivateDigitsWindow = BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount);
+            BinaryBotPrivateMatched = BinaryBotPrivateDigitsWindow.every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
                 return !isNaN(BinaryBotPrivateDigit) && Math.abs(BinaryBotPrivateDigit % 2) === ${remainder};
             });
+            BinaryBotPrivateMessage =
+                (BinaryBotPrivateMatched
+                    ? 'Last digit odd/even condition met: last '
+                    : 'Last digit odd/even condition not met: last ') +
+                BinaryBotPrivateTickCount +
+                ' digit(s) [' +
+                BinaryBotPrivateDigitsWindow.join(', ') +
+                ']' +
+                (BinaryBotPrivateMatched ? ' are all ' : ' are not all ') +
+                BinaryBotPrivateParityLabel;
+            ${notify_code}
+            return BinaryBotPrivateMatched;
         })()`;
 };
 
