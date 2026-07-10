@@ -75,14 +75,20 @@ const FreeBots = () => {
                 </div>
             ) : (
                 <ul className='free-bots__list'>
-                    {FREE_BOTS.map(bot => {
+                    {FREE_BOTS.map((bot, index) => {
                         const is_busy = busy_id === bot.id;
                         const status = status_by_id[bot.id];
+                        const bot_number = index + 1;
 
                         return (
                             <li key={bot.id} className='free-bots__card'>
                                 <div className='free-bots__card-body'>
-                                    <h3 className='free-bots__card-title'>{bot.title}</h3>
+                                    <div className='free-bots__card-heading'>
+                                        <span className='free-bots__card-number' aria-label={localize('Bot {{number}}', { number: bot_number })}>
+                                            {bot_number}
+                                        </span>
+                                        <h3 className='free-bots__card-title'>{bot.title}</h3>
+                                    </div>
                                     <p className='free-bots__card-description'>{bot.description}</p>
                                     {!!bot.tags?.length && (
                                         <div className='free-bots__tags'>
