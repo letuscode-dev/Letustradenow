@@ -10,7 +10,7 @@
     padding: 1.6rem;
     width: 100%;
 
-    @include mobile-or-tablet-screen {
+    @include mobile-screen {
         height: var(--tab-content-height-mobile);
         padding: 1.2rem;
     }
@@ -47,31 +47,55 @@
         text-align: center;
     }
 
+    // Desktop + tablet: cards flow horizontally.
+    // Mobile: stacked column.
     &__list {
         display: flex;
-        flex-direction: column;
-        gap: 1.2rem;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 1.6rem;
+        justify-content: flex-start;
         list-style: none;
         margin: 0;
         padding: 0;
-    }
+        width: 100%;
 
-    &__item {
-        align-items: flex-start;
-        background: var(--general-section-1);
-        border: 1px solid var(--border-normal);
-        border-radius: 0.8rem;
-        display: flex;
-        gap: 1.6rem;
-        justify-content: space-between;
-        padding: 1.6rem;
-
-        @include mobile-or-tablet-screen {
+        @include mobile-screen {
             flex-direction: column;
+            gap: 1.2rem;
         }
     }
 
-    &__item-body {
+    &__card {
+        background: var(--general-section-1);
+        border: 1px solid var(--border-normal);
+        border-radius: 0.8rem;
+        box-sizing: border-box;
+        display: flex;
+        flex: 1 1 28rem;
+        flex-direction: column;
+        gap: 1.2rem;
+        justify-content: space-between;
+        max-width: 36rem;
+        min-height: 100%;
+        min-width: 26rem;
+        padding: 1.6rem;
+
+        @include tablet-screen {
+            flex: 1 1 30rem;
+            max-width: calc(50% - 0.8rem);
+            min-width: 24rem;
+        }
+
+        @include mobile-screen {
+            flex: 1 1 auto;
+            max-width: none;
+            min-width: 0;
+            width: 100%;
+        }
+    }
+
+    &__card-body {
         display: flex;
         flex: 1;
         flex-direction: column;
@@ -79,7 +103,7 @@
         min-width: 0;
     }
 
-    &__item-title {
+    &__card-title {
         color: var(--text-prominent);
         font-size: 1.6rem;
         font-weight: 700;
@@ -87,7 +111,7 @@
         margin: 0;
     }
 
-    &__item-description {
+    &__card-description {
         color: var(--text-general);
         font-size: 1.3rem;
         line-height: 1.5;
@@ -117,12 +141,23 @@
 
     &__actions {
         display: flex;
-        flex-shrink: 0;
         flex-wrap: wrap;
         gap: 0.8rem;
+        margin-top: auto;
+        width: 100%;
+
+        @include mobile-screen {
+            flex-direction: column;
+        }
     }
 
     &__button {
-        min-width: 12rem;
+        flex: 1 1 auto;
+        min-width: 11rem;
+
+        @include mobile-screen {
+            min-width: 0;
+            width: 100%;
+        }
     }
 }

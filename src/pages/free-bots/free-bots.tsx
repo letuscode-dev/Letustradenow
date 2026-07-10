@@ -80,10 +80,10 @@ const FreeBots = () => {
                         const status = status_by_id[bot.id];
 
                         return (
-                            <li key={bot.id} className='free-bots__item'>
-                                <div className='free-bots__item-body'>
-                                    <h3 className='free-bots__item-title'>{bot.title}</h3>
-                                    <p className='free-bots__item-description'>{bot.description}</p>
+                            <li key={bot.id} className='free-bots__card'>
+                                <div className='free-bots__card-body'>
+                                    <h3 className='free-bots__card-title'>{bot.title}</h3>
+                                    <p className='free-bots__card-description'>{bot.description}</p>
                                     {!!bot.tags?.length && (
                                         <div className='free-bots__tags'>
                                             {bot.tags.map(tag => (
