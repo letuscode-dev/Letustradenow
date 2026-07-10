@@ -123,8 +123,9 @@ const buildContractParameters = (contract_type, trade_option) => {
         currency: trade_option.currency,
         duration: toInteger(trade_option.duration, undefined),
         duration_unit: trade_option.duration_unit,
-        // Live DerivWS rejects underlying_symbol on proposal/buy ("Properties not allowed").
-        symbol: trade_option.symbol,
+        // Partner DerivWS options endpoint (api.derivws.com/trading/v1/options)
+        // requires underlying_symbol and rejects symbol. Public ws.derivws.com is the opposite.
+        underlying_symbol: trade_option.symbol,
     };
 
     if (SELECTED_TICK_CONTRACT_TYPES.includes(contract_type) && hasValue(trade_option.prediction)) {

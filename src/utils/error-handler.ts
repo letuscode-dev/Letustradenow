@@ -27,6 +27,15 @@ export const handleBackendError = (error: BackendError): string => {
         return getLocalizedErrorMessage('GeneralError');
     }
 
+    // Prefer Deriv's concrete validation text when present (e.g. "Properties not allowed: symbol").
+    if (
+        error.code === 'InputValidationFailed' &&
+        typeof error.message === 'string' &&
+        /Properties not allowed|Input validation failed/i.test(error.message)
+    ) {
+        return error.message;
+    }
+
     // Handle code_args format specifically for parameter replacement
     let details = error.details;
     if (error.details?.code_args && Array.isArray(error.details.code_args)) {
