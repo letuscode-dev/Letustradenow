@@ -112,7 +112,7 @@ const FreeBots = () => {
                                         secondary
                                         type='button'
                                     >
-                                        {localize('Load in Bot Builder')}
+                                        {localize('Load')}
                                     </Button>
                                 </div>
                             </li>
