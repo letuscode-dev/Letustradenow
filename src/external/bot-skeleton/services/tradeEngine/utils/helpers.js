@@ -123,7 +123,8 @@ const buildContractParameters = (contract_type, trade_option) => {
         currency: trade_option.currency,
         duration: toInteger(trade_option.duration, undefined),
         duration_unit: trade_option.duration_unit,
-        underlying_symbol: trade_option.symbol,
+        // Live DerivWS rejects underlying_symbol on proposal/buy ("Properties not allowed").
+        symbol: trade_option.symbol,
     };
 
     if (SELECTED_TICK_CONTRACT_TYPES.includes(contract_type) && hasValue(trade_option.prediction)) {
@@ -376,6 +377,9 @@ export const updateErrorMessage = error => {
             error.error.message = getLocalizedErrorMessage('DurationValidationFailed');
         } else if (error.error.details?.amount) {
             error.error.message = getLocalizedErrorMessage('AmountValidationFailed');
+        } else if (error.error.message && /Properties not allowed|Input validation failed/i.test(error.error.message)) {
+            // Keep Deriv's concrete validation message (e.g. rejected field names).
+            error.error.message = error.error.message;
         } else {
             error.error.message = `${getLocalizedErrorMessage('InputValidationFailed')}${formatInputValidationDetails(
                 error.error.details

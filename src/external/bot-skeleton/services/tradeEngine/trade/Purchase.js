@@ -216,7 +216,7 @@ export default Engine =>
                         this.getPurchaseReference()
                     );
 
-                    if (!proposal_request?.underlying_symbol || !proposal_request?.currency) {
+                    if (!proposal_request?.symbol || !proposal_request?.currency) {
                         return this.purchaseDirect(contract_type, tradeOptionToOverrideBuy, contract_config);
                     }
 

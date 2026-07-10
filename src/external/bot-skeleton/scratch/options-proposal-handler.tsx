@@ -8,11 +8,11 @@ interface OptionsProposalRequest {
     basis: string;
     contract_type?: string;
     currency?: string | undefined;
-    underlying_symbol?: string;
+    symbol?: string;
     duration?: number;
     duration_unit?: string;
     proposal: number;
-    barrier?: number;
+    barrier?: number | string;
 }
 
 interface InputValues {
@@ -68,7 +68,7 @@ export const DEFAULT_OPTIONS_PROPOSAL_REQUEST: OptionsProposalRequest = {
     basis: 'stake',
     contract_type: undefined,
     currency: undefined,
-    underlying_symbol: undefined,
+    symbol: undefined,
     duration: undefined,
     duration_unit: undefined,
     proposal: 1,
@@ -84,7 +84,8 @@ export const requestOptionsProposalForQS = (
         ...DEFAULT_OPTIONS_PROPOSAL_REQUEST,
         amount,
         currency,
-        underlying_symbol,
+        // Live DerivWS expects `symbol` (underlying_symbol is rejected).
+        symbol: underlying_symbol,
         contract_type,
         duration,
         duration_unit,
