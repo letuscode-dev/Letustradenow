@@ -438,14 +438,6 @@ const AutomatedStrategies = () => {
                 </div>
             </div>
 
-            <div className='automated-strategies__catalog'>
-                {OPTION_CONTRACT_TYPES.map(contract => (
-                    <div className='automated-strategies__contract' key={contract.value}>
-                        <span>{contract.text}</span>
-                        <strong>{contract.ready ? localize('Ready') : localize('Next')}</strong>
-                    </div>
-                ))}
-            </div>
         </div>
     );
 };
