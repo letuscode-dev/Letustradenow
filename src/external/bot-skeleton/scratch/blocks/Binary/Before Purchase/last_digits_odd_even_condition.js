@@ -4,6 +4,7 @@ import {
     MIN_TICK_COUNT,
     createLastDigitsConditionBlock,
     createTickCountField,
+    getLastDigitsBracketFormatCode,
     getLastDigitsConditionNotifyCode,
     getTickCount,
 } from './last_digits_condition_base';
@@ -20,6 +21,7 @@ const getConditionCode = (block, index) => {
     const parity = block.getFieldValue(`PARITY${index}`) === 'EVEN' ? 'EVEN' : 'ODD';
     const remainder = parity === 'EVEN' ? 0 : 1;
     const parity_label = parity === 'EVEN' ? 'Even' : 'Odd';
+    const digits_text_expr = getLastDigitsBracketFormatCode();
     const notify_code = getLastDigitsConditionNotifyCode({
         block_id: block.id,
         matched_var: 'BinaryBotPrivateMatched',
@@ -32,6 +34,7 @@ const getConditionCode = (block, index) => {
             var BinaryBotPrivateParityLabel = ${JSON.stringify(parity_label)};
             var BinaryBotPrivateMatched = false;
             var BinaryBotPrivateDigitsWindow = [];
+            var BinaryBotPrivateDigitsText = '[]';
             var BinaryBotPrivateMessage = '';
 
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
@@ -45,18 +48,16 @@ const getConditionCode = (block, index) => {
             }
 
             BinaryBotPrivateDigitsWindow = BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount);
+            BinaryBotPrivateDigitsText = ${digits_text_expr};
             BinaryBotPrivateMatched = BinaryBotPrivateDigitsWindow.every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
                 return !isNaN(BinaryBotPrivateDigit) && Math.abs(BinaryBotPrivateDigit % 2) === ${remainder};
             });
             BinaryBotPrivateMessage =
                 (BinaryBotPrivateMatched
-                    ? 'Last digit odd/even condition met: last '
-                    : 'Last digit odd/even condition not met: last ') +
-                BinaryBotPrivateTickCount +
-                ' digit(s) [' +
-                BinaryBotPrivateDigitsWindow.join(', ') +
-                ']' +
+                    ? 'Last digit odd/even condition met: '
+                    : 'Last digit odd/even condition not met: ') +
+                BinaryBotPrivateDigitsText +
                 (BinaryBotPrivateMatched ? ' are all ' : ' are not all ') +
                 BinaryBotPrivateParityLabel;
             ${notify_code}

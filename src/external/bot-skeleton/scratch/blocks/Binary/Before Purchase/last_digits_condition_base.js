@@ -51,6 +51,13 @@ export const getLastDigitsConditionNotifyCode = ({ block_id, matched_var, messag
                 variable_name: null
             });`;
 
+/**
+ * Runtime helper snippet: formats digit window as "[6, 2, 9]".
+ * Expects BinaryBotPrivateDigitsWindow to already be set.
+ */
+export const getLastDigitsBracketFormatCode = (digits_var = 'BinaryBotPrivateDigitsWindow') =>
+    `'[' + ${digits_var}.map(function (BinaryBotPrivateDigitValue) { return String(Number(BinaryBotPrivateDigitValue)); }).join(', ') + ']'`;
+
 export const createLastDigitsConditionBlock = ({
     type,
     definition,

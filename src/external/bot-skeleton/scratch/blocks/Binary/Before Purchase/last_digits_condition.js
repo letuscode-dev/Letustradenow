@@ -4,6 +4,7 @@ import {
     MIN_TICK_COUNT,
     createLastDigitsConditionBlock,
     createTickCountField,
+    getLastDigitsBracketFormatCode,
     getLastDigitsConditionNotifyCode,
     getTickCount,
 } from './last_digits_condition_base';
@@ -46,6 +47,7 @@ const getConditionCode = (block, index) => {
     const operator = OPERATOR_CODE[operator_key] || OPERATOR_CODE.EQ;
     const operator_label = OPERATOR_LABEL[operator_key] || OPERATOR_LABEL.EQ;
     const digit = Number(block.getFieldValue(`DIGIT${index}`));
+    const digits_text_expr = getLastDigitsBracketFormatCode();
     const notify_code = getLastDigitsConditionNotifyCode({
         block_id: block.id,
         matched_var: 'BinaryBotPrivateMatched',
@@ -59,6 +61,7 @@ const getConditionCode = (block, index) => {
             var BinaryBotPrivateOperatorLabel = ${JSON.stringify(operator_label)};
             var BinaryBotPrivateMatched = false;
             var BinaryBotPrivateDigitsWindow = [];
+            var BinaryBotPrivateDigitsText = '[]';
             var BinaryBotPrivateMessage = '';
 
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
@@ -72,18 +75,16 @@ const getConditionCode = (block, index) => {
             }
 
             BinaryBotPrivateDigitsWindow = BinaryBotPrivateLastDigits.slice(-BinaryBotPrivateTickCount);
+            BinaryBotPrivateDigitsText = ${digits_text_expr};
             BinaryBotPrivateMatched = BinaryBotPrivateDigitsWindow.every(function (BinaryBotPrivateDigit) {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
                 return !isNaN(BinaryBotPrivateDigit) && BinaryBotPrivateDigit ${operator} BinaryBotPrivateTargetDigit;
             });
             BinaryBotPrivateMessage =
                 (BinaryBotPrivateMatched
-                    ? 'Last digit condition met: last '
-                    : 'Last digit condition not met: last ') +
-                BinaryBotPrivateTickCount +
-                ' digit(s) [' +
-                BinaryBotPrivateDigitsWindow.join(', ') +
-                ']' +
+                    ? 'Last digit condition met: '
+                    : 'Last digit condition not met: ') +
+                BinaryBotPrivateDigitsText +
                 (BinaryBotPrivateMatched ? ' are all ' : ' are not all ') +
                 BinaryBotPrivateOperatorLabel +
                 ' ' +
