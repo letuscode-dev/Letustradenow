@@ -58,7 +58,8 @@ export const getDigitTransitionSignal = (digits, threshold = DEFAULT_PATTERN_THR
 };
 
 /**
- * Returns the predicted "next" digit for Differs, or -1 when no pattern qualifies.
+ * Returns the predicted next digit to be hit (Matches target), or -1 when no pattern qualifies.
+ * Example: strong 0→3 and current digit is 0 → returns 3.
  * @param {Array<number|string>} digits
  * @param {number} threshold
  * @returns {number}

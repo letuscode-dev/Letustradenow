@@ -258,7 +258,7 @@ const LABEL_PATTERN_THRESHOLD = (): TConfigItem => ({
     type: 'label',
     label: localize('Pattern threshold'),
     description: localize(
-        'Minimum times a digit-pair transition must appear in the tick window before Differs is placed against the predicted next digit.'
+        'Minimum times a digit-pair transition must appear in the tick window before Matches is placed on the predicted next digit.'
     ),
 });
 
@@ -400,7 +400,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks last-digit pair transitions over a rolling tick window. When a pattern reaches the threshold, places Differs against the digit that usually follows, with Martingale recovery on losses.'
+                        'Tracks last-digit pair transitions over a rolling tick window. When a pattern such as 0→3 reaches the threshold and the current digit is 0, places Matches on 3 (the digit expected to be hit next), with Martingale recovery on losses.'
                     ),
                 ],
             },
