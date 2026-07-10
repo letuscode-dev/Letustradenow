@@ -20,7 +20,7 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
                 purchase_reference,
             },
             proposal: 1,
-            underlying_symbol: trade_option.symbol,
+            symbol: trade_option.symbol,
         };
         if (trade_option.prediction !== undefined) {
             proposal.selected_tick = trade_option.prediction;
@@ -40,7 +40,7 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
         if (!isEmptyObject(trade_option.limit_order)) {
             proposal.limit_order = trade_option.limit_order;
         }
-        return proposal;
+        return removeEmptyFields(proposal);
     });
 
 const DEFAULT_DIGIT_PREDICTION = 5;
@@ -49,15 +49,66 @@ const DEFAULT_BARRIER_OFFSET = '+1';
 const DEFAULT_SECOND_BARRIER_OFFSET = '-1';
 const DEFAULT_MULTIPLIER = 100;
 const DEFAULT_GROWTH_RATE = 0.01;
+const DEFAULT_BARRIER_RANGE = 'middle';
 
 const DIGIT_BARRIER_CONTRACT_TYPES = ['DIGITMATCH', 'DIGITDIFF', 'DIGITOVER', 'DIGITUNDER'];
 const SELECTED_TICK_CONTRACT_TYPES = ['TICKHIGH', 'TICKLOW'];
-const SINGLE_BARRIER_CONTRACT_TYPES = ['ONETOUCH', 'NOTOUCH', 'RESETCALL', 'RESETPUT', 'RUNHIGH', 'RUNLOW'];
-const DOUBLE_BARRIER_CONTRACT_TYPES = ['EXPIRYRANGE', 'EXPIRYMISS', 'RANGE', 'UPORDOWN', 'CALLSPREAD', 'PUTSPREAD'];
+const FIVE_TICK_CONTRACT_TYPES = ['ASIANU', 'ASIAND', 'TICKHIGH', 'TICKLOW', 'ONETOUCH', 'NOTOUCH'];
+const TWO_TICK_CONTRACT_TYPES = ['RUNHIGH', 'RUNLOW'];
+const SINGLE_BARRIER_CONTRACT_TYPES = ['ONETOUCH', 'NOTOUCH'];
+const DOUBLE_BARRIER_CONTRACT_TYPES = ['EXPIRYRANGE', 'EXPIRYMISS', 'RANGE', 'UPORDOWN'];
+const RESET_CONTRACT_TYPES = ['RESETCALL', 'RESETPUT'];
+const SPREAD_CONTRACT_TYPES = ['CALLSPREAD', 'PUTSPREAD'];
 const MULTIPLIER_CONTRACT_TYPES = ['MULTUP', 'MULTDOWN'];
 const ACCUMULATOR_CONTRACT_TYPES = ['ACCU'];
 
 const hasValue = value => value !== undefined && value !== null && value !== '';
+
+const removeEmptyFields = obj => {
+    Object.keys(obj).forEach(key => {
+        if (obj[key] === undefined || obj[key] === null || obj[key] === '') {
+            delete obj[key];
+        } else if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+            removeEmptyFields(obj[key]);
+            if (Object.keys(obj[key]).length === 0) {
+                delete obj[key];
+            }
+        }
+    });
+
+    return obj;
+};
+
+const durationToTradeOption = duration => {
+    const match = `${duration || ''}`.match(/^(\d+)([a-z])$/i);
+
+    if (!match) {
+        return {};
+    }
+
+    return {
+        duration: Number(match[1]),
+        duration_unit: match[2],
+    };
+};
+
+const applyContractDuration = (trade_option, contract_config) => {
+    const duration = durationToTradeOption(contract_config?.min_contract_duration);
+
+    if (hasValue(duration.duration) && duration.duration_unit) {
+        trade_option.duration = duration.duration;
+        trade_option.duration_unit = duration.duration_unit;
+    }
+};
+
+const getContractBarrier = (contract_config, fallback) =>
+    hasValue(contract_config?.barrier) ? contract_config.barrier : fallback;
+
+const getContractHighBarrier = (contract_config, fallback) =>
+    hasValue(contract_config?.high_barrier) ? contract_config.high_barrier : fallback;
+
+const getContractLowBarrier = (contract_config, fallback) =>
+    hasValue(contract_config?.low_barrier) ? contract_config.low_barrier : fallback;
 
 const getBoundedInteger = (value, fallback, min, max) => {
     const numeric_value = Number(value);
@@ -69,7 +120,7 @@ const getBoundedInteger = (value, fallback, min, max) => {
     return Math.min(max, Math.max(min, Math.floor(numeric_value)));
 };
 
-const normalizeTradeOptionForOverride = (contract_type, trade_option) => {
+const normalizeTradeOptionForOverride = (contract_type, trade_option, contract_config) => {
     const normalized_trade_option = {
         ...trade_option,
         basis: hasValue(trade_option.basis) ? trade_option.basis : 'stake',
@@ -83,31 +134,55 @@ const normalizeTradeOptionForOverride = (contract_type, trade_option) => {
         growth_rate: undefined,
     };
 
+    applyContractDuration(normalized_trade_option, contract_config);
+
+    if (!contract_config && FIVE_TICK_CONTRACT_TYPES.includes(contract_type)) {
+        normalized_trade_option.duration = 5;
+        normalized_trade_option.duration_unit = 't';
+    }
+
+    if (!contract_config && TWO_TICK_CONTRACT_TYPES.includes(contract_type)) {
+        normalized_trade_option.duration = 2;
+        normalized_trade_option.duration_unit = 't';
+    }
+
     if (DIGIT_BARRIER_CONTRACT_TYPES.includes(contract_type)) {
-        normalized_trade_option.prediction = getBoundedInteger(
+        normalized_trade_option.prediction = `${getBoundedInteger(
             trade_option.prediction,
             DEFAULT_DIGIT_PREDICTION,
             0,
             9
-        );
+        )}`;
     } else if (SELECTED_TICK_CONTRACT_TYPES.includes(contract_type)) {
+        const selected_tick_max = normalized_trade_option.duration || 5;
+
         normalized_trade_option.prediction = getBoundedInteger(
             trade_option.prediction,
             DEFAULT_SELECTED_TICK,
             1,
-            10
+            selected_tick_max
         );
     } else if (DOUBLE_BARRIER_CONTRACT_TYPES.includes(contract_type)) {
-        normalized_trade_option.barrierOffset = hasValue(trade_option.barrierOffset)
-            ? trade_option.barrierOffset
-            : DEFAULT_BARRIER_OFFSET;
-        normalized_trade_option.secondBarrierOffset = hasValue(trade_option.secondBarrierOffset)
-            ? trade_option.secondBarrierOffset
-            : DEFAULT_SECOND_BARRIER_OFFSET;
+        normalized_trade_option.barrierOffset = getContractHighBarrier(
+            contract_config,
+            hasValue(trade_option.barrierOffset) ? trade_option.barrierOffset : DEFAULT_BARRIER_OFFSET
+        );
+        normalized_trade_option.secondBarrierOffset = getContractLowBarrier(
+            contract_config,
+            hasValue(trade_option.secondBarrierOffset) ? trade_option.secondBarrierOffset : DEFAULT_SECOND_BARRIER_OFFSET
+        );
     } else if (SINGLE_BARRIER_CONTRACT_TYPES.includes(contract_type)) {
-        normalized_trade_option.barrierOffset = hasValue(trade_option.barrierOffset)
-            ? trade_option.barrierOffset
-            : DEFAULT_BARRIER_OFFSET;
+        normalized_trade_option.barrierOffset = getContractBarrier(
+            contract_config,
+            hasValue(trade_option.barrierOffset) ? trade_option.barrierOffset : DEFAULT_BARRIER_OFFSET
+        );
+    } else if (SPREAD_CONTRACT_TYPES.includes(contract_type)) {
+        normalized_trade_option.basis = 'payout';
+        normalized_trade_option.barrier_range = trade_option.barrier_range || DEFAULT_BARRIER_RANGE;
+    } else if (RESET_CONTRACT_TYPES.includes(contract_type)) {
+        normalized_trade_option.barrierOffset = undefined;
+    } else if (TWO_TICK_CONTRACT_TYPES.includes(contract_type)) {
+        normalized_trade_option.barrierOffset = undefined;
     }
 
     if (MULTIPLIER_CONTRACT_TYPES.includes(contract_type)) {
@@ -145,7 +220,7 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
             duration: trade_option.duration,
             duration_unit: trade_option.duration_unit,
             multiplier: trade_option.multiplier,
-            underlying_symbol: trade_option.symbol,
+            symbol: trade_option.symbol,
         },
     };
     if (trade_option.prediction !== undefined) {
@@ -162,7 +237,7 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
     if (!isEmptyObject(trade_option.app_markup_percentage)) {
         buy.parameters.app_markup_percentage = trade_option.app_markup_percentage;
     }
-    if (!isEmptyObject(trade_option.barrier_range)) {
+    if (hasValue(trade_option.barrier_range)) {
         buy.parameters.barrier_range = trade_option.barrier_range;
     }
     if (!isEmptyObject(trade_option.date_expiry)) {
@@ -194,11 +269,11 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
         buy.parameters.duration_unit = undefined;
         buy.parameters.growth_rate = trade_option.growth_rate;
     }
-    return buy;
+    return removeEmptyFields(buy);
 };
 
-export const tradeOptionToOverrideBuy = (contract_type, trade_option) =>
-    tradeOptionToBuy(contract_type, normalizeTradeOptionForOverride(contract_type, trade_option));
+export const tradeOptionToOverrideBuy = (contract_type, trade_option, contract_config) =>
+    tradeOptionToBuy(contract_type, normalizeTradeOptionForOverride(contract_type, trade_option, contract_config));
 
 export const getDirection = ticks => {
     const { length } = ticks;

@@ -7,7 +7,7 @@ export const DEFAULT_PROPOSAL_REQUEST = {
     basis: 'stake',
     contract_type: 'ACCU',
     currency: undefined,
-    underlying_symbol: undefined,
+    symbol: undefined,
     growth_rate: undefined,
     proposal: 1,
     subscribe: 1,
@@ -33,7 +33,7 @@ export const handleProposalRequestForAccumulators = instance => {
         ...DEFAULT_PROPOSAL_REQUEST,
         amount,
         currency,
-        underlying_symbol,
+        symbol: underlying_symbol,
         growth_rate,
     };
     window.Blockly.accumulators_request = proposal_request;
@@ -47,7 +47,7 @@ export const requestProposalForQS = (input_values, ws) => {
         ...DEFAULT_PROPOSAL_REQUEST,
         amount,
         currency,
-        underlying_symbol: symbol,
+        symbol,
         growth_rate,
         subscribe: undefined,
         limit_order: {

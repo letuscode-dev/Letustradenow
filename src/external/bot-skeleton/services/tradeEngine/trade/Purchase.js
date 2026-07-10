@@ -8,6 +8,63 @@ import { BEFORE_PURCHASE } from './state/constants';
 let delayIndex = 0;
 let purchase_reference;
 
+const DURATION_UNIT_ORDER = {
+    t: 0,
+    s: 1,
+    m: 2,
+    h: 3,
+    d: 4,
+};
+
+const SINGLE_BARRIER_OVERRIDE_CONTRACT_TYPES = ['ONETOUCH', 'NOTOUCH'];
+const DOUBLE_BARRIER_OVERRIDE_CONTRACT_TYPES = ['EXPIRYRANGE', 'EXPIRYMISS', 'RANGE', 'UPORDOWN'];
+
+const parseDuration = duration => {
+    const match = `${duration || ''}`.match(/^(\d+)([a-z])$/i);
+
+    if (!match) {
+        return { value: Number.MAX_SAFE_INTEGER, unit: 'z' };
+    }
+
+    return {
+        value: Number(match[1]),
+        unit: match[2],
+    };
+};
+
+const getExpectedBarrierCount = contract_type => {
+    if (SINGLE_BARRIER_OVERRIDE_CONTRACT_TYPES.includes(contract_type)) {
+        return 1;
+    }
+
+    if (DOUBLE_BARRIER_OVERRIDE_CONTRACT_TYPES.includes(contract_type)) {
+        return 2;
+    }
+
+    return undefined;
+};
+
+const getDurationScore = contract => {
+    const { value, unit } = parseDuration(contract.min_contract_duration);
+    const unit_order = DURATION_UNIT_ORDER[unit] ?? Number.MAX_SAFE_INTEGER;
+
+    return unit_order * 100000 + value;
+};
+
+const selectOverrideContractConfig = (contract_type, contracts = []) => {
+    const candidates = contracts.filter(contract => contract.contract_type === contract_type);
+    const expected_barrier_count = getExpectedBarrierCount(contract_type);
+
+    return candidates.sort((a, b) => {
+        const a_barrier_score =
+            expected_barrier_count === undefined || Number(a.barriers) === expected_barrier_count ? 0 : 1;
+        const b_barrier_score =
+            expected_barrier_count === undefined || Number(b.barriers) === expected_barrier_count ? 0 : 1;
+
+        return a_barrier_score - b_barrier_score || getDurationScore(a) - getDurationScore(b);
+    })[0];
+};
+
 export default Engine =>
     class Purchase extends Engine {
         handlePurchaseSuccess(response, contract_type) {
@@ -62,8 +119,40 @@ export default Engine =>
             throw error;
         }
 
-        purchaseDirect(contract_type, purchase_builder = tradeOptionToBuy) {
-            const trade_option = purchase_builder(contract_type, this.tradeOptions);
+        getOverrideContractConfig(contract_type) {
+            const symbol = this.tradeOptions?.symbol || this.options?.symbol;
+
+            if (!api_base.api || !symbol) {
+                return Promise.resolve();
+            }
+
+            if (!this.override_contracts_for_symbol || this.override_contracts_for_symbol.symbol !== symbol) {
+                this.override_contracts_for_symbol = {
+                    symbol,
+                    promise: api_base.api
+                        .send({ contracts_for: symbol })
+                        .then(response => response?.contracts_for?.available || [])
+                        .catch(error => {
+                            if (this.override_contracts_for_symbol?.symbol === symbol) {
+                                this.override_contracts_for_symbol = null;
+                            }
+                            throw error;
+                        }),
+                };
+            }
+
+            return this.override_contracts_for_symbol.promise.then(contracts =>
+                selectOverrideContractConfig(contract_type, contracts)
+            );
+        }
+
+        purchaseDirect(contract_type, purchase_builder = tradeOptionToBuy, purchase_builder_options) {
+            if (this.store.getState().scope !== BEFORE_PURCHASE) {
+                this.resetPurchaseAttempt();
+                return Promise.resolve();
+            }
+
+            const trade_option = purchase_builder(contract_type, this.tradeOptions, purchase_builder_options);
             const action = () => api_base.api.send(trade_option);
 
             this.isSold = false;
@@ -108,7 +197,9 @@ export default Engine =>
 
             this.markPurchaseAttempt();
 
-            return this.purchaseDirect(contract_type, tradeOptionToOverrideBuy);
+            return this.getOverrideContractConfig(contract_type)
+                .catch(() => undefined)
+                .then(contract_config => this.purchaseDirect(contract_type, tradeOptionToOverrideBuy, contract_config));
         }
 
         purchase(contract_type) {

@@ -180,7 +180,7 @@ export default Engine =>
                 'duration_unit',
                 'prediction',
                 'secondBarrierOffset',
-                'underlying_symbol',
+                'symbol',
             ].some(value => this.trade_option[value] !== trade_option[value]);
         }
     };
