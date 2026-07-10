@@ -14,7 +14,8 @@ describe('digit transition analysis', () => {
         // Current digit is 1. Pattern 1→7 appears three times; threshold is 3.
         const digits = [1, 7, 1, 7, 1, 7, 1];
         expect(getDigitTransitionSignal(digits, 3)).toEqual({ from: 1, to: 7, count: 3 });
-        expect(getDigitTransitionPrediction(digits, 3)).toBe(7);
+        // Differs the digit that initiated the pattern (1), not the destination (7).
+        expect(getDigitTransitionPrediction(digits, 3)).toBe(1);
     });
 
     it('ignores patterns below the threshold', () => {

@@ -58,13 +58,13 @@ export const getDigitTransitionSignal = (digits, threshold = DEFAULT_PATTERN_THR
 };
 
 /**
- * Returns the predicted next digit to Differs against, or -1 when no pattern qualifies.
- * Example: strong 0→3 and current digit is 0 → returns 3 (place Differs on 3).
+ * Returns the digit that initiated the strongest qualifying transition, or -1.
+ * Example: strong 0→3 and current digit is 0 → returns 0 (place Differs on 0).
  * @param {Array<number|string>} digits
  * @param {number} threshold
  * @returns {number}
  */
 export const getDigitTransitionPrediction = (digits, threshold = DEFAULT_PATTERN_THRESHOLD) => {
     const signal = getDigitTransitionSignal(digits, threshold);
-    return signal ? signal.to : -1;
+    return signal ? signal.from : -1;
 };

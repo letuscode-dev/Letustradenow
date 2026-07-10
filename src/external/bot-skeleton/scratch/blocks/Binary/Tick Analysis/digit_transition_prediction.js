@@ -29,7 +29,7 @@ window.Blockly.Blocks.digit_transition_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Analyzes last-digit transitions in the tick window. Returns the strongest next digit when its count meets the threshold, otherwise -1.'
+                'Analyzes last-digit transitions in the tick window. Returns the starting digit of the strongest pattern when its count meets the threshold, otherwise -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -38,7 +38,7 @@ window.Blockly.Blocks.digit_transition_prediction = {
         return {
             display_name: localize('Digit transition prediction'),
             description: localize(
-                'Counts digit-pair transitions (0→0 … 9→9) over the selected tick window. When the current last digit has a following digit at or above the threshold, returns that digit so Differs can be placed on it immediately. Returns -1 when no pattern qualifies.'
+                'Counts digit-pair transitions (0→0 … 9→9) over the selected tick window. When the current last digit starts a pattern at or above the threshold (e.g. 0→3), returns that starting digit (0) so Differs can be placed on it. Returns -1 when no pattern qualifies.'
             ),
             key_words: localize('digit, transition, pattern, differs, ticks, threshold'),
         };
