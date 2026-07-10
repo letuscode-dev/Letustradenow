@@ -22,10 +22,13 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
             proposal: 1,
             underlying_symbol: trade_option.symbol,
         };
-        if (trade_option.prediction !== undefined) {
+        // selected_tick is only valid for High/Low Tick contracts (1..duration).
+        // Digit contracts (Differs/Under/etc.) must use barrier only — sending
+        // selected_tick with a digit prediction (e.g. 8 on a 1-tick trade) causes
+        // InputValidationFailed ("Invalid input provided").
+        if (['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
             proposal.selected_tick = trade_option.prediction;
-        }
-        if (!['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
+        } else if (trade_option.prediction !== undefined) {
             proposal.barrier = trade_option.prediction;
         } else if (trade_option.barrierOffset !== undefined) {
             proposal.barrier = trade_option.barrierOffset;
@@ -223,10 +226,12 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
             underlying_symbol: trade_option.symbol,
         },
     };
-    if (trade_option.prediction !== undefined) {
+    // selected_tick is only valid for High/Low Tick contracts (1..duration).
+    // Digit contracts must use barrier only — a digit prediction as selected_tick
+    // (e.g. Override Under with prediction 8 on 1 tick) triggers InputValidationFailed.
+    if (['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
         buy.parameters.selected_tick = trade_option.prediction;
-    }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
+    } else if (trade_option.prediction !== undefined) {
         buy.parameters.barrier = trade_option.prediction;
     } else if (trade_option.barrierOffset !== undefined) {
         buy.parameters.barrier = trade_option.barrierOffset;
