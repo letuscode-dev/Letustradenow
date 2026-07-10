@@ -232,6 +232,52 @@ const LABEL_MARTINGALE_SIZE = (): TConfigItem => ({
     description: localize('The size used to multiply the stake after a losing trade for the next trade.'),
 });
 
+const LABEL_TICK_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Tick window'),
+    description: localize('Number of recent ticks used to count digit-pair transitions. Default is 120.'),
+});
+
+const TICK_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'tick_window',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '2',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_PATTERN_THRESHOLD = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Pattern threshold'),
+    description: localize(
+        'Minimum times a digit-pair transition must appear in the tick window before Differs is placed against the predicted next digit.'
+    ),
+});
+
+const PATTERN_THRESHOLD = (): TConfigItem => ({
+    type: 'number',
+    name: 'pattern_threshold',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
 const LABEL_REVERSE_MARTINGALE_SIZE = (): TConfigItem => ({
     type: 'label',
     label: localize('Size'),
@@ -332,6 +378,43 @@ export const STRATEGIES = (): TStrategies => ({
                 LABEL_DURATION(),
                 DURATION_TYPE(),
                 DURATION(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_LOSS(),
+                LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_MAX_STAKE(),
+                MAX_STAKE(),
+            ],
+        ],
+    },
+    DIGIT_TRANSITION_MARTINGALE: {
+        name: 'digit_transition_martingale',
+        label: localize('Digit Transition Martingale'),
+        rs_strategy_name: 'digit transition martingale',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Tracks last-digit pair transitions over a rolling tick window. When a pattern reaches the threshold, places Differs against the digit that usually follows, with Martingale recovery on losses.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_TICK_WINDOW(),
+                TICK_WINDOW(),
+                LABEL_PATTERN_THRESHOLD(),
+                PATTERN_THRESHOLD(),
             ],
             [
                 LABEL_PROFIT(),

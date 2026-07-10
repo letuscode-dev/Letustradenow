@@ -382,6 +382,18 @@ export const ToolboxItems = () =>
                     <Block type='tick_analysis' />
                     <Block type='tick' />
                     <Block type='last_digit' />
+                    <Block type='digit_transition_prediction'>
+                        <Value name='TICK_WINDOW'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>120</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='THRESHOLD'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>5</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='stat' />
                     <Block type='stat_list' />
                     <Block type='ticks' />

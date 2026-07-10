@@ -6,6 +6,15 @@ export const addDynamicBlockToDOM = (
 ) => {
     const supports_prediction = ['matchesdiffers', 'overunder', 'highlowticks'].includes(trade_type);
 
+    // Keep strategies that already define PREDICTION (e.g. dynamic digit-transition bots).
+    if (name_block === 'PREDICTION' && strategy_dom.querySelector('value[name="PREDICTION"]')) {
+        const mutation_element = strategy_dom.querySelector('block[type="trade_definition_tradeoptions"] > mutation');
+        if (mutation_element) {
+            mutation_element.setAttribute('has_prediction', 'true');
+        }
+        return;
+    }
+
     if (supports_prediction) {
         const block = document.createElement('value');
         block.setAttribute('name', name_block);
