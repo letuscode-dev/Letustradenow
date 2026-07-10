@@ -42,7 +42,7 @@ import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
 import Analysis from '../analysis';
-import AutomatedStrategies from '../automated-strategies';
+import FreeBots from '../free-bots';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
@@ -82,7 +82,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'automated_strategies'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -479,12 +479,12 @@ const AppWrapper = observer(() => {
                                             width='24px'
                                             fill='var(--text-general)'
                                         />
-                                        <Localize i18n_default_text='Automated' />
+                                        <Localize i18n_default_text='Free Bots' />
                                     </>
                                 }
-                                id='id-automated-strategies'
+                                id='id-free-bots'
                             >
-                                <AutomatedStrategies />
+                                <FreeBots />
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}

@@ -268,7 +268,7 @@ const RunPanel = observer(() => {
     const { statistics } = transactions;
     const { active_tour, active_tab } = dashboard;
     const { total_payout, total_profit, total_stake, won_contracts, lost_contracts, number_of_runs } = statistics;
-    const { ANALYSIS, AUTOMATED, BOT_BUILDER, CHART, DASHBOARD, TUTORIAL } = DBOT_TABS;
+    const { ANALYSIS, BOT_BUILDER, CHART, DASHBOARD, FREE_BOTS, TUTORIAL } = DBOT_TABS;
 
     React.useEffect(() => {
         onMount();
@@ -312,7 +312,7 @@ const RunPanel = observer(() => {
     );
 
     const show_run_panel =
-        [DASHBOARD, BOT_BUILDER, CHART, ANALYSIS, TUTORIAL, AUTOMATED].includes(active_tab) || active_tour;
+        [DASHBOARD, BOT_BUILDER, CHART, ANALYSIS, TUTORIAL, FREE_BOTS].includes(active_tab) || active_tour;
     if ((!show_run_panel && isDesktop) || active_tour === 'bot_builder') return null;
 
     return (
