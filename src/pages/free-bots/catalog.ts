@@ -56,16 +56,16 @@ export const FREE_BOTS: FreeBot[] = [
     },
     {
         id: 'digit-transition-martingale',
-        title: localize('Digit Transition Matches'),
+        title: localize('Digit Transition Differs'),
         description: localize(
-            'Analyzes last-digit pair transitions over 120 ticks. When a strong pattern like 0→3 hits the threshold and the current digit is 0, places Matches on 3 (the digit expected to be hit next), with Martingale recovery.'
+            'Analyzes last-digit pair transitions over 120 ticks. When a strong pattern like 0→3 hits the threshold and the current digit is 0, immediately places Differs on 3, with Martingale recovery.'
         ),
-        tags: [localize('Martingale'), localize('Matches'), localize('Transitions')],
+        tags: [localize('Martingale'), localize('Differs'), localize('Transitions')],
         strategy: 'DIGIT_TRANSITION_MARTINGALE',
         form: {
             symbol: '1HZ100V',
             tradetype: 'matchesdiffers',
-            type: 'DIGITMATCH',
+            type: 'DIGITDIFF',
             stake: '1',
             duration: '1',
             durationtype: 't',
