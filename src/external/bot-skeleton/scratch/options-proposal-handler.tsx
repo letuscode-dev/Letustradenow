@@ -8,7 +8,7 @@ interface OptionsProposalRequest {
     basis: string;
     contract_type?: string;
     currency?: string | undefined;
-    symbol?: string;
+    underlying_symbol?: string;
     duration?: number;
     duration_unit?: string;
     proposal: number;
@@ -68,7 +68,7 @@ export const DEFAULT_OPTIONS_PROPOSAL_REQUEST: OptionsProposalRequest = {
     basis: 'stake',
     contract_type: undefined,
     currency: undefined,
-    symbol: undefined,
+    underlying_symbol: undefined,
     duration: undefined,
     duration_unit: undefined,
     proposal: 1,
@@ -84,7 +84,7 @@ export const requestOptionsProposalForQS = (
         ...DEFAULT_OPTIONS_PROPOSAL_REQUEST,
         amount,
         currency,
-        symbol: underlying_symbol,
+        underlying_symbol,
         contract_type,
         duration,
         duration_unit,
