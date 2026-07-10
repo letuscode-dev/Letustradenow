@@ -11,15 +11,21 @@
     width: 100%;
 
     @include mobile-screen {
+        gap: 1rem;
         height: var(--tab-content-height-mobile);
-        padding: 1.2rem;
+        padding: 1rem 1.2rem 1.6rem;
     }
 
     &__header {
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
         gap: 0.4rem;
         max-width: 64rem;
+
+        @include mobile-screen {
+            gap: 0.2rem;
+        }
     }
 
     &__title {
@@ -28,6 +34,10 @@
         font-weight: 700;
         line-height: 1.3;
         margin: 0;
+
+        @include mobile-screen {
+            font-size: 1.6rem;
+        }
     }
 
     &__subtitle {
@@ -35,6 +45,11 @@
         font-size: 1.4rem;
         line-height: 1.5;
         margin: 0;
+
+        @include mobile-screen {
+            font-size: 1.2rem;
+            line-height: 1.4;
+        }
     }
 
     &__empty {
@@ -48,7 +63,7 @@
     }
 
     // Desktop + tablet: cards flow horizontally.
-    // Mobile: stacked column.
+    // Mobile: compact vertical stack.
     &__list {
         display: flex;
         flex-direction: row;
@@ -62,7 +77,8 @@
 
         @include mobile-screen {
             flex-direction: column;
-            gap: 1.2rem;
+            flex-wrap: nowrap;
+            gap: 0.8rem;
         }
     }
 
@@ -77,7 +93,6 @@
         gap: 1.2rem;
         justify-content: space-between;
         max-width: 36rem;
-        min-height: 100%;
         min-width: 26rem;
         padding: 1.6rem;
 
@@ -88,19 +103,31 @@
         }
 
         @include mobile-screen {
-            flex: 1 1 auto;
+            border-radius: 0.6rem;
+            flex: 0 0 auto;
+            gap: 0.8rem;
             max-width: none;
+            min-height: 0;
             min-width: 0;
+            padding: 1rem 1.2rem;
             width: 100%;
         }
     }
 
     &__card-body {
         display: flex;
-        flex: 1;
         flex-direction: column;
         gap: 0.6rem;
         min-width: 0;
+
+        @include tablet-or-desktop-screen {
+            flex: 1;
+        }
+
+        @include mobile-screen {
+            flex: 0 0 auto;
+            gap: 0.4rem;
+        }
     }
 
     &__card-title {
@@ -109,6 +136,11 @@
         font-weight: 700;
         line-height: 1.3;
         margin: 0;
+
+        @include mobile-screen {
+            font-size: 1.4rem;
+            line-height: 1.25;
+        }
     }
 
     &__card-description {
@@ -116,6 +148,16 @@
         font-size: 1.3rem;
         line-height: 1.5;
         margin: 0;
+
+        @include mobile-screen {
+            -webkit-box-orient: vertical;
+            display: -webkit-box;
+            font-size: 1.2rem;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            line-height: 1.4;
+            overflow: hidden;
+        }
     }
 
     &__tags {
@@ -123,6 +165,11 @@
         flex-wrap: wrap;
         gap: 0.6rem;
         margin-top: 0.2rem;
+
+        @include mobile-screen {
+            gap: 0.4rem 0.8rem;
+            margin-top: 0;
+        }
     }
 
     &__tag {
@@ -131,33 +178,45 @@
         font-weight: 600;
         letter-spacing: 0.02em;
         text-transform: uppercase;
+
+        @include mobile-screen {
+            font-size: 1rem;
+        }
     }
 
     &__status {
         color: var(--text-general);
         font-size: 1.2rem;
         margin-top: 0.4rem;
+
+        @include mobile-screen {
+            font-size: 1.1rem;
+            margin-top: 0.2rem;
+        }
     }
 
     &__actions {
         display: flex;
-        flex-wrap: wrap;
+        flex-direction: row;
+        flex-wrap: nowrap;
         gap: 0.8rem;
-        margin-top: auto;
         width: 100%;
 
+        @include tablet-or-desktop-screen {
+            margin-top: auto;
+        }
+
         @include mobile-screen {
-            flex-direction: column;
+            gap: 0.6rem;
         }
     }
 
     &__button {
-        flex: 1 1 auto;
-        min-width: 11rem;
+        flex: 1 1 0;
+        min-width: 0;
 
-        @include mobile-screen {
-            min-width: 0;
-            width: 100%;
+        @include tablet-or-desktop-screen {
+            min-width: 11rem;
         }
     }
 }
