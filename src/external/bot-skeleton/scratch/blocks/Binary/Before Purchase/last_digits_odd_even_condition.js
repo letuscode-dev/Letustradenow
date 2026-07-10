@@ -20,7 +20,6 @@ const getConditionCode = (block, index) => {
     const tick_count = getTickCount(block, index);
     const parity = block.getFieldValue(`PARITY${index}`) === 'EVEN' ? 'EVEN' : 'ODD';
     const remainder = parity === 'EVEN' ? 0 : 1;
-    const parity_label = parity === 'EVEN' ? 'Even' : 'Odd';
     const digits_text_expr = getLastDigitsBracketFormatCode();
     const notify_code = getLastDigitsConditionNotifyCode({
         block_id: block.id,
@@ -31,18 +30,13 @@ const getConditionCode = (block, index) => {
     return `(function () {
             var BinaryBotPrivateTickCount = ${tick_count};
             var BinaryBotPrivateLastDigits = Bot.getCachedLastDigitList(BinaryBotPrivateTickCount);
-            var BinaryBotPrivateParityLabel = ${JSON.stringify(parity_label)};
             var BinaryBotPrivateMatched = false;
             var BinaryBotPrivateDigitsWindow = [];
             var BinaryBotPrivateDigitsText = '[]';
             var BinaryBotPrivateMessage = '';
 
             if (!BinaryBotPrivateLastDigits || BinaryBotPrivateLastDigits.length < BinaryBotPrivateTickCount) {
-                BinaryBotPrivateMessage =
-                    'Last digit odd/even condition not met: need ' +
-                    BinaryBotPrivateTickCount +
-                    ' digit(s), got ' +
-                    (BinaryBotPrivateLastDigits ? BinaryBotPrivateLastDigits.length : 0);
+                BinaryBotPrivateMessage = '[]';
                 ${notify_code}
                 return false;
             }
@@ -53,13 +47,7 @@ const getConditionCode = (block, index) => {
                 BinaryBotPrivateDigit = Number(BinaryBotPrivateDigit);
                 return !isNaN(BinaryBotPrivateDigit) && Math.abs(BinaryBotPrivateDigit % 2) === ${remainder};
             });
-            BinaryBotPrivateMessage =
-                (BinaryBotPrivateMatched
-                    ? 'Last digit odd/even condition met: '
-                    : 'Last digit odd/even condition not met: ') +
-                BinaryBotPrivateDigitsText +
-                (BinaryBotPrivateMatched ? ' are all ' : ' are not all ') +
-                BinaryBotPrivateParityLabel;
+            BinaryBotPrivateMessage = BinaryBotPrivateDigitsText;
             ${notify_code}
             return BinaryBotPrivateMatched;
         })()`;
