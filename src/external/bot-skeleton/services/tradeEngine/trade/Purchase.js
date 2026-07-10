@@ -1,7 +1,14 @@
 import { LogTypes } from '../../../constants/messages';
 import { api_base } from '../../api/api-base';
 import { contractStatus, info, log } from '../utils/broadcast';
-import { doUntilDone, getUUID, recoverFromError, tradeOptionToBuy, tradeOptionToOverrideBuy } from '../utils/helpers';
+import {
+    doUntilDone,
+    getUUID,
+    recoverFromError,
+    tradeOptionToBuy,
+    tradeOptionToOverrideBuy,
+    tradeOptionToOverrideProposal,
+} from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
 
@@ -199,7 +206,52 @@ export default Engine =>
 
             return this.getOverrideContractConfig(contract_type)
                 .catch(() => undefined)
-                .then(contract_config => this.purchaseDirect(contract_type, tradeOptionToOverrideBuy, contract_config));
+                .then(contract_config => {
+                    // Prefer proposal → buy(id). Direct buy(parameters) is stricter and
+                    // was rejecting digit overrides (Under/Over/etc.) with InputValidationFailed.
+                    const proposal_request = tradeOptionToOverrideProposal(
+                        contract_type,
+                        this.tradeOptions,
+                        contract_config,
+                        this.getPurchaseReference()
+                    );
+
+                    if (!proposal_request?.underlying_symbol || !proposal_request?.currency) {
+                        return this.purchaseDirect(contract_type, tradeOptionToOverrideBuy, contract_config);
+                    }
+
+                    if (this.store.getState().scope !== BEFORE_PURCHASE) {
+                        this.resetPurchaseAttempt();
+                        return Promise.resolve();
+                    }
+
+                    this.isSold = false;
+                    contractStatus({
+                        id: 'contract.purchase_sent',
+                        data: this.tradeOptions.amount,
+                    });
+
+                    const action = () =>
+                        api_base.api.send(proposal_request).then(proposal_response => {
+                            if (proposal_response?.error) {
+                                throw proposal_response;
+                            }
+
+                            const proposal = proposal_response?.proposal;
+                            if (!proposal?.id) {
+                                throw proposal_response || new Error('InvalidContractProposal');
+                            }
+
+                            return api_base.api.send({
+                                buy: proposal.id,
+                                price: proposal.ask_price,
+                            });
+                        });
+
+                    return doUntilDone(action)
+                        .then(response => this.handlePurchaseSuccess(response, contract_type))
+                        .catch(error => this.resetPurchaseAttemptOnError(error));
+                });
         }
 
         purchase(contract_type) {

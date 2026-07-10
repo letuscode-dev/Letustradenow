@@ -5,47 +5,6 @@ import { localize } from '@deriv-com/translations';
 import { observer as globalObserver } from '../../../utils/observer';
 import { error as logError } from './broadcast';
 
-export const tradeOptionToProposal = (trade_option, purchase_reference) =>
-    trade_option.contractTypes.map(type => {
-        const proposal = {
-            amount: trade_option.amount,
-            basis: trade_option.basis,
-            contract_type: type,
-            currency: trade_option.currency,
-            duration: trade_option.duration,
-            duration_unit: trade_option.duration_unit,
-            multiplier: trade_option.multiplier,
-            passthrough: {
-                contract_type: type,
-                purchase_reference,
-            },
-            proposal: 1,
-            underlying_symbol: trade_option.symbol,
-        };
-        // selected_tick is only valid for High/Low Tick contracts (1..duration).
-        // Digit contracts (Differs/Under/etc.) must use barrier only — sending
-        // selected_tick with a digit prediction (e.g. 8 on a 1-tick trade) causes
-        // InputValidationFailed ("Invalid input provided").
-        if (['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
-            proposal.selected_tick = trade_option.prediction;
-        } else if (trade_option.prediction !== undefined) {
-            proposal.barrier = trade_option.prediction;
-        } else if (trade_option.barrierOffset !== undefined) {
-            proposal.barrier = trade_option.barrierOffset;
-        }
-        if (trade_option.secondBarrierOffset !== undefined) {
-            proposal.barrier2 = trade_option.secondBarrierOffset;
-        }
-        if (['MULTUP', 'MULTDOWN'].includes(type)) {
-            proposal.duration = undefined;
-            proposal.duration_unit = undefined;
-        }
-        if (!isEmptyObject(trade_option.limit_order)) {
-            proposal.limit_order = trade_option.limit_order;
-        }
-        return removeEmptyFields(proposal);
-    });
-
 const DEFAULT_DIGIT_PREDICTION = 5;
 const DEFAULT_SELECTED_TICK = 1;
 const DEFAULT_BARRIER_OFFSET = '+1';
@@ -80,6 +39,34 @@ const removeEmptyFields = obj => {
     });
 
     return obj;
+};
+
+const toNumber = (value, fallback) => {
+    const numeric_value = Number(value);
+    return Number.isFinite(numeric_value) ? numeric_value : fallback;
+};
+
+const toInteger = (value, fallback) => {
+    const numeric_value = Number(value);
+    return Number.isFinite(numeric_value) ? Math.trunc(numeric_value) : fallback;
+};
+
+const toBarrierString = value => {
+    if (!hasValue(value)) {
+        return undefined;
+    }
+
+    return `${value}`;
+};
+
+const getDigitPredictionBounds = contract_type => {
+    if (contract_type === 'DIGITUNDER') {
+        return { min: 1, max: 9 };
+    }
+    if (contract_type === 'DIGITOVER') {
+        return { min: 0, max: 8 };
+    }
+    return { min: 0, max: 9 };
 };
 
 const durationToTradeOption = duration => {
@@ -123,18 +110,83 @@ const getBoundedInteger = (value, fallback, min, max) => {
     return Math.min(max, Math.max(min, Math.floor(numeric_value)));
 };
 
-const normalizeTradeOptionForOverride = (contract_type, trade_option, contract_config) => {
+/**
+ * Build a DerivWS-safe proposal/buy field set.
+ * Schema requires: barrier as string, amount/duration/price as numbers,
+ * selected_tick only for TICKHIGH/TICKLOW, and no unknown properties.
+ */
+const buildContractParameters = (contract_type, trade_option) => {
+    const parameters = {
+        amount: toNumber(trade_option.amount, undefined),
+        basis: trade_option.basis,
+        contract_type,
+        currency: trade_option.currency,
+        duration: toInteger(trade_option.duration, undefined),
+        duration_unit: trade_option.duration_unit,
+        underlying_symbol: trade_option.symbol,
+    };
+
+    if (SELECTED_TICK_CONTRACT_TYPES.includes(contract_type) && hasValue(trade_option.prediction)) {
+        parameters.selected_tick = toInteger(trade_option.prediction, DEFAULT_SELECTED_TICK);
+    } else if (hasValue(trade_option.prediction)) {
+        parameters.barrier = toBarrierString(trade_option.prediction);
+    } else if (hasValue(trade_option.barrierOffset)) {
+        parameters.barrier = toBarrierString(trade_option.barrierOffset);
+    }
+
+    if (hasValue(trade_option.secondBarrierOffset)) {
+        parameters.barrier2 = toBarrierString(trade_option.secondBarrierOffset);
+    }
+
+    if (MULTIPLIER_CONTRACT_TYPES.includes(contract_type)) {
+        parameters.duration = undefined;
+        parameters.duration_unit = undefined;
+        parameters.multiplier = toNumber(trade_option.multiplier, DEFAULT_MULTIPLIER);
+        if (!isEmptyObject(trade_option.limit_order)) {
+            parameters.limit_order = trade_option.limit_order;
+        }
+    }
+
+    if (ACCUMULATOR_CONTRACT_TYPES.includes(contract_type)) {
+        parameters.duration = undefined;
+        parameters.duration_unit = undefined;
+        parameters.growth_rate = toNumber(trade_option.growth_rate, DEFAULT_GROWTH_RATE);
+        if (!isEmptyObject(trade_option.limit_order)) {
+            parameters.limit_order = trade_option.limit_order;
+        }
+    }
+
+    return removeEmptyFields(parameters);
+};
+
+export const tradeOptionToProposal = (trade_option, purchase_reference) =>
+    trade_option.contractTypes.map(type => {
+        const parameters = buildContractParameters(type, trade_option);
+
+        return removeEmptyFields({
+            ...parameters,
+            proposal: 1,
+            passthrough: {
+                contract_type: type,
+                purchase_reference,
+            },
+        });
+    });
+
+export const normalizeTradeOptionForOverride = (contract_type, trade_option, contract_config) => {
     const normalized_trade_option = {
         ...trade_option,
         basis: hasValue(trade_option.basis) ? trade_option.basis : 'stake',
-        duration: hasValue(trade_option.duration) ? trade_option.duration : 1,
+        duration: hasValue(trade_option.duration) ? toInteger(trade_option.duration, 1) : 1,
         duration_unit: hasValue(trade_option.duration_unit) ? trade_option.duration_unit : 't',
+        amount: toNumber(trade_option.amount, undefined),
         prediction: undefined,
         barrierOffset: undefined,
         secondBarrierOffset: undefined,
         limit_order: {},
         multiplier: undefined,
         growth_rate: undefined,
+        barrier_range: undefined,
     };
 
     applyContractDuration(normalized_trade_option, contract_config);
@@ -150,12 +202,9 @@ const normalizeTradeOptionForOverride = (contract_type, trade_option, contract_c
     }
 
     if (DIGIT_BARRIER_CONTRACT_TYPES.includes(contract_type)) {
-        normalized_trade_option.prediction = `${getBoundedInteger(
-            trade_option.prediction,
-            DEFAULT_DIGIT_PREDICTION,
-            0,
-            9
-        )}`;
+        const { min, max } = getDigitPredictionBounds(contract_type);
+        const fallback = getBoundedInteger(DEFAULT_DIGIT_PREDICTION, DEFAULT_DIGIT_PREDICTION, min, max);
+        normalized_trade_option.prediction = `${getBoundedInteger(trade_option.prediction, fallback, min, max)}`;
     } else if (SELECTED_TICK_CONTRACT_TYPES.includes(contract_type)) {
         const selected_tick_max = normalized_trade_option.duration || 5;
 
@@ -212,73 +261,22 @@ const normalizeTradeOptionForOverride = (contract_type, trade_option, contract_c
 };
 
 export const tradeOptionToBuy = (contract_type, trade_option) => {
-    const buy = {
-        buy: '1',
-        price: trade_option.amount,
-        parameters: {
-            amount: trade_option.amount,
-            basis: trade_option.basis,
-            contract_type,
-            currency: trade_option.currency,
-            duration: trade_option.duration,
-            duration_unit: trade_option.duration_unit,
-            multiplier: trade_option.multiplier,
-            underlying_symbol: trade_option.symbol,
-        },
-    };
-    // selected_tick is only valid for High/Low Tick contracts (1..duration).
-    // Digit contracts must use barrier only — a digit prediction as selected_tick
-    // (e.g. Override Under with prediction 8 on 1 tick) triggers InputValidationFailed.
-    if (['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.selected_tick = trade_option.prediction;
-    } else if (trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    } else if (trade_option.barrierOffset !== undefined) {
-        buy.parameters.barrier = trade_option.barrierOffset;
-    }
-    if (trade_option.secondBarrierOffset !== undefined) {
-        buy.parameters.barrier2 = trade_option.secondBarrierOffset;
-    }
-    if (!isEmptyObject(trade_option.app_markup_percentage)) {
-        buy.parameters.app_markup_percentage = trade_option.app_markup_percentage;
-    }
-    if (hasValue(trade_option.barrier_range)) {
-        buy.parameters.barrier_range = trade_option.barrier_range;
-    }
-    if (!isEmptyObject(trade_option.date_expiry)) {
-        buy.parameters.date_expiry = trade_option.date_expiry;
-    }
-    if (!isEmptyObject(trade_option.date_start)) {
-        buy.parameters.date_start = trade_option.date_start;
-    }
-    if (!isEmptyObject(trade_option.product_type)) {
-        buy.parameters.product_type = trade_option.product_type;
-    }
-    if (!isEmptyObject(trade_option.trading_period_start)) {
-        buy.parameters.trading_period_start = trade_option.trading_period_start;
-    }
-    // This will be required only in the case of multiplier & accumulator contracts
-    if (!isEmptyObject(trade_option.limit_order)) {
-        buy.parameters.limit_order = trade_option.limit_order;
-    }
-    // This will be required only in the case of multiplier contracts
-    if (['MULTUP', 'MULTDOWN'].includes(contract_type)) {
-        buy.parameters.duration = undefined;
-        buy.parameters.duration_unit = undefined;
+    const parameters = buildContractParameters(contract_type, trade_option);
 
-        buy.parameters.multiplier = trade_option.multiplier;
-    }
-    // This will be required only in the case of accumulator contracts
-    if (['ACCU'].includes(contract_type)) {
-        buy.parameters.duration = undefined;
-        buy.parameters.duration_unit = undefined;
-        buy.parameters.growth_rate = trade_option.growth_rate;
-    }
-    return removeEmptyFields(buy);
+    return removeEmptyFields({
+        buy: '1',
+        price: toNumber(trade_option.amount, parameters.amount),
+        parameters,
+    });
 };
 
 export const tradeOptionToOverrideBuy = (contract_type, trade_option, contract_config) =>
     tradeOptionToBuy(contract_type, normalizeTradeOptionForOverride(contract_type, trade_option, contract_config));
+
+export const tradeOptionToOverrideProposal = (contract_type, trade_option, contract_config, purchase_reference) => {
+    const normalized = normalizeTradeOptionForOverride(contract_type, trade_option, contract_config);
+    return tradeOptionToProposal({ ...normalized, contractTypes: [contract_type] }, purchase_reference)[0];
+};
 
 export const getDirection = ticks => {
     const { length } = ticks;
@@ -359,13 +357,29 @@ const getBackoffDelayInMs = (error_obj, delay_index) => {
     return next_delay_in_seconds * 1000;
 };
 
+const formatInputValidationDetails = details => {
+    if (!details || typeof details !== 'object') {
+        return '';
+    }
+
+    const fields = Object.keys(details);
+    if (!fields.length) {
+        return '';
+    }
+
+    return ` (${fields.join(', ')})`;
+};
+
 export const updateErrorMessage = error => {
     if (error.error?.code === 'InputValidationFailed') {
         if (error.error.details?.duration) {
             error.error.message = getLocalizedErrorMessage('DurationValidationFailed');
-        }
-        if (error.error.details?.amount) {
+        } else if (error.error.details?.amount) {
             error.error.message = getLocalizedErrorMessage('AmountValidationFailed');
+        } else {
+            error.error.message = `${getLocalizedErrorMessage('InputValidationFailed')}${formatInputValidationDetails(
+                error.error.details
+            )}`;
         }
     }
 };
