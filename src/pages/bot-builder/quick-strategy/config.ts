@@ -400,7 +400,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Monitors all last-digit pair transitions over a rolling tick window. When a pattern such as 0→3 reaches the threshold and the current digit is 0, immediately places Differs on 0 (the digit that initiated the pattern), with Martingale recovery on losses.'
+                        'Monitors all last-digit pair transitions over a rolling tick window. When a pattern such as 0→3 reaches the threshold and the current digit is 3, immediately places Differs on 0 (the digit that initiated the pattern), with Martingale recovery on losses.'
                     ),
                 ],
             },

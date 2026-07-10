@@ -38,7 +38,7 @@ window.Blockly.Blocks.digit_transition_prediction = {
         return {
             display_name: localize('Digit transition prediction'),
             description: localize(
-                'Counts digit-pair transitions (0→0 … 9→9) over the selected tick window. When the current last digit starts a pattern at or above the threshold (e.g. 0→3), returns that starting digit (0) so Differs can be placed on it. Returns -1 when no pattern qualifies.'
+                'Counts digit-pair transitions (0→0 … 9→9) over the selected tick window. When the current last digit is the destination of a strong pattern (e.g. current is 3 after many 0→3 transitions), returns the starter digit (0) so Differs can be placed on it. Returns -1 when no pattern qualifies.'
             ),
             key_words: localize('digit, transition, pattern, differs, ticks, threshold'),
         };

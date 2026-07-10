@@ -1,7 +1,9 @@
 /**
  * Digit-pair transition analysis over a rolling last-digit window.
- * Counts from→to transitions and returns the strongest pattern for the
- * current last digit when its frequency meets the threshold.
+ * Counts all from→to transitions, then when the current digit matches a
+ * pattern destination (to), Differs the digit that initiated that pattern (from).
+ *
+ * Example: strong 0→3 and current digit is 3 → Differs 0.
  */
 
 export const DEFAULT_TICK_WINDOW = 120;
@@ -35,31 +37,33 @@ export const getDigitTransitionSignal = (digits, threshold = DEFAULT_PATTERN_THR
         counts[from * 10 + to] += 1;
     }
 
-    let best_to = -1;
+    // Find the strongest transition that ends on the current digit (…→current).
+    let best_from = -1;
     let best_count = 0;
 
-    for (let to = 0; to <= 9; to++) {
-        const count = counts[current * 10 + to];
+    for (let from = 0; from <= 9; from++) {
+        const count = counts[from * 10 + current];
         if (count > best_count) {
             best_count = count;
-            best_to = to;
+            best_from = from;
         }
     }
 
-    if (best_to < 0 || best_count < numeric_threshold) {
+    if (best_from < 0 || best_count < numeric_threshold) {
         return null;
     }
 
     return {
-        from: current,
-        to: best_to,
+        from: best_from,
+        to: current,
         count: best_count,
     };
 };
 
 /**
- * Returns the digit that initiated the strongest qualifying transition, or -1.
- * Example: strong 0→3 and current digit is 0 → returns 0 (place Differs on 0).
+ * Returns the digit that initiated the strongest qualifying transition into the
+ * current digit, or -1 when no pattern qualifies.
+ * Example: strong 0→3 and current digit is 3 → returns 0 (place Differs on 0).
  * @param {Array<number|string>} digits
  * @param {number} threshold
  * @returns {number}
