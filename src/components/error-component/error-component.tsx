@@ -42,7 +42,7 @@ const ErrorComponent = ({
 ErrorComponent.propTypes = {
     header: PropTypes.string,
     message: PropTypes.oneOfType([PropTypes.node, PropTypes.string, PropTypes.object]),
-    redirectOnClick: PropTypes.func || PropTypes.object,
+    redirectOnClick: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
     redirect_label: PropTypes.string,
     setError: PropTypes.func,
     should_clear_error_on_click: PropTypes.bool,

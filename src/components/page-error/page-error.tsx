@@ -124,7 +124,7 @@ const PageError = ({
                         redirect_urls?.map?.((url, index) => (
                             <ButtonLink
                                 className='dc-page-error__btn'
-                                // to={url} // TODO: NEED TO FIX THIS TO REDIRECT TO THE CORRECT URL
+                                to={url}
                                 onClick={onClickHandler}
                                 size={buttonSize}
                                 key={index}

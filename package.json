@@ -1,5 +1,5 @@
 {
-  "name": "my-trading-bot",
+  "name": "letustradenow",
   "version": "0.2.0",
   "private": true,
   "engines": {
@@ -11,6 +11,7 @@
     "test": "jest",
     "type-check": "tsc --noEmit",
     "generate:brand-css": "node scripts/generate-brand-css.js",
+    "predev": "node scripts/generate-brand-css.js",
     "prebuild": "node scripts/generate-brand-css.js"
   },
   "dependencies": {

@@ -1,17 +1,16 @@
-# Deriv Trading Bot
+# Letustradenow
 
 A self-hosted, visual trading-bot builder on the Deriv WebSocket API. Drag-and-drop
 strategy building with Blockly, an interactive SmartCharts chart, automated strategy
 execution, and dashboard/tutorials.
 
-> **Note:** Unlike the other templates in this repo (Rise/Fall, Accumulators, Digits)
-> which are **Next.js** apps, the bot is a **[Rsbuild](https://rsbuild.dev) + React
-> Router** single-page app. The commands, build output, and environment variables
-> below differ accordingly.
+> **Note:** This is an **[Rsbuild](https://rsbuild.dev) + React Router** single-page
+> app (not Next.js). The commands, build output, and environment variables below
+> differ accordingly.
 
 ## Prerequisites
 
-- Node.js 18.18 or later
+- Node.js 20.x
 
 ## Step 1: Register Your App ID
 
@@ -36,6 +35,9 @@ NEXT_PUBLIC_DERIV_APP_ID=your_app_id_here
 NEXT_PUBLIC_DERIV_ENV=production
 NEXT_PUBLIC_DERIV_REFERRAL_LINK=your_referral_link_here
 
+# Optional: partner app name shown in the header and browser tab.
+NEXT_PUBLIC_DERIV_APP_NAME=Letustradenow
+
 # Optional: Google Drive integration (leave blank to disable).
 GD_CLIENT_ID=
 GD_APP_ID=
@@ -47,6 +49,7 @@ GD_API_KEY=
 | `NEXT_PUBLIC_DERIV_APP_ID` | Deriv app id issued for your registered app. Drives OAuth login/sign-up and WebSocket connections. Without it, Log in / Sign up stay disabled. |
 | `NEXT_PUBLIC_DERIV_ENV` | `production` for live Deriv endpoints; `preview` (or `staging`) for staging. Read by both the bot's URL resolver and `@deriv/core` for OAuth. |
 | `NEXT_PUBLIC_DERIV_REFERRAL_LINK` | Affiliate referral link — appended as `affiliate_token` / `utm_campaign` on OAuth (optional). |
+| `NEXT_PUBLIC_DERIV_APP_NAME` | Partner app name for the header mark and document title (optional; falls back to `brand.config.json`). |
 | `GD_CLIENT_ID` / `GD_APP_ID` / `GD_API_KEY` | Google Drive integration credentials for saving/loading strategies (optional). |
 
 > These variables are injected at **build time** via Rsbuild's `source.define`
@@ -59,8 +62,8 @@ npm install
 npm run dev
 ```
 
-The app is available at `http://localhost:4003`. (`npm install` and `npm run dev`
-also regenerate brand CSS — see Branding below.)
+The app is available at `http://localhost:4003`. (`npm run dev` and `npm run build`
+regenerate brand CSS via `predev` / `prebuild` — see Branding below.)
 
 ## Step 4: Build for Production
 
@@ -70,7 +73,7 @@ npm run build
 
 This produces a static build in the `dist/` directory (Rsbuild output — there is no
 `.next`/`out`). Serve the contents of `dist/` from any web server or static host.
-SmartCharts engine assets are copied into `dist/js/smartcharts/` during the build.
+Smartcharts engine assets are copied into `dist/js/smartcharts/` during the build.
 
 ## Google Drive integration (optional)
 
@@ -99,7 +102,7 @@ not Next.js config:
 
 - **Colors / fonts / app name** — edit `brand.config.json`, then run
   `npm run generate:brand-css` to bake the values into the theme CSS variables. This
-  runs automatically on `npm install`, `npm run dev`, and `npm run build`.
+  runs automatically on `npm run dev` and `npm run build`.
 - **Logo** — drop a `public/logo.<png|jpg|jpeg|webp>` to set the header logo; it is also
   used as the favicon. Without it, a letter badge (the app name's first letter) is shown.
 - **Theme** — a light/dark toggle lives in the header; the chart re-themes with it.
