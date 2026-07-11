@@ -82,7 +82,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-zero-gap-filter',
         title: localize('Over 0 Gap Filter'),
         description: localize(
-            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Prediction, profit threshold, and consecutive-loss stop are Run once variables. Optional Martingale and Journal PASS/FAIL logging.'
+            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Run once calls the Over 0 Gap Filter setup function with stake, prediction, profit, consecutive-loss stop, and gap options. Optional Martingale and Journal PASS/FAIL logging.'
         ),
         tags: [localize('Martingale'), localize('Over'), localize('Gap Filter')],
         strategy: 'OVER_ZERO_GAP_FILTER',
