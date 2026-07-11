@@ -22,6 +22,8 @@
     <variable type="" id="ozGapMin001LetUsTrade" islocal="false" iscloud="false">gapFilter:minGap</variable>
     <variable type="" id="ozGapMax001LetUsTrade" islocal="false" iscloud="false">gapFilter:maxGap</variable>
     <variable type="" id="ozGapJournal001LetUsTrade" islocal="false" iscloud="false">gapFilter:journal</variable>
+    <variable type="" id="ozPredVar001LetUsTrade" islocal="false" iscloud="false">gapFilter:prediction</variable>
+    <variable type="" id="ozConsecLoss001LetUsTrade" islocal="false" iscloud="false">martingale:consecutiveLosses</variable>
     <variable type="" id="ozMartEnable001LetUsTrade" islocal="false" iscloud="false">enableMartingale?</variable>
   </variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="0">
@@ -103,53 +105,93 @@
                   </block>
                 </statement>
                 <next>
-                  <block type="variables_set" id="ozInitGapEn001LetUsTrade">
-                    <field name="VAR" id="ozGapEnable001LetUsTrade" variabletype="">gapFilter:enabled</field>
-                    <value name="VALUE" strategy_value="boolean_gap_filter">
-                      <block type="logic_boolean" id="ozInitGapEnBool001LetUsTrade">
-                        <field name="BOOL">TRUE</field>
+                  <block type="variables_set" id="ozInitPred001LetUsTrade">
+                    <field name="VAR" id="ozPredVar001LetUsTrade" variabletype="">gapFilter:prediction</field>
+                    <value name="VALUE" strategy_value="last_digit_prediction">
+                      <block type="math_number" id="ozInitPredNum001LetUsTrade">
+                        <field name="NUM">0</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="ozInitGapMin001LetUsTrade">
-                        <field name="VAR" id="ozGapMin001LetUsTrade" variabletype="">gapFilter:minGap</field>
-                        <value name="VALUE" strategy_value="min_gap">
-                          <block type="math_number" id="ozInitGapMinNum001LetUsTrade">
-                            <field name="NUM">3</field>
+                      <block type="variables_set" id="ozInitProfit001LetUsTrade">
+                        <field name="VAR" id="*p5|Lkk9Q^ZuPBQ-48g2" variabletype="">martingale:profitThreshold</field>
+                        <value name="VALUE" strategy_value="profit">
+                          <block type="math_number" id="ozInitProfitNum001LetUsTrade">
+                            <field name="NUM">5</field>
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="ozInitGapMax001LetUsTrade">
-                            <field name="VAR" id="ozGapMax001LetUsTrade" variabletype="">gapFilter:maxGap</field>
-                            <value name="VALUE" strategy_value="max_gap">
-                              <block type="math_number" id="ozInitGapMaxNum001LetUsTrade">
-                                <field name="NUM">10</field>
+                          <block type="variables_set" id="ozInitLossThr001LetUsTrade">
+                            <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
+                            <value name="VALUE" strategy_value="loss">
+                              <block type="math_number" id="ozInitLossThrNum001LetUsTrade">
+                                <field name="NUM">5</field>
                               </block>
                             </value>
                             <next>
-                              <block type="variables_set" id="ozInitGapJournal001LetUsTrade">
-                                <field name="VAR" id="ozGapJournal001LetUsTrade" variabletype="">gapFilter:journal</field>
-                                <value name="VALUE" strategy_value="boolean_gap_journal">
-                                  <block type="logic_boolean" id="ozInitGapJournalBool001LetUsTrade">
-                                    <field name="BOOL">TRUE</field>
+                              <block type="variables_set" id="ozInitConsec001LetUsTrade">
+                                <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                                <value name="VALUE">
+                                  <block type="math_number" id="ozInitConsecNum001LetUsTrade">
+                                    <field name="NUM">0</field>
                                   </block>
                                 </value>
                                 <next>
-                                  <block type="variables_set" id="qKO~.`hPZgl;YZp+5Gov">
-                                    <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                                    <value name="VALUE" strategy_value="boolean_max_stake">
-                                      <block type="logic_boolean" id="%@4HYVeOB$jA`7.ljdbf">
+                                  <block type="variables_set" id="ozInitGapEn001LetUsTrade">
+                                    <field name="VAR" id="ozGapEnable001LetUsTrade" variabletype="">gapFilter:enabled</field>
+                                    <value name="VALUE" strategy_value="boolean_gap_filter">
+                                      <block type="logic_boolean" id="ozInitGapEnBool001LetUsTrade">
                                         <field name="BOOL">TRUE</field>
                                       </block>
                                     </value>
                                     <next>
-                                      <block type="variables_set" id="-jDR^266z(Nid-G$WXhp">
-                                        <field name="VAR" id="4vh+dtelQS#?}@cNPcN!" variabletype="">maxStake</field>
-                                        <value name="VALUE" strategy_value="max_stake">
-                                          <block type="math_number" id="FF1sPs*ENIx4n#SmKe|9">
-                                            <field name="NUM">25</field>
+                                      <block type="variables_set" id="ozInitGapMin001LetUsTrade">
+                                        <field name="VAR" id="ozGapMin001LetUsTrade" variabletype="">gapFilter:minGap</field>
+                                        <value name="VALUE" strategy_value="min_gap">
+                                          <block type="math_number" id="ozInitGapMinNum001LetUsTrade">
+                                            <field name="NUM">3</field>
                                           </block>
                                         </value>
+                                        <next>
+                                          <block type="variables_set" id="ozInitGapMax001LetUsTrade">
+                                            <field name="VAR" id="ozGapMax001LetUsTrade" variabletype="">gapFilter:maxGap</field>
+                                            <value name="VALUE" strategy_value="max_gap">
+                                              <block type="math_number" id="ozInitGapMaxNum001LetUsTrade">
+                                                <field name="NUM">10</field>
+                                              </block>
+                                            </value>
+                                            <next>
+                                              <block type="variables_set" id="ozInitGapJournal001LetUsTrade">
+                                                <field name="VAR" id="ozGapJournal001LetUsTrade" variabletype="">gapFilter:journal</field>
+                                                <value name="VALUE" strategy_value="boolean_gap_journal">
+                                                  <block type="logic_boolean" id="ozInitGapJournalBool001LetUsTrade">
+                                                    <field name="BOOL">TRUE</field>
+                                                  </block>
+                                                </value>
+                                                <next>
+                                                  <block type="variables_set" id="qKO~.`hPZgl;YZp+5Gov">
+                                                    <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
+                                                    <value name="VALUE" strategy_value="boolean_max_stake">
+                                                      <block type="logic_boolean" id="%@4HYVeOB$jA`7.ljdbf">
+                                                        <field name="BOOL">TRUE</field>
+                                                      </block>
+                                                    </value>
+                                                    <next>
+                                                      <block type="variables_set" id="-jDR^266z(Nid-G$WXhp">
+                                                        <field name="VAR" id="4vh+dtelQS#?}@cNPcN!" variabletype="">maxStake</field>
+                                                        <value name="VALUE" strategy_value="max_stake">
+                                                          <block type="math_number" id="FF1sPs*ENIx4n#SmKe|9">
+                                                            <field name="NUM">25</field>
+                                                          </block>
+                                                        </value>
+                                                      </block>
+                                                    </next>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
+                                          </block>
+                                        </next>
                                       </block>
                                     </next>
                                   </block>
@@ -186,9 +228,9 @@
             <data>x3TA)`V~gtD7?rqNj[.9</data>
           </block>
         </value>
-        <value name="PREDICTION" strategy_value="last_digit_prediction">
-          <block type="math_number" id="ozPredZero001LetUsTrade">
-            <field name="NUM">0</field>
+        <value name="PREDICTION">
+          <block type="variables_get" id="ozPredGet001LetUsTrade">
+            <field name="VAR" id="ozPredVar001LetUsTrade" variabletype="">gapFilter:prediction</field>
           </block>
         </value>
       </block>
@@ -315,9 +357,27 @@
                         <field name="NUM">1</field>
                       </shadow>
                     </value>
+                    <next>
+                      <block type="variables_set" id="ozWinResetConsec001LetUsTrade">
+                        <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                        <value name="VALUE">
+                          <shadow type="math_number" id="ozWinResetConsecNum001LetUsTrade">
+                            <field name="NUM">0</field>
+                          </shadow>
+                        </value>
+                      </block>
+                    </next>
                   </block>
                 </statement>
                 <statement name="ELSE">
+                  <block type="math_change" id="ozLossIncConsec001LetUsTrade">
+                    <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                    <value name="DELTA">
+                      <shadow type="math_number" id="ozLossIncConsecNum001LetUsTrade">
+                        <field name="NUM">1</field>
+                      </shadow>
+                    </value>
+                    <next>
                   <block type="variables_set" id="DA78AxndLk]Q@dIBt7O|">
                     <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
                     <value name="VALUE">
@@ -393,6 +453,8 @@
                       </block>
                     </next>
                   </block>
+                    </next>
+                  </block>
                 </statement>
               </block>
             </next>
@@ -421,9 +483,9 @@
         <statement name="DO0">
           <block type="variables_set" id="{}-XA:3=]2W.Aq|zIiP(">
             <field name="VAR" id="*p5|Lkk9Q^ZuPBQ-48g2" variabletype="">martingale:profitThreshold</field>
-            <value name="VALUE" strategy_value="profit">
+            <value name="VALUE">
               <block type="math_number" id="oey_#oK,W{kwyW]bH$Q0">
-                <field name="NUM">5000</field>
+                <field name="NUM">5</field>
               </block>
             </value>
           </block>
@@ -446,9 +508,9 @@
             <statement name="DO0">
               <block type="variables_set" id=":OS%IuonU;AkRO!H-SEF">
                 <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
-                <value name="VALUE" strategy_value="loss">
+                <value name="VALUE">
                   <block type="math_number" id="UdK4EIuuo|^~SBqy^_UN">
-                    <field name="NUM">3000</field>
+                    <field name="NUM">5</field>
                   </block>
                 </value>
               </block>
@@ -670,23 +732,15 @@
                                     <mutation else="1"></mutation>
                                     <value name="IF0">
                                       <block type="logic_compare" id="%XaSru*P96b@:s~*f6/b">
-                                        <field name="OP">GT</field>
+                                        <field name="OP">LT</field>
                                         <value name="A">
-                                          <block type="variables_get" id=".j^jS`B22${#0xP~J7;S">
-                                            <field name="VAR" id="Kb@{Vb{+5IqV=d~y*dcr" variabletype="">martingale:totalProfit</field>
+                                          <block type="variables_get" id="ozConsecGet001LetUsTrade">
+                                            <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
                                           </block>
                                         </value>
                                         <value name="B">
-                                          <block type="math_single" id="K9$ftop.bUpkoibNkVQL">
-                                            <field name="OP">NEG</field>
-                                            <value name="NUM">
-                                              <shadow type="math_number">
-                                                <field name="NUM">9</field>
-                                              </shadow>
-                                              <block type="variables_get" id="`nfV$q=C}%gf{r$Jyt-#">
-                                                <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
-                                              </block>
-                                            </value>
+                                          <block type="variables_get" id="`nfV$q=C}%gf{r$Jyt-#">
+                                            <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                                           </block>
                                         </value>
                                       </block>
@@ -708,7 +762,7 @@
                                           <block type="text_statement" id="db1K?]^sdr=ocll68sJz">
                                             <value name="TEXT">
                                               <shadow type="text" id="{lVc8F}w58h0szOx[bg;">
-                                                <field name="TEXT">Loss threshold triggered. Total Loss:</field>
+                                                <field name="TEXT">Consecutive loss threshold triggered. Losses in a row:</field>
                                               </shadow>
                                             </value>
                                             <next>
@@ -717,16 +771,8 @@
                                                   <shadow type="text">
                                                     <field name="TEXT"></field>
                                                   </shadow>
-                                                  <block type="math_single" id="`6,2Jm!UJarPK~GWrlBz">
-                                                    <field name="OP">NEG</field>
-                                                    <value name="NUM">
-                                                      <shadow type="math_number">
-                                                        <field name="NUM">9</field>
-                                                      </shadow>
-                                                      <block type="variables_get" id="1(j3)T@W,~*yuT=FOi%.">
-                                                        <field name="VAR" id="Kb@{Vb{+5IqV=d~y*dcr" variabletype="">martingale:totalProfit</field>
-                                                      </block>
-                                                    </value>
+                                                  <block type="variables_get" id="ozConsecNotify001LetUsTrade">
+                                                    <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
                                                   </block>
                                                 </value>
                                               </block>

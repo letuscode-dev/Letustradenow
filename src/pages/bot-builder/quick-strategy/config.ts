@@ -226,6 +226,28 @@ const LOSS = (): TConfigItem => ({
     has_currency_unit: true,
 });
 
+const LABEL_CONSECUTIVE_LOSS = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Consecutive losses'),
+    description: localize('The bot will stop trading after this many consecutive losing trades.'),
+});
+
+const CONSECUTIVE_LOSS = (): TConfigItem => ({
+    type: 'number',
+    name: 'loss',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
 const LABEL_MARTINGALE_SIZE = (): TConfigItem => ({
     type: 'label',
     label: localize('Size'),
@@ -506,7 +528,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. This is a trade filter, not a prediction. Optional Martingale recovery and Journal PASS/FAIL logging.'
+                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. Prediction, profit threshold, and consecutive-loss stop are set as Run once variables. Optional Martingale recovery and Journal PASS/FAIL logging.'
                     ),
                 ],
             },
@@ -517,6 +539,8 @@ export const STRATEGIES = (): TStrategies => ({
                 SYMBOL(),
                 LABEL_STAKE(),
                 STAKE(),
+                LABEL_LAST_DIGIT_PREDICTION(),
+                LAST_DIGIT_PREDICTION(),
                 LABEL_MIN_GAP(),
                 MIN_GAP(),
                 LABEL_MAX_GAP(),
@@ -525,8 +549,8 @@ export const STRATEGIES = (): TStrategies => ({
             [
                 LABEL_PROFIT(),
                 PROFIT(),
-                LABEL_LOSS(),
-                LOSS(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
                 LABEL_MARTINGALE_SIZE(),
                 SIZE(),
                 CHECKBOX_MARTINGALE(),
