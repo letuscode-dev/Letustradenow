@@ -72,82 +72,89 @@
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      <block type="procedures_callnoreturn" id="ozInitCall001LetUsTrade">
-        <mutation name="Over 0 Gap Filter">
+      <block type="procedures_callnoreturn" id="ozInitNumsCall001LetUsTrade">
+        <mutation name="Over 0 Gap Numbers">
           <arg name="initialStake"></arg>
-          <arg name="enableMartingale"></arg>
           <arg name="size"></arg>
           <arg name="prediction"></arg>
           <arg name="profitThreshold"></arg>
           <arg name="lossThreshold"></arg>
-          <arg name="gapFilterEnabled"></arg>
           <arg name="minGap"></arg>
           <arg name="maxGap"></arg>
-          <arg name="journal"></arg>
-          <arg name="setMaxStake"></arg>
           <arg name="maxStake"></arg>
         </mutation>
-        <data>ozGapSetupFn001LetUsTrade</data>
+        <data>ozGapSetupNumsFn001LetUsTrade</data>
         <value name="ARG0" strategy_value="stake">
           <block type="math_number" id="ozCallStake001LetUsTrade">
             <field name="NUM">1</field>
           </block>
         </value>
-        <value name="ARG1" strategy_value="boolean_martingale">
-          <block type="logic_boolean" id="ozCallMartEn001LetUsTrade">
-            <field name="BOOL">TRUE</field>
-          </block>
-        </value>
-        <value name="ARG2" strategy_value="size">
+        <value name="ARG1" strategy_value="size">
           <block type="math_number" id="ozCallSize001LetUsTrade">
             <field name="NUM">2</field>
           </block>
         </value>
-        <value name="ARG3" strategy_value="last_digit_prediction">
+        <value name="ARG2" strategy_value="last_digit_prediction">
           <block type="math_number" id="ozCallPred001LetUsTrade">
             <field name="NUM">0</field>
           </block>
         </value>
-        <value name="ARG4" strategy_value="profit">
+        <value name="ARG3" strategy_value="profit">
           <block type="math_number" id="ozCallProfit001LetUsTrade">
             <field name="NUM">5</field>
           </block>
         </value>
-        <value name="ARG5" strategy_value="loss">
+        <value name="ARG4" strategy_value="loss">
           <block type="math_number" id="ozCallLoss001LetUsTrade">
             <field name="NUM">5</field>
           </block>
         </value>
-        <value name="ARG6" strategy_value="boolean_gap_filter">
-          <block type="logic_boolean" id="ozCallGapEn001LetUsTrade">
-            <field name="BOOL">TRUE</field>
-          </block>
-        </value>
-        <value name="ARG7" strategy_value="min_gap">
+        <value name="ARG5" strategy_value="min_gap">
           <block type="math_number" id="ozCallMinGap001LetUsTrade">
             <field name="NUM">3</field>
           </block>
         </value>
-        <value name="ARG8" strategy_value="max_gap">
+        <value name="ARG6" strategy_value="max_gap">
           <block type="math_number" id="ozCallMaxGap001LetUsTrade">
             <field name="NUM">10</field>
           </block>
         </value>
-        <value name="ARG9" strategy_value="boolean_gap_journal">
-          <block type="logic_boolean" id="ozCallJournal001LetUsTrade">
-            <field name="BOOL">TRUE</field>
-          </block>
-        </value>
-        <value name="ARG10" strategy_value="boolean_max_stake">
-          <block type="logic_boolean" id="ozCallSetMax001LetUsTrade">
-            <field name="BOOL">TRUE</field>
-          </block>
-        </value>
-        <value name="ARG11" strategy_value="max_stake">
+        <value name="ARG7" strategy_value="max_stake">
           <block type="math_number" id="ozCallMaxStake001LetUsTrade">
             <field name="NUM">25</field>
           </block>
         </value>
+        <next>
+          <block type="procedures_callnoreturn" id="ozInitBoolsCall001LetUsTrade">
+            <mutation name="Over 0 Gap Booleans">
+              <arg name="enableMartingale"></arg>
+              <arg name="gapFilterEnabled"></arg>
+              <arg name="journal"></arg>
+              <arg name="setMaxStake"></arg>
+            </mutation>
+            <data>ozGapSetupBoolsFn001LetUsTrade</data>
+            <value name="ARG0" strategy_value="boolean_martingale">
+              <block type="logic_boolean" id="ozCallMartEn001LetUsTrade">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+            <value name="ARG1" strategy_value="boolean_gap_filter">
+              <block type="logic_boolean" id="ozCallGapEn001LetUsTrade">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+            <value name="ARG2" strategy_value="boolean_gap_journal">
+              <block type="logic_boolean" id="ozCallJournal001LetUsTrade">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+            <value name="ARG3" strategy_value="boolean_max_stake">
+              <block type="logic_boolean" id="ozCallSetMax001LetUsTrade">
+                <field name="BOOL">TRUE</field>
+              </block>
+            </value>
+          </block>
+        </next>
       </block>
     </statement>
     <statement name="SUBMARKET">
@@ -239,22 +246,18 @@
       </block>
     </statement>
   </block>
-  <block type="procedures_defnoreturn" id="ozGapSetupFn001LetUsTrade" collapsed="true" x="0" y="700">
+  <block type="procedures_defnoreturn" id="ozGapSetupNumsFn001LetUsTrade" collapsed="true" x="0" y="700">
     <mutation>
       <arg name="initialStake" varid="ozP_initialStake"></arg>
-      <arg name="enableMartingale" varid="ozP_enableMartingale"></arg>
       <arg name="size" varid="ozP_size"></arg>
       <arg name="prediction" varid="ozP_prediction"></arg>
       <arg name="profitThreshold" varid="ozP_profitThreshold"></arg>
       <arg name="lossThreshold" varid="ozP_lossThreshold"></arg>
-      <arg name="gapFilterEnabled" varid="ozP_gapFilterEnabled"></arg>
       <arg name="minGap" varid="ozP_minGap"></arg>
       <arg name="maxGap" varid="ozP_maxGap"></arg>
-      <arg name="journal" varid="ozP_journal"></arg>
-      <arg name="setMaxStake" varid="ozP_setMaxStake"></arg>
       <arg name="maxStake" varid="4vh+dtelQS#?}@cNPcN!"></arg>
     </mutation>
-    <field name="NAME">Over 0 Gap Filter</field>
+    <field name="NAME">Over 0 Gap Numbers</field>
     <statement name="STACK">
       <block type="variables_set" id="ozFnStake001LetUsTrade">
         <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field>
@@ -264,127 +267,139 @@
           </block>
         </value>
         <next>
-          <block type="variables_set" id="ozFnMartEn001LetUsTrade">
-            <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+          <block type="variables_set" id="ozFnSizeOn001LetUsTrade">
+            <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
             <value name="VALUE">
-              <block type="variables_get" id="ozFnMartEnGet001LetUsTrade">
-                <field name="VAR" id="ozP_enableMartingale" variabletype="">enableMartingale</field>
+              <block type="variables_get" id="ozFnSizeOnGet001LetUsTrade">
+                <field name="VAR" id="ozP_size" variabletype="">size</field>
               </block>
             </value>
             <next>
-              <block type="controls_if" id="ozFnSizeIf001LetUsTrade">
-                <mutation else="1"></mutation>
-                <value name="IF0">
-                  <block type="variables_get" id="ozFnSizeIfGet001LetUsTrade">
-                    <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+              <block type="variables_set" id="ozFnPred001LetUsTrade">
+                <field name="VAR" id="ozPredVar001LetUsTrade" variabletype="">gapFilter:prediction</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="ozFnPredGet001LetUsTrade">
+                    <field name="VAR" id="ozP_prediction" variabletype="">prediction</field>
                   </block>
                 </value>
-                <statement name="DO0">
-                  <block type="variables_set" id="ozFnSizeOn001LetUsTrade">
-                    <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
-                    <value name="VALUE">
-                      <block type="variables_get" id="ozFnSizeOnGet001LetUsTrade">
-                        <field name="VAR" id="ozP_size" variabletype="">size</field>
-                      </block>
-                    </value>
-                  </block>
-                </statement>
-                <statement name="ELSE">
-                  <block type="variables_set" id="ozFnSizeOff001LetUsTrade">
-                    <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
-                    <value name="VALUE">
-                      <block type="math_number" id="ozFnSizeOne001LetUsTrade">
-                        <field name="NUM">1</field>
-                      </block>
-                    </value>
-                  </block>
-                </statement>
                 <next>
-                  <block type="variables_set" id="ozFnPred001LetUsTrade">
-                    <field name="VAR" id="ozPredVar001LetUsTrade" variabletype="">gapFilter:prediction</field>
+                  <block type="variables_set" id="ozFnProfit001LetUsTrade">
+                    <field name="VAR" id="*p5|Lkk9Q^ZuPBQ-48g2" variabletype="">martingale:profitThreshold</field>
                     <value name="VALUE">
-                      <block type="variables_get" id="ozFnPredGet001LetUsTrade">
-                        <field name="VAR" id="ozP_prediction" variabletype="">prediction</field>
+                      <block type="variables_get" id="ozFnProfitGet001LetUsTrade">
+                        <field name="VAR" id="ozP_profitThreshold" variabletype="">profitThreshold</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="ozFnProfit001LetUsTrade">
-                        <field name="VAR" id="*p5|Lkk9Q^ZuPBQ-48g2" variabletype="">martingale:profitThreshold</field>
+                      <block type="variables_set" id="ozFnLoss001LetUsTrade">
+                        <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                         <value name="VALUE">
-                          <block type="variables_get" id="ozFnProfitGet001LetUsTrade">
-                            <field name="VAR" id="ozP_profitThreshold" variabletype="">profitThreshold</field>
+                          <block type="variables_get" id="ozFnLossGet001LetUsTrade">
+                            <field name="VAR" id="ozP_lossThreshold" variabletype="">lossThreshold</field>
                           </block>
                         </value>
                         <next>
-                          <block type="variables_set" id="ozFnLoss001LetUsTrade">
-                            <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
+                          <block type="variables_set" id="ozFnConsec001LetUsTrade">
+                            <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
                             <value name="VALUE">
-                              <block type="variables_get" id="ozFnLossGet001LetUsTrade">
-                                <field name="VAR" id="ozP_lossThreshold" variabletype="">lossThreshold</field>
+                              <block type="math_number" id="ozFnConsecNum001LetUsTrade">
+                                <field name="NUM">0</field>
                               </block>
                             </value>
                             <next>
-                              <block type="variables_set" id="ozFnConsec001LetUsTrade">
-                                <field name="VAR" id="ozConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                              <block type="variables_set" id="ozFnMinGap001LetUsTrade">
+                                <field name="VAR" id="ozGapMin001LetUsTrade" variabletype="">gapFilter:minGap</field>
                                 <value name="VALUE">
-                                  <block type="math_number" id="ozFnConsecNum001LetUsTrade">
-                                    <field name="NUM">0</field>
+                                  <block type="variables_get" id="ozFnMinGapGet001LetUsTrade">
+                                    <field name="VAR" id="ozP_minGap" variabletype="">minGap</field>
                                   </block>
                                 </value>
                                 <next>
-                                  <block type="variables_set" id="ozFnGapEn001LetUsTrade">
-                                    <field name="VAR" id="ozGapEnable001LetUsTrade" variabletype="">gapFilter:enabled</field>
+                                  <block type="variables_set" id="ozFnMaxGap001LetUsTrade">
+                                    <field name="VAR" id="ozGapMax001LetUsTrade" variabletype="">gapFilter:maxGap</field>
                                     <value name="VALUE">
-                                      <block type="variables_get" id="ozFnGapEnGet001LetUsTrade">
-                                        <field name="VAR" id="ozP_gapFilterEnabled" variabletype="">gapFilterEnabled</field>
+                                      <block type="variables_get" id="ozFnMaxGapGet001LetUsTrade">
+                                        <field name="VAR" id="ozP_maxGap" variabletype="">maxGap</field>
                                       </block>
                                     </value>
-                                    <next>
-                                      <block type="variables_set" id="ozFnMinGap001LetUsTrade">
-                                        <field name="VAR" id="ozGapMin001LetUsTrade" variabletype="">gapFilter:minGap</field>
-                                        <value name="VALUE">
-                                          <block type="variables_get" id="ozFnMinGapGet001LetUsTrade">
-                                            <field name="VAR" id="ozP_minGap" variabletype="">minGap</field>
-                                          </block>
-                                        </value>
-                                        <next>
-                                          <block type="variables_set" id="ozFnMaxGap001LetUsTrade">
-                                            <field name="VAR" id="ozGapMax001LetUsTrade" variabletype="">gapFilter:maxGap</field>
-                                            <value name="VALUE">
-                                              <block type="variables_get" id="ozFnMaxGapGet001LetUsTrade">
-                                                <field name="VAR" id="ozP_maxGap" variabletype="">maxGap</field>
-                                              </block>
-                                            </value>
-                                            <next>
-                                              <block type="variables_set" id="ozFnJournal001LetUsTrade">
-                                                <field name="VAR" id="ozGapJournal001LetUsTrade" variabletype="">gapFilter:journal</field>
-                                                <value name="VALUE">
-                                                  <block type="variables_get" id="ozFnJournalGet001LetUsTrade">
-                                                    <field name="VAR" id="ozP_journal" variabletype="">journal</field>
-                                                  </block>
-                                                </value>
-                                                <next>
-                                                  <block type="variables_set" id="ozFnSetMax001LetUsTrade">
-                                                    <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                                                    <value name="VALUE">
-                                                      <block type="variables_get" id="ozFnSetMaxGet001LetUsTrade">
-                                                        <field name="VAR" id="ozP_setMaxStake" variabletype="">setMaxStake</field>
-                                                      </block>
-                                                    </value>
-                                                  </block>
-                                                </next>
-                                              </block>
-                                            </next>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </next>
                                   </block>
                                 </next>
                               </block>
                             </next>
                           </block>
                         </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="procedures_defnoreturn" id="ozGapSetupBoolsFn001LetUsTrade" collapsed="true" x="0" y="780">
+    <mutation>
+      <arg name="enableMartingale" varid="ozP_enableMartingale"></arg>
+      <arg name="gapFilterEnabled" varid="ozP_gapFilterEnabled"></arg>
+      <arg name="journal" varid="ozP_journal"></arg>
+      <arg name="setMaxStake" varid="ozP_setMaxStake"></arg>
+    </mutation>
+    <field name="NAME">Over 0 Gap Booleans</field>
+    <statement name="STACK">
+      <block type="variables_set" id="ozFnMartEn001LetUsTrade">
+        <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+        <value name="VALUE">
+          <block type="variables_get" id="ozFnMartEnGet001LetUsTrade">
+            <field name="VAR" id="ozP_enableMartingale" variabletype="">enableMartingale</field>
+          </block>
+        </value>
+        <next>
+          <block type="controls_if" id="ozFnSizeIf001LetUsTrade">
+            <value name="IF0">
+              <block type="logic_negate" id="ozFnSizeNeg001LetUsTrade">
+                <value name="BOOL">
+                  <block type="variables_get" id="ozFnSizeIfGet001LetUsTrade">
+                    <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="variables_set" id="ozFnSizeOff001LetUsTrade">
+                <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
+                <value name="VALUE">
+                  <block type="math_number" id="ozFnSizeOne001LetUsTrade">
+                    <field name="NUM">1</field>
+                  </block>
+                </value>
+              </block>
+            </statement>
+            <next>
+              <block type="variables_set" id="ozFnGapEn001LetUsTrade">
+                <field name="VAR" id="ozGapEnable001LetUsTrade" variabletype="">gapFilter:enabled</field>
+                <value name="VALUE">
+                  <block type="variables_get" id="ozFnGapEnGet001LetUsTrade">
+                    <field name="VAR" id="ozP_gapFilterEnabled" variabletype="">gapFilterEnabled</field>
+                  </block>
+                </value>
+                <next>
+                  <block type="variables_set" id="ozFnJournal001LetUsTrade">
+                    <field name="VAR" id="ozGapJournal001LetUsTrade" variabletype="">gapFilter:journal</field>
+                    <value name="VALUE">
+                      <block type="variables_get" id="ozFnJournalGet001LetUsTrade">
+                        <field name="VAR" id="ozP_journal" variabletype="">journal</field>
+                      </block>
+                    </value>
+                    <next>
+                      <block type="variables_set" id="ozFnSetMax001LetUsTrade">
+                        <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
+                        <value name="VALUE">
+                          <block type="variables_get" id="ozFnSetMaxGet001LetUsTrade">
+                            <field name="VAR" id="ozP_setMaxStake" variabletype="">setMaxStake</field>
+                          </block>
+                        </value>
                       </block>
                     </next>
                   </block>

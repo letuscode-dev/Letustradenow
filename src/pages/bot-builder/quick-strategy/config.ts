@@ -694,7 +694,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. Prediction, profit threshold, and consecutive-loss stop are set as Run once variables. Optional Martingale recovery and Journal PASS/FAIL logging.'
+                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. Run once sets Over 0 Gap Numbers then Over 0 Gap Booleans. Optional Martingale recovery and Journal PASS/FAIL logging.'
                     ),
                 ],
             },
