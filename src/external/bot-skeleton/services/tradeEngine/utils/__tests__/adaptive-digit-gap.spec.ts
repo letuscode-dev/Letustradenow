@@ -124,6 +124,31 @@ describe('evaluateAdaptiveDigitGap', () => {
     });
 });
 
+describe('sliding tick cache', () => {
+    it('keeps processing when history length is fixed and the window slides', () => {
+        const state = createTrackerState();
+        const opts = { journal_enabled: false, min_adaptive_gap: 1 };
+
+        // Fixed window of 5 ticks (like Deriv cache after fill).
+        let window_ticks = [0, 1, 2, 3, 4].map((digit, i) => ({ epoch: i + 1, digit }));
+        evaluateAdaptiveDigitGap(window_ticks, opts, state);
+        expect(state.lastProcessedEpoch).toBe(5);
+        expect(state.tickIndex).toBe(4);
+
+        // Slide: drop oldest, append newest — length stays 5.
+        window_ticks = [1, 2, 3, 4, 7].map((digit, i) => ({ epoch: i + 2, digit }));
+        evaluateAdaptiveDigitGap(window_ticks, opts, state);
+        expect(state.lastProcessedEpoch).toBe(6);
+        expect(state.tickIndex).toBe(5);
+
+        // Another slide must keep advancing.
+        window_ticks = [2, 3, 4, 7, 8].map((digit, i) => ({ epoch: i + 3, digit }));
+        evaluateAdaptiveDigitGap(window_ticks, opts, state);
+        expect(state.lastProcessedEpoch).toBe(7);
+        expect(state.tickIndex).toBe(6);
+    });
+});
+
 describe('formatGapDashboard', () => {
     it('renders a row per digit', () => {
         const state = createTrackerState();

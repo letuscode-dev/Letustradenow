@@ -33,7 +33,7 @@ export const createDigitState = digit => ({
 });
 
 /**
- * @returns {{ digits: ReturnType<typeof createDigitState>[], processedCount: number, tickIndex: number, tradesThisSession: number, cooldownUntilTick: number, lastJournal: string[], lastDashboard: string }}
+ * @returns {{ digits: ReturnType<typeof createDigitState>[], processedCount: number, tickIndex: number, tradesThisSession: number, cooldownUntilTick: number, lastProcessedEpoch: number|null, lastJournal: Array, lastDashboard: string }}
  */
 export const createTrackerState = () => ({
     digits: Array.from({ length: 10 }, (_, digit) => createDigitState(digit)),
@@ -41,6 +41,9 @@ export const createTrackerState = () => ({
     tickIndex: -1,
     tradesThisSession: 0,
     cooldownUntilTick: -1,
+    lastProcessedEpoch: null,
+    cooldownLogEmitted: false,
+    maxTradesLogEmitted: false,
     lastJournal: [],
     lastDashboard: '',
 });
@@ -173,7 +176,39 @@ export const processDigitTick = (state, digit, options = {}) => {
 };
 
 /**
- * Sync tracker with the full digit history (process only new ticks).
+ * Sync tracker with digit ticks identified by epoch.
+ * Required because Deriv's tick cache is a fixed-size sliding window
+ * (`[...ticks.slice(1), newTick]`), so length stops growing after history fills.
+ *
+ * @param {ReturnType<typeof createTrackerState>} state
+ * @param {Array<{ epoch: number, digit: number|string }>} digit_ticks
+ * @param {object} options
+ */
+export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
+    if (!Array.isArray(digit_ticks) || digit_ticks.length === 0) {
+        return;
+    }
+
+    let start = 0;
+    if (state.lastProcessedEpoch != null) {
+        start = digit_ticks.findIndex(tick => Number(tick.epoch) > state.lastProcessedEpoch);
+        if (start < 0) {
+            return;
+        }
+    }
+
+    for (let i = start; i < digit_ticks.length; i++) {
+        const tick = digit_ticks[i];
+        processDigitTick(state, tick.digit, options);
+        state.lastProcessedEpoch = Number(tick.epoch);
+    }
+
+    state.processedCount = digit_ticks.length;
+};
+
+/**
+ * Sync from a plain digit array (append-only / tests).
+ * Prefer syncTrackerWithDigitTicks for live caches.
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {Array<number|string>} digits
@@ -184,14 +219,34 @@ export const syncTrackerWithDigits = (state, digits, options = {}) => {
         return;
     }
 
-    if (digits.length < state.processedCount) {
-        resetTrackerState(state);
+    // Convert to synthetic epoch ticks so sliding-window tests can use real epochs via the other API.
+    const digit_ticks = digits.map((digit, index) => ({
+        digit,
+        epoch: index + 1,
+    }));
+
+    syncTrackerWithDigitTicks(state, digit_ticks, options);
+};
+
+/**
+ * Normalize evaluate input: either plain digits or {epoch, digit} ticks.
+ */
+const toDigitTicks = input => {
+    if (!Array.isArray(input) || input.length === 0) {
+        return [];
     }
 
-    for (let i = state.processedCount; i < digits.length; i++) {
-        processDigitTick(state, digits[i], options);
+    if (typeof input[0] === 'object' && input[0] !== null && 'epoch' in input[0]) {
+        return input.map(tick => ({
+            epoch: Number(tick.epoch),
+            digit: tick.digit,
+        }));
     }
-    state.processedCount = digits.length;
+
+    return input.map((digit, index) => ({
+        epoch: index + 1,
+        digit,
+    }));
 };
 
 /**
@@ -306,7 +361,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         };
     }
 
-    syncTrackerWithDigits(state, digits, options);
+    syncTrackerWithDigitTicks(state, toDigitTicks(digits), options);
 
     // Carry forward appearance journals from the last processed tick.
     if (options.journal_enabled && state.lastJournal?.length) {
@@ -316,7 +371,8 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
 
     const max_trades = options.max_trades_per_session;
     if (max_trades > 0 && state.tradesThisSession >= max_trades) {
-        if (options.journal_enabled) {
+        if (options.journal_enabled && !state.maxTradesLogEmitted) {
+            state.maxTradesLogEmitted = true;
             journal_messages.push({
                 className: 'journal__text--error',
                 message: `Trade Blocked\nReason: Maximum trades per session reached (${max_trades})`,
@@ -328,7 +384,8 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     }
 
     if (state.tickIndex < state.cooldownUntilTick) {
-        if (options.journal_enabled) {
+        if (options.journal_enabled && !state.cooldownLogEmitted) {
+            state.cooldownLogEmitted = true;
             journal_messages.push({
                 className: 'journal__text--error',
                 message: `Trade Blocked\nReason: Cooldown active (${state.cooldownUntilTick - state.tickIndex} tick(s) left)`,
@@ -338,6 +395,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         state.lastDashboard = dashboard || '';
         return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
     }
+    state.cooldownLogEmitted = false;
 
     // Eligible digits exclude those already traded this cycle (one_trade_per_cycle).
     // one_active_trade_only only means "pick a single digit this tick" via selection_mode —

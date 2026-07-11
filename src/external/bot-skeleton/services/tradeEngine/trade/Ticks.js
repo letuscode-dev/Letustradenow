@@ -130,6 +130,31 @@ export default Engine =>
 
             return [];
         }
+
+        /**
+         * Digits paired with tick epochs — needed for sliding-window caches
+         * where array length stops growing after history fills.
+         */
+        getCachedDigitTicks() {
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            if (!cached_ticks?.length) {
+                return [];
+            }
+
+            const pip_size = this.getPipSize();
+            return cached_ticks.map(tick => {
+                const quote = typeof tick === 'object' && tick !== null ? tick.quote : tick;
+                const numeric_quote = Number(quote);
+                const epoch = typeof tick === 'object' && tick !== null ? Number(tick.epoch) : NaN;
+
+                return {
+                    epoch,
+                    digit: Number.isFinite(numeric_quote)
+                        ? getLastDigit(numeric_quote.toFixed(pip_size))
+                        : NaN,
+                };
+            });
+        }
         getLastDigitsFromList(ticks) {
             const digits = ticks.map(tick => {
                 const quote = typeof tick === 'object' && tick !== null ? tick.quote : tick;

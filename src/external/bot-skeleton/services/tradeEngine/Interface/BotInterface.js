@@ -48,8 +48,9 @@ const getBotInterface = tradeEngine => {
             if (!tradeEngine.adaptiveDigitGapState) {
                 tradeEngine.adaptiveDigitGapState = createTrackerState();
             }
-            const digits = tradeEngine.getCachedLastDigitList(1);
-            return evaluateAdaptiveDigitGap(digits, options || {}, tradeEngine.adaptiveDigitGapState);
+            // Use epoch-tagged ticks — the live cache is a fixed-length sliding window.
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateAdaptiveDigitGap(digit_ticks, options || {}, tradeEngine.adaptiveDigitGapState);
         },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
