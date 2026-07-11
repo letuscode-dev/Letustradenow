@@ -5,12 +5,15 @@ import {
     doUntilDone,
     getUUID,
     recoverFromError,
+    toBuyPrice,
     tradeOptionToBuy,
     tradeOptionToOverrideBuy,
     tradeOptionToOverrideProposal,
 } from '../utils/helpers';
 import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
+import { createError } from '../../../utils/error';
+import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -242,9 +245,22 @@ export default Engine =>
                                 throw proposal_response || new Error('InvalidContractProposal');
                             }
 
+                            const price = toBuyPrice(
+                                proposal.ask_price,
+                                proposal.display_value,
+                                this.tradeOptions?.amount
+                            );
+
+                            if (price === undefined) {
+                                throw createError(
+                                    'InputValidationFailed',
+                                    getLocalizedErrorMessage('AmountValidationFailed')
+                                );
+                            }
+
                             return api_base.api.send({
                                 buy: proposal.id,
-                                price: proposal.ask_price,
+                                price,
                             });
                         });
 
@@ -272,14 +288,22 @@ export default Engine =>
                 }
 
                 const { id, askPrice } = proposal;
+                const price = toBuyPrice(askPrice, this.tradeOptions?.amount);
 
-                const action = () => api_base.api.send({ buy: id, price: askPrice });
+                if (price === undefined) {
+                    this.resetPurchaseAttempt();
+                    return Promise.reject(
+                        createError('InputValidationFailed', getLocalizedErrorMessage('AmountValidationFailed'))
+                    );
+                }
+
+                const action = () => api_base.api.send({ buy: id, price });
 
                 this.isSold = false;
 
                 contractStatus({
                     id: 'contract.purchase_sent',
-                    data: askPrice,
+                    data: price,
                 });
 
                 if (!this.options.timeMachineEnabled) {

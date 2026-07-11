@@ -1,6 +1,6 @@
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
 import { api_base } from '../../api/api-base';
-import { doUntilDone, tradeOptionToProposal } from '../utils/helpers';
+import { doUntilDone, toBuyPrice, tradeOptionToProposal } from '../utils/helpers';
 import { clearProposals, proposalsReady } from './state/actions';
 
 export default Engine =>
@@ -51,7 +51,8 @@ export default Engine =>
 
             return {
                 id: to_buy.id,
-                askPrice: to_buy.ask_price,
+                // New Deriv proposal payloads may return ask_price as a string.
+                askPrice: toBuyPrice(to_buy.ask_price, to_buy.display_value),
             };
         }
 

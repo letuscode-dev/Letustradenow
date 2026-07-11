@@ -51,6 +51,27 @@ const toInteger = (value, fallback) => {
     return Number.isFinite(numeric_value) ? Math.trunc(numeric_value) : fallback;
 };
 
+/**
+ * Buy `price` must be a finite number (Deriv schema type: number).
+ * New proposal responses may return ask_price/display_value as strings; sending a
+ * string or undefined causes: Input validation failed: price.
+ */
+export const toBuyPrice = (...candidates) => {
+    for (const value of candidates) {
+        if (value === undefined || value === null || value === '') {
+            continue;
+        }
+
+        const numeric_value = typeof value === 'string' ? Number(value.trim()) : Number(value);
+
+        if (Number.isFinite(numeric_value) && numeric_value >= 0) {
+            return numeric_value;
+        }
+    }
+
+    return undefined;
+};
+
 const toBarrierString = value => {
     if (!hasValue(value)) {
         return undefined;
@@ -264,12 +285,20 @@ export const normalizeTradeOptionForOverride = (contract_type, trade_option, con
 
 export const tradeOptionToBuy = (contract_type, trade_option) => {
     const parameters = buildContractParameters(contract_type, trade_option);
+    const price = toBuyPrice(trade_option.amount, parameters.amount);
 
-    return removeEmptyFields({
+    if (price === undefined) {
+        throw new Error(getLocalizedErrorMessage('AmountValidationFailed'));
+    }
+
+    // Keep amount and max purchase price aligned as finite numbers.
+    parameters.amount = price;
+
+    return {
         buy: '1',
-        price: toNumber(trade_option.amount, parameters.amount),
+        price,
         parameters,
-    });
+    };
 };
 
 export const tradeOptionToOverrideBuy = (contract_type, trade_option, contract_config) =>
