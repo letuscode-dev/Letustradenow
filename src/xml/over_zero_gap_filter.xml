@@ -239,7 +239,7 @@
       </block>
     </statement>
   </block>
-  <block type="procedures_defnoreturn" id="ozGapSetupFn001LetUsTrade" x="0" y="700">
+  <block type="procedures_defnoreturn" id="ozGapSetupFn001LetUsTrade" collapsed="true" x="0" y="700">
     <mutation>
       <arg name="initialStake" varid="ozP_initialStake"></arg>
       <arg name="enableMartingale" varid="ozP_enableMartingale"></arg>
