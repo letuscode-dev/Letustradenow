@@ -436,7 +436,9 @@ const CHECKBOX_ONE_ACTIVE_TRADE = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_one_active_trade',
     label: localize('One active trade only'),
-    description: localize('Do not signal another digit while a digit already has a trade this cycle.'),
+    description: localize(
+        'On each tick, place at most one Differs among eligible digits (selection mode chooses which). Other digits can still trade later in their own cycles.'
+    ),
 });
 
 const CHECKBOX_JOURNAL = (): TConfigItem => ({

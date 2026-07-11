@@ -339,49 +339,17 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
     }
 
-    // Optional waiting logs for digits approaching trigger (journal only, keep light: ready/blocked).
+    // Eligible digits exclude those already traded this cycle (one_trade_per_cycle).
+    // one_active_trade_only only means "pick a single digit this tick" via selection_mode —
+    // it must NOT freeze all other digits until the last traded digit reappears.
     const eligible_digits = state.digits.filter(ds => isDigitEligible(ds, options)).map(ds => ds.digit);
 
-    // Digits that would be ready but are blocked by one-trade-per-cycle.
-    if (options.journal_enabled) {
-        state.digits.forEach(ds => {
-            const trigger = ds.adaptiveTriggerGap;
-            if (trigger === null) {
-                return;
-            }
-            if (trigger < options.min_adaptive_gap || trigger > options.max_adaptive_gap) {
-                return;
-            }
-            if (ds.currentGap < trigger) {
-                return;
-            }
-            if (options.one_trade_per_cycle && ds.tradePlacedThisCycle) {
-                journal_messages.push({
-                    className: 'journal__text--error',
-                    message: [
-                        `Digit ${ds.digit} Trade Blocked`,
-                        'Reason: Trade already placed during current gap cycle',
-                    ].join('\n'),
-                });
-            }
-        });
-    }
+    let prediction = -1;
 
-    let prediction = selectEligibleDigit(state.digits, options);
-
-    // one_active_trade_only: if any digit already traded this cycle and still in cycle, prefer not stacking
-    // another digit unless selection still finds one and flag is false. When true, skip if any tradePlacedThisCycle.
-    if (prediction >= 0 && options.one_active_trade_only) {
-        const any_active = state.digits.some(ds => ds.tradePlacedThisCycle && ds.digit !== prediction);
-        if (any_active) {
-            if (options.journal_enabled) {
-                journal_messages.push({
-                    className: 'journal__text--error',
-                    message: `Digit ${prediction} Trade Blocked\nReason: One active trade only`,
-                });
-            }
-            prediction = -1;
-        }
+    if (eligible_digits.length) {
+        // Always place at most one Differs signal per tick (Deriv purchase is singular).
+        // When one_active_trade_only is false, selection_mode still chooses which eligible digit.
+        prediction = selectEligibleDigit(state.digits, options);
     }
 
     if (prediction >= 0) {
@@ -401,7 +369,12 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
                     `Current Gap: ${ds.currentGap}`,
                     `Adaptive Trigger Gap: ${ds.adaptiveTriggerGap}`,
                     `Action: Buy Differs ${prediction}`,
-                ].join('\n'),
+                    eligible_digits.length > 1
+                        ? `Other eligible this tick: ${eligible_digits.filter(d => d !== prediction).join(', ')}`
+                        : null,
+                ]
+                    .filter(Boolean)
+                    .join('\n'),
             });
         }
     }

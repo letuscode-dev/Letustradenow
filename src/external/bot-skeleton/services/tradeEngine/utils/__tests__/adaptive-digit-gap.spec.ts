@@ -71,6 +71,31 @@ describe('evaluateAdaptiveDigitGap', () => {
         expect(again.prediction).not.toBe(3);
     });
 
+    it('still trades other digits when one digit is locked for its cycle', () => {
+        const state = createTrackerState();
+        const opts = {
+            journal_enabled: false,
+            min_adaptive_gap: 1,
+            one_trade_per_cycle: true,
+            one_active_trade_only: true,
+            selection_mode: SELECTION_FIRST,
+        };
+
+        // Trade digit 3 (gap 3 → catch up to 3)
+        evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4], opts, state);
+        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+
+        // Independently: digit 7 gap 2, then catch up — must be allowed while 3 is locked
+        // Continue history without another 3: after [...4] add 7, 1, 7, 0, 2
+        // First 7 initializes; 1 increments; second 7 completes gap 1; 0,2 → currentGap 2 for digit 7
+        // Need gap >= 2: use 7, a, b, 7 → gap 2, then c, d → current 2
+        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4, 7, 9, 8, 7, 1, 2], opts, state);
+        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+        expect(state.digits[7].adaptiveTriggerGap).toBe(2);
+        expect(state.digits[7].currentGap).toBe(2);
+        expect(result.prediction).toBe(7);
+    });
+
     it('respects min/max adaptive gap filter', () => {
         const state = createTrackerState();
         const result = evaluateAdaptiveDigitGap(
