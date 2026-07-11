@@ -94,7 +94,8 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
         var BinaryBotPrivateMsgs = BinaryBotPrivateAdaptiveGapResult && BinaryBotPrivateAdaptiveGapResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
             var BinaryBotPrivateMsgIndex;
-            for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgs.length; BinaryBotPrivateMsgIndex++) {
+            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 2 ? 2 : BinaryBotPrivateMsgs.length;
+            for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgLimit; BinaryBotPrivateMsgIndex++) {
                 var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({
                     className: BinaryBotPrivateMsg.className,

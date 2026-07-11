@@ -445,14 +445,14 @@ const CHECKBOX_JOURNAL = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_journal',
     label: localize('Journal logging'),
-    description: localize('Log gap updates, triggers, and blocks to the Journal.'),
+    description: localize('Log short trade signals and blocks only (no per-tick spam).'),
 });
 
 const CHECKBOX_DASHBOARD = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_dashboard',
     label: localize('Live gap dashboard'),
-    description: localize('Write a per-digit gap table to the Journal on each evaluation.'),
+    description: localize('Write a compact per-digit gap line to the Journal when it changes.'),
 });
 
 const LABEL_MIN_GAP = (): TConfigItem => ({

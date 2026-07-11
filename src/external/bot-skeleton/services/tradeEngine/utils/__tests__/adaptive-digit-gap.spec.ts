@@ -16,7 +16,7 @@ describe('processDigitTick / adaptive gaps', () => {
     it('sets adaptive trigger from completed gap on second occurrence', () => {
         // Spec example: 3, 8, 5, 1, 3 → completed gap for 3 = 3
         const state = createTrackerState();
-        [3, 8, 5, 1, 3].forEach(d => processDigitTick(state, d, { journal_enabled: false }));
+        [3, 8, 5, 1, 3].forEach(d => processDigitTick(state, d));
 
         expect(state.digits[3].adaptiveTriggerGap).toBe(3);
         expect(state.digits[3].currentGap).toBe(0);
@@ -25,19 +25,19 @@ describe('processDigitTick / adaptive gaps', () => {
 
     it('increments other digits and adapts after each completed cycle', () => {
         const state = createTrackerState();
-        [3, 7, 2, 8, 5, 3].forEach(d => processDigitTick(state, d, { journal_enabled: false }));
+        [3, 7, 2, 8, 5, 3].forEach(d => processDigitTick(state, d));
         expect(state.digits[3].adaptiveTriggerGap).toBe(4);
         expect(state.digits[3].currentGap).toBe(0);
 
-        [9, 1, 6, 4].forEach(d => processDigitTick(state, d, { journal_enabled: false }));
+        [9, 1, 6, 4].forEach(d => processDigitTick(state, d));
         expect(state.digits[3].currentGap).toBe(4);
         expect(state.digits[3].currentGap).toBe(state.digits[3].adaptiveTriggerGap);
     });
 
     it('replaces adaptive trigger when the digit appears again', () => {
         const state = createTrackerState();
-        [3, 7, 2, 8, 5, 3].forEach(d => processDigitTick(state, d, { journal_enabled: false }));
-        [9, 1, 6, 4, 0, 2, 8, 3].forEach(d => processDigitTick(state, d, { journal_enabled: false }));
+        [3, 7, 2, 8, 5, 3].forEach(d => processDigitTick(state, d));
+        [9, 1, 6, 4, 0, 2, 8, 3].forEach(d => processDigitTick(state, d));
         expect(state.digits[3].completedGap).toBe(7);
         expect(state.digits[3].adaptiveTriggerGap).toBe(7);
         expect(state.digits[3].currentGap).toBe(0);
@@ -128,22 +128,21 @@ describe('evaluateAdaptiveDigitGap', () => {
         expect(state.activeTradePhase).toBe('signaled');
     });
 
-    it('accumulates journal messages across multi-tick catch-up', () => {
+    it('journals only a short signal line (no per-tick spam)', () => {
         const state = createTrackerState();
-        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3], { journal_enabled: true, min_adaptive_gap: 1 }, state);
-        // Bulk catch-up must not emit one Journal line per historical tick (UI freeze).
-        expect(result.journal_messages.length).toBeLessThanOrEqual(8);
-        expect(result.journal_messages.some(m => String(m.message).includes('Catch-up'))).toBe(true);
-        expect(result.journal_messages.some(m => String(m.message).includes('Digit 3 appeared'))).toBe(true);
-        // Historical first-seen lines are suppressed during catch-up.
-        expect(result.journal_messages.filter(m => String(m.message).includes('first seen')).length).toBe(0);
+        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4], { journal_enabled: true, min_adaptive_gap: 1 }, state);
+        expect(result.journal_messages.length).toBeLessThanOrEqual(2);
+        expect(result.journal_messages.some(m => String(m.message).startsWith('Differs '))).toBe(true);
+        expect(result.journal_messages.every(m => !String(m.message).includes('\n'))).toBe(true);
+        expect(result.journal_messages.every(m => !String(m.message).includes('first seen'))).toBe(true);
+        expect(result.journal_messages.every(m => !String(m.message).includes('Catch-up'))).toBe(true);
     });
 
     it('does not flood journal when syncing a large tick window', () => {
         const state = createTrackerState();
         const digits = Array.from({ length: 200 }, (_, i) => i % 10);
         const result = evaluateAdaptiveDigitGap(digits, { journal_enabled: true, min_adaptive_gap: 1 }, state);
-        expect(result.journal_messages.length).toBeLessThanOrEqual(8);
+        expect(result.journal_messages.length).toBeLessThanOrEqual(2);
         expect(state.tickIndex).toBe(199);
     });
 
@@ -201,13 +200,13 @@ describe('sliding tick cache', () => {
 });
 
 describe('formatGapDashboard', () => {
-    it('renders a row per digit', () => {
+    it('renders a compact one-line status for all digits', () => {
         const state = createTrackerState();
         syncTrackerWithDigits(state, [1, 2, 1], { journal_enabled: false });
         const table = formatGapDashboard(state.digits);
-        expect(table.split('\n')).toHaveLength(11);
-        expect(table).toContain('Digit | Current Gap | Adaptive Gap');
-        expect(table).toContain('1 | 0 | 1 |');
+        expect(table).toContain('1:0/1');
+        expect(table).toContain(' · ');
+        expect(table.split('\n')).toHaveLength(1);
     });
 });
 

@@ -12,8 +12,8 @@ export const DEFAULT_MIN_ADAPTIVE_GAP = 3;
 export const DEFAULT_MAX_ADAPTIVE_GAP = 20;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited
-/** Avoid flooding Journal/UI when syncing a full tick-history window. */
-export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 8;
+/** Hard cap — Journal/UI must stay responsive. */
+export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 2;
 
 export const SELECTION_FIRST = 0;
 export const SELECTION_LARGEST_ADAPTIVE = 1;
@@ -131,12 +131,12 @@ export const normalizeAdaptiveGapOptions = (options = {}) => {
 /**
  * Process a single incoming last digit against tracker state.
  * Appeared digit is completed/reset first; all other digits increment once.
+ * No Journal here — evaluate emits short signal/block lines only (fast path).
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {number} digit
- * @param {{ journal_enabled?: boolean }} [options]
  */
-export const processDigitTick = (state, digit, options = {}) => {
+export const processDigitTick = (state, digit) => {
     const d = Number(digit);
     if (!Number.isInteger(d) || d < 0 || d > 9) {
         return;
@@ -144,8 +144,6 @@ export const processDigitTick = (state, digit, options = {}) => {
 
     state.tickIndex += 1;
     const tick = state.tickIndex;
-    const journal = [];
-
     const appeared = state.digits[d];
 
     if (!appeared.initialized) {
@@ -155,60 +153,21 @@ export const processDigitTick = (state, digit, options = {}) => {
         appeared.lastOccurrenceTick = tick;
         appeared.triggerReached = false;
         appeared.tradePlacedThisCycle = false;
-        if (options.journal_enabled) {
-            journal.push({
-                className: 'journal__text',
-                message: `Digit ${d} first seen.\nCurrent Gap Reset: 0\nWaiting for second occurrence before adaptive trigger.`,
-            });
-        }
     } else {
         const completed = appeared.currentGap;
-        const previous_trigger = appeared.adaptiveTriggerGap;
         appeared.completedGap = completed;
         appeared.adaptiveTriggerGap = completed;
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
         appeared.triggerReached = false;
         appeared.tradePlacedThisCycle = false;
-
-        if (options.journal_enabled) {
-            if (previous_trigger === null) {
-                journal.push({
-                    className: 'journal__text',
-                    message: [
-                        `Digit ${d} appeared.`,
-                        `Completed Gap: ${completed}`,
-                        `New Adaptive Trigger Gap: ${completed}`,
-                        'Current Gap Reset: 0',
-                        'New Cycle Started',
-                    ].join('\n'),
-                });
-            } else {
-                journal.push({
-                    className: 'journal__text',
-                    message: [
-                        `Digit ${d} appeared again`,
-                        `Completed Gap: ${completed}`,
-                        `Adaptive Trigger Updated: ${previous_trigger} → ${completed}`,
-                        'Current Gap Reset: 0',
-                        'Trade Cycle Reset',
-                    ].join('\n'),
-                });
-            }
-        }
     }
 
     // Increment every other digit once for this tick.
     for (let i = 0; i <= 9; i++) {
-        if (i === d) {
-            continue;
+        if (i !== d) {
+            state.digits[i].currentGap += 1;
         }
-        state.digits[i].currentGap += 1;
-    }
-
-    // Append so multi-tick catch-up keeps every appearance message.
-    if (journal.length) {
-        state.lastJournal = (state.lastJournal || []).concat(journal);
     }
 };
 
@@ -234,34 +193,12 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
         }
     }
 
-    // Fresh batch buffer for this sync (evaluate will flush it).
     state.lastJournal = [];
-
-    const pending = digit_ticks.length - start;
-    // Bulk catch-up (warm start / missed ticks): keep state correct but do not
-    // emit per-tick Journal lines — that path freezes the UI via Bot.notify.
-    const bulk_catch_up = pending > 1;
-    const quiet_options = bulk_catch_up ? { ...options, journal_enabled: false } : options;
 
     for (let i = start; i < digit_ticks.length; i++) {
         const tick = digit_ticks[i];
-        const is_latest = i === digit_ticks.length - 1;
-        // On catch-up, only the newest tick may journal (live edge).
-        const tick_options =
-            bulk_catch_up && options.journal_enabled && is_latest
-                ? options
-                : quiet_options;
-        processDigitTick(state, tick.digit, tick_options);
+        processDigitTick(state, tick.digit);
         state.lastProcessedEpoch = Number(tick.epoch);
-    }
-
-    if (bulk_catch_up && options.journal_enabled) {
-        state.lastJournal = [
-            {
-                className: 'journal__text',
-                message: `Catch-up: synced ${pending} ticks (per-tick journal skipped to keep the page responsive).`,
-            },
-        ].concat(state.lastJournal || []);
     }
 
     state.processedCount = digit_ticks.length;
@@ -377,27 +314,24 @@ export const selectEligibleDigit = (digit_states, options) => {
  * Live dashboard table for all digits.
  */
 export const formatGapDashboard = digit_states => {
-    const header = 'Digit | Current Gap | Adaptive Gap | Remaining | Trigger | Traded This Cycle';
-    const rows = digit_states.map(ds => {
-        const adaptive = ds.adaptiveTriggerGap === null ? '-' : String(ds.adaptiveTriggerGap);
+    const rows = [];
+    for (let i = 0; i < digit_states.length; i++) {
+        const ds = digit_states[i];
+        const adaptive = ds.adaptiveTriggerGap === null ? '-' : ds.adaptiveTriggerGap;
         const remaining = getRemainingTicks(ds);
-        const remaining_text = remaining === null ? '-' : String(remaining);
-
-        let trigger_status = 'Waiting';
+        let status = '-';
         if (ds.adaptiveTriggerGap === null) {
-            trigger_status = ds.initialized ? 'Init' : '-';
+            status = ds.initialized ? 'init' : '-';
         } else if (ds.tradePlacedThisCycle) {
-            trigger_status = 'Triggered';
+            status = 'done';
         } else if (ds.currentGap >= ds.adaptiveTriggerGap) {
-            trigger_status = 'Ready';
+            status = 'ready';
+        } else {
+            status = `${remaining} left`;
         }
-
-        return `${ds.digit} | ${ds.currentGap} | ${adaptive} | ${remaining_text} | ${trigger_status} | ${
-            ds.tradePlacedThisCycle ? 'Yes' : 'No'
-        }`;
-    });
-
-    return [header, ...rows].join('\n');
+        rows.push(`${ds.digit}:${ds.currentGap}/${adaptive} ${status}`);
+    }
+    return rows.join(' · ');
 };
 
 /**
@@ -424,26 +358,19 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
 
     syncTrackerWithDigitTicks(state, toDigitTicks(digits), options);
 
-    // Carry forward appearance journals from the ticks processed this evaluate.
-    if (options.journal_enabled && state.lastJournal?.length) {
-        journal_messages.push(...state.lastJournal);
-        state.lastJournal = [];
-    }
-
-    const trimJournal = () => {
-        if (journal_messages.length > MAX_JOURNAL_MESSAGES_PER_EVALUATE) {
-            const omitted = journal_messages.length - MAX_JOURNAL_MESSAGES_PER_EVALUATE;
-            journal_messages.splice(0, omitted, {
-                className: 'journal__text',
-                message: `… ${omitted} earlier journal line(s) omitted`,
-            });
-        }
-    };
-
     const finish = (prediction, eligible = []) => {
-        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
-        state.lastDashboard = dashboard || '';
-        trimJournal();
+        let dashboard = null;
+        if (options.dashboard_enabled) {
+            const next_dashboard = formatGapDashboard(state.digits);
+            // Only push dashboard when it changes — avoids Journal spam every evaluate.
+            if (next_dashboard !== state.lastDashboard) {
+                dashboard = next_dashboard;
+                state.lastDashboard = next_dashboard;
+            }
+        }
+        if (journal_messages.length > MAX_JOURNAL_MESSAGES_PER_EVALUATE) {
+            journal_messages.length = MAX_JOURNAL_MESSAGES_PER_EVALUATE;
+        }
         return { prediction, enabled: true, journal_messages, dashboard, eligible };
     };
 
@@ -458,7 +385,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
             state.maxTradesLogEmitted = true;
             journal_messages.push({
                 className: 'journal__text--error',
-                message: `Trade Blocked\nReason: Maximum trades per session reached (${max_trades})`,
+                message: `Blocked: max trades (${max_trades})`,
             });
         }
         return finish(-1);
@@ -469,7 +396,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
             state.cooldownLogEmitted = true;
             journal_messages.push({
                 className: 'journal__text--error',
-                message: `Trade Blocked\nReason: Cooldown active (${state.cooldownUntilTick - state.tickIndex} tick(s) left)`,
+                message: `Blocked: cooldown (${state.cooldownUntilTick - state.tickIndex} left)`,
             });
         }
         return finish(-1);
@@ -482,20 +409,21 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
             state.activeTradeLogEmitted = true;
             journal_messages.push({
                 className: 'journal__text--error',
-                message: [
-                    'Trade Blocked',
-                    'Reason: One active trade only — waiting for current Differs to complete',
-                    state.activeTradeDigit != null ? `Active digit: ${state.activeTradeDigit}` : null,
-                ]
-                    .filter(Boolean)
-                    .join('\n'),
+                message:
+                    state.activeTradeDigit != null
+                        ? `Blocked: waiting for Differs ${state.activeTradeDigit}`
+                        : 'Blocked: waiting for open Differs',
             });
         }
         return finish(-1);
     }
 
-    // Eligible digits exclude those already traded this cycle (one_trade_per_cycle).
-    const eligible_digits = state.digits.filter(ds => isDigitEligible(ds, options)).map(ds => ds.digit);
+    const eligible_digits = [];
+    for (let i = 0; i <= 9; i++) {
+        if (isDigitEligible(state.digits[i], options)) {
+            eligible_digits.push(i);
+        }
+    }
 
     let prediction = -1;
 
@@ -519,17 +447,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         if (options.journal_enabled) {
             journal_messages.push({
                 className: 'journal__text--success',
-                message: [
-                    `Digit ${prediction} Trigger Reached`,
-                    `Current Gap: ${ds.currentGap}`,
-                    `Adaptive Trigger Gap: ${ds.adaptiveTriggerGap}`,
-                    `Action: Buy Differs ${prediction}`,
-                    eligible_digits.length > 1
-                        ? `Other eligible this tick: ${eligible_digits.filter(d => d !== prediction).join(', ')}`
-                        : null,
-                ]
-                    .filter(Boolean)
-                    .join('\n'),
+                message: `Differs ${prediction} · gap ${ds.currentGap} ≥ ${ds.adaptiveTriggerGap}`,
             });
         }
     }
