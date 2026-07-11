@@ -55,13 +55,13 @@ export const FREE_BOTS: FreeBot[] = [
         },
     },
     {
-        id: 'digit-transition-martingale',
-        title: localize('Digit Transition Differs'),
+        id: 'adaptive-digit-gap-differs',
+        title: localize('Adaptive Digit Gap Differs'),
         description: localize(
-            'Monitors all last-digit pair transitions over 120 ticks. When a pattern like 0→3 hits the threshold and the current digit is 3, immediately places Differs on 0 (the digit that started the pattern), with Martingale recovery. Base stake and Martingale multiplier are set in Run once at start.'
+            'Tracks an adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. Places Differs when current gap reaches that trigger (one trade per cycle by default). Stake and controls are set via the Adaptive Digit Gap Differs setup function in Run once at start.'
         ),
-        tags: [localize('Martingale'), localize('Differs'), localize('Transitions')],
-        strategy: 'DIGIT_TRANSITION_MARTINGALE',
+        tags: [localize('Martingale'), localize('Differs'), localize('Adaptive Gap')],
+        strategy: 'ADAPTIVE_DIGIT_GAP_DIFFERS',
         form: {
             symbol: '1HZ100V',
             tradetype: 'matchesdiffers',
@@ -69,8 +69,16 @@ export const FREE_BOTS: FreeBot[] = [
             stake: '1',
             duration: '1',
             durationtype: 't',
-            tick_window: '120',
-            pattern_threshold: '5',
+            min_adaptive_gap: '3',
+            max_adaptive_gap: '20',
+            selection_mode: '0',
+            cooldown_after_trade: '0',
+            max_trades_per_session: '0',
+            boolean_strategy: true,
+            boolean_one_trade_per_cycle: true,
+            boolean_one_active_trade: true,
+            boolean_journal: true,
+            boolean_dashboard: false,
             profit: '5',
             loss: '10',
             size: '2',

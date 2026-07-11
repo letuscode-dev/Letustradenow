@@ -300,6 +300,159 @@ const PATTERN_THRESHOLD = (): TConfigItem => ({
     ],
 });
 
+const LABEL_MIN_ADAPTIVE_GAP = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum adaptive gap'),
+    description: localize('Only trade when a digit’s adaptive trigger gap is at least this many ticks.'),
+});
+
+const MIN_ADAPTIVE_GAP = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_adaptive_gap',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_MAX_ADAPTIVE_GAP = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Maximum adaptive gap'),
+    description: localize('Only trade when a digit’s adaptive trigger gap is at most this many ticks.'),
+});
+
+const MAX_ADAPTIVE_GAP = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_adaptive_gap',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_SELECTION_MODE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Selection mode'),
+    description: localize(
+        'When several digits are eligible: 0 = first digit, 1 = largest adaptive gap, 2 = highest gap excess, 3 = largest current gap.'
+    ),
+});
+
+const SELECTION_MODE = (): TConfigItem => ({
+    type: 'number',
+    name: 'selection_mode',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+        {
+            type: 'max',
+            value: '3',
+            getMessage: (max: string | number) =>
+                localize('The value must be equal or less than {{ max }}', { max }),
+        },
+    ],
+});
+
+const LABEL_COOLDOWN = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Cooldown after trade'),
+    description: localize('Wait this many ticks after a Differs signal before allowing another.'),
+});
+
+const COOLDOWN_AFTER_TRADE = (): TConfigItem => ({
+    type: 'number',
+    name: 'cooldown_after_trade',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_MAX_TRADES_SESSION = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Max trades per session'),
+    description: localize('Stop signaling after this many trades (0 = unlimited).'),
+});
+
+const MAX_TRADES_SESSION = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_trades_per_session',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const CHECKBOX_STRATEGY = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_strategy',
+    label: localize('Enable strategy'),
+    description: localize('When off, no Differs signals are produced.'),
+});
+
+const CHECKBOX_ONE_TRADE_PER_CYCLE = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_one_trade_per_cycle',
+    label: localize('One trade per digit cycle'),
+    description: localize('Only one Differs per digit until that digit appears again and resets.'),
+});
+
+const CHECKBOX_ONE_ACTIVE_TRADE = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_one_active_trade',
+    label: localize('One active trade only'),
+    description: localize('Do not signal another digit while a digit already has a trade this cycle.'),
+});
+
+const CHECKBOX_JOURNAL = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_journal',
+    label: localize('Journal logging'),
+    description: localize('Log gap updates, triggers, and blocks to the Journal.'),
+});
+
+const CHECKBOX_DASHBOARD = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_dashboard',
+    label: localize('Live gap dashboard'),
+    description: localize('Write a per-digit gap table to the Journal on each evaluation.'),
+});
+
 const LABEL_MIN_GAP = (): TConfigItem => ({
     type: 'label',
     label: localize('Minimum gap'),
@@ -482,16 +635,16 @@ export const STRATEGIES = (): TStrategies => ({
             ],
         ],
     },
-    DIGIT_TRANSITION_MARTINGALE: {
-        name: 'digit_transition_martingale',
-        label: localize('Digit Transition Martingale'),
-        rs_strategy_name: 'digit transition martingale',
+    ADAPTIVE_DIGIT_GAP_DIFFERS: {
+        name: 'adaptive_digit_gap_differs',
+        label: localize('Adaptive Digit Gap Differs'),
+        rs_strategy_name: 'adaptive digit gap differs',
         description: [
             {
                 type: 'text',
                 content: [
                     localize(
-                        'Monitors all last-digit pair transitions over a rolling tick window. When a pattern such as 0→3 reaches the threshold and the current digit is 3, immediately places Differs on 0 (the digit that initiated the pattern), with Martingale recovery on losses.'
+                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery.'
                     ),
                 ],
             },
@@ -502,10 +655,12 @@ export const STRATEGIES = (): TStrategies => ({
                 SYMBOL(),
                 LABEL_STAKE(),
                 STAKE(),
-                LABEL_TICK_WINDOW(),
-                TICK_WINDOW(),
-                LABEL_PATTERN_THRESHOLD(),
-                PATTERN_THRESHOLD(),
+                LABEL_MIN_ADAPTIVE_GAP(),
+                MIN_ADAPTIVE_GAP(),
+                LABEL_MAX_ADAPTIVE_GAP(),
+                MAX_ADAPTIVE_GAP(),
+                LABEL_SELECTION_MODE(),
+                SELECTION_MODE(),
             ],
             [
                 LABEL_PROFIT(),
@@ -514,6 +669,15 @@ export const STRATEGIES = (): TStrategies => ({
                 LOSS(),
                 LABEL_MARTINGALE_SIZE(),
                 SIZE(),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_ONE_TRADE_PER_CYCLE(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_DASHBOARD(),
                 CHECKBOX_MAX_STAKE(),
                 MAX_STAKE(),
             ],

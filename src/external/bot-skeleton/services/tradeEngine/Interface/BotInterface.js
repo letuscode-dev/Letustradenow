@@ -2,6 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
+import { createTrackerState, evaluateAdaptiveDigitGap } from '../utils/adaptive-digit-gap';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -9,7 +10,10 @@ const getBotInterface = tradeEngine => {
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
-        stop: (...args) => tradeEngine.stop(...args),
+        stop: (...args) => {
+            tradeEngine.adaptiveDigitGapState = null;
+            return tradeEngine.stop(...args);
+        },
         purchase: contract_type => tradeEngine.purchase(contract_type),
         purchaseOverrideContractType: contract_type => tradeEngine.purchaseOverrideContractType(contract_type),
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
@@ -35,6 +39,17 @@ const getBotInterface = tradeEngine => {
                 max_gap,
                 journal_enabled,
             });
+        },
+        /**
+         * Adaptive per-digit gap Differs — returns { prediction, journal_messages, dashboard, ... }.
+         * Persistent tracker state is kept on the trade engine for the bot session.
+         */
+        evaluateAdaptiveDigitGap: options => {
+            if (!tradeEngine.adaptiveDigitGapState) {
+                tradeEngine.adaptiveDigitGapState = createTrackerState();
+            }
+            const digits = tradeEngine.getCachedLastDigitList(1);
+            return evaluateAdaptiveDigitGap(digits, options || {}, tradeEngine.adaptiveDigitGapState);
         },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
