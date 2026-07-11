@@ -131,11 +131,20 @@ describe('evaluateAdaptiveDigitGap', () => {
     it('accumulates journal messages across multi-tick catch-up', () => {
         const state = createTrackerState();
         const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3], { journal_enabled: true, min_adaptive_gap: 1 }, state);
-        const appearance_msgs = result.journal_messages.filter(m =>
-            String(m.message).includes('appeared') || String(m.message).includes('first seen')
-        );
-        expect(appearance_msgs.length).toBeGreaterThanOrEqual(2);
+        // Bulk catch-up must not emit one Journal line per historical tick (UI freeze).
+        expect(result.journal_messages.length).toBeLessThanOrEqual(8);
+        expect(result.journal_messages.some(m => String(m.message).includes('Catch-up'))).toBe(true);
         expect(result.journal_messages.some(m => String(m.message).includes('Digit 3 appeared'))).toBe(true);
+        // Historical first-seen lines are suppressed during catch-up.
+        expect(result.journal_messages.filter(m => String(m.message).includes('first seen')).length).toBe(0);
+    });
+
+    it('does not flood journal when syncing a large tick window', () => {
+        const state = createTrackerState();
+        const digits = Array.from({ length: 200 }, (_, i) => i % 10);
+        const result = evaluateAdaptiveDigitGap(digits, { journal_enabled: true, min_adaptive_gap: 1 }, state);
+        expect(result.journal_messages.length).toBeLessThanOrEqual(8);
+        expect(state.tickIndex).toBe(199);
     });
 
     it('respects min/max adaptive gap filter', () => {

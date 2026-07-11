@@ -12,6 +12,8 @@ export const DEFAULT_MIN_ADAPTIVE_GAP = 3;
 export const DEFAULT_MAX_ADAPTIVE_GAP = 20;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited
+/** Avoid flooding Journal/UI when syncing a full tick-history window. */
+export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 8;
 
 export const SELECTION_FIRST = 0;
 export const SELECTION_LARGEST_ADAPTIVE = 1;
@@ -235,10 +237,31 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
     // Fresh batch buffer for this sync (evaluate will flush it).
     state.lastJournal = [];
 
+    const pending = digit_ticks.length - start;
+    // Bulk catch-up (warm start / missed ticks): keep state correct but do not
+    // emit per-tick Journal lines — that path freezes the UI via Bot.notify.
+    const bulk_catch_up = pending > 1;
+    const quiet_options = bulk_catch_up ? { ...options, journal_enabled: false } : options;
+
     for (let i = start; i < digit_ticks.length; i++) {
         const tick = digit_ticks[i];
-        processDigitTick(state, tick.digit, options);
+        const is_latest = i === digit_ticks.length - 1;
+        // On catch-up, only the newest tick may journal (live edge).
+        const tick_options =
+            bulk_catch_up && options.journal_enabled && is_latest
+                ? options
+                : quiet_options;
+        processDigitTick(state, tick.digit, tick_options);
         state.lastProcessedEpoch = Number(tick.epoch);
+    }
+
+    if (bulk_catch_up && options.journal_enabled) {
+        state.lastJournal = [
+            {
+                className: 'journal__text',
+                message: `Catch-up: synced ${pending} ticks (per-tick journal skipped to keep the page responsive).`,
+            },
+        ].concat(state.lastJournal || []);
     }
 
     state.processedCount = digit_ticks.length;
@@ -407,6 +430,23 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         state.lastJournal = [];
     }
 
+    const trimJournal = () => {
+        if (journal_messages.length > MAX_JOURNAL_MESSAGES_PER_EVALUATE) {
+            const omitted = journal_messages.length - MAX_JOURNAL_MESSAGES_PER_EVALUATE;
+            journal_messages.splice(0, omitted, {
+                className: 'journal__text',
+                message: `… ${omitted} earlier journal line(s) omitted`,
+            });
+        }
+    };
+
+    const finish = (prediction, eligible = []) => {
+        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
+        state.lastDashboard = dashboard || '';
+        trimJournal();
+        return { prediction, enabled: true, journal_messages, dashboard, eligible };
+    };
+
     // If one-active is off, drop any leftover lock from a previous setting.
     if (!options.one_active_trade_only && state.activeTradePhase !== 'none') {
         releaseAdaptiveDigitGapActiveTrade(state);
@@ -421,9 +461,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
                 message: `Trade Blocked\nReason: Maximum trades per session reached (${max_trades})`,
             });
         }
-        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
-        state.lastDashboard = dashboard || '';
-        return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
+        return finish(-1);
     }
 
     if (state.tickIndex < state.cooldownUntilTick) {
@@ -434,9 +472,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
                 message: `Trade Blocked\nReason: Cooldown active (${state.cooldownUntilTick - state.tickIndex} tick(s) left)`,
             });
         }
-        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
-        state.lastDashboard = dashboard || '';
-        return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
+        return finish(-1);
     }
     state.cooldownLogEmitted = false;
 
@@ -455,9 +491,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
                     .join('\n'),
             });
         }
-        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
-        state.lastDashboard = dashboard || '';
-        return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
+        return finish(-1);
     }
 
     // Eligible digits exclude those already traded this cycle (one_trade_per_cycle).
@@ -500,14 +534,5 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         }
     }
 
-    const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
-    state.lastDashboard = dashboard || '';
-
-    return {
-        prediction,
-        enabled: true,
-        journal_messages,
-        dashboard,
-        eligible: eligible_digits,
-    };
+    return finish(prediction, eligible_digits);
 };
