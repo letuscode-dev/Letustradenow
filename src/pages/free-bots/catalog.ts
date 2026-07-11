@@ -58,7 +58,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'adaptive-digit-gap-differs',
         title: localize('Adaptive Digit Gap Differs'),
         description: localize(
-            'Tracks an adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. Places Differs when current gap reaches that trigger (one trade per cycle by default). Stake and controls are set via the Adaptive Digit Gap Differs setup function in Run once at start.'
+            'Tracks an adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. Places Differs when current gap reaches that trigger (one trade per cycle by default). Run once calls Adaptive Digit Gap Numbers (stake, gaps, limits) then Adaptive Digit Gap Booleans (toggles).'
         ),
         tags: [localize('Martingale'), localize('Differs'), localize('Adaptive Gap')],
         strategy: 'ADAPTIVE_DIGIT_GAP_DIFFERS',

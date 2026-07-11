@@ -23,7 +23,7 @@
     <variable type="" id="adgMin001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:minGap</variable>
     <variable type="" id="adgMax001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:maxGap</variable>
     <variable type="" id="adgMode001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:selectionMode</variable>
-    <variable type="" id="adgCooldown001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:cooldown</variable>
+    <variable type="" id="adgCd001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:cooldown</variable>
     <variable type="" id="adgMaxTrades001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:maxTrades</variable>
     <variable type="" id="adgOneCycle001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:oneTradePerCycle</variable>
     <variable type="" id="adgOneActive001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:oneActiveTrade</variable>
@@ -80,26 +80,20 @@
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      <block type="procedures_callnoreturn" id="adgInitCall001LetUsTrade">
-        <mutation name="Adaptive Digit Gap Differs">
+      <block type="procedures_callnoreturn" id="adgInitNumsCall001LetUsTrade">
+        <mutation name="Adaptive Digit Gap Numbers">
           <arg name="initialStake"></arg>
           <arg name="size"></arg>
           <arg name="profitThreshold"></arg>
           <arg name="lossThreshold"></arg>
-          <arg name="enableStrategy"></arg>
           <arg name="minAdaptiveGap"></arg>
           <arg name="maxAdaptiveGap"></arg>
           <arg name="selectionMode"></arg>
           <arg name="cooldownAfterTrade"></arg>
           <arg name="maxTradesPerSession"></arg>
-          <arg name="oneTradePerCycle"></arg>
-          <arg name="oneActiveTrade"></arg>
-          <arg name="journal"></arg>
-          <arg name="dashboard"></arg>
-          <arg name="setMaxStake"></arg>
           <arg name="maxStake"></arg>
         </mutation>
-        <data>adgSetupFn001LetUsTrade</data>
+        <data>adgSetupNumsFn001LetUsTrade</data>
         <value name="ARG0" strategy_value="stake">
           <block type="math_number" id="adgCallStake001"><field name="NUM">1</field></block>
         </value>
@@ -112,42 +106,55 @@
         <value name="ARG3" strategy_value="loss">
           <block type="math_number" id="adgCallLoss001"><field name="NUM">10</field></block>
         </value>
-        <value name="ARG4" strategy_value="boolean_strategy">
-          <block type="logic_boolean" id="adgCallEn001"><field name="BOOL">TRUE</field></block>
-        </value>
-        <value name="ARG5" strategy_value="min_adaptive_gap">
+        <value name="ARG4" strategy_value="min_adaptive_gap">
           <block type="math_number" id="adgCallMin001"><field name="NUM">3</field></block>
         </value>
-        <value name="ARG6" strategy_value="max_adaptive_gap">
+        <value name="ARG5" strategy_value="max_adaptive_gap">
           <block type="math_number" id="adgCallMax001"><field name="NUM">20</field></block>
         </value>
-        <value name="ARG7" strategy_value="selection_mode">
+        <value name="ARG6" strategy_value="selection_mode">
           <block type="math_number" id="adgCallMode001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG8" strategy_value="cooldown_after_trade">
+        <value name="ARG7" strategy_value="cooldown_after_trade">
           <block type="math_number" id="adgCallCd001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG9" strategy_value="max_trades_per_session">
+        <value name="ARG8" strategy_value="max_trades_per_session">
           <block type="math_number" id="adgCallMaxTr001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG10" strategy_value="boolean_one_trade_per_cycle">
-          <block type="logic_boolean" id="adgCallOneCyc001"><field name="BOOL">TRUE</field></block>
-        </value>
-        <value name="ARG11" strategy_value="boolean_one_active_trade">
-          <block type="logic_boolean" id="adgCallOneAct001"><field name="BOOL">TRUE</field></block>
-        </value>
-        <value name="ARG12" strategy_value="boolean_journal">
-          <block type="logic_boolean" id="adgCallJnl001"><field name="BOOL">TRUE</field></block>
-        </value>
-        <value name="ARG13" strategy_value="boolean_dashboard">
-          <block type="logic_boolean" id="adgCallDash001"><field name="BOOL">FALSE</field></block>
-        </value>
-        <value name="ARG14" strategy_value="boolean_max_stake">
-          <block type="logic_boolean" id="adgCallSetMax001"><field name="BOOL">TRUE</field></block>
-        </value>
-        <value name="ARG15" strategy_value="max_stake">
+        <value name="ARG9" strategy_value="max_stake">
           <block type="math_number" id="adgCallMaxStake001"><field name="NUM">25</field></block>
         </value>
+        <next>
+          <block type="procedures_callnoreturn" id="adgInitBoolsCall001LetUsTrade">
+            <mutation name="Adaptive Digit Gap Booleans">
+              <arg name="enableStrategy"></arg>
+              <arg name="oneTradePerCycle"></arg>
+              <arg name="oneActiveTrade"></arg>
+              <arg name="journal"></arg>
+              <arg name="dashboard"></arg>
+              <arg name="setMaxStake"></arg>
+            </mutation>
+            <data>adgSetupBoolsFn001LetUsTrade</data>
+            <value name="ARG0" strategy_value="boolean_strategy">
+              <block type="logic_boolean" id="adgCallEn001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="ARG1" strategy_value="boolean_one_trade_per_cycle">
+              <block type="logic_boolean" id="adgCallOneCyc001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="ARG2" strategy_value="boolean_one_active_trade">
+              <block type="logic_boolean" id="adgCallOneAct001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="ARG3" strategy_value="boolean_journal">
+              <block type="logic_boolean" id="adgCallJnl001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="ARG4" strategy_value="boolean_dashboard">
+              <block type="logic_boolean" id="adgCallDash001"><field name="BOOL">FALSE</field></block>
+            </value>
+            <value name="ARG5" strategy_value="boolean_max_stake">
+              <block type="logic_boolean" id="adgCallSetMax001"><field name="BOOL">TRUE</field></block>
+            </value>
+          </block>
+        </next>
       </block>
     </statement>
     <statement name="SUBMARKET">
@@ -269,26 +276,20 @@
       </block>
     </statement>
   </block>
-  <block type="procedures_defnoreturn" id="adgSetupFn001LetUsTrade" collapsed="true" x="0" y="700">
+  <block type="procedures_defnoreturn" id="adgSetupNumsFn001LetUsTrade" collapsed="true" x="0" y="700">
     <mutation>
       <arg name="initialStake" varid="adgP_initialStake"></arg>
       <arg name="size" varid="adgP_size"></arg>
       <arg name="profitThreshold" varid="adgP_profit"></arg>
       <arg name="lossThreshold" varid="adgP_loss"></arg>
-      <arg name="enableStrategy" varid="adgP_enabled"></arg>
       <arg name="minAdaptiveGap" varid="adgP_minGap"></arg>
       <arg name="maxAdaptiveGap" varid="adgP_maxGap"></arg>
       <arg name="selectionMode" varid="adgP_mode"></arg>
       <arg name="cooldownAfterTrade" varid="adgP_cooldown"></arg>
       <arg name="maxTradesPerSession" varid="adgP_maxTrades"></arg>
-      <arg name="oneTradePerCycle" varid="adgP_oneCycle"></arg>
-      <arg name="oneActiveTrade" varid="adgP_oneActive"></arg>
-      <arg name="journal" varid="adgP_journal"></arg>
-      <arg name="dashboard" varid="adgP_dashboard"></arg>
-      <arg name="setMaxStake" varid="adgP_setMaxStake"></arg>
       <arg name="maxStake" varid="4vh+dtelQS#?}@cNPcN!"></arg>
     </mutation>
-    <field name="NAME">Adaptive Digit Gap Differs</field>
+    <field name="NAME">Adaptive Digit Gap Numbers</field>
     <statement name="STACK">
       <block type="variables_set" id="adgFnStake001">
         <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field>
@@ -306,67 +307,78 @@
                     <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                     <value name="VALUE"><block type="variables_get" id="adgFnLossGet001"><field name="VAR" id="adgP_loss" variabletype="">lossThreshold</field></block></value>
                     <next>
-                      <block type="variables_set" id="adgFnEn001">
-                        <field name="VAR" id="adgEnabled001LetUsTrade" variabletype="">adaptiveGap:enabled</field>
-                        <value name="VALUE"><block type="variables_get" id="adgFnEnGet001"><field name="VAR" id="adgP_enabled" variabletype="">enableStrategy</field></block></value>
+                      <block type="variables_set" id="adgFnMin001">
+                        <field name="VAR" id="adgMin001LetUsTrade" variabletype="">adaptiveGap:minGap</field>
+                        <value name="VALUE"><block type="variables_get" id="adgFnMinGet001"><field name="VAR" id="adgP_minGap" variabletype="">minAdaptiveGap</field></block></value>
                         <next>
-                          <block type="variables_set" id="adgFnMin001">
-                            <field name="VAR" id="adgMin001LetUsTrade" variabletype="">adaptiveGap:minGap</field>
-                            <value name="VALUE"><block type="variables_get" id="adgFnMinGet001"><field name="VAR" id="adgP_minGap" variabletype="">minAdaptiveGap</field></block></value>
+                          <block type="variables_set" id="adgFnMax001">
+                            <field name="VAR" id="adgMax001LetUsTrade" variabletype="">adaptiveGap:maxGap</field>
+                            <value name="VALUE"><block type="variables_get" id="adgFnMaxGet001"><field name="VAR" id="adgP_maxGap" variabletype="">maxAdaptiveGap</field></block></value>
                             <next>
-                              <block type="variables_set" id="adgFnMax001">
-                                <field name="VAR" id="adgMax001LetUsTrade" variabletype="">adaptiveGap:maxGap</field>
-                                <value name="VALUE"><block type="variables_get" id="adgFnMaxGet001"><field name="VAR" id="adgP_maxGap" variabletype="">maxAdaptiveGap</field></block></value>
+                              <block type="variables_set" id="adgFnMode001">
+                                <field name="VAR" id="adgMode001LetUsTrade" variabletype="">adaptiveGap:selectionMode</field>
+                                <value name="VALUE"><block type="variables_get" id="adgFnModeGet001"><field name="VAR" id="adgP_mode" variabletype="">selectionMode</field></block></value>
                                 <next>
-                                  <block type="variables_set" id="adgFnMode001">
-                                    <field name="VAR" id="adgMode001LetUsTrade" variabletype="">adaptiveGap:selectionMode</field>
-                                    <value name="VALUE"><block type="variables_get" id="adgFnModeGet001"><field name="VAR" id="adgP_mode" variabletype="">selectionMode</field></block></value>
+                                  <block type="variables_set" id="adgFnCd001">
+                                    <field name="VAR" id="adgCd001LetUsTrade" variabletype="">adaptiveGap:cooldown</field>
+                                    <value name="VALUE"><block type="variables_get" id="adgFnCdGet001"><field name="VAR" id="adgP_cooldown" variabletype="">cooldownAfterTrade</field></block></value>
                                     <next>
-                                      <block type="variables_set" id="adgFnCd001">
-                                        <field name="VAR" id="adgCd001LetUsTrade" variabletype="">adaptiveGap:cooldown</field>
-                                        <value name="VALUE"><block type="variables_get" id="adgFnCdGet001"><field name="VAR" id="adgP_cooldown" variabletype="">cooldownAfterTrade</field></block></value>
-                                        <next>
-                                          <block type="variables_set" id="adgFnMaxTr001">
-                                            <field name="VAR" id="adgMaxTrades001LetUsTrade" variabletype="">adaptiveGap:maxTrades</field>
-                                            <value name="VALUE"><block type="variables_get" id="adgFnMaxTrGet001"><field name="VAR" id="adgP_maxTrades" variabletype="">maxTradesPerSession</field></block></value>
-                                            <next>
-                                              <block type="variables_set" id="adgFnOneCyc001">
-                                                <field name="VAR" id="adgOneCycle001LetUsTrade" variabletype="">adaptiveGap:oneTradePerCycle</field>
-                                                <value name="VALUE"><block type="variables_get" id="adgFnOneCycGet001"><field name="VAR" id="adgP_oneCycle" variabletype="">oneTradePerCycle</field></block></value>
-                                                <next>
-                                                  <block type="variables_set" id="adgFnOneAct001">
-                                                    <field name="VAR" id="adgOneActive001LetUsTrade" variabletype="">adaptiveGap:oneActiveTrade</field>
-                                                    <value name="VALUE"><block type="variables_get" id="adgFnOneActGet001"><field name="VAR" id="adgP_oneActive" variabletype="">oneActiveTrade</field></block></value>
-                                                    <next>
-                                                      <block type="variables_set" id="adgFnJnl001">
-                                                        <field name="VAR" id="adgJournal001LetUsTrade" variabletype="">adaptiveGap:journal</field>
-                                                        <value name="VALUE"><block type="variables_get" id="adgFnJnlGet001"><field name="VAR" id="adgP_journal" variabletype="">journal</field></block></value>
-                                                        <next>
-                                                          <block type="variables_set" id="adgFnDash001">
-                                                            <field name="VAR" id="adgDash001LetUsTrade" variabletype="">adaptiveGap:dashboard</field>
-                                                            <value name="VALUE"><block type="variables_get" id="adgFnDashGet001"><field name="VAR" id="adgP_dashboard" variabletype="">dashboard</field></block></value>
-                                                            <next>
-                                                              <block type="variables_set" id="adgFnSetMax001">
-                                                                <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                                                                <value name="VALUE"><block type="variables_get" id="adgFnSetMaxGet001"><field name="VAR" id="adgP_setMaxStake" variabletype="">setMaxStake</field></block></value>
-                                                              </block>
-                                                            </next>
-                                                          </block>
-                                                        </next>
-                                                      </block>
-                                                    </next>
-                                                  </block>
-                                                </next>
-                                              </block>
-                                            </next>
-                                          </block>
-                                        </next>
+                                      <block type="variables_set" id="adgFnMaxTr001">
+                                        <field name="VAR" id="adgMaxTrades001LetUsTrade" variabletype="">adaptiveGap:maxTrades</field>
+                                        <value name="VALUE"><block type="variables_get" id="adgFnMaxTrGet001"><field name="VAR" id="adgP_maxTrades" variabletype="">maxTradesPerSession</field></block></value>
                                       </block>
                                     </next>
                                   </block>
                                 </next>
                               </block>
                             </next>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+  </block>
+  <block type="procedures_defnoreturn" id="adgSetupBoolsFn001LetUsTrade" collapsed="true" x="0" y="780">
+    <mutation>
+      <arg name="enableStrategy" varid="adgP_enabled"></arg>
+      <arg name="oneTradePerCycle" varid="adgP_oneCycle"></arg>
+      <arg name="oneActiveTrade" varid="adgP_oneActive"></arg>
+      <arg name="journal" varid="adgP_journal"></arg>
+      <arg name="dashboard" varid="adgP_dashboard"></arg>
+      <arg name="setMaxStake" varid="adgP_setMaxStake"></arg>
+    </mutation>
+    <field name="NAME">Adaptive Digit Gap Booleans</field>
+    <statement name="STACK">
+      <block type="variables_set" id="adgFnEn001">
+        <field name="VAR" id="adgEnabled001LetUsTrade" variabletype="">adaptiveGap:enabled</field>
+        <value name="VALUE"><block type="variables_get" id="adgFnEnGet001"><field name="VAR" id="adgP_enabled" variabletype="">enableStrategy</field></block></value>
+        <next>
+          <block type="variables_set" id="adgFnOneCyc001">
+            <field name="VAR" id="adgOneCycle001LetUsTrade" variabletype="">adaptiveGap:oneTradePerCycle</field>
+            <value name="VALUE"><block type="variables_get" id="adgFnOneCycGet001"><field name="VAR" id="adgP_oneCycle" variabletype="">oneTradePerCycle</field></block></value>
+            <next>
+              <block type="variables_set" id="adgFnOneAct001">
+                <field name="VAR" id="adgOneActive001LetUsTrade" variabletype="">adaptiveGap:oneActiveTrade</field>
+                <value name="VALUE"><block type="variables_get" id="adgFnOneActGet001"><field name="VAR" id="adgP_oneActive" variabletype="">oneActiveTrade</field></block></value>
+                <next>
+                  <block type="variables_set" id="adgFnJnl001">
+                    <field name="VAR" id="adgJournal001LetUsTrade" variabletype="">adaptiveGap:journal</field>
+                    <value name="VALUE"><block type="variables_get" id="adgFnJnlGet001"><field name="VAR" id="adgP_journal" variabletype="">journal</field></block></value>
+                    <next>
+                      <block type="variables_set" id="adgFnDash001">
+                        <field name="VAR" id="adgDash001LetUsTrade" variabletype="">adaptiveGap:dashboard</field>
+                        <value name="VALUE"><block type="variables_get" id="adgFnDashGet001"><field name="VAR" id="adgP_dashboard" variabletype="">dashboard</field></block></value>
+                        <next>
+                          <block type="variables_set" id="adgFnSetMax001">
+                            <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
+                            <value name="VALUE"><block type="variables_get" id="adgFnSetMaxGet001"><field name="VAR" id="adgP_setMaxStake" variabletype="">setMaxStake</field></block></value>
                           </block>
                         </next>
                       </block>

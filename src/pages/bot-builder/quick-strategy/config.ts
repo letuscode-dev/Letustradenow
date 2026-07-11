@@ -646,7 +646,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery.'
+                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
                     ),
                 ],
             },
