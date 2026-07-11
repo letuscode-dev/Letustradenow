@@ -1,6 +1,7 @@
 import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
+import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -21,6 +22,19 @@ const getBotInterface = tradeEngine => {
                 return -1;
             }
             return getDigitTransitionPrediction(digits.slice(-requested), threshold);
+        },
+        /**
+         * Over 0 gap filter — returns { allowed, gap, message, journal_enabled, ... }.
+         * Uses all currently cached digits (request 1 ⇒ full cache when any ticks exist).
+         */
+        evaluateOverZeroGapFilter: (enabled, min_gap, max_gap, journal_enabled) => {
+            const digits = tradeEngine.getCachedLastDigitList(1);
+            return evaluateOverZeroGapFilter(digits, {
+                enabled,
+                min_gap,
+                max_gap,
+                journal_enabled,
+            });
         },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),

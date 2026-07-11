@@ -278,6 +278,75 @@ const PATTERN_THRESHOLD = (): TConfigItem => ({
     ],
 });
 
+const LABEL_MIN_GAP = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum gap'),
+    description: localize(
+        'Minimum consecutive non-zero last digits since the last 0 before an Over 0 trade is allowed.'
+    ),
+});
+
+const MIN_GAP = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_gap',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_MAX_GAP = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Maximum gap'),
+    description: localize(
+        'Maximum consecutive non-zero last digits since the last 0. Trades are blocked when the gap exceeds this value.'
+    ),
+});
+
+const MAX_GAP = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_gap',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const CHECKBOX_GAP_FILTER = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_gap_filter',
+    label: localize('Enable gap filter'),
+    description: localize('When off, Over 0 trades are allowed without checking the gap.'),
+});
+
+const CHECKBOX_GAP_JOURNAL = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_gap_journal',
+    label: localize('Gap filter journal'),
+    description: localize('Log PASSED/FAILED gap filter evaluations to the Journal.'),
+});
+
+const CHECKBOX_MARTINGALE = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_martingale',
+    label: localize('Enable Martingale'),
+    description: localize('When off, the stake multiplier stays at 1 (no Martingale recovery).'),
+});
+
 const LABEL_REVERSE_MARTINGALE_SIZE = (): TConfigItem => ({
     type: 'label',
     label: localize('Size'),
@@ -423,6 +492,46 @@ export const STRATEGIES = (): TStrategies => ({
                 LOSS(),
                 LABEL_MARTINGALE_SIZE(),
                 SIZE(),
+                CHECKBOX_MAX_STAKE(),
+                MAX_STAKE(),
+            ],
+        ],
+    },
+    OVER_ZERO_GAP_FILTER: {
+        name: 'over_zero_gap_filter',
+        label: localize('Over 0 Gap Filter'),
+        rs_strategy_name: 'over 0 gap filter',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. This is a trade filter, not a prediction. Optional Martingale recovery and Journal PASS/FAIL logging.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_MIN_GAP(),
+                MIN_GAP(),
+                LABEL_MAX_GAP(),
+                MAX_GAP(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_LOSS(),
+                LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_MARTINGALE(),
+                CHECKBOX_GAP_FILTER(),
+                CHECKBOX_GAP_JOURNAL(),
                 CHECKBOX_MAX_STAKE(),
                 MAX_STAKE(),
             ],

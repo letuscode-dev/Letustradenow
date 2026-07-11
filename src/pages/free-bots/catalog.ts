@@ -78,4 +78,32 @@ export const FREE_BOTS: FreeBot[] = [
             boolean_max_stake: true,
         },
     },
+    {
+        id: 'over-zero-gap-filter',
+        title: localize('Over 0 Gap Filter'),
+        description: localize(
+            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Optional Martingale and Journal PASS/FAIL logging. Stake, gap limits, and Martingale controls are set in Run once at start.'
+        ),
+        tags: [localize('Martingale'), localize('Over'), localize('Gap Filter')],
+        strategy: 'OVER_ZERO_GAP_FILTER',
+        form: {
+            symbol: '1HZ100V',
+            tradetype: 'overunder',
+            type: 'DIGITOVER',
+            stake: '1',
+            duration: '1',
+            durationtype: 't',
+            last_digit_prediction: '0',
+            min_gap: '3',
+            max_gap: '10',
+            profit: '5',
+            loss: '10',
+            size: '2',
+            boolean_martingale: true,
+            boolean_gap_filter: true,
+            boolean_gap_journal: true,
+            max_stake: '25',
+            boolean_max_stake: true,
+        },
+    },
 ];
