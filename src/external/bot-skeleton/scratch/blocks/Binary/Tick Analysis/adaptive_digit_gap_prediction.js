@@ -91,8 +91,11 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
             journal_enabled: ${journal},
             dashboard_enabled: ${dashboard}
         });
-        if (BinaryBotPrivateAdaptiveGapResult && BinaryBotPrivateAdaptiveGapResult.journal_messages) {
-            BinaryBotPrivateAdaptiveGapResult.journal_messages.forEach(function (BinaryBotPrivateMsg) {
+        var BinaryBotPrivateMsgs = BinaryBotPrivateAdaptiveGapResult && BinaryBotPrivateAdaptiveGapResult.journal_messages;
+        if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
+            var BinaryBotPrivateMsgIndex;
+            for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgs.length; BinaryBotPrivateMsgIndex++) {
+                var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({
                     className: BinaryBotPrivateMsg.className,
                     message: BinaryBotPrivateMsg.message,
@@ -100,7 +103,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
                     block_id: ${JSON.stringify(block.id)},
                     variable_name: null
                 });
-            });
+            }
         }
         if (BinaryBotPrivateAdaptiveGapResult && BinaryBotPrivateAdaptiveGapResult.dashboard) {
             Bot.notify({
@@ -111,9 +114,10 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
                 variable_name: null
             });
         }
-        return BinaryBotPrivateAdaptiveGapResult && Number.isFinite(BinaryBotPrivateAdaptiveGapResult.prediction)
-            ? BinaryBotPrivateAdaptiveGapResult.prediction
-            : -1;
+        var BinaryBotPrivatePrediction = BinaryBotPrivateAdaptiveGapResult
+            ? Number(BinaryBotPrivateAdaptiveGapResult.prediction)
+            : NaN;
+        return !isNaN(BinaryBotPrivatePrediction) ? BinaryBotPrivatePrediction : -1;
     })()`;
 
     return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];
