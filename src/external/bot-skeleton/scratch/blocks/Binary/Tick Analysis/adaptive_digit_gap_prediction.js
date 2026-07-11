@@ -68,7 +68,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
         );
 
     const enabled = read('ENABLED') || 'true';
-    const min_gap = read('MIN_GAP') || '3';
+    const min_gap = read('MIN_GAP') || '10';
     const max_gap = read('MAX_GAP') || '20';
     const mode = read('SELECTION_MODE') || '0';
     const cooldown = read('COOLDOWN') || '0';

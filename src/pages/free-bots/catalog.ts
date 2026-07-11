@@ -69,7 +69,7 @@ export const FREE_BOTS: FreeBot[] = [
             stake: '1',
             duration: '1',
             durationtype: 't',
-            min_adaptive_gap: '3',
+            min_adaptive_gap: '10',
             max_adaptive_gap: '20',
             selection_mode: '0',
             cooldown_after_trade: '0',

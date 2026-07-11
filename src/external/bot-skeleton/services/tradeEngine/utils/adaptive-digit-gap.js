@@ -8,7 +8,7 @@
  * - Differs is eligible when currentGap >= adaptiveTriggerGap (once per cycle by default)
  */
 
-export const DEFAULT_MIN_ADAPTIVE_GAP = 3;
+export const DEFAULT_MIN_ADAPTIVE_GAP = 10;
 export const DEFAULT_MAX_ADAPTIVE_GAP = 20;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited

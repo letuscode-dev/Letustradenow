@@ -107,7 +107,7 @@
           <block type="math_number" id="adgCallLoss001"><field name="NUM">10</field></block>
         </value>
         <value name="ARG4" strategy_value="min_adaptive_gap">
-          <block type="math_number" id="adgCallMin001"><field name="NUM">3</field></block>
+          <block type="math_number" id="adgCallMin001"><field name="NUM">10</field></block>
         </value>
         <value name="ARG5" strategy_value="max_adaptive_gap">
           <block type="math_number" id="adgCallMax001"><field name="NUM">20</field></block>
