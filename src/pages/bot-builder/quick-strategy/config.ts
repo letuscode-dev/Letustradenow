@@ -646,7 +646,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
+                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Stops after the configured number of consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
                     ),
                 ],
             },
@@ -667,8 +667,8 @@ export const STRATEGIES = (): TStrategies => ({
             [
                 LABEL_PROFIT(),
                 PROFIT(),
-                LABEL_LOSS(),
-                LOSS(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
                 LABEL_MARTINGALE_SIZE(),
                 SIZE(),
                 LABEL_COOLDOWN(),
@@ -694,7 +694,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. Run once sets Over 0 Gap Numbers then Over 0 Gap Booleans. Optional Martingale recovery and Journal PASS/FAIL logging.'
+                        'Trades Over 0 only when the gap since the last digit 0 is within your min/max range. Stops after the configured number of consecutive losses (not a money amount). Run once sets Over 0 Gap Numbers then Over 0 Gap Booleans. Optional Martingale recovery and Journal PASS/FAIL logging.'
                     ),
                 ],
             },
