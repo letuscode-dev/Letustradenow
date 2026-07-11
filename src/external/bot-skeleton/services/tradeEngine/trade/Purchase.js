@@ -14,6 +14,10 @@ import { purchaseSuccessful } from './state/actions';
 import { BEFORE_PURCHASE } from './state/constants';
 import { createError } from '../../../utils/error';
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
+import {
+    openAdaptiveDigitGapActiveTrade,
+    releaseAdaptiveDigitGapActiveTrade,
+} from '../utils/adaptive-digit-gap';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -89,6 +93,7 @@ export default Engine =>
 
             this.contractId = buy.contract_id;
             this.store.dispatch(purchaseSuccessful());
+            openAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
 
             if (this.is_proposal_subscription_required) {
                 this.renewProposalsOnPurchase();
@@ -126,6 +131,8 @@ export default Engine =>
 
         resetPurchaseAttemptOnError(error) {
             this.resetPurchaseAttempt();
+            // Purchase never opened — free Adaptive Digit Gap to signal again.
+            releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             throw error;
         }
 

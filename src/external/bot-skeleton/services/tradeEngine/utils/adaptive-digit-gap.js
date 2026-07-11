@@ -44,12 +44,44 @@ export const createTrackerState = () => ({
     lastProcessedEpoch: null,
     cooldownLogEmitted: false,
     maxTradesLogEmitted: false,
+    // none | signaled | open — used by one_active_trade_only until the contract settles
+    activeTradePhase: 'none',
+    activeTradeDigit: null,
+    activeTradeLogEmitted: false,
     lastJournal: [],
     lastDashboard: '',
 });
 
 export const resetTrackerState = state => {
     Object.assign(state, createTrackerState());
+};
+
+/** Mark that a Differs signal was emitted (waiting for purchase / open contract). */
+export const armAdaptiveDigitGapActiveTrade = (state, digit) => {
+    if (!state) {
+        return;
+    }
+    state.activeTradePhase = 'signaled';
+    state.activeTradeDigit = digit;
+    state.activeTradeLogEmitted = false;
+};
+
+/** Purchase succeeded — contract is open. */
+export const openAdaptiveDigitGapActiveTrade = state => {
+    if (!state || state.activeTradePhase !== 'signaled') {
+        return;
+    }
+    state.activeTradePhase = 'open';
+};
+
+/** Contract sold / bot stop / purchase failed — allow new signals. */
+export const releaseAdaptiveDigitGapActiveTrade = state => {
+    if (!state) {
+        return;
+    }
+    state.activeTradePhase = 'none';
+    state.activeTradeDigit = null;
+    state.activeTradeLogEmitted = false;
 };
 
 const toBool = (value, default_value = false) => {
@@ -172,7 +204,10 @@ export const processDigitTick = (state, digit, options = {}) => {
         state.digits[i].currentGap += 1;
     }
 
-    state.lastJournal = journal;
+    // Append so multi-tick catch-up keeps every appearance message.
+    if (journal.length) {
+        state.lastJournal = (state.lastJournal || []).concat(journal);
+    }
 };
 
 /**
@@ -196,6 +231,9 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
             return;
         }
     }
+
+    // Fresh batch buffer for this sync (evaluate will flush it).
+    state.lastJournal = [];
 
     for (let i = start; i < digit_ticks.length; i++) {
         const tick = digit_ticks[i];
@@ -363,10 +401,15 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
 
     syncTrackerWithDigitTicks(state, toDigitTicks(digits), options);
 
-    // Carry forward appearance journals from the last processed tick.
+    // Carry forward appearance journals from the ticks processed this evaluate.
     if (options.journal_enabled && state.lastJournal?.length) {
         journal_messages.push(...state.lastJournal);
         state.lastJournal = [];
+    }
+
+    // If one-active is off, drop any leftover lock from a previous setting.
+    if (!options.one_active_trade_only && state.activeTradePhase !== 'none') {
+        releaseAdaptiveDigitGapActiveTrade(state);
     }
 
     const max_trades = options.max_trades_per_session;
@@ -397,16 +440,33 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     }
     state.cooldownLogEmitted = false;
 
+    // One active trade only: ignore new signals until the open Differs settles.
+    if (options.one_active_trade_only && state.activeTradePhase !== 'none') {
+        if (options.journal_enabled && !state.activeTradeLogEmitted) {
+            state.activeTradeLogEmitted = true;
+            journal_messages.push({
+                className: 'journal__text--error',
+                message: [
+                    'Trade Blocked',
+                    'Reason: One active trade only — waiting for current Differs to complete',
+                    state.activeTradeDigit != null ? `Active digit: ${state.activeTradeDigit}` : null,
+                ]
+                    .filter(Boolean)
+                    .join('\n'),
+            });
+        }
+        const dashboard = options.dashboard_enabled ? formatGapDashboard(state.digits) : null;
+        state.lastDashboard = dashboard || '';
+        return { prediction: -1, enabled: true, journal_messages, dashboard, eligible: [] };
+    }
+
     // Eligible digits exclude those already traded this cycle (one_trade_per_cycle).
-    // one_active_trade_only only means "pick a single digit this tick" via selection_mode —
-    // it must NOT freeze all other digits until the last traded digit reappears.
     const eligible_digits = state.digits.filter(ds => isDigitEligible(ds, options)).map(ds => ds.digit);
 
     let prediction = -1;
 
     if (eligible_digits.length) {
-        // Always place at most one Differs signal per tick (Deriv purchase is singular).
-        // When one_active_trade_only is false, selection_mode still chooses which eligible digit.
+        // At most one Differs signal per tick; selection_mode chooses which eligible digit.
         prediction = selectEligibleDigit(state.digits, options);
     }
 
@@ -417,6 +477,9 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         state.tradesThisSession += 1;
         if (options.cooldown_after_trade > 0) {
             state.cooldownUntilTick = state.tickIndex + options.cooldown_after_trade;
+        }
+        if (options.one_active_trade_only) {
+            armAdaptiveDigitGapActiveTrade(state, prediction);
         }
 
         if (options.journal_enabled) {

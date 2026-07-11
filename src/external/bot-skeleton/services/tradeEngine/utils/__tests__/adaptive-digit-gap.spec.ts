@@ -5,7 +5,9 @@ import {
     createTrackerState,
     evaluateAdaptiveDigitGap,
     formatGapDashboard,
+    openAdaptiveDigitGapActiveTrade,
     processDigitTick,
+    releaseAdaptiveDigitGapActiveTrade,
     selectEligibleDigit,
     syncTrackerWithDigits,
 } from '../adaptive-digit-gap';
@@ -71,7 +73,29 @@ describe('evaluateAdaptiveDigitGap', () => {
         expect(again.prediction).not.toBe(3);
     });
 
-    it('still trades other digits when one digit is locked for its cycle', () => {
+    it('still trades other digits when one digit is locked for its cycle (one_active off)', () => {
+        const state = createTrackerState();
+        const opts = {
+            journal_enabled: false,
+            min_adaptive_gap: 1,
+            one_trade_per_cycle: true,
+            one_active_trade_only: false,
+            selection_mode: SELECTION_FIRST,
+        };
+
+        // Trade digit 3 (gap 3 → catch up to 3)
+        evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4], opts, state);
+        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+
+        // Independently: digit 7 can still signal while 3 is cycle-locked
+        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4, 7, 9, 8, 7, 1, 2], opts, state);
+        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+        expect(state.digits[7].adaptiveTriggerGap).toBe(2);
+        expect(state.digits[7].currentGap).toBe(2);
+        expect(result.prediction).toBe(7);
+    });
+
+    it('blocks new signals until active Differs is released when one_active_trade_only is on', () => {
         const state = createTrackerState();
         const opts = {
             journal_enabled: false,
@@ -81,19 +105,37 @@ describe('evaluateAdaptiveDigitGap', () => {
             selection_mode: SELECTION_FIRST,
         };
 
-        // Trade digit 3 (gap 3 → catch up to 3)
-        evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4], opts, state);
-        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+        const first = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4], opts, state);
+        expect(first.prediction).toBe(3);
+        expect(state.activeTradePhase).toBe('signaled');
+        expect(state.activeTradeDigit).toBe(3);
 
-        // Independently: digit 7 gap 2, then catch up — must be allowed while 3 is locked
-        // Continue history without another 3: after [...4] add 7, 1, 7, 0, 2
-        // First 7 initializes; 1 increments; second 7 completes gap 1; 0,2 → currentGap 2 for digit 7
-        // Need gap >= 2: use 7, a, b, 7 → gap 2, then c, d → current 2
-        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4, 7, 9, 8, 7, 1, 2], opts, state);
-        expect(state.digits[3].tradePlacedThisCycle).toBe(true);
+        openAdaptiveDigitGapActiveTrade(state);
+        expect(state.activeTradePhase).toBe('open');
+
+        // Digit 7 becomes eligible, but must wait for settle
+        const blocked = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4, 7, 9, 8, 7, 1, 2], opts, state);
         expect(state.digits[7].adaptiveTriggerGap).toBe(2);
         expect(state.digits[7].currentGap).toBe(2);
-        expect(result.prediction).toBe(7);
+        expect(blocked.prediction).toBe(-1);
+
+        releaseAdaptiveDigitGapActiveTrade(state);
+        expect(state.activeTradePhase).toBe('none');
+
+        // Same window — no new ticks, but digit 7 is still eligible after release
+        const after = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3, 0, 2, 4, 7, 9, 8, 7, 1, 2], opts, state);
+        expect(after.prediction).toBe(7);
+        expect(state.activeTradePhase).toBe('signaled');
+    });
+
+    it('accumulates journal messages across multi-tick catch-up', () => {
+        const state = createTrackerState();
+        const result = evaluateAdaptiveDigitGap([3, 8, 5, 1, 3], { journal_enabled: true, min_adaptive_gap: 1 }, state);
+        const appearance_msgs = result.journal_messages.filter(m =>
+            String(m.message).includes('appeared') || String(m.message).includes('first seen')
+        );
+        expect(appearance_msgs.length).toBeGreaterThanOrEqual(2);
+        expect(result.journal_messages.some(m => String(m.message).includes('Digit 3 appeared'))).toBe(true);
     });
 
     it('respects min/max adaptive gap filter', () => {

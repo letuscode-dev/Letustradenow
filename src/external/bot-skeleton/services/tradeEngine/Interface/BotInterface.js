@@ -2,7 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import { createTrackerState, evaluateAdaptiveDigitGap } from '../utils/adaptive-digit-gap';
+import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -11,6 +11,7 @@ const getBotInterface = tradeEngine => {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => {
+            releaseAdaptiveDigitGapActiveTrade(tradeEngine.adaptiveDigitGapState);
             tradeEngine.adaptiveDigitGapState = null;
             return tradeEngine.stop(...args);
         },

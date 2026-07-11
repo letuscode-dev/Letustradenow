@@ -437,7 +437,7 @@ const CHECKBOX_ONE_ACTIVE_TRADE = (): TConfigItem => ({
     name: 'boolean_one_active_trade',
     label: localize('One active trade only'),
     description: localize(
-        'On each tick, place at most one Differs among eligible digits (selection mode chooses which). Other digits can still trade later in their own cycles.'
+        'After a Differs signal, block further signals until that contract settles. Other digits stay eligible for later cycles.'
     ),
 });
 
