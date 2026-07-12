@@ -33,7 +33,7 @@
     <variable type="" id="adgP_initialStake" islocal="false" iscloud="false">initialStake</variable>
     <variable type="" id="adgP_size" islocal="false" iscloud="false">size</variable>
     <variable type="" id="adgP_profit" islocal="false" iscloud="false">profitThreshold</variable>
-    <variable type="" id="adgP_loss" islocal="false" iscloud="false">lossThreshold</variable>
+    <variable type="" id="adgP_lossThreshold" islocal="false" iscloud="false">lossThreshold</variable>
     <variable type="" id="adgP_enabled" islocal="false" iscloud="false">enableStrategy</variable>
     <variable type="" id="adgP_minGap" islocal="false" iscloud="false">minAdaptiveGap</variable>
     <variable type="" id="adgP_maxGap" islocal="false" iscloud="false">maxAdaptiveGap</variable>
@@ -282,7 +282,7 @@
       <arg name="initialStake" varid="adgP_initialStake"></arg>
       <arg name="size" varid="adgP_size"></arg>
       <arg name="profitThreshold" varid="adgP_profit"></arg>
-      <arg name="lossThreshold" varid="adgP_loss"></arg>
+      <arg name="lossThreshold" varid="adgP_lossThreshold"></arg>
       <arg name="minAdaptiveGap" varid="adgP_minGap"></arg>
       <arg name="maxAdaptiveGap" varid="adgP_maxGap"></arg>
       <arg name="selectionMode" varid="adgP_mode"></arg>
@@ -306,7 +306,7 @@
                 <next>
                   <block type="variables_set" id="adgFnLoss001">
                     <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
-                    <value name="VALUE"><block type="variables_get" id="adgFnLossGet001"><field name="VAR" id="adgP_loss" variabletype="">lossThreshold</field></block></value>
+                    <value name="VALUE"><block type="variables_get" id="adgFnLossGet001"><field name="VAR" id="adgP_lossThreshold" variabletype="">lossThreshold</field></block></value>
                     <next>
                       <block type="variables_set" id="adgFnConsec001">
                         <field name="VAR" id="adgConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>

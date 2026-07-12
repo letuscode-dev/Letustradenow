@@ -22,14 +22,14 @@
     <variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
     <variable type="" id="cdEnabled001LetUsTrade" islocal="false" iscloud="false">complement:enabled</variable>
     <variable type="" id="cdJournal001LetUsTrade" islocal="false" iscloud="false">complement:journal</variable>
-    <variable type="" id="ozMartEnable001LetUsTrade" islocal="false" iscloud="false">enableMartingale?</variable>
+    <variable type="" id="cdMartEnable001LetUsTrade" islocal="false" iscloud="false">enableMartingale?</variable>
     <variable type="" id="cdP_initialStake" islocal="false" iscloud="false">initialStake</variable>
     <variable type="" id="cdP_size" islocal="false" iscloud="false">size</variable>
     <variable type="" id="cdP_profit" islocal="false" iscloud="false">profitThreshold</variable>
-    <variable type="" id="cdP_loss" islocal="false" iscloud="false">lossThreshold</variable>
+    <variable type="" id="cdP_lossThreshold" islocal="false" iscloud="false">lossThreshold</variable>
     <variable type="" id="cdP_enabled" islocal="false" iscloud="false">enableStrategy</variable>
     <variable type="" id="cdP_journal" islocal="false" iscloud="false">journal</variable>
-    <variable type="" id="ozP_enableMartingale" islocal="false" iscloud="false">enableMartingale</variable>
+    <variable type="" id="cdP_enableMartingale" islocal="false" iscloud="false">enableMartingale</variable>
     <variable type="" id="cdP_setMaxStake" islocal="false" iscloud="false">setMaxStake</variable>
   </variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="0">
@@ -210,7 +210,7 @@
       <arg name="initialStake" varid="cdP_initialStake"></arg>
       <arg name="size" varid="cdP_size"></arg>
       <arg name="profitThreshold" varid="cdP_profit"></arg>
-      <arg name="lossThreshold" varid="cdP_loss"></arg>
+      <arg name="lossThreshold" varid="cdP_lossThreshold"></arg>
       <arg name="maxStake" varid="4vh+dtelQS#?}@cNPcN!"></arg>
     </mutation>
     <field name="NAME">Complement Digit Numbers</field>
@@ -229,7 +229,7 @@
                 <next>
                   <block type="variables_set" id="cdFnLoss001">
                     <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
-                    <value name="VALUE"><block type="variables_get" id="cdFnLossGet001"><field name="VAR" id="cdP_loss" variabletype="">lossThreshold</field></block></value>
+                    <value name="VALUE"><block type="variables_get" id="cdFnLossGet001"><field name="VAR" id="cdP_lossThreshold" variabletype="">lossThreshold</field></block></value>
                     <next>
                       <block type="variables_set" id="cdFnConsec001">
                         <field name="VAR" id="cdConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
@@ -249,7 +249,7 @@
     <mutation>
       <arg name="enableStrategy" varid="cdP_enabled"></arg>
       <arg name="journal" varid="cdP_journal"></arg>
-      <arg name="enableMartingale" varid="ozP_enableMartingale"></arg>
+      <arg name="enableMartingale" varid="cdP_enableMartingale"></arg>
       <arg name="setMaxStake" varid="cdP_setMaxStake"></arg>
     </mutation>
     <field name="NAME">Complement Digit Booleans</field>
@@ -263,15 +263,15 @@
             <value name="VALUE"><block type="variables_get" id="cdFnJnlGet001"><field name="VAR" id="cdP_journal" variabletype="">journal</field></block></value>
             <next>
               <block type="variables_set" id="cdFnMartEn001">
-                <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
-                <value name="VALUE"><block type="variables_get" id="cdFnMartEnGet001"><field name="VAR" id="ozP_enableMartingale" variabletype="">enableMartingale</field></block></value>
+                <field name="VAR" id="cdMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+                <value name="VALUE"><block type="variables_get" id="cdFnMartEnGet001"><field name="VAR" id="cdP_enableMartingale" variabletype="">enableMartingale</field></block></value>
                 <next>
                   <block type="controls_if" id="cdFnSizeIf001">
                     <value name="IF0">
                       <block type="logic_negate" id="cdFnSizeNeg001">
                         <value name="BOOL">
                           <block type="variables_get" id="cdFnSizeIfGet001">
-                            <field name="VAR" id="ozMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
+                            <field name="VAR" id="cdMartEnable001LetUsTrade" variabletype="">enableMartingale?</field>
                           </block>
                         </value>
                       </block>
