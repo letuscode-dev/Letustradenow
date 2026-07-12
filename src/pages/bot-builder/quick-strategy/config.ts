@@ -377,7 +377,7 @@ const SELECTION_MODE = (): TConfigItem => ({
 const LABEL_COOLDOWN = (): TConfigItem => ({
     type: 'label',
     label: localize('Cooldown after trade'),
-    description: localize('Wait this many ticks after a Differs signal before allowing another.'),
+    description: localize('Wait this many ticks after a trade signal before allowing another.'),
 });
 
 const COOLDOWN_AFTER_TRADE = (): TConfigItem => ({
@@ -390,6 +390,30 @@ const COOLDOWN_AFTER_TRADE = (): TConfigItem => ({
         {
             type: 'min',
             value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_LOSING_LOOKBACK = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Losing-range lookback'),
+    description: localize(
+        'Number of previous ticks (excluding current) checked for Losing digits 0–1. Default is 2.'
+    ),
+});
+
+const LOSING_LOOKBACK = (): TConfigItem => ({
+    type: 'number',
+    name: 'losing_lookback',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
             getMessage: (min: string | number) =>
                 localize('The value must be equal or greater than {{ min }}', { min }),
         },
@@ -446,6 +470,13 @@ const CHECKBOX_JOURNAL = (): TConfigItem => ({
     name: 'boolean_journal',
     label: localize('Journal logging'),
     description: localize('Log short trade signals and blocks only (no per-tick spam).'),
+});
+
+const CHECKBOX_NOTIFY = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_notify',
+    label: localize('Signal notifications'),
+    description: localize('Show a short notification when an Over 1 momentum signal is generated.'),
 });
 
 const CHECKBOX_DASHBOARD = (): TConfigItem => ({
@@ -634,6 +665,45 @@ export const STRATEGIES = (): TStrategies => ({
                 SIZE(),
                 CHECKBOX_MAX_STAKE(),
                 MAX_STAKE(),
+            ],
+        ],
+    },
+    RANGE_MOMENTUM_OVER_ONE: {
+        name: 'range_momentum_over_one',
+        label: localize('Range Momentum Over 1'),
+        rs_strategy_name: 'range momentum over 1',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Places Over 1 when last digits show Lower(2–5)→Higher(6–9) momentum and no Losing(0–1) digits in the lookback window. Optional cooldown, Martingale, and consecutive-loss stop. Run once sets Range Momentum Numbers then Range Momentum Booleans.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_LOSING_LOOKBACK(),
+                LOSING_LOOKBACK(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_NOTIFY(),
+                CHECKBOX_MARTINGALE(),
             ],
         ],
     },

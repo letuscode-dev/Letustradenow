@@ -4,6 +4,11 @@ import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import { evaluateComplementDigit } from '../utils/complement-digit';
+import {
+    createRangeMomentumState,
+    evaluateRangeMomentumOverOne,
+    resetRangeMomentumState,
+} from '../utils/range-momentum';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -14,6 +19,10 @@ const getBotInterface = tradeEngine => {
         stop: (...args) => {
             releaseAdaptiveDigitGapActiveTrade(tradeEngine.adaptiveDigitGapState);
             tradeEngine.adaptiveDigitGapState = null;
+            if (tradeEngine.rangeMomentumState) {
+                resetRangeMomentumState(tradeEngine.rangeMomentumState);
+                tradeEngine.rangeMomentumState = null;
+            }
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -60,6 +69,18 @@ const getBotInterface = tradeEngine => {
         evaluateComplementDigit: options => {
             const digits = tradeEngine.getCachedLastDigitList(2);
             return evaluateComplementDigit(digits, options || {});
+        },
+        /**
+         * Range Momentum Over 1 — Lower(2-5)→Higher(6-9) with losing-digit lookback filter.
+         */
+        evaluateRangeMomentumOverOne: options => {
+            if (!tradeEngine.rangeMomentumState) {
+                tradeEngine.rangeMomentumState = createRangeMomentumState();
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks
+                ? tradeEngine.getCachedDigitTicks()
+                : tradeEngine.getCachedLastDigitList(1);
+            return evaluateRangeMomentumOverOne(digit_ticks, options || {}, tradeEngine.rangeMomentumState);
         },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
