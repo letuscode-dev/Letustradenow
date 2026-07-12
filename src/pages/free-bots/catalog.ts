@@ -15,7 +15,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'complement-digit-differs',
         title: localize('Complement Digit Differs'),
         description: localize(
-            'When previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the previous digit. Optional Martingale. Stops after consecutive losses. Run once calls Complement Digit Numbers then Complement Digit Booleans.'
+            'When previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the current digit. Optional Martingale. Stops after consecutive losses. Run once calls Complement Digit Numbers then Complement Digit Booleans.'
         ),
         tags: [localize('Martingale'), localize('Differs'), localize('Complement')],
         strategy: 'COMPLEMENT_DIGIT_DIFFERS',

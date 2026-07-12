@@ -64,7 +64,7 @@ const getBotInterface = tradeEngine => {
             return evaluateAdaptiveDigitGap(digit_ticks, options || {}, tradeEngine.adaptiveDigitGapState);
         },
         /**
-         * Complement Digit Differs — previous+current === 9 → Differs previous digit.
+         * Complement Digit Differs — previous+current === 9 → Differs current digit.
          */
         evaluateComplementDigit: options => {
             const digits = tradeEngine.getCachedLastDigitList(2);

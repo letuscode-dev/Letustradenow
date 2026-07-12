@@ -762,7 +762,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'When the previous and current last digits are complements that sum to 9 (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the previous digit. Optional Martingale and consecutive-loss stop. Run once sets Complement Digit Numbers then Complement Digit Booleans.'
+                        'When the previous and current last digits are complements that sum to 9 (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the current digit. Optional Martingale and consecutive-loss stop. Run once sets Complement Digit Numbers then Complement Digit Booleans.'
                     ),
                 ],
             },

@@ -1,11 +1,11 @@
 /**
  * Complement Digit Differs — when the last two digits sum to 9 (mirror pairs
- * 0↔9, 1↔8, 2↔7, 3↔6, 4↔5), Differs the previous digit.
+ * 0↔9, 1↔8, 2↔7, 3↔6, 4↔5), Differs the current digit.
  *
  * Examples:
- *   previous=0, current=9 → Differs 0
- *   previous=9, current=0 → Differs 9
- *   previous=4, current=5 → Differs 4
+ *   previous=0, current=9 → Differs 9
+ *   previous=9, current=0 → Differs 0
+ *   previous=4, current=5 → Differs 5
  */
 
 const toDigit = value => {
@@ -25,7 +25,7 @@ const toBool = (value, default_value = true) => {
 
 /**
  * @param {Array<number|string>} digits - oldest → newest
- * @returns {number} previous digit to Differs, or -1 when no complement pair
+ * @returns {number} current digit to Differs, or -1 when no complement pair
  */
 export const getComplementDigitPrediction = digits => {
     if (!Array.isArray(digits) || digits.length < 2) {
@@ -40,7 +40,7 @@ export const getComplementDigitPrediction = digits => {
 
     // Mirror pairs always sum to 9.
     if (previous + current === 9) {
-        return previous;
+        return current;
     }
 
     return -1;
@@ -70,7 +70,7 @@ export const evaluateComplementDigit = (digits, options = {}) => {
         return { prediction: -1, enabled: true, journal_messages };
     }
 
-    const prediction = previous + current === 9 ? previous : -1;
+    const prediction = previous + current === 9 ? current : -1;
 
     if (journal_enabled && prediction >= 0) {
         journal_messages.push({

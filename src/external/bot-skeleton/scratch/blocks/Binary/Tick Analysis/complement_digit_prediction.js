@@ -21,7 +21,7 @@ window.Blockly.Blocks.complement_digit_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'When the previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), returns the previous digit for Differs; otherwise -1.'
+                'When the previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), returns the current digit for Differs; otherwise -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -30,7 +30,7 @@ window.Blockly.Blocks.complement_digit_prediction = {
         return {
             display_name: localize('Complement digit prediction'),
             description: localize(
-                'Watches the last two digits. If they form a complement pair that sums to 9, returns the previous digit so Differs can be placed on it. Returns -1 when there is no complement pair.'
+                'Watches the last two digits. If they form a complement pair that sums to 9, returns the current digit so Differs can be placed on it. Returns -1 when there is no complement pair.'
             ),
             key_words: localize('complement, mirror, digit, differs, 0-9, 1-8'),
         };
