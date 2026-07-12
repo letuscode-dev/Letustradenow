@@ -15,11 +15,8 @@
     <variable type="" id="g-j|c!)nK2VN`qwryRs]" islocal="false" iscloud="false">loss</variable>
     <variable type="" id="I--KAm(C+#{d?~ip*23e" islocal="false" iscloud="false">Notification:profitThresholdReached</variable>
     <variable type="" id="FRbI:RhI/`[lrO`o;=P," islocal="false" iscloud="false">martingale:multiplier</variable>
-    <variable type="" id="4vh+dtelQS#?}@cNPcN!" islocal="false" iscloud="false">maxStake</variable>
-    <variable type="" id="3^~61:59m?#VJ(:SG^^[" islocal="false" iscloud="false">setMaxStake?</variable>
-    <variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
-    <variable type="" id="lES4b_A$jwUMq,9_z2,I" islocal="false" iscloud="false">Notification:maxStakeExceeds</variable>
-    <variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
+<variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
+<variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
     <variable type="" id="cdEnabled001LetUsTrade" islocal="false" iscloud="false">complement:enabled</variable>
     <variable type="" id="cdJournal001LetUsTrade" islocal="false" iscloud="false">complement:journal</variable>
     <variable type="" id="cdMartEnable001LetUsTrade" islocal="false" iscloud="false">enableMartingale?</variable>
@@ -30,8 +27,7 @@
     <variable type="" id="cdP_enabled" islocal="false" iscloud="false">enableStrategy</variable>
     <variable type="" id="cdP_journal" islocal="false" iscloud="false">journal</variable>
     <variable type="" id="cdP_enableMartingale" islocal="false" iscloud="false">enableMartingale</variable>
-    <variable type="" id="cdP_setMaxStake" islocal="false" iscloud="false">setMaxStake</variable>
-  </variables>
+</variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="0">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="w2tV#|N1PqTM)~5-6|An" deletable="false" movable="false">
@@ -73,7 +69,6 @@
           <arg name="size"></arg>
           <arg name="profitThreshold"></arg>
           <arg name="lossThreshold"></arg>
-          <arg name="maxStake"></arg>
         </mutation>
         <data>cdSetupNumsFn001LetUsTrade</data>
         <value name="ARG0" strategy_value="stake">
@@ -88,16 +83,13 @@
         <value name="ARG3" strategy_value="loss">
           <block type="math_number" id="cdCallLoss001"><field name="NUM">5</field></block>
         </value>
-        <value name="ARG4" strategy_value="max_stake">
-          <block type="math_number" id="cdCallMaxStake001"><field name="NUM">25</field></block>
-        </value>
+
         <next>
           <block type="procedures_callnoreturn" id="cdInitBoolsCall001LetUsTrade">
             <mutation name="Complement Digit Booleans">
               <arg name="enableStrategy"></arg>
               <arg name="journal"></arg>
               <arg name="enableMartingale"></arg>
-              <arg name="setMaxStake"></arg>
             </mutation>
             <data>cdSetupBoolsFn001LetUsTrade</data>
             <value name="ARG0" strategy_value="boolean_strategy">
@@ -109,9 +101,7 @@
             <value name="ARG2" strategy_value="boolean_martingale">
               <block type="logic_boolean" id="cdCallMartEn001"><field name="BOOL">TRUE</field></block>
             </value>
-            <value name="ARG3" strategy_value="boolean_max_stake">
-              <block type="logic_boolean" id="cdCallSetMax001"><field name="BOOL">TRUE</field></block>
-            </value>
+
           </block>
         </next>
       </block>
@@ -211,7 +201,6 @@
       <arg name="size" varid="cdP_size"></arg>
       <arg name="profitThreshold" varid="cdP_profit"></arg>
       <arg name="lossThreshold" varid="cdP_lossThreshold"></arg>
-      <arg name="maxStake" varid="4vh+dtelQS#?}@cNPcN!"></arg>
     </mutation>
     <field name="NAME">Complement Digit Numbers</field>
     <statement name="STACK">
@@ -250,7 +239,6 @@
       <arg name="enableStrategy" varid="cdP_enabled"></arg>
       <arg name="journal" varid="cdP_journal"></arg>
       <arg name="enableMartingale" varid="cdP_enableMartingale"></arg>
-      <arg name="setMaxStake" varid="cdP_setMaxStake"></arg>
     </mutation>
     <field name="NAME">Complement Digit Booleans</field>
     <statement name="STACK">
@@ -282,12 +270,7 @@
                         <value name="VALUE"><block type="math_number" id="cdFnSizeOne001"><field name="NUM">1</field></block></value>
                       </block>
                     </statement>
-                    <next>
-                      <block type="variables_set" id="cdFnSetMax001">
-                        <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                        <value name="VALUE"><block type="variables_get" id="cdFnSetMaxGet001"><field name="VAR" id="cdP_setMaxStake" variabletype="">setMaxStake</field></block></value>
-                      </block>
-                    </next>
+
                   </block>
                 </next>
               </block>
@@ -399,57 +382,7 @@
                         </value>
                       </block>
                     </value>
-                    <next>
-                      <block type="controls_if" id="yq2aWWPfZo9BqwmM^gp,">
-                        <value name="IF0">
-                          <block type="logic_operation" id="P:vAy5mETFAlR6416JW@">
-                            <field name="OP">AND</field>
-                            <value name="A">
-                              <block type="variables_get" id="UTgA6uy4MgDFQ[tbq=v2">
-                                <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                              </block>
-                            </value>
-                            <value name="B">
-                              <block type="logic_compare" id="WI3(qR{d}7zdoDevLGVx">
-                                <field name="OP">GT</field>
-                                <value name="A">
-                                  <block type="procedures_callreturn" id="Zt-ad5[w(|?#4g,A*Ze,">
-                                    <mutation name="Martingale Trade Amount"></mutation>
-                                    <data>x3TA)`V~gtD7?rqNj[.9</data>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get" id="z;Utrvg*JkBzz{cf)SYV">
-                                    <field name="VAR" id="4vh+dtelQS#?}@cNPcN!" variabletype="">maxStake</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set" id="ca;U5I#KW?1eJ;^[H2Ji">
-                            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
-                            <value name="VALUE">
-                              <shadow type="math_number" id="p1`qUx`N_;V{kY*mLXW$">
-                                <field name="NUM">1</field>
-                              </shadow>
-                            </value>
-                            <next>
-                              <block type="notify" id="xBU}6LWyNZWbGStkUOKw">
-                                <field name="NOTIFICATION_TYPE">error</field>
-                                <field name="NOTIFICATION_SOUND">silent</field>
-                                <value name="MESSAGE">
-                                  <shadow type="text" id="Du/t4#rzavkWBAW.z#oN">
-                                    <field name="TEXT">Stake resets for the next trade (reason: exceeds max stake amount)</field>
-                                  </shadow>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
+
                   </block>
                     </next>
                   </block>

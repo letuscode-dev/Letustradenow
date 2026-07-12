@@ -15,11 +15,8 @@
     <variable type="" id="g-j|c!)nK2VN`qwryRs]" islocal="false" iscloud="false">loss</variable>
     <variable type="" id="I--KAm(C+#{d?~ip*23e" islocal="false" iscloud="false">Notification:profitThresholdReached</variable>
     <variable type="" id="FRbI:RhI/`[lrO`o;=P," islocal="false" iscloud="false">martingale:multiplier</variable>
-    <variable type="" id="4vh+dtelQS#?}@cNPcN!" islocal="false" iscloud="false">maxStake</variable>
-    <variable type="" id="3^~61:59m?#VJ(:SG^^[" islocal="false" iscloud="false">setMaxStake?</variable>
-    <variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
-    <variable type="" id="lES4b_A$jwUMq,9_z2,I" islocal="false" iscloud="false">Notification:maxStakeExceeds</variable>
-    <variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
+<variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
+<variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
     <variable type="" id="adgEnabled001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:enabled</variable>
     <variable type="" id="adgMin001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:minGap</variable>
     <variable type="" id="adgMax001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:maxGap</variable>
@@ -44,8 +41,7 @@
     <variable type="" id="adgP_oneActive" islocal="false" iscloud="false">oneActiveTrade</variable>
     <variable type="" id="adgP_journal" islocal="false" iscloud="false">journal</variable>
     <variable type="" id="adgP_dashboard" islocal="false" iscloud="false">dashboard</variable>
-    <variable type="" id="adgP_setMaxStake" islocal="false" iscloud="false">setMaxStake</variable>
-  </variables>
+</variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="0">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="w2tV#|N1PqTM)~5-6|An" deletable="false" movable="false">
@@ -92,7 +88,6 @@
           <arg name="selectionMode"></arg>
           <arg name="cooldownAfterTrade"></arg>
           <arg name="maxTradesPerSession"></arg>
-          <arg name="maxStake"></arg>
         </mutation>
         <data>adgSetupNumsFn001LetUsTrade</data>
         <value name="ARG0" strategy_value="stake">
@@ -122,9 +117,7 @@
         <value name="ARG8" strategy_value="max_trades_per_session">
           <block type="math_number" id="adgCallMaxTr001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG9" strategy_value="max_stake">
-          <block type="math_number" id="adgCallMaxStake001"><field name="NUM">25</field></block>
-        </value>
+        
         <next>
           <block type="procedures_callnoreturn" id="adgInitBoolsCall001LetUsTrade">
             <mutation name="Adaptive Digit Gap Booleans">
@@ -133,7 +126,6 @@
               <arg name="oneActiveTrade"></arg>
               <arg name="journal"></arg>
               <arg name="dashboard"></arg>
-              <arg name="setMaxStake"></arg>
             </mutation>
             <data>adgSetupBoolsFn001LetUsTrade</data>
             <value name="ARG0" strategy_value="boolean_strategy">
@@ -151,9 +143,7 @@
             <value name="ARG4" strategy_value="boolean_dashboard">
               <block type="logic_boolean" id="adgCallDash001"><field name="BOOL">FALSE</field></block>
             </value>
-            <value name="ARG5" strategy_value="boolean_max_stake">
-              <block type="logic_boolean" id="adgCallSetMax001"><field name="BOOL">TRUE</field></block>
-            </value>
+            
           </block>
         </next>
       </block>
@@ -288,7 +278,6 @@
       <arg name="selectionMode" varid="adgP_mode"></arg>
       <arg name="cooldownAfterTrade" varid="adgP_cooldown"></arg>
       <arg name="maxTradesPerSession" varid="adgP_maxTrades"></arg>
-      <arg name="maxStake" varid="4vh+dtelQS#?}@cNPcN!"></arg>
     </mutation>
     <field name="NAME">Adaptive Digit Gap Numbers</field>
     <statement name="STACK">
@@ -361,7 +350,6 @@
       <arg name="oneActiveTrade" varid="adgP_oneActive"></arg>
       <arg name="journal" varid="adgP_journal"></arg>
       <arg name="dashboard" varid="adgP_dashboard"></arg>
-      <arg name="setMaxStake" varid="adgP_setMaxStake"></arg>
     </mutation>
     <field name="NAME">Adaptive Digit Gap Booleans</field>
     <statement name="STACK">
@@ -384,12 +372,7 @@
                       <block type="variables_set" id="adgFnDash001">
                         <field name="VAR" id="adgDash001LetUsTrade" variabletype="">adaptiveGap:dashboard</field>
                         <value name="VALUE"><block type="variables_get" id="adgFnDashGet001"><field name="VAR" id="adgP_dashboard" variabletype="">dashboard</field></block></value>
-                        <next>
-                          <block type="variables_set" id="adgFnSetMax001">
-                            <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                            <value name="VALUE"><block type="variables_get" id="adgFnSetMaxGet001"><field name="VAR" id="adgP_setMaxStake" variabletype="">setMaxStake</field></block></value>
-                          </block>
-                        </next>
+                        
                       </block>
                     </next>
                   </block>
@@ -503,57 +486,7 @@
                         </value>
                       </block>
                     </value>
-                    <next>
-                      <block type="controls_if" id="yq2aWWPfZo9BqwmM^gp,">
-                        <value name="IF0">
-                          <block type="logic_operation" id="P:vAy5mETFAlR6416JW@">
-                            <field name="OP">AND</field>
-                            <value name="A">
-                              <block type="variables_get" id="UTgA6uy4MgDFQ[tbq=v2">
-                                <field name="VAR" id="3^~61:59m?#VJ(:SG^^[" variabletype="">setMaxStake?</field>
-                              </block>
-                            </value>
-                            <value name="B">
-                              <block type="logic_compare" id="WI3(qR{d}7zdoDevLGVx">
-                                <field name="OP">GT</field>
-                                <value name="A">
-                                  <block type="procedures_callreturn" id="Zt-ad5[w(|?#4g,A*Ze,">
-                                    <mutation name="Martingale Trade Amount"></mutation>
-                                    <data>x3TA)`V~gtD7?rqNj[.9</data>
-                                  </block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get" id="z;Utrvg*JkBzz{cf)SYV">
-                                    <field name="VAR" id="4vh+dtelQS#?}@cNPcN!" variabletype="">maxStake</field>
-                                  </block>
-                                </value>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set" id="ca;U5I#KW?1eJ;^[H2Ji">
-                            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
-                            <value name="VALUE">
-                              <shadow type="math_number" id="p1`qUx`N_;V{kY*mLXW$">
-                                <field name="NUM">1</field>
-                              </shadow>
-                            </value>
-                            <next>
-                              <block type="notify" id="xBU}6LWyNZWbGStkUOKw">
-                                <field name="NOTIFICATION_TYPE">error</field>
-                                <field name="NOTIFICATION_SOUND">silent</field>
-                                <value name="MESSAGE">
-                                  <shadow type="text" id="Du/t4#rzavkWBAW.z#oN">
-                                    <field name="TEXT">Stake resets for the next trade (reason: exceeds max stake amount)</field>
-                                  </shadow>
-                                </value>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
+                    
                   </block>
                     </next>
                   </block>

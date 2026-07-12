@@ -32,8 +32,6 @@ export const FREE_BOTS: FreeBot[] = [
             profit: '5',
             loss: '5',
             size: '2',
-            max_stake: '25',
-            boolean_max_stake: true,
         },
     },
     {
@@ -85,15 +83,13 @@ export const FREE_BOTS: FreeBot[] = [
             profit: '5',
             loss: '5',
             size: '2',
-            max_stake: '25',
-            boolean_max_stake: true,
         },
     },
     {
         id: 'over-zero-gap-filter',
         title: localize('Over 0 Gap Filter'),
         description: localize(
-            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Run once calls Over 0 Gap Numbers (stake, prediction, profit, consecutive-loss stop, gaps) then Over 0 Gap Booleans (Martingale, filter, journal, max stake). Optional Martingale and Journal PASS/FAIL logging.'
+            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Run once calls Over 0 Gap Numbers (stake, prediction, profit, consecutive-loss stop, gaps) then Over 0 Gap Booleans (Martingale, filter, journal). Optional Martingale and Journal PASS/FAIL logging.'
         ),
         tags: [localize('Martingale'), localize('Over'), localize('Gap Filter')],
         strategy: 'OVER_ZERO_GAP_FILTER',
@@ -113,8 +109,6 @@ export const FREE_BOTS: FreeBot[] = [
             boolean_martingale: true,
             boolean_gap_filter: true,
             boolean_gap_journal: true,
-            max_stake: '25',
-            boolean_max_stake: true,
         },
     },
 ];
