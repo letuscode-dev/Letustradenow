@@ -685,6 +685,37 @@ export const STRATEGIES = (): TStrategies => ({
             ],
         ],
     },
+    COMPLEMENT_DIGIT_DIFFERS: {
+        name: 'complement_digit_differs',
+        label: localize('Complement Digit Differs'),
+        rs_strategy_name: 'complement digit differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'When the previous and current last digits are complements that sum to 9 (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the previous digit. Optional Martingale and consecutive-loss stop. Run once sets Complement Digit Numbers then Complement Digit Booleans.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [LABEL_SYMBOL(), SYMBOL(), LABEL_STAKE(), STAKE()],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_MARTINGALE(),
+                CHECKBOX_MAX_STAKE(),
+                MAX_STAKE(),
+            ],
+        ],
+    },
     OVER_ZERO_GAP_FILTER: {
         name: 'over_zero_gap_filter',
         label: localize('Over 0 Gap Filter'),

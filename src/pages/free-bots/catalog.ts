@@ -11,24 +11,27 @@ import type { FreeBot } from './types';
  * added later as a separate kind once you share the ideas.
  */
 export const FREE_BOTS: FreeBot[] = [
-    // Placeholder starters so the tab is usable until you add your own ideas.
     {
-        id: 'martingale-rise-fall',
-        title: localize('Martingale Rise/Fall'),
-        description: localize('Classic Martingale on Rise/Fall for Volatility 100 (1s). Load it, tweak, or run as-is.'),
-        tags: [localize('Martingale'), localize('Rise/Fall')],
-        strategy: 'MARTINGALE',
+        id: 'complement-digit-differs',
+        title: localize('Complement Digit Differs'),
+        description: localize(
+            'When previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the previous digit. Optional Martingale. Stops after consecutive losses. Run once calls Complement Digit Numbers then Complement Digit Booleans.'
+        ),
+        tags: [localize('Martingale'), localize('Differs'), localize('Complement')],
+        strategy: 'COMPLEMENT_DIGIT_DIFFERS',
         form: {
             symbol: '1HZ100V',
-            tradetype: 'callput',
-            type: 'CALL',
+            tradetype: 'matchesdiffers',
+            type: 'DIGITDIFF',
             stake: '1',
-            duration: '5',
+            duration: '1',
             durationtype: 't',
+            boolean_strategy: true,
+            boolean_journal: true,
+            boolean_martingale: true,
             profit: '5',
-            loss: '10',
+            loss: '5',
             size: '2',
-            unit: '1',
             max_stake: '25',
             boolean_max_stake: true,
         },

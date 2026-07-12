@@ -10,6 +10,7 @@ import './last_digit';
 import './lastDigitList';
 import './digit_transition_prediction';
 import './adaptive_digit_gap_prediction';
+import './complement_digit_prediction';
 import './over_zero_gap_filter';
 import './stat';
 import './stat_list';

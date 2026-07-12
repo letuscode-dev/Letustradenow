@@ -3,6 +3,7 @@ import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
+import { evaluateComplementDigit } from '../utils/complement-digit';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -52,6 +53,13 @@ const getBotInterface = tradeEngine => {
             // Use epoch-tagged ticks — the live cache is a fixed-length sliding window.
             const digit_ticks = tradeEngine.getCachedDigitTicks();
             return evaluateAdaptiveDigitGap(digit_ticks, options || {}, tradeEngine.adaptiveDigitGapState);
+        },
+        /**
+         * Complement Digit Differs — previous+current === 9 → Differs previous digit.
+         */
+        evaluateComplementDigit: options => {
+            const digits = tradeEngine.getCachedLastDigitList(2);
+            return evaluateComplementDigit(digits, options || {});
         },
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),

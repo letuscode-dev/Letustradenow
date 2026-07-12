@@ -446,6 +446,18 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='complement_digit_prediction'>
+                        <Value name='ENABLED'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='JOURNAL'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='over_zero_gap_filter'>
                         <Value name='ENABLED'>
                             <Shadow type='logic_boolean'>
