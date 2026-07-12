@@ -154,7 +154,7 @@ export const buildSignalBotFormData = ({
     return {
         action,
         boolean_max_stake: true,
-        duration: is_digit_contract ? '1' : '5',
+        duration: contract.type === 'DIGITDIFF' ? '2' : is_digit_contract ? '1' : '5',
         durationtype: 't',
         last_digit_prediction: contract.last_digit_prediction ?? String(clampDigit(over_under_barrier)),
         loss: '10',
