@@ -75,5 +75,10 @@ module.exports = {
             },
         },
     ],
+    settings: {
+        react: {
+            version: 'detect',
+        },
+    },
     ignorePatterns: ['node_modules/', 'dist/'],
 };

@@ -158,4 +158,19 @@ describe('<PageError/>', () => {
         expect(heading).toBeInTheDocument();
         expect(heading).toHaveStyle('--text-size: var(--text-size-s)');
     });
+
+    it('sanitizes HTML messages before rendering', () => {
+        renderWithRouter(
+            <PageError
+                {...pageErrorDefaultProps}
+                messages={[{ message: '<img src=x onerror="alert(1)" /><b>safe</b>', has_html: true }]}
+            />
+        );
+
+        const paragraph = document.querySelector('.dc-page-error__message-paragraph');
+        expect(paragraph).toBeInTheDocument();
+        expect(paragraph?.innerHTML).not.toContain('onerror');
+        expect(paragraph?.querySelector('b')).toBeTruthy();
+        expect(paragraph?.textContent).toContain('safe');
+    });
 });

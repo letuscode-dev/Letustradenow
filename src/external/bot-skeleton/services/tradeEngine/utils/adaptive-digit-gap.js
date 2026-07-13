@@ -24,7 +24,7 @@ export const SELECTION_HIGHEST_EXCESS = 2;
 export const SELECTION_LARGEST_CURRENT = 3;
 
 /**
- * @returns {{ digit: number, initialized: boolean, currentGap: number, completedGap: number|null, adaptiveTriggerGap: number|null, lastOccurrenceTick: number, gapCompletedThisTick: boolean, tradePlacedThisCycle: boolean }}
+ * @returns {{ digit: number, initialized: boolean, currentGap: number, completedGap: number|null, adaptiveTriggerGap: number|null, lastOccurrenceTick: number, gapCompletedThisTick: boolean, pendingSignal: boolean, tradePlacedThisCycle: boolean }}
  */
 export const createDigitState = digit => ({
     digit,
@@ -39,7 +39,7 @@ export const createDigitState = digit => ({
 });
 
 /**
- * @returns {{ digits: ReturnType<typeof createDigitState>[], processedCount: number, tickIndex: number, tradesThisSession: number, cooldownUntilTick: number, lastProcessedEpoch: number|null, lastJournal: Array, lastDashboard: string }}
+ * @returns {{ digits: ReturnType<typeof createDigitState>[], processedCount: number, tickIndex: number, tradesThisSession: number, cooldownUntilTick: number, lastProcessedEpoch: number|null, cooldownLogEmitted: boolean, maxTradesLogEmitted: boolean, activeTradePhase: 'none'|'signaled'|'open', activeTradeDigit: number|null, activeTradeLogEmitted: boolean, lastJournal: Array, lastDashboard: string }}
  */
 export const createTrackerState = () => ({
     digits: Array.from({ length: 10 }, (_, digit) => createDigitState(digit)),
@@ -284,7 +284,7 @@ export const isDigitEligible = (digit_state, options) => {
  * Pick one eligible digit using the selection mode.
  *
  * @param {ReturnType<typeof createDigitState>[]} digit_states
- * @param {ReturnType<typeof normalizeAdaptiveGapOptions>} options
+ * @param {Partial<ReturnType<typeof normalizeAdaptiveGapOptions>>} options
  * @returns {number} digit or -1
  */
 export const selectEligibleDigit = (digit_states, options) => {

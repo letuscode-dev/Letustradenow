@@ -130,7 +130,11 @@ export type TRsStrategyName =
     | `accumulators_reverse_martingale`
     | `accumulators_reverse_martingale_on_stat_reset`
     | `accumulators_reverse_dalembert`
-    | `accumulators_reverse_dalembert_on_stat_reset`;
+    | `accumulators_reverse_dalembert_on_stat_reset`
+    | `range momentum over 1`
+    | `adaptive digit gap differs`
+    | `complement digit differs`
+    | `over 0 gap filter`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 
