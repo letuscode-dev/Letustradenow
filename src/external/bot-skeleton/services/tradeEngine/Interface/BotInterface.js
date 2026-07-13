@@ -54,10 +54,11 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Percentage Filter (Over 2) — last 100 ticks, digits 3–9 vs threshold.
-         * Returns { allowed, status, percentage, tick_count, message, ... }.
+         * Requests Deriv tick history when the cache is short, then reads the
+         * live sliding window as new ticks arrive.
          */
-        evaluatePercentageFilter: (enabled, threshold, journal_enabled) => {
-            const digits = tradeEngine.getCachedLastDigitList(100);
+        evaluatePercentageFilter: async (enabled, threshold, journal_enabled) => {
+            const digits = await tradeEngine.ensureTickHistory(100);
             return evaluatePercentageFilter(digits, {
                 enabled,
                 threshold,

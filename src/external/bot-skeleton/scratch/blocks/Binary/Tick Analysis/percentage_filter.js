@@ -77,6 +77,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.percentage_filter = block
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
         ) || 'true';
 
+    // Request Deriv history when needed, then evaluate the live digit window.
     const code = `(function () {
         var BinaryBotPrivatePercentageFilterResult = Bot.evaluatePercentageFilter(${enabled}, ${threshold}, ${journal});
         if (BinaryBotPrivatePercentageFilterResult && BinaryBotPrivatePercentageFilterResult.journal_enabled) {
@@ -85,8 +86,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.percentage_filter = block
                 BinaryBotPrivatePercentageFilterClass = 'journal__text--success';
             } else if (BinaryBotPrivatePercentageFilterResult.status === 'failed') {
                 BinaryBotPrivatePercentageFilterClass = 'journal__text--error';
-            } else if (BinaryBotPrivatePercentageFilterResult.status === 'collecting') {
-                BinaryBotPrivatePercentageFilterClass = 'journal__text';
             }
             Bot.notify({
                 className: BinaryBotPrivatePercentageFilterClass,

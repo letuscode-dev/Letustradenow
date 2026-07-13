@@ -104,7 +104,7 @@ export const formatPercentageFilterJournalMessage = ({
     }
 
     if (status === 'collecting') {
-        return `Collecting tick history: ${tick_count}/${sample_size} ticks.`;
+        return `Requesting tick history from Deriv (${tick_count}/${sample_size}).`;
     }
 
     if (status === 'passed') {

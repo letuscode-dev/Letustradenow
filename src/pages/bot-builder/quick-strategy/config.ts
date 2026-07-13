@@ -875,7 +875,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Trades Over 2 only when digits 3–9 make up at least your configured percentage of the last 100 ticks. Stops after consecutive losses (not a money amount). Run once sets Percentage Filter Numbers then Percentage Filter Booleans. Optional Martingale and Journal collecting/pass/fail logging.'
+                        'Trades Over 2 only when digits 3–9 make up at least your configured percentage of the last 100 ticks. Requests tick history from Deriv on start, then updates continuously as new ticks arrive. Stops after consecutive losses (not a money amount). Run once sets Percentage Filter Numbers then Percentage Filter Booleans. Optional Martingale and Journal pass/fail logging.'
                     ),
                 ],
             },

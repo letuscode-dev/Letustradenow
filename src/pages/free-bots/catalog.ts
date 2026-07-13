@@ -120,7 +120,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'percentage-filter',
         title: localize('Percentage Filter'),
         description: localize(
-            'Places Over 2 only when digits 3–9 are at least your threshold percent of the last 100 ticks (default 75%). Journal shows collecting progress and pass/fail reasons. Optional Martingale and consecutive-loss stop. Run once calls Percentage Filter Numbers then Percentage Filter Booleans.'
+            'Places Over 2 only when digits 3–9 are at least your threshold percent of the last 100 ticks (default 75%). Loads tick history from Deriv immediately, then updates on each new tick. Journal shows pass/fail reasons. Optional Martingale and consecutive-loss stop. Run once calls Percentage Filter Numbers then Percentage Filter Booleans.'
         ),
         tags: [localize('Martingale'), localize('Over 2'), localize('Percentage')],
         strategy: 'PERCENTAGE_FILTER',

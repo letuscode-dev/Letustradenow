@@ -59,7 +59,7 @@ describe('evaluatePercentageFilter', () => {
         expect(result.allowed).toBe(false);
         expect(result.status).toBe('collecting');
         expect(result.tick_count).toBe(63);
-        expect(result.message).toBe('Collecting tick history: 63/100 ticks.');
+        expect(result.message).toBe('Requesting tick history from Deriv (63/100).');
     });
 
     it('passes when percentage meets the threshold (spec example)', () => {
@@ -115,7 +115,7 @@ describe('formatPercentageFilterJournalMessage', () => {
                 tick_count: 63,
                 sample_size: 100,
             })
-        ).toBe('Collecting tick history: 63/100 ticks.');
+        ).toBe('Requesting tick history from Deriv (63/100).');
 
         expect(
             formatPercentageFilterJournalMessage({

@@ -141,6 +141,15 @@ const Interpreter = () => {
             'sellAtMarket',
             createAsync(js_interpreter, bot_interface.sellAtMarket)
         );
+        // Percentage Filter needs an awaited Deriv ticks_history request when the
+        // live cache is still short — register as async like purchase/getTicks.
+        if (typeof bot_interface.evaluatePercentageFilter === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluatePercentageFilter',
+                createAsync(js_interpreter, bot_interface.evaluatePercentageFilter)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,
