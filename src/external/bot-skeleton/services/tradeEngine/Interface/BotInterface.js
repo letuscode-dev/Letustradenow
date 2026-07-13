@@ -3,6 +3,12 @@ import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
+import {
+    applyRecoveryResult,
+    calculateRecoveryStake,
+    configureRecoveryState,
+    createRecoveryState,
+} from '../utils/recovery-stake';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
@@ -24,6 +30,7 @@ const getBotInterface = tradeEngine => {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
             }
+            tradeEngine.recoveryState = null;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -31,6 +38,32 @@ const getBotInterface = tradeEngine => {
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getCachedLastDigitList: tick_count => tradeEngine.getCachedLastDigitList(tick_count),
+        configureRecovery: (initial_stake, payout_percent, recovery_splits) => {
+            if (!tradeEngine.recoveryState) {
+                tradeEngine.recoveryState = createRecoveryState();
+            }
+            configureRecoveryState(
+                tradeEngine.recoveryState,
+                {
+                    initialStake: initial_stake,
+                    payoutPercent: payout_percent,
+                    recoverySplits: recovery_splits,
+                },
+                true
+            );
+        },
+        getRecoveryStake: () => {
+            if (!tradeEngine.recoveryState) {
+                tradeEngine.recoveryState = createRecoveryState();
+            }
+            return calculateRecoveryStake(tradeEngine.recoveryState);
+        },
+        applyRecoveryResult: (is_win, profit) => {
+            if (!tradeEngine.recoveryState) {
+                tradeEngine.recoveryState = createRecoveryState();
+            }
+            applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
+        },
         getDigitTransitionPrediction: (tick_count, threshold) => {
             const requested = Math.max(2, Math.floor(Number(tick_count)) || 120);
             const digits = tradeEngine.getCachedLastDigitList(requested);

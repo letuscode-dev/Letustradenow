@@ -254,6 +254,59 @@ const LABEL_MARTINGALE_SIZE = (): TConfigItem => ({
     description: localize('The size used to multiply the stake after a losing trade for the next trade.'),
 });
 
+const LABEL_PAYOUT_PERCENT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Payout %'),
+    description: localize(
+        'Expected win profit as a percent of stake for this contract (e.g. 95 means a $1 stake pays about $0.95 profit). Used to size recovery stakes.'
+    ),
+});
+
+const PAYOUT_PERCENT = (): TConfigItem => ({
+    type: 'number',
+    name: 'payout_percent',
+    validation: [
+        'number',
+        'required',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+        {
+            type: 'max',
+            value: 1000,
+            getMessage: (max: string | number) =>
+                localize('The value must be equal or less than {{ max }}', { max }),
+        },
+    ],
+});
+
+const LABEL_RECOVERY_SPLITS = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Recovery splits'),
+    description: localize(
+        'How many winning runs should fully recover the lost amount. Enter 1 to recover in a single win, or N to spread recovery over N wins.'
+    ),
+});
+
+const RECOVERY_SPLITS = (): TConfigItem => ({
+    type: 'number',
+    name: 'recovery_splits',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
 const LABEL_TICK_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Tick window'),
@@ -760,7 +813,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks a wait (gap) for every digit 0–9 until it reappears. When the waited gap is within min–max, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Stops after the configured number of consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
+                        'Tracks a wait (gap) for every digit 0–9 until it reappears. When the waited gap is within min–max, places Differs on that digit. After losses, sizes the next stake from your payout % and recovery splits so wins recover the lost amount (1 = full recovery in one win). Stops after consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
                     ),
                 ],
             },
@@ -783,8 +836,10 @@ export const STRATEGIES = (): TStrategies => ({
                 PROFIT(),
                 LABEL_CONSECUTIVE_LOSS(),
                 CONSECUTIVE_LOSS(),
-                LABEL_MARTINGALE_SIZE(),
-                SIZE(),
+                LABEL_PAYOUT_PERCENT(),
+                PAYOUT_PERCENT(),
+                LABEL_RECOVERY_SPLITS(),
+                RECOVERY_SPLITS(),
                 LABEL_COOLDOWN(),
                 COOLDOWN_AFTER_TRADE(),
                 LABEL_MAX_TRADES_SESSION(),
