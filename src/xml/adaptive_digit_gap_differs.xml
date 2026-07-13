@@ -97,7 +97,7 @@
           <block type="math_number" id="adgCallStake001"><field name="NUM">1</field></block>
         </value>
         <value name="ARG1" strategy_value="payout_percent">
-          <block type="math_number" id="adgCallPayout001"><field name="NUM">95</field></block>
+          <block type="math_number" id="adgCallPayout001"><field name="NUM">11</field></block>
         </value>
         <value name="ARG2" strategy_value="recovery_splits">
           <block type="math_number" id="adgCallSplits001"><field name="NUM">1</field></block>

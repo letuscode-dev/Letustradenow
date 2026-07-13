@@ -39,9 +39,11 @@ const getBotInterface = tradeEngine => {
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getCachedLastDigitList: tick_count => tradeEngine.getCachedLastDigitList(tick_count),
         configureRecovery: (initial_stake, payout_percent, recovery_splits) => {
-            if (!tradeEngine.recoveryState) {
+            const is_new = !tradeEngine.recoveryState;
+            if (is_new) {
                 tradeEngine.recoveryState = createRecoveryState();
             }
+            // Only wipe recovery progress on a fresh bot start (first configure).
             configureRecoveryState(
                 tradeEngine.recoveryState,
                 {
@@ -49,14 +51,16 @@ const getBotInterface = tradeEngine => {
                     payoutPercent: payout_percent,
                     recoverySplits: recovery_splits,
                 },
-                true
+                is_new
             );
         },
         getRecoveryStake: () => {
             if (!tradeEngine.recoveryState) {
                 tradeEngine.recoveryState = createRecoveryState();
             }
-            return calculateRecoveryStake(tradeEngine.recoveryState);
+            const stake = calculateRecoveryStake(tradeEngine.recoveryState);
+            tradeEngine.recoveryState.lastStake = stake;
+            return stake;
         },
         applyRecoveryResult: (is_win, profit) => {
             if (!tradeEngine.recoveryState) {

@@ -84,6 +84,10 @@ const FormikWrapper: React.FC<TFormikWrapper> = observer(({ children }) => {
             boolean_tick_count: data?.boolean_tick_count ?? false,
             max_payout: data?.max_payout ?? 0,
             max_ticks: data?.max_ticks ?? 0,
+            payout_percent: data?.payout_percent ?? '11',
+            recovery_splits: data?.recovery_splits ?? '1',
+            min_adaptive_gap: data?.min_adaptive_gap ?? '10',
+            max_adaptive_gap: data?.max_adaptive_gap ?? '15',
         };
         return initial_value;
     };

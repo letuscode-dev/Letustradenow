@@ -22,7 +22,7 @@ window.Blockly.Blocks.recovery_configure = {
             previousStatement: null,
             nextStatement: null,
             tooltip: localize(
-                'Sets initial stake, contract payout percent, and how many winning runs should fully recover a loss.'
+                'Sets initial stake, contract payout profit percent (Differs ≈ 10–12), and how many winning runs should fully recover a loss.'
             ),
             category: window.Blockly.Categories.Miscellaneous,
         };
@@ -52,7 +52,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.recovery_configure = bloc
             block,
             'PAYOUT',
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
-        ) || '95';
+        ) || '11';
     const splits =
         window.Blockly.JavaScript.javascriptGenerator.valueToCode(
             block,

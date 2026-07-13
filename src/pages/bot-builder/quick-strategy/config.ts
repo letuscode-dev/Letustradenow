@@ -258,7 +258,7 @@ const LABEL_PAYOUT_PERCENT = (): TConfigItem => ({
     type: 'label',
     label: localize('Payout %'),
     description: localize(
-        'Expected win profit as a percent of stake for this contract (e.g. 95 means a $1 stake pays about $0.95 profit). Used to size recovery stakes.'
+        'Win profit as a percent of stake. Digit Differs is usually ~10–12 (not 95). Example: 11 means a $1 stake pays about $0.11 profit. You can also enter 0.11. Used to size recovery stakes.'
     ),
 });
 

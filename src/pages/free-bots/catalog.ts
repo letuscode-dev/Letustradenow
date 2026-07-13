@@ -87,7 +87,7 @@ export const FREE_BOTS: FreeBot[] = [
             boolean_dashboard: false,
             profit: '5',
             loss: '5',
-            payout_percent: '95',
+            payout_percent: '11',
             recovery_splits: '1',
         },
     },
