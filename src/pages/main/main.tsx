@@ -41,8 +41,6 @@ import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
-import Analysis from '../analysis';
-import FreeBots from '../free-bots';
 import ChartModal from '../chart/chart-modal';
 import Dashboard from '../dashboard';
 import RunStrategy from '../dashboard/run-strategy';
@@ -50,6 +48,8 @@ import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const Tutorial = lazy(() => import('../tutorials'));
+const Analysis = lazy(() => import('../analysis'));
+const FreeBots = lazy(() => import('../free-bots'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -445,7 +445,11 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-analysis'
                             >
-                                <Analysis />
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading analysis...')} />}
+                                >
+                                    <Analysis />
+                                </Suspense>
                             </div>
                             <div
                                 label={
@@ -484,7 +488,11 @@ const AppWrapper = observer(() => {
                                 }
                                 id='id-free-bots'
                             >
-                                <FreeBots />
+                                <Suspense
+                                    fallback={<ChunkLoader message={localize('Please wait, loading free bots...')} />}
+                                >
+                                    <FreeBots />
+                                </Suspense>
                             </div>
                         </Tabs>
                         {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
