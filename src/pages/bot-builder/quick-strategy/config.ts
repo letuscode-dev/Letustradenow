@@ -548,6 +548,50 @@ const CHECKBOX_GAP_JOURNAL = (): TConfigItem => ({
     description: localize('Log PASSED/FAILED gap filter evaluations to the Journal.'),
 });
 
+const LABEL_PERCENTAGE_THRESHOLD = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Over 2 percentage threshold'),
+    description: localize(
+        'Minimum share of digits 3–9 in the last 100 ticks required before an Over 2 trade is allowed. Example: 75 means at least 75 winning digits out of 100.'
+    ),
+});
+
+const PERCENTAGE_THRESHOLD = (): TConfigItem => ({
+    type: 'number',
+    name: 'percentage_threshold',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+        {
+            type: 'max',
+            value: 100,
+            getMessage: (max: string | number) =>
+                localize('The value must be equal or less than {{ max }}', { max }),
+        },
+    ],
+});
+
+const CHECKBOX_PERCENTAGE_FILTER = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_percentage_filter',
+    label: localize('Enable percentage filter'),
+    description: localize('When off, Over 2 trades are allowed without checking the percentage threshold.'),
+});
+
+const CHECKBOX_PERCENTAGE_JOURNAL = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_percentage_journal',
+    label: localize('Percentage filter journal'),
+    description: localize('Log collecting / passed / failed percentage filter evaluations to the Journal.'),
+});
+
 const CHECKBOX_MARTINGALE = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_martingale',
@@ -819,6 +863,44 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_MARTINGALE(),
                 CHECKBOX_GAP_FILTER(),
                 CHECKBOX_GAP_JOURNAL(),
+            ],
+        ],
+    },
+    PERCENTAGE_FILTER: {
+        name: 'percentage_filter',
+        label: localize('Percentage Filter'),
+        rs_strategy_name: 'percentage filter',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Trades Over 2 only when digits 3–9 make up at least your configured percentage of the last 100 ticks. Stops after consecutive losses (not a money amount). Run once sets Percentage Filter Numbers then Percentage Filter Booleans. Optional Martingale and Journal collecting/pass/fail logging.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_LAST_DIGIT_PREDICTION(),
+                LAST_DIGIT_PREDICTION(),
+                LABEL_PERCENTAGE_THRESHOLD(),
+                PERCENTAGE_THRESHOLD(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_MARTINGALE(),
+                CHECKBOX_PERCENTAGE_FILTER(),
+                CHECKBOX_PERCENTAGE_JOURNAL(),
             ],
         ],
     },

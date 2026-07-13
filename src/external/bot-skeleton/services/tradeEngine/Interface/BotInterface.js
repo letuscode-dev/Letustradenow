@@ -2,6 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
+import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
@@ -48,6 +49,18 @@ const getBotInterface = tradeEngine => {
                 enabled,
                 min_gap,
                 max_gap,
+                journal_enabled,
+            });
+        },
+        /**
+         * Percentage Filter (Over 2) — last 100 ticks, digits 3–9 vs threshold.
+         * Returns { allowed, status, percentage, tick_count, message, ... }.
+         */
+        evaluatePercentageFilter: (enabled, threshold, journal_enabled) => {
+            const digits = tradeEngine.getCachedLastDigitList(100);
+            return evaluatePercentageFilter(digits, {
+                enabled,
+                threshold,
                 journal_enabled,
             });
         },

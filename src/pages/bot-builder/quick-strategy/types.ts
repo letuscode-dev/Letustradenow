@@ -134,7 +134,8 @@ export type TRsStrategyName =
     | `range momentum over 1`
     | `adaptive digit gap differs`
     | `complement digit differs`
-    | `over 0 gap filter`;
+    | `over 0 gap filter`
+    | `percentage filter`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 
