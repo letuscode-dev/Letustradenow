@@ -33,7 +33,7 @@
       <block type="trade_definition_market" id="w2tV#|N1PqTM)~5-6|An" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">1HZ100V</field>
+        <field name="SYMBOL_LIST">1HZ75V</field>
         <next>
           <block type="trade_definition_tradetype" id="4BIa?F@i2*Mlrd:{G,SF" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>

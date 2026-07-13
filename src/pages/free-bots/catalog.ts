@@ -20,7 +20,7 @@ export const FREE_BOTS: FreeBot[] = [
         tags: [localize('Martingale'), localize('Differs'), localize('Complement')],
         strategy: 'COMPLEMENT_DIGIT_DIFFERS',
         form: {
-            symbol: '1HZ100V',
+            symbol: '1HZ75V',
             tradetype: 'matchesdiffers',
             type: 'DIGITDIFF',
             stake: '1',
@@ -43,7 +43,7 @@ export const FREE_BOTS: FreeBot[] = [
         tags: [localize('Over 1'), localize('Momentum'), localize('Range')],
         strategy: 'RANGE_MOMENTUM_OVER_ONE',
         form: {
-            symbol: '1HZ100V',
+            symbol: '1HZ75V',
             tradetype: 'overunder',
             type: 'DIGITOVER',
             stake: '1',
@@ -69,14 +69,14 @@ export const FREE_BOTS: FreeBot[] = [
         tags: [localize('Martingale'), localize('Differs'), localize('Adaptive Gap')],
         strategy: 'ADAPTIVE_DIGIT_GAP_DIFFERS',
         form: {
-            symbol: '1HZ100V',
+            symbol: '1HZ75V',
             tradetype: 'matchesdiffers',
             type: 'DIGITDIFF',
             stake: '1',
             duration: '2',
             durationtype: 't',
             min_adaptive_gap: '10',
-            max_adaptive_gap: '20',
+            max_adaptive_gap: '15',
             selection_mode: '0',
             cooldown_after_trade: '0',
             max_trades_per_session: '0',
@@ -99,7 +99,7 @@ export const FREE_BOTS: FreeBot[] = [
         tags: [localize('Martingale'), localize('Over'), localize('Gap Filter')],
         strategy: 'OVER_ZERO_GAP_FILTER',
         form: {
-            symbol: '1HZ100V',
+            symbol: '1HZ75V',
             tradetype: 'overunder',
             type: 'DIGITOVER',
             stake: '1',

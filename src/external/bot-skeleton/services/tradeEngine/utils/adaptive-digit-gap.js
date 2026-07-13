@@ -12,7 +12,7 @@
  */
 
 export const DEFAULT_MIN_ADAPTIVE_GAP = 10;
-export const DEFAULT_MAX_ADAPTIVE_GAP = 20;
+export const DEFAULT_MAX_ADAPTIVE_GAP = 15;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited
 /** Hard cap — Journal/UI must stay responsive. */
