@@ -1,11 +1,14 @@
 /**
- * Adaptive Per-Digit Gap Differs — trade filter / signal (not a fixed-gap predictor).
+ * Adaptive Per-Digit Gap Differs — trade filter / signal.
  *
  * For each digit 0–9 independently:
- * - Current gap = ticks since that digit last appeared
- * - When it appears again, the completed gap becomes the adaptive trigger for the next cycle
- * - Current gap resets to 0 immediately on appearance
- * - Differs is eligible when currentGap >= adaptiveTriggerGap (once per cycle by default)
+ * - Current gap = ticks since that digit last appeared (the waiting period)
+ * - When the digit appears again, the completed gap is measured
+ * - If that completed gap is within min–max, place Differs on that digit
+ * - Current gap resets to 0 immediately on appearance and the next wait begins
+ *
+ * Example: digit 3 appears, then 10 ticks later 3 appears again with gap 10
+ * (and 10 is within min–max) → Differs 3. Same for every digit.
  */
 
 export const DEFAULT_MIN_ADAPTIVE_GAP = 10;
@@ -21,7 +24,7 @@ export const SELECTION_HIGHEST_EXCESS = 2;
 export const SELECTION_LARGEST_CURRENT = 3;
 
 /**
- * @returns {{ digit: number, initialized: boolean, currentGap: number, completedGap: number|null, adaptiveTriggerGap: number|null, lastOccurrenceTick: number, triggerReached: boolean, tradePlacedThisCycle: boolean }}
+ * @returns {{ digit: number, initialized: boolean, currentGap: number, completedGap: number|null, adaptiveTriggerGap: number|null, lastOccurrenceTick: number, gapCompletedThisTick: boolean, tradePlacedThisCycle: boolean }}
  */
 export const createDigitState = digit => ({
     digit,
@@ -30,7 +33,8 @@ export const createDigitState = digit => ({
     completedGap: null,
     adaptiveTriggerGap: null,
     lastOccurrenceTick: -1,
-    triggerReached: false,
+    /** Sticky until traded or replaced by the next completed cycle. */
+    pendingSignal: false,
     tradePlacedThisCycle: false,
 });
 
@@ -130,8 +134,7 @@ export const normalizeAdaptiveGapOptions = (options = {}) => {
 
 /**
  * Process a single incoming last digit against tracker state.
- * Appeared digit is completed/reset first; all other digits increment once.
- * No Journal here — evaluate emits short signal/block lines only (fast path).
+ * Appeared digit completes/resets first; all other digits increment once.
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {number} digit
@@ -147,23 +150,24 @@ export const processDigitTick = (state, digit) => {
     const appeared = state.digits[d];
 
     if (!appeared.initialized) {
-        // First occurrence — initialize only; no adaptive trigger yet.
+        // First occurrence — start waiting; no completed gap yet.
         appeared.initialized = true;
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
-        appeared.triggerReached = false;
+        appeared.pendingSignal = false;
         appeared.tradePlacedThisCycle = false;
     } else {
+        // Finished waiting: completed gap is the wait length until this reappearance.
         const completed = appeared.currentGap;
         appeared.completedGap = completed;
         appeared.adaptiveTriggerGap = completed;
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
-        appeared.triggerReached = false;
+        appeared.pendingSignal = true;
         appeared.tradePlacedThisCycle = false;
     }
 
-    // Increment every other digit once for this tick.
+    // Increment every other digit once for this tick (continue their wait).
     for (let i = 0; i <= 9; i++) {
         if (i !== d) {
             state.digits[i].currentGap += 1;
@@ -173,8 +177,7 @@ export const processDigitTick = (state, digit) => {
 
 /**
  * Sync tracker with digit ticks identified by epoch.
- * Required because Deriv's tick cache is a fixed-size sliding window
- * (`[...ticks.slice(1), newTick]`), so length stops growing after history fills.
+ * Required because Deriv's tick cache is a fixed-size sliding window.
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {Array<{ epoch: number, digit: number|string }>} digit_ticks
@@ -206,7 +209,6 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
 
 /**
  * Sync from a plain digit array (append-only / tests).
- * Prefer syncTrackerWithDigitTicks for live caches.
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {Array<number|string>} digits
@@ -217,7 +219,6 @@ export const syncTrackerWithDigits = (state, digits, options = {}) => {
         return;
     }
 
-    // Convert to synthetic epoch ticks so sliding-window tests can use real epochs via the other API.
     const digit_ticks = digits.map((digit, index) => ({
         digit,
         epoch: index + 1,
@@ -248,27 +249,29 @@ const toDigitTicks = input => {
 };
 
 /**
- * Remaining ticks until trigger (0 when ready/triggered).
+ * Remaining ticks display helper (waiting for digit to reappear).
  */
 export const getRemainingTicks = digit_state => {
-    if (digit_state.adaptiveTriggerGap === null) {
+    if (!digit_state.initialized) {
         return null;
     }
-    return Math.max(digit_state.adaptiveTriggerGap - digit_state.currentGap, 0);
+    // While waiting for reappearance we only know current wait length.
+    return digit_state.currentGap;
 };
 
 /**
- * Whether a digit is eligible for Differs under the given options.
+ * Whether a digit should Differs: it finished a wait (reappeared) and that
+ * completed gap sits inside the configured min–max band.
  */
 export const isDigitEligible = (digit_state, options) => {
-    const trigger = digit_state.adaptiveTriggerGap;
-    if (trigger === null || !digit_state.initialized) {
+    if (!digit_state.initialized || !digit_state.pendingSignal) {
         return false;
     }
-    if (trigger < options.min_adaptive_gap || trigger > options.max_adaptive_gap) {
+    const gap = digit_state.completedGap;
+    if (gap === null) {
         return false;
     }
-    if (digit_state.currentGap < trigger) {
+    if (gap < options.min_adaptive_gap || gap > options.max_adaptive_gap) {
         return false;
     }
     if (options.one_trade_per_cycle && digit_state.tradePlacedThisCycle) {
@@ -293,17 +296,10 @@ export const selectEligibleDigit = (digit_states, options) => {
     const mode = options.selection_mode;
 
     if (mode === SELECTION_LARGEST_ADAPTIVE) {
-        eligible.sort((a, b) => b.adaptiveTriggerGap - a.adaptiveTriggerGap || a.digit - b.digit);
-    } else if (mode === SELECTION_HIGHEST_EXCESS) {
-        eligible.sort((a, b) => {
-            const excess_a = a.currentGap - a.adaptiveTriggerGap;
-            const excess_b = b.currentGap - b.adaptiveTriggerGap;
-            return excess_b - excess_a || a.digit - b.digit;
-        });
-    } else if (mode === SELECTION_LARGEST_CURRENT) {
-        eligible.sort((a, b) => b.currentGap - a.currentGap || a.digit - b.digit);
+        eligible.sort((a, b) => b.completedGap - a.completedGap || a.digit - b.digit);
+    } else if (mode === SELECTION_HIGHEST_EXCESS || mode === SELECTION_LARGEST_CURRENT) {
+        eligible.sort((a, b) => b.completedGap - a.completedGap || a.digit - b.digit);
     } else {
-        // First eligible by digit order (0→9).
         eligible.sort((a, b) => a.digit - b.digit);
     }
 
@@ -317,19 +313,18 @@ export const formatGapDashboard = digit_states => {
     const rows = [];
     for (let i = 0; i < digit_states.length; i++) {
         const ds = digit_states[i];
-        const adaptive = ds.adaptiveTriggerGap === null ? '-' : ds.adaptiveTriggerGap;
-        const remaining = getRemainingTicks(ds);
+        const last = ds.completedGap === null ? '-' : ds.completedGap;
         let status = '-';
-        if (ds.adaptiveTriggerGap === null) {
-            status = ds.initialized ? 'init' : '-';
+        if (!ds.initialized) {
+            status = '-';
+        } else if (ds.pendingSignal) {
+            status = 'ready';
         } else if (ds.tradePlacedThisCycle) {
             status = 'done';
-        } else if (ds.currentGap >= ds.adaptiveTriggerGap) {
-            status = 'ready';
         } else {
-            status = `${remaining} left`;
+            status = `wait ${ds.currentGap}`;
         }
-        rows.push(`${ds.digit}:${ds.currentGap}/${adaptive} ${status}`);
+        rows.push(`${ds.digit}:${ds.currentGap}/${last} ${status}`);
     }
     return rows.join(' · ');
 };
@@ -337,7 +332,7 @@ export const formatGapDashboard = digit_states => {
 /**
  * Evaluate adaptive gap Differs signal for the latest digit window.
  *
- * @param {Array<number|string>} digits
+ * @param {Array<number|string>|{epoch:number,digit:number|string}[]} digits
  * @param {object} raw_options
  * @param {ReturnType<typeof createTrackerState>} state - mutable persistent state
  * @returns {{ prediction: number, enabled: boolean, journal_messages: Array<{className: string, message: string}>, dashboard: string|null, eligible: number[] }}
@@ -362,7 +357,6 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         let dashboard = null;
         if (options.dashboard_enabled) {
             const next_dashboard = formatGapDashboard(state.digits);
-            // Only push dashboard when it changes — avoids Journal spam every evaluate.
             if (next_dashboard !== state.lastDashboard) {
                 dashboard = next_dashboard;
                 state.lastDashboard = next_dashboard;
@@ -374,7 +368,6 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         return { prediction, enabled: true, journal_messages, dashboard, eligible };
     };
 
-    // If one-active is off, drop any leftover lock from a previous setting.
     if (!options.one_active_trade_only && state.activeTradePhase !== 'none') {
         releaseAdaptiveDigitGapActiveTrade(state);
     }
@@ -403,7 +396,18 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     }
     state.cooldownLogEmitted = false;
 
-    // One active trade only: ignore new signals until the open Differs settles.
+    // Drop pending signals whose completed wait is outside min–max.
+    for (let i = 0; i <= 9; i++) {
+        const ds = state.digits[i];
+        if (
+            ds.pendingSignal &&
+            ds.completedGap !== null &&
+            (ds.completedGap < options.min_adaptive_gap || ds.completedGap > options.max_adaptive_gap)
+        ) {
+            ds.pendingSignal = false;
+        }
+    }
+
     if (options.one_active_trade_only && state.activeTradePhase !== 'none') {
         if (options.journal_enabled && !state.activeTradeLogEmitted) {
             state.activeTradeLogEmitted = true;
@@ -428,14 +432,13 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     let prediction = -1;
 
     if (eligible_digits.length) {
-        // At most one Differs signal per tick; selection_mode chooses which eligible digit.
         prediction = selectEligibleDigit(state.digits, options);
     }
 
     if (prediction >= 0) {
         const ds = state.digits[prediction];
-        ds.triggerReached = true;
         ds.tradePlacedThisCycle = true;
+        ds.pendingSignal = false;
         state.tradesThisSession += 1;
         if (options.cooldown_after_trade > 0) {
             state.cooldownUntilTick = state.tickIndex + options.cooldown_after_trade;
@@ -447,7 +450,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         if (options.journal_enabled) {
             journal_messages.push({
                 className: 'journal__text--success',
-                message: `Differs ${prediction} · gap ${ds.currentGap} ≥ ${ds.adaptiveTriggerGap}`,
+                message: `Differs ${prediction} · waited gap ${ds.completedGap}`,
             });
         }
     }

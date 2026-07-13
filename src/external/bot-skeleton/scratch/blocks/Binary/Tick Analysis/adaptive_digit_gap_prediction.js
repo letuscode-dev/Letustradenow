@@ -40,7 +40,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Tracks an adaptive gap per digit 0–9. Returns the digit to Differs when its current gap reaches its last completed gap, or -1 when none qualify. With one-active on, waits until the open Differs settles before signaling again.'
+                'For each digit 0–9, waits until it reappears. If that waited gap is within min–max, returns that digit for Differs; otherwise -1. With one-active on, waits until the open Differs settles before signaling again.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -49,7 +49,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
         return {
             display_name: localize('Adaptive digit gap prediction'),
             description: localize(
-                'Independently tracks gaps for digits 0–9. Each digit’s latest completed gap becomes its next Differs trigger. One-active waits for the current Differs to complete. Optional journal and live dashboard logging.'
+                'Independently waits (counts gap) for digits 0–9 until each reappears. If the waited gap is within min–max, Differs that digit. One-active waits for the current Differs to complete. Optional journal and live dashboard logging.'
             ),
             key_words: localize('adaptive, gap, digit, differs, journal, dashboard'),
         };

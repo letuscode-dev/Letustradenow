@@ -303,7 +303,7 @@ const PATTERN_THRESHOLD = (): TConfigItem => ({
 const LABEL_MIN_ADAPTIVE_GAP = (): TConfigItem => ({
     type: 'label',
     label: localize('Minimum adaptive gap'),
-    description: localize('Only trade when a digit’s adaptive trigger gap is at least this many ticks.'),
+    description: localize('Only Differs when the waited gap until the digit reappears is at least this many ticks.'),
 });
 
 const MIN_ADAPTIVE_GAP = (): TConfigItem => ({
@@ -325,7 +325,7 @@ const MIN_ADAPTIVE_GAP = (): TConfigItem => ({
 const LABEL_MAX_ADAPTIVE_GAP = (): TConfigItem => ({
     type: 'label',
     label: localize('Maximum adaptive gap'),
-    description: localize('Only trade when a digit’s adaptive trigger gap is at most this many ticks.'),
+    description: localize('Only Differs when the waited gap until the digit reappears is at most this many ticks.'),
 });
 
 const MAX_ADAPTIVE_GAP = (): TConfigItem => ({
@@ -716,7 +716,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks an independent adaptive gap for every digit 0–9. Each digit’s latest completed gap becomes its next Differs trigger. When current gap reaches that trigger, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Stops after the configured number of consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
+                        'Tracks a wait (gap) for every digit 0–9 until it reappears. When the waited gap is within min–max, places Differs on that digit (one trade per cycle by default), with optional Martingale recovery. Stops after the configured number of consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
                     ),
                 ],
             },
