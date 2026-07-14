@@ -15,7 +15,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'cold-digit-differs',
         title: localize('Cold Digit Differs'),
         description: localize(
-            'Analysis-style Differs: counts last digits in your tick sample, picks the cold (least frequent) digit, confidence stays 62–72%. Configurable runs per signal, stake, Martingale multiplier, take-profit, and consecutive-loss stop. Run once calls Cold Digit Numbers then Cold Digit Booleans.'
+            'Analysis-style Differs: requests your configured tick sample from Deriv, then continuously updates the cold (least frequent) digit on that exact window as ticks arrive. Confidence stays 62–72%. Configurable runs per signal, stake, Martingale, take-profit, and consecutive-loss stop.'
         ),
         tags: [localize('Martingale'), localize('Differs'), localize('Analysis')],
         strategy: 'COLD_DIGIT_DIFFERS',

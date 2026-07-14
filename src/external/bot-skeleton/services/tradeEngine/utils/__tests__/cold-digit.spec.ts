@@ -40,11 +40,21 @@ describe('analyzeColdDigit', () => {
 });
 
 describe('evaluateColdDigit', () => {
-    it('waits until the sample is full', () => {
+    it('requires the full user-configured sample size before trading', () => {
         const state = createColdDigitState();
-        const result = evaluateColdDigit([1, 2, 3], { tick_sample_size: 30, journal_enabled: false }, state);
-        expect(result.prediction).toBe(-1);
-        expect(result.sample_size).toBe(3);
+        const short = evaluateColdDigit([1, 2, 3], { tick_sample_size: 100, journal_enabled: false }, state);
+        expect(short.prediction).toBe(-1);
+        expect(short.sample_size).toBe(3);
+
+        // Partial (≥30) but below configured 100 → still wait for configured window
+        const partial = Array.from({ length: 40 }, (_, i) => i % 9);
+        const notReady = evaluateColdDigit(
+            partial,
+            { tick_sample_size: 100, runs_per_signal: 1, journal_enabled: false },
+            state
+        );
+        expect(notReady.prediction).toBe(-1);
+        expect(notReady.sample_size).toBe(40);
     });
 
     it('returns cold digit Differs when sample is ready', () => {
@@ -92,6 +102,29 @@ describe('evaluateColdDigit', () => {
         const result = evaluateColdDigit([1, 2, 3], { enabled: false }, state);
         expect(result.prediction).toBe(-1);
         expect(result.enabled).toBe(false);
+    });
+
+    it('recomputes from the latest configured window after the signal is consumed', () => {
+        const firstDigits = Array.from({ length: 100 }, (_, i) => i % 9); // cold 9
+        const state = createColdDigitState();
+        const first = evaluateColdDigit(
+            firstDigits,
+            { tick_sample_size: 100, runs_per_signal: 1, journal_enabled: false },
+            state
+        );
+        expect(first.prediction).toBe(9);
+        expect(first.sample_size).toBe(100);
+        consumeColdDigitSignal(state);
+
+        // New full window: digit 0 never appears → cold becomes 0
+        const nextDigits = Array.from({ length: 100 }, (_, i) => (i % 9) + 1); // 1-9
+        const next = evaluateColdDigit(
+            nextDigits,
+            { tick_sample_size: 100, runs_per_signal: 1, journal_enabled: false },
+            state
+        );
+        expect(next.prediction).toBe(0);
+        expect(next.sample_size).toBe(100);
     });
 });
 

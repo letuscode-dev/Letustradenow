@@ -1,12 +1,16 @@
 /**
  * Cold Digit Differs — Analysis-style frequency heuristic.
  *
- * Count last digits in the last N ticks, pick the cold (least frequent) digit,
- * and Differs that digit. Confidence matches Analysis:
+ * Always analyzes the user-configured tick sample size (e.g. last 100 ticks).
+ * Requests that history from Deriv immediately (no live tick-by-tick wait), then
+ * continuously recomputes on each new signal from the latest sliding window of
+ * exactly that size as new ticks arrive.
+ *
+ * Confidence matches Analysis:
  *   confidence = clamp(62 + max(0, 10 - coldPercent), 62, 72)
  *
  * Optional sticky signal: reuse the same cold digit for `runs_per_signal` trades
- * before recomputing.
+ * before recomputing from the latest configured window.
  */
 
 export const DEFAULT_TICK_SAMPLE_SIZE = 100;
@@ -207,12 +211,14 @@ export const evaluateColdDigit = (digits, options = {}, state = createColdDigitS
         };
     }
 
+    // Use exactly the configured window. History is requested up-front; until it
+    // lands, do not trade on a shorter partial sample.
     const sample = getLatestDigitSample(digits, tick_sample_size);
     if (sample.length < tick_sample_size) {
         if (journal_enabled) {
             journal_messages.push({
                 className: 'journal__text',
-                message: `Collecting tick history: ${sample.length}/${tick_sample_size} ticks.`,
+                message: `Requesting tick history from Deriv (${sample.length}/${tick_sample_size}).`,
             });
         }
         return {

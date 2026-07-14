@@ -133,7 +133,8 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Cold Digit Differs — Analysis-style least-frequent digit in last N ticks.
-         * Requests ticks_history when the live cache is still short.
+         * Requests the user-configured ticks_history immediately, then evaluates the
+         * latest sliding window of exactly that sample size.
          */
         evaluateColdDigit: async options => {
             if (!tradeEngine.coldDigitState) {
