@@ -76,7 +76,7 @@ describe('signal-to-bot bridge', () => {
             })
         ).toMatchObject({
             action: 'RUN',
-            duration: '5',
+            duration: '1',
             symbol: 'R_75',
             tradetype: 'callput',
             type: 'PUT',

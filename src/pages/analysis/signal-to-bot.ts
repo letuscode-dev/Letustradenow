@@ -149,12 +149,10 @@ export const buildSignalBotFormData = ({
 
     if (!contract) return null;
 
-    const is_digit_contract = option_family !== 'rise_fall';
-
     return {
         action,
         boolean_max_stake: true,
-        duration: contract.type === 'DIGITDIFF' ? '2' : is_digit_contract ? '1' : '5',
+        duration: '1',
         durationtype: 't',
         last_digit_prediction: contract.last_digit_prediction ?? String(clampDigit(over_under_barrier)),
         loss: '10',
