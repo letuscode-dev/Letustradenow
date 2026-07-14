@@ -458,6 +458,29 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='cold_digit_prediction'>
+                        <Value name='ENABLED'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='TICK_SAMPLE'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>100</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='RUNS_PER_SIGNAL'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='JOURNAL'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
+                    <Block type='cold_digit_consume'></Block>
                     <Block type='range_momentum_over_one'>
                         <Value name='ENABLED'>
                             <Shadow type='logic_boolean'>

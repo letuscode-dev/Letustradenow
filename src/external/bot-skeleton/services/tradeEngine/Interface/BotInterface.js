@@ -12,6 +12,12 @@ import {
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
+    consumeColdDigitSignal,
+    createColdDigitState,
+    evaluateColdDigit,
+    resetColdDigitState,
+} from '../utils/cold-digit';
+import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -31,6 +37,10 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.rangeMomentumState = null;
             }
             tradeEngine.recoveryState = null;
+            if (tradeEngine.coldDigitState) {
+                resetColdDigitState(tradeEngine.coldDigitState);
+                tradeEngine.coldDigitState = null;
+            }
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -120,6 +130,29 @@ const getBotInterface = tradeEngine => {
         evaluateComplementDigit: options => {
             const digits = tradeEngine.getCachedLastDigitList(2);
             return evaluateComplementDigit(digits, options || {});
+        },
+        /**
+         * Cold Digit Differs — Analysis-style least-frequent digit in last N ticks.
+         * Requests ticks_history when the live cache is still short.
+         */
+        evaluateColdDigit: async options => {
+            if (!tradeEngine.coldDigitState) {
+                tradeEngine.coldDigitState = createColdDigitState();
+            }
+            const sample = Math.max(
+                30,
+                Math.min(500, Math.floor(Number(options?.tick_sample_size)) || 100)
+            );
+            const digits = tradeEngine.ensureTickHistory
+                ? await tradeEngine.ensureTickHistory(sample)
+                : tradeEngine.getCachedLastDigitList(sample);
+            return evaluateColdDigit(digits || [], options || {}, tradeEngine.coldDigitState);
+        },
+        consumeColdDigitSignal: () => {
+            if (!tradeEngine.coldDigitState) {
+                tradeEngine.coldDigitState = createColdDigitState();
+            }
+            consumeColdDigitSignal(tradeEngine.coldDigitState);
         },
         /**
          * Range Momentum Over 1 — Lower(2-5)→Higher(6-9) with losing-digit lookback filter.

@@ -12,13 +12,13 @@ import type { FreeBot } from './types';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'complement-digit-differs',
-        title: localize('Complement Digit Differs'),
+        id: 'cold-digit-differs',
+        title: localize('Cold Digit Differs'),
         description: localize(
-            'When previous and current last digits are complements (0↔9, 1↔8, 2↔7, 3↔6, 4↔5), places Differs on the current digit. Optional Martingale. Stops after consecutive losses. Run once calls Complement Digit Numbers then Complement Digit Booleans.'
+            'Analysis-style Differs: counts last digits in your tick sample, picks the cold (least frequent) digit, confidence stays 62–72%. Configurable runs per signal, stake, Martingale multiplier, take-profit, and consecutive-loss stop. Run once calls Cold Digit Numbers then Cold Digit Booleans.'
         ),
-        tags: [localize('Martingale'), localize('Differs'), localize('Complement')],
-        strategy: 'COMPLEMENT_DIGIT_DIFFERS',
+        tags: [localize('Martingale'), localize('Differs'), localize('Analysis')],
+        strategy: 'COLD_DIGIT_DIFFERS',
         form: {
             symbol: '1HZ75V',
             tradetype: 'matchesdiffers',
@@ -26,6 +26,8 @@ export const FREE_BOTS: FreeBot[] = [
             stake: '1',
             duration: '2',
             durationtype: 't',
+            tick_sample_size: '100',
+            runs_per_signal: '1',
             boolean_strategy: true,
             boolean_journal: true,
             boolean_martingale: true,

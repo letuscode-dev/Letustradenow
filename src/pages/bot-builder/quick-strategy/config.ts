@@ -307,6 +307,60 @@ const RECOVERY_SPLITS = (): TConfigItem => ({
     ],
 });
 
+const LABEL_TICK_SAMPLE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Tick sample'),
+    description: localize(
+        'How many recent last digits to count when finding the cold (least frequent) digit. Same idea as the Analysis tool (default 100).'
+    ),
+});
+
+const TICK_SAMPLE = (): TConfigItem => ({
+    type: 'number',
+    name: 'tick_sample_size',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '30',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+        {
+            type: 'max',
+            value: 500,
+            getMessage: (max: string | number) =>
+                localize('The value must be equal or less than {{ max }}', { max }),
+        },
+    ],
+});
+
+const LABEL_RUNS_PER_SIGNAL = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Runs per signal'),
+    description: localize(
+        'How many Differs trades to place on the same cold digit before picking a new one. Enter 1 to recompute after every trade.'
+    ),
+});
+
+const RUNS_PER_SIGNAL = (): TConfigItem => ({
+    type: 'number',
+    name: 'runs_per_signal',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
 const LABEL_TICK_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Tick window'),
@@ -849,6 +903,37 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_DASHBOARD(),
+            ],
+        ],
+    },
+    COLD_DIGIT_DIFFERS: {
+        name: 'cold_digit_differs',
+        label: localize('Cold Digit Differs'),
+        rs_strategy_name: 'cold digit differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Uses the Analysis-tool cold-digit idea: counts last digits in your tick sample, Differs the least frequent digit, and keeps confidence in a 62–72% band. Configurable runs per signal, stake, Martingale multiplier, take-profit, and consecutive-loss stop. Run once sets Cold Digit Numbers then Cold Digit Booleans.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [LABEL_SYMBOL(), SYMBOL(), LABEL_STAKE(), STAKE(), LABEL_TICK_SAMPLE(), TICK_SAMPLE()],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_RUNS_PER_SIGNAL(),
+                RUNS_PER_SIGNAL(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_MARTINGALE(),
             ],
         ],
     },

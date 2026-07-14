@@ -150,6 +150,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluatePercentageFilter)
             );
         }
+        if (typeof bot_interface.evaluateColdDigit === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateColdDigit',
+                createAsync(js_interpreter, bot_interface.evaluateColdDigit)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,

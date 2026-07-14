@@ -133,6 +133,7 @@ export type TRsStrategyName =
     | `accumulators_reverse_dalembert_on_stat_reset`
     | `range momentum over 1`
     | `adaptive digit gap differs`
+    | `cold digit differs`
     | `complement digit differs`
     | `over 0 gap filter`
     | `percentage filter`;

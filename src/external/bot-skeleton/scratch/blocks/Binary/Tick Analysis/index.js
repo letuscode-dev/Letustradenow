@@ -11,6 +11,7 @@ import './lastDigitList';
 import './digit_transition_prediction';
 import './adaptive_digit_gap_prediction';
 import './complement_digit_prediction';
+import './cold_digit_prediction';
 import './range_momentum_over_one';
 import './over_zero_gap_filter';
 import './percentage_filter';
