@@ -155,11 +155,38 @@ describe('evaluateIncreasingDigitGap', () => {
         releaseIncreasingDigitGapActiveTrade(state);
     });
 
+    it('releases stale signaled state on the next tick so the bot does not freeze', () => {
+        const state = createTrackerState();
+        const history = toHistory(buildArithmeticPattern(9, [2, 3, 4]));
+        evaluateIncreasingDigitGap(history, opts, state);
+        runUntilFire(history, 9, opts, state);
+        expect(state.activeTradePhase).toBe('signaled');
+
+        let epoch = history.length;
+        epoch += 1;
+        history.push({ epoch, digit: 0 });
+        const result = evaluateIncreasingDigitGap(history, opts, state);
+        expect(state.activeTradePhase).toBe('none');
+        expect(result.prediction).toBe(-1);
+    });
+
     it('predicts gap 10 for +2 progression', () => {
         const state = createTrackerState();
         buildArithmeticPattern(4, [4, 6, 8]).forEach(d =>
             processDigitTick(state, d, { ...opts, journal_enabled: false })
         );
         expect(state.digits[4].predictedGap).toBe(10);
+    });
+
+    it('does not flood journal when syncing a large tick window', () => {
+        const state = createTrackerState();
+        const digits = Array.from({ length: 200 }, (_, i) => i % 10);
+        const result = evaluateIncreasingDigitGap(
+            digits,
+            { journal_enabled: true, min_gap: 1, max_gap: 20 },
+            state
+        );
+        expect(result.journal_messages.length).toBeLessThanOrEqual(5);
+        expect(state.tickIndex).toBe(199);
     });
 });

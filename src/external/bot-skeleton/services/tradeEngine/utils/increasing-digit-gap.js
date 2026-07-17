@@ -64,6 +64,7 @@ export const createTrackerState = () => ({
     activeTradePhase: 'none',
     activeTradeDigit: null,
     activeTradeLogEmitted: false,
+    signaledAtTick: -1,
     pendingJournal: [],
     lastJournal: [],
 });
@@ -79,6 +80,7 @@ export const armIncreasingDigitGapActiveTrade = (state, digit) => {
     state.activeTradePhase = 'signaled';
     state.activeTradeDigit = digit;
     state.activeTradeLogEmitted = false;
+    state.signaledAtTick = state.tickIndex;
 };
 
 export const openIncreasingDigitGapActiveTrade = state => {
@@ -95,6 +97,7 @@ export const releaseIncreasingDigitGapActiveTrade = state => {
     state.activeTradePhase = 'none';
     state.activeTradeDigit = null;
     state.activeTradeLogEmitted = false;
+    state.signaledAtTick = -1;
 };
 
 const toBool = (value, default_value = false) => {
@@ -116,7 +119,7 @@ const toInt = (value, fallback, min = null) => {
 };
 
 const pushJournal = (state, options, className, message) => {
-    if (!options?.journal_enabled) {
+    if (!options?.journal_enabled || state.suppressJournal) {
         return;
     }
     if (!state.pendingJournal) {
@@ -397,6 +400,8 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
 
     state.pendingJournal = [];
     state.lastJournal = [];
+    const ticks_to_process = digit_ticks.length - start;
+    state.suppressJournal = ticks_to_process > 1;
 
     for (let i = start; i < digit_ticks.length; i++) {
         const tick = digit_ticks[i];
@@ -404,6 +409,7 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
         state.lastProcessedEpoch = Number(tick.epoch);
     }
 
+    state.suppressJournal = false;
     state.processedCount = digit_ticks.length;
 };
 
@@ -484,9 +490,16 @@ export const evaluateIncreasingDigitGap = (digits, raw_options = {}, state = cre
 
     syncTrackerWithDigitTicks(state, toDigitTicks(digits), options);
 
+    // Purchase happens after this call returns — a prior 'signaled' state is stale on a new tick.
+    if (state.activeTradePhase === 'signaled' && state.tickIndex > state.signaledAtTick) {
+        releaseIncreasingDigitGapActiveTrade(state);
+    }
+
     if (Array.isArray(state.pendingJournal) && state.pendingJournal.length) {
-        for (let i = 0; i < state.pendingJournal.length; i++) {
-            journal_messages.push(state.pendingJournal[i]);
+        const pending = state.pendingJournal;
+        const keep = Math.max(0, pending.length - MAX_JOURNAL_MESSAGES_PER_EVALUATE);
+        for (let i = keep; i < pending.length; i++) {
+            journal_messages.push(pending[i]);
         }
         state.pendingJournal = [];
     }
@@ -527,7 +540,7 @@ export const evaluateIncreasingDigitGap = (digits, raw_options = {}, state = cre
     }
     state.cooldownLogEmitted = false;
 
-    if (options.one_active_trade_only && state.activeTradePhase !== 'none') {
+    if (options.one_active_trade_only && state.activeTradePhase === 'open') {
         if (options.journal_enabled && !state.activeTradeLogEmitted) {
             state.activeTradeLogEmitted = true;
             journal_messages.push({
