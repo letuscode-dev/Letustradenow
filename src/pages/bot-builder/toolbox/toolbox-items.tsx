@@ -410,6 +410,11 @@ export const ToolboxItems = () =>
                                 <Field name='NUM'>20</Field>
                             </Shadow>
                         </Value>
+                        <Value name='TRADE_WAIT'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
                         <Value name='SELECTION_MODE'>
                             <Shadow type='math_number'>
                                 <Field name='NUM'>0</Field>

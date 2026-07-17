@@ -455,6 +455,30 @@ const MAX_ADAPTIVE_GAP = (): TConfigItem => ({
     ],
 });
 
+const LABEL_TRADE_WAIT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Trade wait (ticks)'),
+    description: localize(
+        'After two equal gaps are confirmed, wait this many ticks before placing Differs (independent of the confirmed gap size).'
+    ),
+});
+
+const TRADE_WAIT = (): TConfigItem => ({
+    type: 'number',
+    name: 'trade_wait',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
 const LABEL_SELECTION_MODE = (): TConfigItem => ({
     type: 'label',
     label: localize('Selection mode'),
@@ -873,7 +897,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks gaps between appearances of every digit 0–9. Requires two consecutive equal gaps within min–max, then waits that same gap and places Differs on the expected cycle tick (purchase lead avoids off-by-one). Keeps the countdown even if the digit appears early. Optional user-configurable Martingale multiplier after losses. Stops after consecutive losses.'
+                        'Tracks gaps between appearances of every digit 0–9. Requires two consecutive equal gaps within min–max, then waits your configured trade-wait ticks and places Differs (purchase lead avoids off-by-one). Keeps the countdown even if the digit appears early. Optional user-configurable Martingale multiplier after losses. Stops after consecutive losses.'
                     ),
                 ],
             },
@@ -888,6 +912,8 @@ export const STRATEGIES = (): TStrategies => ({
                 MIN_ADAPTIVE_GAP(),
                 LABEL_MAX_ADAPTIVE_GAP(),
                 MAX_ADAPTIVE_GAP(),
+                LABEL_TRADE_WAIT(),
+                TRADE_WAIT(),
                 LABEL_SELECTION_MODE(),
                 SELECTION_MODE(),
             ],

@@ -8,24 +8,26 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
     definition() {
         return {
             message0: localize(
-                'adaptive digit gap Differs (on {{ enabled }}, min {{ min_gap }}, max {{ max_gap }}, mode {{ mode }}, cooldown {{ cooldown }}, max trades {{ max_trades }}, 1/cycle {{ one_cycle }}, 1 active {{ one_active }}, journal {{ journal }}, dashboard {{ dashboard }})',
+                'adaptive digit gap Differs (on {{ enabled }}, min {{ min_gap }}, max {{ max_gap }}, wait {{ trade_wait }}, mode {{ mode }}, cooldown {{ cooldown }}, max trades {{ max_trades }}, 1/cycle {{ one_cycle }}, 1 active {{ one_active }}, journal {{ journal }}, dashboard {{ dashboard }})',
                 {
                     enabled: '%1',
                     min_gap: '%2',
                     max_gap: '%3',
-                    mode: '%4',
-                    cooldown: '%5',
-                    max_trades: '%6',
-                    one_cycle: '%7',
-                    one_active: '%8',
-                    journal: '%9',
-                    dashboard: '%10',
+                    trade_wait: '%4',
+                    mode: '%5',
+                    cooldown: '%6',
+                    max_trades: '%7',
+                    one_cycle: '%8',
+                    one_active: '%9',
+                    journal: '%10',
+                    dashboard: '%11',
                 }
             ),
             args0: [
                 { type: 'input_value', name: 'ENABLED', check: 'Boolean' },
                 { type: 'input_value', name: 'MIN_GAP', check: 'Number' },
                 { type: 'input_value', name: 'MAX_GAP', check: 'Number' },
+                { type: 'input_value', name: 'TRADE_WAIT', check: 'Number' },
                 { type: 'input_value', name: 'SELECTION_MODE', check: 'Number' },
                 { type: 'input_value', name: 'COOLDOWN', check: 'Number' },
                 { type: 'input_value', name: 'MAX_TRADES', check: 'Number' },
@@ -40,7 +42,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'For each digit 0–9, requires two consecutive equal gaps within min–max, then waits that gap again and returns the digit for Differs one tick before the expected occurrence. Keeps counting down even if the digit appears early. With one-active on, waits until the open Differs settles.'
+                'For each digit 0–9, requires two consecutive equal gaps within min–max, then waits your configured trade-wait ticks and returns the digit for Differs one tick before the target. Keeps counting down even if the digit appears early. With one-active on, waits until the open Differs settles.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -49,7 +51,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
         return {
             display_name: localize('Adaptive digit gap prediction'),
             description: localize(
-                'Tracks gaps between appearances of each digit 0–9. When the same gap repeats twice in a row within min–max, waits that gap again and Differs the digit on the expected cycle tick — even if it appears early during the wait. Optional journal and live dashboard logging.'
+                'Tracks gaps between appearances of each digit 0–9. When the same gap repeats twice in a row within min–max, waits your configured trade-wait ticks and Differs the digit — even if it appears early during the wait. Optional journal and live dashboard logging.'
             ),
             key_words: localize('adaptive, gap, digit, differs, journal, dashboard'),
         };
@@ -70,6 +72,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
     const enabled = read('ENABLED') || 'true';
     const min_gap = read('MIN_GAP') || '10';
     const max_gap = read('MAX_GAP') || '20';
+    const trade_wait = read('TRADE_WAIT') || '1';
     const mode = read('SELECTION_MODE') || '0';
     const cooldown = read('COOLDOWN') || '0';
     const max_trades = read('MAX_TRADES') || '0';
@@ -83,6 +86,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
             enabled: ${enabled},
             min_adaptive_gap: ${min_gap},
             max_adaptive_gap: ${max_gap},
+            trade_wait: ${trade_wait},
             selection_mode: ${mode},
             cooldown_after_trade: ${cooldown},
             max_trades_per_session: ${max_trades},

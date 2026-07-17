@@ -4,9 +4,9 @@
  * For each digit 0–9 independently:
  * 1. Track tick positions and the gap (intervening ticks) between appearances
  * 2. Require two consecutive equal gaps within min–max (e.g. 7→5→7→5→7)
- * 3. After confirmation, wait that same gap again, then place Digit Differs
+ * 3. After confirmation, wait the user-configured trade_wait ticks, then place Digit Differs
  * 4. Purchase one tick early (duration-1 lead) so the contract settles on the
- *    expected cycle tick — not the tick after it
+ *    target tick — not the tick after it
  * 5. If the digit appears again during the wait, keep counting down and still
  *    Differs that digit on the scheduled tick
  *
@@ -15,13 +15,14 @@
 
 export const DEFAULT_MIN_ADAPTIVE_GAP = 10;
 export const DEFAULT_MAX_ADAPTIVE_GAP = 15;
+export const DEFAULT_TRADE_WAIT = 1;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited
 /** Hard cap — Journal/UI must stay responsive. */
 export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 5;
 /**
- * Fire the Differs purchase this many ticks before the expected occurrence so a
- * 1-tick contract settles on the target tick (avoids off-by-one late entry).
+ * Fire the Differs purchase this many ticks before the target tick so a
+ * 1-tick contract settles on target (avoids off-by-one late entry).
  */
 export const PURCHASE_LEAD_TICKS = 1;
 
@@ -39,6 +40,7 @@ export const SELECTION_LARGEST_CURRENT = 3;
  *   lastGap: number|null,
  *   schedulePhase: 'none'|'countdown',
  *   scheduleGap: number|null,
+ *   scheduleWait: number|null,
  *   targetTick: number|null,
  *   fireTick: number|null,
  *   tradePlacedThisCycle: boolean,
@@ -53,7 +55,10 @@ export const createDigitState = digit => ({
     lastGap: null,
     /** none | countdown — waiting until fireTick to place Differs. */
     schedulePhase: 'none',
+    /** Confirmed equal gap that armed the schedule (for selection / journal). */
     scheduleGap: null,
+    /** User-configured wait used for this countdown. */
+    scheduleWait: null,
     targetTick: null,
     fireTick: null,
     tradePlacedThisCycle: false,
@@ -157,6 +162,7 @@ const pushJournal = (state, options, className, message) => {
 const clearDigitSchedule = digit_state => {
     digit_state.schedulePhase = 'none';
     digit_state.scheduleGap = null;
+    digit_state.scheduleWait = null;
     digit_state.targetTick = null;
     digit_state.fireTick = null;
 };
@@ -178,6 +184,7 @@ export const normalizeAdaptiveGapOptions = (options = {}) => {
         enabled: toBool(options.enabled, true),
         min_adaptive_gap: min_gap,
         max_adaptive_gap: max_gap,
+        trade_wait: toInt(options.trade_wait, DEFAULT_TRADE_WAIT, 0),
         one_trade_per_cycle: toBool(options.one_trade_per_cycle, true),
         one_active_trade_only: toBool(options.one_active_trade_only, true),
         selection_mode: toInt(options.selection_mode, SELECTION_FIRST, 0),
@@ -190,16 +197,19 @@ export const normalizeAdaptiveGapOptions = (options = {}) => {
 
 /**
  * Schedule Differs after two equal consecutive gaps were confirmed.
- * targetTick = confirmation tick + gap + 1 (expected next occurrence).
+ * Waits the user-configured trade_wait (not the confirmed gap).
+ * targetTick = confirmation tick + trade_wait + 1
  * fireTick = targetTick - PURCHASE_LEAD_TICKS (purchase so duration-1 settles on target).
  */
 const scheduleConfirmedGap = (state, digit_state, gap, options) => {
+    const wait = Math.max(0, options.trade_wait ?? DEFAULT_TRADE_WAIT);
     const lead = Math.max(0, PURCHASE_LEAD_TICKS);
-    const target_tick = state.tickIndex + gap + 1;
+    const target_tick = state.tickIndex + wait + 1;
     const fire_tick = Math.max(state.tickIndex, target_tick - lead);
 
     digit_state.schedulePhase = 'countdown';
     digit_state.scheduleGap = gap;
+    digit_state.scheduleWait = wait;
     digit_state.targetTick = target_tick;
     digit_state.fireTick = fire_tick;
     digit_state.tradePlacedThisCycle = false;
@@ -214,7 +224,7 @@ const scheduleConfirmedGap = (state, digit_state, gap, options) => {
         state,
         options,
         'journal__text',
-        `Waiting ${gap} ticks before placing Differs ${digit_state.digit}.`
+        `Waiting ${wait} ticks before placing Differs ${digit_state.digit}.`
     );
 };
 

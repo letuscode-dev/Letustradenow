@@ -88,6 +88,7 @@ const FormikWrapper: React.FC<TFormikWrapper> = observer(({ children }) => {
             recovery_splits: data?.recovery_splits ?? '1',
             min_adaptive_gap: data?.min_adaptive_gap ?? '10',
             max_adaptive_gap: data?.max_adaptive_gap ?? '15',
+            trade_wait: data?.trade_wait ?? '1',
             tick_sample_size: data?.tick_sample_size ?? '100',
             runs_per_signal: data?.runs_per_signal ?? '1',
         };

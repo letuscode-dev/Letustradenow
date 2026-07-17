@@ -49,15 +49,21 @@ describe('processDigitTick / repeated equal gaps', () => {
         expect(state.digits[7].schedulePhase).toBe('none');
     });
 
-    it('confirms two consecutive equal gaps and schedules a countdown', () => {
+    it('confirms two consecutive equal gaps and schedules the user trade_wait', () => {
         const state = createTrackerState();
-        const opts = { min_adaptive_gap: 1, max_adaptive_gap: 20, journal_enabled: false };
+        const opts = {
+            min_adaptive_gap: 1,
+            max_adaptive_gap: 20,
+            trade_wait: 3,
+            journal_enabled: false,
+        };
         buildConfirmedPattern(7, 5).forEach(d => processDigitTick(state, d, opts));
 
         const ds = state.digits[7];
         expect(ds.schedulePhase).toBe('countdown');
         expect(ds.scheduleGap).toBe(5);
-        expect(ds.targetTick).toBe(state.tickIndex + 5 + 1);
+        expect(ds.scheduleWait).toBe(3);
+        expect(ds.targetTick).toBe(state.tickIndex + 3 + 1);
         expect(ds.fireTick).toBe(ds.targetTick - PURCHASE_LEAD_TICKS);
         expect(ds.lastGap).toBeNull();
     });
@@ -72,7 +78,12 @@ describe('processDigitTick / repeated equal gaps', () => {
 
     it('keeps countdown and still Differs when the digit appears early', () => {
         const state = createTrackerState();
-        const opts = { min_adaptive_gap: 1, max_adaptive_gap: 20, journal_enabled: true };
+        const opts = {
+            min_adaptive_gap: 1,
+            max_adaptive_gap: 20,
+            trade_wait: 5,
+            journal_enabled: true,
+        };
         buildConfirmedPattern(7, 5).forEach(d => processDigitTick(state, d, opts));
         expect(state.digits[7].schedulePhase).toBe('countdown');
         const fire_tick = state.digits[7].fireTick;
@@ -89,12 +100,13 @@ describe('processDigitTick / repeated equal gaps', () => {
 });
 
 describe('evaluateAdaptiveDigitGap', () => {
-    it('waits the confirmed gap then Differs one tick before the expected occurrence', () => {
+    it('waits the user-configured trade_wait then Differs (not the confirmed gap)', () => {
         const state = createTrackerState();
         const opts = {
             journal_enabled: false,
             min_adaptive_gap: 5,
             max_adaptive_gap: 5,
+            trade_wait: 2,
             one_active_trade_only: false,
         };
 
@@ -103,6 +115,9 @@ describe('evaluateAdaptiveDigitGap', () => {
         let result = evaluateAdaptiveDigitGap(history, opts, state);
         expect(result.prediction).toBe(-1);
         expect(state.digits[7].schedulePhase).toBe('countdown');
+        expect(state.digits[7].scheduleGap).toBe(5);
+        expect(state.digits[7].scheduleWait).toBe(2);
+        expect(state.digits[7].targetTick).toBe(state.tickIndex + 2 + 1);
 
         const fire_tick = state.digits[7].fireTick;
         const target_tick = state.digits[7].targetTick;
@@ -120,6 +135,7 @@ describe('evaluateAdaptiveDigitGap', () => {
             journal_enabled: true,
             min_adaptive_gap: 2,
             max_adaptive_gap: 2,
+            trade_wait: 2,
             one_active_trade_only: false,
         };
 
@@ -141,7 +157,7 @@ describe('evaluateAdaptiveDigitGap', () => {
         const state = createTrackerState();
         const result = evaluateAdaptiveDigitGap(
             [7, 0, 1, 2, 3, 4, 7],
-            { journal_enabled: false, min_adaptive_gap: 5, max_adaptive_gap: 5 },
+            { journal_enabled: false, min_adaptive_gap: 5, max_adaptive_gap: 5, trade_wait: 1 },
             state
         );
         expect(result.prediction).toBe(-1);
@@ -153,7 +169,7 @@ describe('evaluateAdaptiveDigitGap', () => {
         const state = createTrackerState();
         const result = evaluateAdaptiveDigitGap(
             buildConfirmedPattern(7, 3),
-            { journal_enabled: false, min_adaptive_gap: 10, max_adaptive_gap: 15 },
+            { journal_enabled: false, min_adaptive_gap: 10, max_adaptive_gap: 15, trade_wait: 1 },
             state
         );
         expect(result.prediction).toBe(-1);
@@ -163,7 +179,12 @@ describe('evaluateAdaptiveDigitGap', () => {
 
     it('still places Differs after early reappearance during the wait', () => {
         const state = createTrackerState();
-        const opts = { journal_enabled: true, min_adaptive_gap: 5, max_adaptive_gap: 5 };
+        const opts = {
+            journal_enabled: true,
+            min_adaptive_gap: 5,
+            max_adaptive_gap: 5,
+            trade_wait: 5,
+        };
         const history = toHistory(buildConfirmedPattern(7, 5));
         evaluateAdaptiveDigitGap(history, opts, state);
         expect(state.digits[7].schedulePhase).toBe('countdown');
@@ -188,6 +209,7 @@ describe('evaluateAdaptiveDigitGap', () => {
             journal_enabled: false,
             min_adaptive_gap: 2,
             max_adaptive_gap: 2,
+            trade_wait: 2,
             one_active_trade_only: true,
             selection_mode: SELECTION_FIRST,
         };
@@ -222,7 +244,11 @@ describe('evaluateAdaptiveDigitGap', () => {
     it('does not flood journal when syncing a large tick window', () => {
         const state = createTrackerState();
         const digits = Array.from({ length: 200 }, (_, i) => i % 10);
-        const result = evaluateAdaptiveDigitGap(digits, { journal_enabled: true, min_adaptive_gap: 1 }, state);
+        const result = evaluateAdaptiveDigitGap(
+            digits,
+            { journal_enabled: true, min_adaptive_gap: 1, trade_wait: 1 },
+            state
+        );
         expect(result.journal_messages.length).toBeLessThanOrEqual(5);
         expect(state.tickIndex).toBe(199);
     });
@@ -234,6 +260,7 @@ describe('evaluateAdaptiveDigitGap', () => {
                 initialized: true,
                 schedulePhase: 'countdown',
                 scheduleGap: 2,
+                scheduleWait: 2,
                 fireTick: 10,
                 targetTick: 11,
                 tradePlacedThisCycle: false,
@@ -243,6 +270,7 @@ describe('evaluateAdaptiveDigitGap', () => {
                 initialized: true,
                 schedulePhase: 'countdown',
                 scheduleGap: 5,
+                scheduleWait: 2,
                 fireTick: 10,
                 targetTick: 11,
                 tradePlacedThisCycle: false,
@@ -262,7 +290,7 @@ describe('evaluateAdaptiveDigitGap', () => {
 describe('sliding tick cache', () => {
     it('keeps processing when history length is fixed and the window slides', () => {
         const state = createTrackerState();
-        const opts = { journal_enabled: false, min_adaptive_gap: 1 };
+        const opts = { journal_enabled: false, min_adaptive_gap: 1, trade_wait: 1 };
 
         let window_ticks = [0, 1, 2, 3, 4].map((digit, i) => ({ epoch: i + 1, digit }));
         evaluateAdaptiveDigitGap(window_ticks, opts, state);
