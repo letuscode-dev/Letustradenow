@@ -37,29 +37,4 @@ export const FREE_BOTS: FreeBot[] = [
             size: '2',
         },
     },
-    {
-        id: 'percentage-filter',
-        title: localize('Percentage Filter'),
-        description: localize(
-            'Places Over 2 only when digits 3–9 are at least your threshold percent of the last 100 ticks (default 75%). Loads tick history from Deriv immediately, then updates on each new tick. Journal shows pass/fail reasons. Optional Martingale and consecutive-loss stop. Run once calls Percentage Filter Numbers then Percentage Filter Booleans.'
-        ),
-        tags: [localize('Martingale'), localize('Over 2'), localize('Percentage')],
-        strategy: 'PERCENTAGE_FILTER',
-        form: {
-            symbol: '1HZ75V',
-            tradetype: 'overunder',
-            type: 'DIGITOVER',
-            stake: '1',
-            duration: '1',
-            durationtype: 't',
-            last_digit_prediction: '2',
-            percentage_threshold: '75',
-            profit: '5',
-            loss: '5',
-            size: '2',
-            boolean_martingale: true,
-            boolean_percentage_filter: true,
-            boolean_percentage_journal: true,
-        },
-    },
 ];

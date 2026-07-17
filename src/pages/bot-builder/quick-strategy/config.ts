@@ -888,44 +888,6 @@ export const STRATEGIES = (): TStrategies => ({
             ],
         ],
     },
-    PERCENTAGE_FILTER: {
-        name: 'percentage_filter',
-        label: localize('Percentage Filter'),
-        rs_strategy_name: 'percentage filter',
-        description: [
-            {
-                type: 'text',
-                content: [
-                    localize(
-                        'Trades Over 2 only when digits 3–9 make up at least your configured percentage of the last 100 ticks. Requests tick history from Deriv on start, then updates continuously as new ticks arrive. Stops after consecutive losses (not a money amount). Run once sets Percentage Filter Numbers then Percentage Filter Booleans. Optional Martingale and Journal pass/fail logging.'
-                    ),
-                ],
-            },
-        ],
-        fields: [
-            [
-                LABEL_SYMBOL(),
-                SYMBOL(),
-                LABEL_STAKE(),
-                STAKE(),
-                LABEL_LAST_DIGIT_PREDICTION(),
-                LAST_DIGIT_PREDICTION(),
-                LABEL_PERCENTAGE_THRESHOLD(),
-                PERCENTAGE_THRESHOLD(),
-            ],
-            [
-                LABEL_PROFIT(),
-                PROFIT(),
-                LABEL_CONSECUTIVE_LOSS(),
-                CONSECUTIVE_LOSS(),
-                LABEL_MARTINGALE_SIZE(),
-                SIZE(),
-                CHECKBOX_MARTINGALE(),
-                CHECKBOX_PERCENTAGE_FILTER(),
-                CHECKBOX_PERCENTAGE_JOURNAL(),
-            ],
-        ],
-    },
     D_ALEMBERT: {
         name: 'dalembert_max-stake',
         label: localizeDAlembert(),
