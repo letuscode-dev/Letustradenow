@@ -2,6 +2,7 @@ import { getRoundedNumber } from '@/components/shared';
 import { api_base } from '../../api/api-base';
 import { contract as broadcastContract, contractStatus } from '../utils/broadcast';
 import { releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
+import { releaseIncreasingDigitGapActiveTrade } from '../utils/increasing-digit-gap';
 import { openContractReceived, sell } from './state/actions';
 
 export default Engine =>
@@ -28,6 +29,7 @@ export default Engine =>
                         this.updateTotals(contract);
                         // Allow Adaptive Digit Gap to signal the next Differs.
                         releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
+                        releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,

@@ -451,6 +451,68 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='increasing_digit_gap_prediction'>
+                        <Value name='ENABLED'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MIN_GAP'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MAX_GAP'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>20</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MIN_COMMON_DIFF'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MAX_COMMON_DIFF'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>5</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='GAPS_REQUIRED'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>3</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='CANCEL_EARLY'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='COOLDOWN'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MAX_TRADES'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='ONE_CYCLE'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='ONE_ACTIVE'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='JOURNAL'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='complement_digit_prediction'>
                         <Value name='ENABLED'>
                             <Shadow type='logic_boolean'>

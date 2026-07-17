@@ -671,6 +671,61 @@ const MAX_GAP = (): TConfigItem => ({
     ],
 });
 
+const LABEL_MIN_COMMON_DIFF = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum common difference'),
+    description: localize('Smallest allowed step between consecutive gaps in an arithmetic progression.'),
+});
+
+const MIN_COMMON_DIFF = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_common_diff',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_MAX_COMMON_DIFF = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Maximum common difference'),
+    description: localize('Largest allowed step between consecutive gaps in an arithmetic progression.'),
+});
+
+const MAX_COMMON_DIFF = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_common_diff',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_GAPS_REQUIRED = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Gaps required'),
+    description: localize('Number of consecutive gaps that must form an arithmetic progression before signaling (default 3).'),
+});
+
+const GAPS_REQUIRED = (): TConfigItem => ({
+    type: 'number',
+    name: 'gaps_required',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '2',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const CHECKBOX_CANCEL_EARLY = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_cancel_early',
+    label: localize('Cancel on early appearance'),
+    description: localize(
+        'When on, cancels the scheduled Differs if the digit appears before the predicted gap is reached.'
+    ),
+});
+
 const CHECKBOX_GAP_FILTER = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_gap_filter',
@@ -884,6 +939,59 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_STRATEGY(),
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_NOTIFY(),
+                CHECKBOX_MARTINGALE(),
+            ],
+        ],
+    },
+    INCREASING_GAP_DIFFERS: {
+        name: 'increasing_gap_differs',
+        label: localize('Increasing Gap Differs'),
+        rs_strategy_name: 'increasing gap differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Tracks each digit 0–9. When recent gaps increase by a constant step (e.g. 2→3→4), waits the predicted next gap and places Digit Differs. Optional early-appearance cancellation, cooldown, Martingale, and consecutive-loss stop.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_MIN_GAP(),
+                MIN_GAP(),
+                LABEL_MAX_GAP(),
+                MAX_GAP(),
+                LABEL_MIN_COMMON_DIFF(),
+                MIN_COMMON_DIFF(),
+            ],
+            [
+                LABEL_MAX_COMMON_DIFF(),
+                MAX_COMMON_DIFF(),
+                LABEL_GAPS_REQUIRED(),
+                GAPS_REQUIRED(),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_CANCEL_EARLY(),
+                CHECKBOX_ONE_TRADE_PER_CYCLE(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_MARTINGALE(),
             ],
         ],

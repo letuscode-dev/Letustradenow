@@ -10,6 +10,11 @@ import {
     createRecoveryState,
 } from '../utils/recovery-stake';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
+import {
+    createTrackerState as createIncreasingGapTrackerState,
+    evaluateIncreasingDigitGap,
+    releaseIncreasingDigitGapActiveTrade,
+} from '../utils/increasing-digit-gap';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -32,6 +37,8 @@ const getBotInterface = tradeEngine => {
         stop: (...args) => {
             releaseAdaptiveDigitGapActiveTrade(tradeEngine.adaptiveDigitGapState);
             tradeEngine.adaptiveDigitGapState = null;
+            releaseIncreasingDigitGapActiveTrade(tradeEngine.increasingDigitGapState);
+            tradeEngine.increasingDigitGapState = null;
             if (tradeEngine.rangeMomentumState) {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
@@ -123,6 +130,16 @@ const getBotInterface = tradeEngine => {
             // Use epoch-tagged ticks — the live cache is a fixed-length sliding window.
             const digit_ticks = tradeEngine.getCachedDigitTicks();
             return evaluateAdaptiveDigitGap(digit_ticks, options || {}, tradeEngine.adaptiveDigitGapState);
+        },
+        /**
+         * Increasing gap Differs — arithmetic progression gap prediction.
+         */
+        evaluateIncreasingDigitGap: options => {
+            if (!tradeEngine.increasingDigitGapState) {
+                tradeEngine.increasingDigitGapState = createIncreasingGapTrackerState();
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateIncreasingDigitGap(digit_ticks, options || {}, tradeEngine.increasingDigitGapState);
         },
         /**
          * Complement Digit Differs — previous+current === 9 → Differs current digit.

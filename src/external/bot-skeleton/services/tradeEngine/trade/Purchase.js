@@ -18,6 +18,10 @@ import {
     openAdaptiveDigitGapActiveTrade,
     releaseAdaptiveDigitGapActiveTrade,
 } from '../utils/adaptive-digit-gap';
+import {
+    openIncreasingDigitGapActiveTrade,
+    releaseIncreasingDigitGapActiveTrade,
+} from '../utils/increasing-digit-gap';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -94,6 +98,7 @@ export default Engine =>
             this.contractId = buy.contract_id;
             this.store.dispatch(purchaseSuccessful());
             openAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
+            openIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
 
             if (this.is_proposal_subscription_required) {
                 this.renewProposalsOnPurchase();
@@ -133,6 +138,7 @@ export default Engine =>
             this.resetPurchaseAttempt();
             // Purchase never opened — free Adaptive Digit Gap to signal again.
             releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
+            releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
             throw error;
         }
 
