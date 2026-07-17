@@ -726,6 +726,90 @@ const CHECKBOX_CANCEL_EARLY = (): TConfigItem => ({
     ),
 });
 
+const LABEL_MIN_SIGNAL_SCORE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum signal score'),
+    description: localize('A digit must reach at least this total score before a Differs trade is placed.'),
+});
+
+const MIN_SIGNAL_SCORE = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_signal_score',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_FREQUENCY_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Rolling frequency window'),
+    description: localize('Tick window used for Most Frequent and frequency comparisons.'),
+});
+
+const FREQUENCY_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'frequency_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_RECENT_APPEARANCE_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Recent appearance window'),
+    description: localize('Ticks to scan for Recent Double Appearance scoring.'),
+});
+
+const RECENT_APPEARANCE_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'recent_appearance_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_LONG_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Long absence threshold'),
+    description: localize('Apply the Long Absence penalty when a digit has been absent longer than this.'),
+});
+
+const LONG_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'number',
+    name: 'long_absence_threshold',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_SPIKE_RECENT_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Spike recent window'),
+    description: localize('Recent tick window for Frequency Spike detection.'),
+});
+
+const SPIKE_RECENT_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'spike_recent_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_SPIKE_HISTORICAL_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Spike historical window'),
+    description: localize('Historical tick window immediately before the spike recent window.'),
+});
+
+const SPIKE_HISTORICAL_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'spike_historical_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const scoreField = (name: string, label: string): TConfigItem => ({
+    type: 'number',
+    name,
+    validation: ['number', 'required'],
+});
+
+const scoreToggle = (name: string, label: string): TConfigItem => ({
+    type: 'checkbox',
+    name,
+    label: localize(label),
+});
+
 const CHECKBOX_GAP_FILTER = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_gap_filter',
@@ -991,6 +1075,78 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_CANCEL_EARLY(),
                 CHECKBOX_ONE_TRADE_PER_CYCLE(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
+                CHECKBOX_MARTINGALE(),
+            ],
+        ],
+    },
+    SIGNAL_SCORE_DIFFERS: {
+        name: 'signal_score_differs',
+        label: localize('Signal Score Differs'),
+        rs_strategy_name: 'signal score differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Scores each digit 0–9 from modular conditions (Most Frequent, Repeated Gap, Recent Double, Frequency Spike, Long Absence). Trades the highest scorer when total score meets your minimum. Live score dashboard and detailed journal output.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_MIN_SIGNAL_SCORE(),
+                MIN_SIGNAL_SCORE(),
+                LABEL_FREQUENCY_WINDOW(),
+                FREQUENCY_WINDOW(),
+                LABEL_RECENT_APPEARANCE_WINDOW(),
+                RECENT_APPEARANCE_WINDOW(),
+            ],
+            [
+                LABEL_LONG_ABSENCE_THRESHOLD(),
+                LONG_ABSENCE_THRESHOLD(),
+                LABEL_SPIKE_RECENT_WINDOW(),
+                SPIKE_RECENT_WINDOW(),
+                LABEL_SPIKE_HISTORICAL_WINDOW(),
+                SPIKE_HISTORICAL_WINDOW(),
+                LABEL_MIN_GAP(),
+                MIN_GAP(),
+                LABEL_MAX_GAP(),
+                MAX_GAP(),
+            ],
+            [
+                scoreField('most_frequent_score', 'Most Frequent score'),
+                scoreToggle('boolean_most_frequent', 'Most Frequent'),
+                scoreField('repeated_gap_score', 'Repeated Gap score'),
+                scoreToggle('boolean_repeated_gap', 'Repeated Gap'),
+                scoreField('recent_double_score', 'Recent Double score'),
+                scoreToggle('boolean_recent_double', 'Recent Double'),
+            ],
+            [
+                scoreField('frequency_spike_score', 'Frequency Spike score'),
+                scoreToggle('boolean_frequency_spike', 'Frequency Spike'),
+                scoreField('long_absence_score', 'Long Absence penalty'),
+                scoreToggle('boolean_long_absence', 'Long Absence'),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_DASHBOARD(),
                 CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_MARTINGALE(),
             ],

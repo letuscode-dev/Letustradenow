@@ -22,6 +22,10 @@ import {
     openIncreasingDigitGapActiveTrade,
     releaseIncreasingDigitGapActiveTrade,
 } from '../utils/increasing-digit-gap';
+import {
+    openSignalScoreDiffersActiveTrade,
+    releaseSignalScoreDiffersActiveTrade,
+} from '../utils/signal-score-differs';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -99,6 +103,7 @@ export default Engine =>
             this.store.dispatch(purchaseSuccessful());
             openAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             openIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
+            openSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
 
             if (this.is_proposal_subscription_required) {
                 this.renewProposalsOnPurchase();
@@ -139,6 +144,7 @@ export default Engine =>
             // Purchase never opened — free Adaptive Digit Gap to signal again.
             releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
+            releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
             throw error;
         }
 

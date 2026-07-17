@@ -132,7 +132,8 @@ export type TRsStrategyName =
     | `accumulators_reverse_dalembert`
     | `accumulators_reverse_dalembert_on_stat_reset`
     | `range momentum over 1`
-    | `increasing gap differs`;
+    | `increasing gap differs`
+    | `signal score differs`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 

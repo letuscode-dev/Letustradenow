@@ -15,6 +15,11 @@ import {
     evaluateIncreasingDigitGap,
     releaseIncreasingDigitGapActiveTrade,
 } from '../utils/increasing-digit-gap';
+import {
+    createTrackerState as createSignalScoreTrackerState,
+    evaluateSignalScoreDiffers,
+    releaseSignalScoreDiffersActiveTrade,
+} from '../utils/signal-score-differs';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -39,6 +44,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.adaptiveDigitGapState = null;
             releaseIncreasingDigitGapActiveTrade(tradeEngine.increasingDigitGapState);
             tradeEngine.increasingDigitGapState = null;
+            releaseSignalScoreDiffersActiveTrade(tradeEngine.signalScoreDiffersState);
+            tradeEngine.signalScoreDiffersState = null;
             if (tradeEngine.rangeMomentumState) {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
@@ -140,6 +147,16 @@ const getBotInterface = tradeEngine => {
             }
             const digit_ticks = tradeEngine.getCachedDigitTicks();
             return evaluateIncreasingDigitGap(digit_ticks, options || {}, tradeEngine.increasingDigitGapState);
+        },
+        /**
+         * Signal Score Differs — modular multi-condition scoring per digit.
+         */
+        evaluateSignalScoreDiffers: options => {
+            if (!tradeEngine.signalScoreDiffersState) {
+                tradeEngine.signalScoreDiffersState = createSignalScoreTrackerState();
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateSignalScoreDiffers(digit_ticks, options || {}, tradeEngine.signalScoreDiffersState);
         },
         /**
          * Complement Digit Differs — previous+current === 9 → Differs current digit.
