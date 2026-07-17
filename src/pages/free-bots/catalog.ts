@@ -12,31 +12,6 @@ import type { FreeBot } from './types';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'cold-digit-differs',
-        title: localize('Cold Digit Differs'),
-        description: localize(
-            'Analysis-style Differs: requests your configured tick sample from Deriv, then continuously updates the cold (least frequent) digit on that exact window as ticks arrive. Confidence stays 62–72%. Configurable runs per signal, stake, Martingale, take-profit, and consecutive-loss stop.'
-        ),
-        tags: [localize('Martingale'), localize('Differs'), localize('Analysis')],
-        strategy: 'COLD_DIGIT_DIFFERS',
-        form: {
-            symbol: '1HZ75V',
-            tradetype: 'matchesdiffers',
-            type: 'DIGITDIFF',
-            stake: '1',
-            duration: '1',
-            durationtype: 't',
-            tick_sample_size: '100',
-            runs_per_signal: '1',
-            boolean_strategy: true,
-            boolean_journal: true,
-            boolean_martingale: true,
-            profit: '5',
-            loss: '5',
-            size: '2',
-        },
-    },
-    {
         id: 'range-momentum-over-one',
         title: localize('Range Momentum Over 1'),
         description: localize(
@@ -60,64 +35,6 @@ export const FREE_BOTS: FreeBot[] = [
             profit: '5',
             loss: '5',
             size: '2',
-        },
-    },
-    {
-        id: 'adaptive-digit-gap-differs',
-        title: localize('Adaptive Digit Gap Differs'),
-        description: localize(
-            'Tracks gaps between appearances of every digit 0–9. When the same gap repeats twice consecutively within min–max, waits your configured trade-wait ticks and places Differs — even if the digit appears early during the wait. Optional user-configurable Martingale. Stops after consecutive losses.'
-        ),
-        tags: [localize('Martingale'), localize('Differs'), localize('Adaptive Gap')],
-        strategy: 'ADAPTIVE_DIGIT_GAP_DIFFERS',
-        form: {
-            symbol: '1HZ75V',
-            tradetype: 'matchesdiffers',
-            type: 'DIGITDIFF',
-            stake: '1',
-            duration: '1',
-            durationtype: 't',
-            min_adaptive_gap: '10',
-            max_adaptive_gap: '15',
-            trade_wait: '1',
-            selection_mode: '0',
-            cooldown_after_trade: '0',
-            max_trades_per_session: '0',
-            boolean_strategy: true,
-            boolean_one_trade_per_cycle: true,
-            boolean_one_active_trade: true,
-            boolean_journal: true,
-            boolean_dashboard: false,
-            boolean_martingale: true,
-            profit: '5',
-            loss: '5',
-            size: '2',
-        },
-    },
-    {
-        id: 'over-zero-gap-filter',
-        title: localize('Over 0 Gap Filter'),
-        description: localize(
-            'Places Over 0 only when the gap since the last digit 0 is within your min/max range. Run once calls Over 0 Gap Numbers (stake, prediction, profit, consecutive-loss stop, gaps) then Over 0 Gap Booleans (Martingale, filter, journal). Optional Martingale and Journal PASS/FAIL logging.'
-        ),
-        tags: [localize('Martingale'), localize('Over'), localize('Gap Filter')],
-        strategy: 'OVER_ZERO_GAP_FILTER',
-        form: {
-            symbol: '1HZ75V',
-            tradetype: 'overunder',
-            type: 'DIGITOVER',
-            stake: '1',
-            duration: '1',
-            durationtype: 't',
-            last_digit_prediction: '0',
-            min_gap: '3',
-            max_gap: '10',
-            profit: '5',
-            loss: '5',
-            size: '2',
-            boolean_martingale: true,
-            boolean_gap_filter: true,
-            boolean_gap_journal: true,
         },
     },
     {
