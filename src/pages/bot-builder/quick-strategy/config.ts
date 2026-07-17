@@ -410,7 +410,9 @@ const PATTERN_THRESHOLD = (): TConfigItem => ({
 const LABEL_MIN_ADAPTIVE_GAP = (): TConfigItem => ({
     type: 'label',
     label: localize('Minimum adaptive gap'),
-    description: localize('Only Differs when the waited gap until the digit reappears is at least this many ticks.'),
+    description: localize(
+        'Only accept repeated equal gaps that are at least this many ticks between digit appearances.'
+    ),
 });
 
 const MIN_ADAPTIVE_GAP = (): TConfigItem => ({
@@ -432,7 +434,9 @@ const MIN_ADAPTIVE_GAP = (): TConfigItem => ({
 const LABEL_MAX_ADAPTIVE_GAP = (): TConfigItem => ({
     type: 'label',
     label: localize('Maximum adaptive gap'),
-    description: localize('Only Differs when the waited gap until the digit reappears is at most this many ticks.'),
+    description: localize(
+        'Only accept repeated equal gaps that are at most this many ticks between digit appearances.'
+    ),
 });
 
 const MAX_ADAPTIVE_GAP = (): TConfigItem => ({
@@ -560,7 +564,9 @@ const CHECKBOX_ONE_TRADE_PER_CYCLE = (): TConfigItem => ({
     type: 'checkbox',
     name: 'boolean_one_trade_per_cycle',
     label: localize('One trade per digit cycle'),
-    description: localize('Only one Differs per digit until that digit appears again and resets.'),
+    description: localize(
+        'After a scheduled Differs is placed or cancelled for a digit, do not reuse that same confirmation — keep tracking new gaps.'
+    ),
 });
 
 const CHECKBOX_ONE_ACTIVE_TRADE = (): TConfigItem => ({
@@ -568,7 +574,7 @@ const CHECKBOX_ONE_ACTIVE_TRADE = (): TConfigItem => ({
     name: 'boolean_one_active_trade',
     label: localize('One active trade only'),
     description: localize(
-        'After a Differs signal, block further signals until that contract settles. Other digits stay eligible for later cycles.'
+        'Allow only one open Differs at a time. After a signal, block further purchases until that contract settles.'
     ),
 });
 
@@ -867,7 +873,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks a wait (gap) for every digit 0–9 until it reappears. When the waited gap is within min–max, places Differs on that digit. After losses, sizes the next stake from your payout % and recovery splits so wins recover the lost amount (1 = full recovery in one win). Stops after consecutive losses. Run once sets Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
+                        'Tracks gaps between appearances of every digit 0–9. Requires two consecutive equal gaps within min–max, then waits that same gap and places Differs on the expected cycle tick (purchase lead avoids off-by-one). Cancels if the digit appears early. After losses, sizes stakes from payout % and recovery splits. Stops after consecutive losses.'
                     ),
                 ],
             },

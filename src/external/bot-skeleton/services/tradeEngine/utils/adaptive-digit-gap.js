@@ -1,14 +1,15 @@
 /**
- * Adaptive Per-Digit Gap Differs — trade filter / signal.
+ * Adaptive Digit Gap Differs — repeated-gap confirmation signal.
  *
  * For each digit 0–9 independently:
- * - Current gap = ticks since that digit last appeared (the waiting period)
- * - When the digit appears again, the completed gap is measured
- * - If that completed gap is within min–max, place Differs on that digit
- * - Current gap resets to 0 immediately on appearance and the next wait begins
+ * 1. Track tick positions and the gap (intervening ticks) between appearances
+ * 2. Require two consecutive equal gaps within min–max (e.g. 7→5→7→5→7)
+ * 3. After confirmation, wait that same gap again, then place Digit Differs
+ * 4. Purchase one tick early (duration-1 lead) so the contract settles on the
+ *    expected cycle tick — not the tick after it
+ * 5. Cancel if the digit appears before the wait completes
  *
- * Example: digit 3 appears, then 10 ticks later 3 appears again with gap 10
- * (and 10 is within min–max) → Differs 3. Same for every digit.
+ * Assumption: after two equal gaps, the digit may fail to repeat a third time.
  */
 
 export const DEFAULT_MIN_ADAPTIVE_GAP = 10;
@@ -16,7 +17,12 @@ export const DEFAULT_MAX_ADAPTIVE_GAP = 15;
 export const DEFAULT_COOLDOWN = 0;
 export const DEFAULT_MAX_TRADES = 0; // 0 = unlimited
 /** Hard cap — Journal/UI must stay responsive. */
-export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 2;
+export const MAX_JOURNAL_MESSAGES_PER_EVALUATE = 5;
+/**
+ * Fire the Differs purchase this many ticks before the expected occurrence so a
+ * 1-tick contract settles on the target tick (avoids off-by-one late entry).
+ */
+export const PURCHASE_LEAD_TICKS = 1;
 
 export const SELECTION_FIRST = 0;
 export const SELECTION_LARGEST_ADAPTIVE = 1;
@@ -24,22 +30,51 @@ export const SELECTION_HIGHEST_EXCESS = 2;
 export const SELECTION_LARGEST_CURRENT = 3;
 
 /**
- * @returns {{ digit: number, initialized: boolean, currentGap: number, completedGap: number|null, adaptiveTriggerGap: number|null, lastOccurrenceTick: number, gapCompletedThisTick: boolean, pendingSignal: boolean, tradePlacedThisCycle: boolean }}
+ * @returns {{
+ *   digit: number,
+ *   initialized: boolean,
+ *   currentGap: number,
+ *   lastOccurrenceTick: number,
+ *   lastGap: number|null,
+ *   schedulePhase: 'none'|'countdown',
+ *   scheduleGap: number|null,
+ *   targetTick: number|null,
+ *   fireTick: number|null,
+ *   tradePlacedThisCycle: boolean,
+ * }}
  */
 export const createDigitState = digit => ({
     digit,
     initialized: false,
     currentGap: 0,
-    completedGap: null,
-    adaptiveTriggerGap: null,
     lastOccurrenceTick: -1,
-    /** Sticky until traded or replaced by the next completed cycle. */
-    pendingSignal: false,
+    /** Most recent completed gap — candidate for a matching repeat. */
+    lastGap: null,
+    /** none | countdown — waiting until fireTick to place Differs. */
+    schedulePhase: 'none',
+    scheduleGap: null,
+    targetTick: null,
+    fireTick: null,
     tradePlacedThisCycle: false,
 });
 
 /**
- * @returns {{ digits: ReturnType<typeof createDigitState>[], processedCount: number, tickIndex: number, tradesThisSession: number, cooldownUntilTick: number, lastProcessedEpoch: number|null, cooldownLogEmitted: boolean, maxTradesLogEmitted: boolean, activeTradePhase: 'none'|'signaled'|'open', activeTradeDigit: number|null, activeTradeLogEmitted: boolean, lastJournal: Array, lastDashboard: string }}
+ * @returns {{
+ *   digits: ReturnType<typeof createDigitState>[],
+ *   processedCount: number,
+ *   tickIndex: number,
+ *   tradesThisSession: number,
+ *   cooldownUntilTick: number,
+ *   lastProcessedEpoch: number|null,
+ *   cooldownLogEmitted: boolean,
+ *   maxTradesLogEmitted: boolean,
+ *   activeTradePhase: 'none'|'signaled'|'open',
+ *   activeTradeDigit: number|null,
+ *   activeTradeLogEmitted: boolean,
+ *   pendingJournal: Array<{className: string, message: string}>,
+ *   lastJournal: Array,
+ *   lastDashboard: string,
+ * }}
  */
 export const createTrackerState = () => ({
     digits: Array.from({ length: 10 }, (_, digit) => createDigitState(digit)),
@@ -50,10 +85,10 @@ export const createTrackerState = () => ({
     lastProcessedEpoch: null,
     cooldownLogEmitted: false,
     maxTradesLogEmitted: false,
-    // none | signaled | open — used by one_active_trade_only until the contract settles
     activeTradePhase: 'none',
     activeTradeDigit: null,
     activeTradeLogEmitted: false,
+    pendingJournal: [],
     lastJournal: [],
     lastDashboard: '',
 });
@@ -108,6 +143,26 @@ const toInt = (value, fallback, min = null) => {
     return n;
 };
 
+const pushJournal = (state, options, className, message) => {
+    if (!options?.journal_enabled) {
+        return;
+    }
+    if (!state.pendingJournal) {
+        state.pendingJournal = [];
+    }
+    state.pendingJournal.push({ className, message });
+};
+
+const clearDigitSchedule = digit_state => {
+    digit_state.schedulePhase = 'none';
+    digit_state.scheduleGap = null;
+    digit_state.targetTick = null;
+    digit_state.fireTick = null;
+};
+
+const gapInRange = (gap, options) =>
+    gap !== null && gap >= options.min_adaptive_gap && gap <= options.max_adaptive_gap;
+
 /**
  * Normalize user options for one evaluation.
  */
@@ -133,13 +188,44 @@ export const normalizeAdaptiveGapOptions = (options = {}) => {
 };
 
 /**
+ * Schedule Differs after two equal consecutive gaps were confirmed.
+ * targetTick = confirmation tick + gap + 1 (expected next occurrence).
+ * fireTick = targetTick - PURCHASE_LEAD_TICKS (purchase so duration-1 settles on target).
+ */
+const scheduleConfirmedGap = (state, digit_state, gap, options) => {
+    const lead = Math.max(0, PURCHASE_LEAD_TICKS);
+    const target_tick = state.tickIndex + gap + 1;
+    const fire_tick = Math.max(state.tickIndex, target_tick - lead);
+
+    digit_state.schedulePhase = 'countdown';
+    digit_state.scheduleGap = gap;
+    digit_state.targetTick = target_tick;
+    digit_state.fireTick = fire_tick;
+    digit_state.tradePlacedThisCycle = false;
+
+    pushJournal(
+        state,
+        options,
+        'journal__text--success',
+        `Digit ${digit_state.digit} repeated gap confirmed: ${gap}, ${gap}.`
+    );
+    pushJournal(
+        state,
+        options,
+        'journal__text',
+        `Waiting ${gap} ticks before placing Differs ${digit_state.digit}.`
+    );
+};
+
+/**
  * Process a single incoming last digit against tracker state.
  * Appeared digit completes/resets first; all other digits increment once.
  *
  * @param {ReturnType<typeof createTrackerState>} state
  * @param {number} digit
+ * @param {ReturnType<typeof normalizeAdaptiveGapOptions>} [options]
  */
-export const processDigitTick = (state, digit) => {
+export const processDigitTick = (state, digit, options = normalizeAdaptiveGapOptions()) => {
     const d = Number(digit);
     if (!Number.isInteger(d) || d < 0 || d > 9) {
         return;
@@ -150,27 +236,76 @@ export const processDigitTick = (state, digit) => {
     const appeared = state.digits[d];
 
     if (!appeared.initialized) {
-        // First occurrence — start waiting; no completed gap yet.
         appeared.initialized = true;
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
-        appeared.pendingSignal = false;
+        appeared.lastGap = null;
+        clearDigitSchedule(appeared);
         appeared.tradePlacedThisCycle = false;
     } else {
-        // Finished waiting: completed gap is the wait length until this reappearance.
         const completed = appeared.currentGap;
-        appeared.completedGap = completed;
-        appeared.adaptiveTriggerGap = completed;
+
+        // Digit returned before the scheduled wait finished → cancel.
+        if (appeared.schedulePhase === 'countdown' && appeared.targetTick != null && tick < appeared.targetTick) {
+            pushJournal(
+                state,
+                options,
+                'journal__text--error',
+                `Digit ${d} signal cancelled: appeared early before Differs.`
+            );
+            clearDigitSchedule(appeared);
+            appeared.lastGap = null;
+        }
+
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
-        appeared.pendingSignal = true;
         appeared.tradePlacedThisCycle = false;
+
+        if (gapInRange(completed, options)) {
+            if (appeared.lastGap !== null && appeared.lastGap === completed) {
+                // Two consecutive equal gaps — only schedule if not already waiting.
+                if (appeared.schedulePhase === 'none') {
+                    scheduleConfirmedGap(state, appeared, completed, options);
+                }
+                // After confirmation the candidate chain resets so the same
+                // pattern cannot spawn a duplicate schedule until used/cancelled.
+                appeared.lastGap = null;
+            } else {
+                appeared.lastGap = completed;
+                pushJournal(
+                    state,
+                    options,
+                    'journal__text',
+                    `Digit ${d} first gap recorded: ${completed} ticks.`
+                );
+            }
+        } else {
+            // Out-of-band gap breaks the equal-gap chain.
+            appeared.lastGap = null;
+        }
     }
 
-    // Increment every other digit once for this tick (continue their wait).
+    // Continue every other digit's wait, and expire missed fire windows.
     for (let i = 0; i <= 9; i++) {
         if (i !== d) {
             state.digits[i].currentGap += 1;
+        }
+
+        const ds = state.digits[i];
+        if (
+            ds.schedulePhase === 'countdown' &&
+            ds.targetTick != null &&
+            state.tickIndex >= ds.targetTick
+        ) {
+            // Missed the purchase lead window — cancel rather than trade late.
+            pushJournal(
+                state,
+                options,
+                'journal__text--error',
+                `Digit ${i} signal cancelled: missed expected cycle tick.`
+            );
+            clearDigitSchedule(ds);
+            ds.lastGap = null;
         }
     }
 };
@@ -188,6 +323,7 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
         return;
     }
 
+    const normalized = normalizeAdaptiveGapOptions(options);
     let start = 0;
     if (state.lastProcessedEpoch != null) {
         start = digit_ticks.findIndex(tick => Number(tick.epoch) > state.lastProcessedEpoch);
@@ -196,11 +332,12 @@ export const syncTrackerWithDigitTicks = (state, digit_ticks, options = {}) => {
         }
     }
 
+    state.pendingJournal = [];
     state.lastJournal = [];
 
     for (let i = start; i < digit_ticks.length; i++) {
         const tick = digit_ticks[i];
-        processDigitTick(state, tick.digit);
+        processDigitTick(state, tick.digit, normalized);
         state.lastProcessedEpoch = Number(tick.epoch);
     }
 
@@ -249,35 +386,30 @@ const toDigitTicks = input => {
 };
 
 /**
- * Remaining ticks display helper (waiting for digit to reappear).
+ * Remaining ticks until the scheduled Differs fire (purchase lead tick).
  */
 export const getRemainingTicks = digit_state => {
-    if (!digit_state.initialized) {
-        return null;
+    if (digit_state.schedulePhase !== 'countdown' || digit_state.fireTick == null) {
+        return digit_state.initialized ? digit_state.currentGap : null;
     }
-    // While waiting for reappearance we only know current wait length.
-    return digit_state.currentGap;
+    return digit_state.fireTick;
 };
 
 /**
- * Whether a digit should Differs: it finished a wait (reappeared) and that
- * completed gap sits inside the configured min–max band.
+ * Digit is ready to Differs on this evaluate (purchase lead tick reached).
  */
-export const isDigitEligible = (digit_state, options) => {
-    if (!digit_state.initialized || !digit_state.pendingSignal) {
+export const isDigitEligible = (digit_state, options, tick_index) => {
+    if (!digit_state.initialized || digit_state.schedulePhase !== 'countdown') {
         return false;
     }
-    const gap = digit_state.completedGap;
-    if (gap === null) {
-        return false;
-    }
-    if (gap < options.min_adaptive_gap || gap > options.max_adaptive_gap) {
+    if (digit_state.fireTick == null || digit_state.targetTick == null) {
         return false;
     }
     if (options.one_trade_per_cycle && digit_state.tradePlacedThisCycle) {
         return false;
     }
-    return true;
+    // Purchase on the lead tick so duration-1 settles on targetTick.
+    return tick_index >= digit_state.fireTick && tick_index < digit_state.targetTick;
 };
 
 /**
@@ -285,20 +417,20 @@ export const isDigitEligible = (digit_state, options) => {
  *
  * @param {ReturnType<typeof createDigitState>[]} digit_states
  * @param {Partial<ReturnType<typeof normalizeAdaptiveGapOptions>>} options
+ * @param {number} tick_index
  * @returns {number} digit or -1
  */
-export const selectEligibleDigit = (digit_states, options) => {
-    const eligible = digit_states.filter(ds => isDigitEligible(ds, options));
+export const selectEligibleDigit = (digit_states, options, tick_index = Number.MAX_SAFE_INTEGER) => {
+    const eligible = digit_states.filter(ds => isDigitEligible(ds, options, tick_index));
     if (!eligible.length) {
         return -1;
     }
 
     const mode = options.selection_mode;
+    const gapOf = ds => ds.scheduleGap ?? -1;
 
-    if (mode === SELECTION_LARGEST_ADAPTIVE) {
-        eligible.sort((a, b) => b.completedGap - a.completedGap || a.digit - b.digit);
-    } else if (mode === SELECTION_HIGHEST_EXCESS || mode === SELECTION_LARGEST_CURRENT) {
-        eligible.sort((a, b) => b.completedGap - a.completedGap || a.digit - b.digit);
+    if (mode === SELECTION_LARGEST_ADAPTIVE || mode === SELECTION_HIGHEST_EXCESS || mode === SELECTION_LARGEST_CURRENT) {
+        eligible.sort((a, b) => gapOf(b) - gapOf(a) || a.digit - b.digit);
     } else {
         eligible.sort((a, b) => a.digit - b.digit);
     }
@@ -309,18 +441,21 @@ export const selectEligibleDigit = (digit_states, options) => {
 /**
  * Live dashboard table for all digits.
  */
-export const formatGapDashboard = digit_states => {
+export const formatGapDashboard = (digit_states, tick_index = -1) => {
     const rows = [];
     for (let i = 0; i < digit_states.length; i++) {
         const ds = digit_states[i];
-        const last = ds.completedGap === null ? '-' : ds.completedGap;
+        const last = ds.lastGap === null ? '-' : ds.lastGap;
         let status = '-';
         if (!ds.initialized) {
             status = '-';
-        } else if (ds.pendingSignal) {
-            status = 'ready';
+        } else if (ds.schedulePhase === 'countdown' && ds.targetTick != null) {
+            const left = Math.max(0, ds.fireTick - tick_index);
+            status = left <= 0 ? 'ready' : `cd ${left}`;
         } else if (ds.tradePlacedThisCycle) {
             status = 'done';
+        } else if (ds.lastGap !== null) {
+            status = `gap ${ds.lastGap}`;
         } else {
             status = `wait ${ds.currentGap}`;
         }
@@ -353,18 +488,27 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
 
     syncTrackerWithDigitTicks(state, toDigitTicks(digits), options);
 
+    if (Array.isArray(state.pendingJournal) && state.pendingJournal.length) {
+        for (let i = 0; i < state.pendingJournal.length; i++) {
+            journal_messages.push(state.pendingJournal[i]);
+        }
+        state.pendingJournal = [];
+    }
+
     const finish = (prediction, eligible = []) => {
         let dashboard = null;
         if (options.dashboard_enabled) {
-            const next_dashboard = formatGapDashboard(state.digits);
+            const next_dashboard = formatGapDashboard(state.digits, state.tickIndex);
             if (next_dashboard !== state.lastDashboard) {
                 dashboard = next_dashboard;
                 state.lastDashboard = next_dashboard;
             }
         }
         if (journal_messages.length > MAX_JOURNAL_MESSAGES_PER_EVALUATE) {
-            journal_messages.length = MAX_JOURNAL_MESSAGES_PER_EVALUATE;
+            // Keep the newest messages — confirmations / cancels / trades matter most.
+            journal_messages.splice(0, journal_messages.length - MAX_JOURNAL_MESSAGES_PER_EVALUATE);
         }
+        state.lastJournal = journal_messages.slice();
         return { prediction, enabled: true, journal_messages, dashboard, eligible };
     };
 
@@ -396,18 +540,6 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     }
     state.cooldownLogEmitted = false;
 
-    // Drop pending signals whose completed wait is outside min–max.
-    for (let i = 0; i <= 9; i++) {
-        const ds = state.digits[i];
-        if (
-            ds.pendingSignal &&
-            ds.completedGap !== null &&
-            (ds.completedGap < options.min_adaptive_gap || ds.completedGap > options.max_adaptive_gap)
-        ) {
-            ds.pendingSignal = false;
-        }
-    }
-
     if (options.one_active_trade_only && state.activeTradePhase !== 'none') {
         if (options.journal_enabled && !state.activeTradeLogEmitted) {
             state.activeTradeLogEmitted = true;
@@ -424,7 +556,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
 
     const eligible_digits = [];
     for (let i = 0; i <= 9; i++) {
-        if (isDigitEligible(state.digits[i], options)) {
+        if (isDigitEligible(state.digits[i], options, state.tickIndex)) {
             eligible_digits.push(i);
         }
     }
@@ -432,13 +564,14 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
     let prediction = -1;
 
     if (eligible_digits.length) {
-        prediction = selectEligibleDigit(state.digits, options);
+        prediction = selectEligibleDigit(state.digits, options, state.tickIndex);
     }
 
     if (prediction >= 0) {
         const ds = state.digits[prediction];
         ds.tradePlacedThisCycle = true;
-        ds.pendingSignal = false;
+        clearDigitSchedule(ds);
+        ds.lastGap = null;
         state.tradesThisSession += 1;
         if (options.cooldown_after_trade > 0) {
             state.cooldownUntilTick = state.tickIndex + options.cooldown_after_trade;
@@ -450,7 +583,7 @@ export const evaluateAdaptiveDigitGap = (digits, raw_options = {}, state = creat
         if (options.journal_enabled) {
             journal_messages.push({
                 className: 'journal__text--success',
-                message: `Differs ${prediction} · waited gap ${ds.completedGap}`,
+                message: `Differs ${prediction} trade placed on the expected cycle tick.`,
             });
         }
     }

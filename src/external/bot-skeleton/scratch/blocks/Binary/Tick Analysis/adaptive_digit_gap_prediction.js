@@ -40,7 +40,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'For each digit 0–9, waits until it reappears. If that waited gap is within min–max, returns that digit for Differs; otherwise -1. With one-active on, waits until the open Differs settles before signaling again.'
+                'For each digit 0–9, requires two consecutive equal gaps within min–max, then waits that gap again and returns the digit for Differs one tick before the expected occurrence. Cancels if the digit appears early. With one-active on, waits until the open Differs settles.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -49,7 +49,7 @@ window.Blockly.Blocks.adaptive_digit_gap_prediction = {
         return {
             display_name: localize('Adaptive digit gap prediction'),
             description: localize(
-                'Independently waits (counts gap) for digits 0–9 until each reappears. If the waited gap is within min–max, Differs that digit. One-active waits for the current Differs to complete. Optional journal and live dashboard logging.'
+                'Tracks gaps between appearances of each digit 0–9. When the same gap repeats twice in a row within min–max, waits that gap again and Differs the digit on the expected cycle tick. Cancels if the digit appears early. Optional journal and live dashboard logging.'
             ),
             key_words: localize('adaptive, gap, digit, differs, journal, dashboard'),
         };
@@ -94,7 +94,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.adaptive_digit_gap_predic
         var BinaryBotPrivateMsgs = BinaryBotPrivateAdaptiveGapResult && BinaryBotPrivateAdaptiveGapResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
             var BinaryBotPrivateMsgIndex;
-            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 2 ? 2 : BinaryBotPrivateMsgs.length;
+            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 5 ? 5 : BinaryBotPrivateMsgs.length;
             for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgLimit; BinaryBotPrivateMsgIndex++) {
                 var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({

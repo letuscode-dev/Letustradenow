@@ -66,7 +66,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'adaptive-digit-gap-differs',
         title: localize('Adaptive Digit Gap Differs'),
         description: localize(
-            'Tracks a wait (gap) for every digit 0–9 until it appears again. If that waited gap is within min–max, places Differs on that digit (one trade per cycle by default). After losses, sizes stakes from your payout % and recovery splits so wins recover the lost amount (1 = one-win recovery). Stops after consecutive losses. Run once calls Adaptive Digit Gap Numbers then Adaptive Digit Gap Booleans.'
+            'Tracks gaps between appearances of every digit 0–9. When the same gap repeats twice consecutively within min–max (e.g. 7→5→7→5→7), waits that gap again and places Differs on the expected cycle tick. Cancels if the digit appears early. Recovery stake sizing from payout % and splits. Stops after consecutive losses.'
         ),
         tags: [localize('Recovery'), localize('Differs'), localize('Adaptive Gap')],
         strategy: 'ADAPTIVE_DIGIT_GAP_DIFFERS',
