@@ -5,11 +5,7 @@
     <variable type="" id="Kb@{Vb{+5IqV=d~y*dcr" islocal="false" iscloud="false">martingale:totalProfit</variable>
     <variable type="" id="6G^6o^Ic@rjF|sHv*m.6" islocal="false" iscloud="false">martingale:tradeAgain</variable>
     <variable type="" id="*p5|Lkk9Q^ZuPBQ-48g2" islocal="false" iscloud="false">martingale:profitThreshold</variable>
-    <variable type="" id="adgPayout001LetUsTrade" islocal="false" iscloud="false">martingale:payoutPercent</variable>
-    <variable type="" id="adgSplits001LetUsTrade" islocal="false" iscloud="false">martingale:recoverySplits</variable>
-    <variable type="" id="adgAccLoss001LetUsTrade" islocal="false" iscloud="false">martingale:accumulatedLoss</variable>
-    <variable type="" id="adgRemSplits001LetUsTrade" islocal="false" iscloud="false">martingale:remainingRecoverySplits</variable>
-    <variable type="" id="adgCurStake001LetUsTrade" islocal="false" iscloud="false">martingale:currentStake</variable>
+    <variable type="" id="ipD5?_dQ1Zkvf%v|[?DQ" islocal="false" iscloud="false">martingale:size</variable>
     <variable type="" id="[$B]vBH,~wrN`PUt5m/f" islocal="false" iscloud="false">martingale:initialStake</variable>
     <variable type="" id="a1BTYNHC?_yR4sfvNJ7N" islocal="false" iscloud="false">martingale:lossThreshold</variable>
     <variable type="" id="adgConsecLoss001LetUsTrade" islocal="false" iscloud="false">martingale:consecutiveLosses</variable>
@@ -19,8 +15,8 @@
     <variable type="" id="g-j|c!)nK2VN`qwryRs]" islocal="false" iscloud="false">loss</variable>
     <variable type="" id="I--KAm(C+#{d?~ip*23e" islocal="false" iscloud="false">Notification:profitThresholdReached</variable>
     <variable type="" id="FRbI:RhI/`[lrO`o;=P," islocal="false" iscloud="false">martingale:multiplier</variable>
-<variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
-<variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
+    <variable type="" id="]6T=O624:eVRioXro1kh" islocal="false" iscloud="false">Notification:currentStake</variable>
+    <variable type="" id="dtPredVar001LetUsTrade" islocal="false" iscloud="false">predicted_digit</variable>
     <variable type="" id="adgEnabled001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:enabled</variable>
     <variable type="" id="adgMin001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:minGap</variable>
     <variable type="" id="adgMax001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:maxGap</variable>
@@ -31,9 +27,9 @@
     <variable type="" id="adgOneActive001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:oneActiveTrade</variable>
     <variable type="" id="adgJournal001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:journal</variable>
     <variable type="" id="adgDash001LetUsTrade" islocal="false" iscloud="false">adaptiveGap:dashboard</variable>
+    <variable type="" id="adgMartEn001LetUsTrade" islocal="false" iscloud="false">enableMartingale?</variable>
     <variable type="" id="adgP_initialStake" islocal="false" iscloud="false">initialStake</variable>
-    <variable type="" id="adgP_payout" islocal="false" iscloud="false">payoutPercent</variable>
-    <variable type="" id="adgP_splits" islocal="false" iscloud="false">recoverySplits</variable>
+    <variable type="" id="adgP_size" islocal="false" iscloud="false">size</variable>
     <variable type="" id="adgP_profit" islocal="false" iscloud="false">profitThreshold</variable>
     <variable type="" id="adgP_lossThreshold" islocal="false" iscloud="false">lossThreshold</variable>
     <variable type="" id="adgP_enabled" islocal="false" iscloud="false">enableStrategy</variable>
@@ -46,6 +42,7 @@
     <variable type="" id="adgP_oneActive" islocal="false" iscloud="false">oneActiveTrade</variable>
     <variable type="" id="adgP_journal" islocal="false" iscloud="false">journal</variable>
     <variable type="" id="adgP_dashboard" islocal="false" iscloud="false">dashboard</variable>
+    <variable type="" id="adgP_enableMartingale" islocal="false" iscloud="false">enableMartingale</variable>
 </variables>
   <block type="trade_definition" id="i]`fLRZ]?mshi{9kS+fg" deletable="false" x="0" y="0">
     <statement name="TRADE_OPTIONS">
@@ -85,8 +82,7 @@
       <block type="procedures_callnoreturn" id="adgInitNumsCall001LetUsTrade">
         <mutation name="Adaptive Digit Gap Numbers">
           <arg name="initialStake"></arg>
-          <arg name="payoutPercent"></arg>
-          <arg name="recoverySplits"></arg>
+          <arg name="size"></arg>
           <arg name="profitThreshold"></arg>
           <arg name="lossThreshold"></arg>
           <arg name="minAdaptiveGap"></arg>
@@ -99,34 +95,30 @@
         <value name="ARG0" strategy_value="stake">
           <block type="math_number" id="adgCallStake001"><field name="NUM">1</field></block>
         </value>
-        <value name="ARG1" strategy_value="payout_percent">
-          <block type="math_number" id="adgCallPayout001"><field name="NUM">11</field></block>
+        <value name="ARG1" strategy_value="size">
+          <block type="math_number" id="adgCallSize001"><field name="NUM">2</field></block>
         </value>
-        <value name="ARG2" strategy_value="recovery_splits">
-          <block type="math_number" id="adgCallSplits001"><field name="NUM">1</field></block>
-        </value>
-        <value name="ARG3" strategy_value="profit">
+        <value name="ARG2" strategy_value="profit">
           <block type="math_number" id="adgCallProfit001"><field name="NUM">5</field></block>
         </value>
-        <value name="ARG4" strategy_value="loss">
+        <value name="ARG3" strategy_value="loss">
           <block type="math_number" id="adgCallLoss001"><field name="NUM">5</field></block>
         </value>
-        <value name="ARG5" strategy_value="min_adaptive_gap">
+        <value name="ARG4" strategy_value="min_adaptive_gap">
           <block type="math_number" id="adgCallMin001"><field name="NUM">10</field></block>
         </value>
-        <value name="ARG6" strategy_value="max_adaptive_gap">
+        <value name="ARG5" strategy_value="max_adaptive_gap">
           <block type="math_number" id="adgCallMax001"><field name="NUM">15</field></block>
         </value>
-        <value name="ARG7" strategy_value="selection_mode">
+        <value name="ARG6" strategy_value="selection_mode">
           <block type="math_number" id="adgCallMode001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG8" strategy_value="cooldown_after_trade">
+        <value name="ARG7" strategy_value="cooldown_after_trade">
           <block type="math_number" id="adgCallCd001"><field name="NUM">0</field></block>
         </value>
-        <value name="ARG9" strategy_value="max_trades_per_session">
+        <value name="ARG8" strategy_value="max_trades_per_session">
           <block type="math_number" id="adgCallMaxTr001"><field name="NUM">0</field></block>
         </value>
-        
         <next>
           <block type="procedures_callnoreturn" id="adgInitBoolsCall001LetUsTrade">
             <mutation name="Adaptive Digit Gap Booleans">
@@ -135,6 +127,7 @@
               <arg name="oneActiveTrade"></arg>
               <arg name="journal"></arg>
               <arg name="dashboard"></arg>
+              <arg name="enableMartingale"></arg>
             </mutation>
             <data>adgSetupBoolsFn001LetUsTrade</data>
             <value name="ARG0" strategy_value="boolean_strategy">
@@ -152,7 +145,9 @@
             <value name="ARG4" strategy_value="boolean_dashboard">
               <block type="logic_boolean" id="adgCallDash001"><field name="BOOL">FALSE</field></block>
             </value>
-            
+            <value name="ARG5" strategy_value="boolean_martingale">
+              <block type="logic_boolean" id="adgCallMartEn001"><field name="BOOL">TRUE</field></block>
+            </value>
           </block>
         </next>
       </block>
@@ -276,11 +271,10 @@
       </block>
     </statement>
   </block>
-  <block type="procedures_defnoreturn" id="adgSetupNumsFn001LetUsTrade" collapsed="true" x="0" y="700">
+    <block type="procedures_defnoreturn" id="adgSetupNumsFn001LetUsTrade" collapsed="true" x="0" y="700">
     <mutation>
       <arg name="initialStake" varid="adgP_initialStake"></arg>
-      <arg name="payoutPercent" varid="adgP_payout"></arg>
-      <arg name="recoverySplits" varid="adgP_splits"></arg>
+      <arg name="size" varid="adgP_size"></arg>
       <arg name="profitThreshold" varid="adgP_profit"></arg>
       <arg name="lossThreshold" varid="adgP_lossThreshold"></arg>
       <arg name="minAdaptiveGap" varid="adgP_minGap"></arg>
@@ -295,26 +289,10 @@
         <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field>
         <value name="VALUE"><block type="variables_get" id="adgFnStakeGet001"><field name="VAR" id="adgP_initialStake" variabletype="">initialStake</field></block></value>
         <next>
-          <block type="variables_set" id="adgFnPayout001">
-            <field name="VAR" id="adgPayout001LetUsTrade" variabletype="">martingale:payoutPercent</field>
-            <value name="VALUE"><block type="variables_get" id="adgFnPayoutGet001"><field name="VAR" id="adgP_payout" variabletype="">payoutPercent</field></block></value>
+          <block type="variables_set" id="adgFnSize001">
+            <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
+            <value name="VALUE"><block type="variables_get" id="adgFnSizeGet001"><field name="VAR" id="adgP_size" variabletype="">size</field></block></value>
             <next>
-              <block type="variables_set" id="adgFnSplits001">
-                <field name="VAR" id="adgSplits001LetUsTrade" variabletype="">martingale:recoverySplits</field>
-                <value name="VALUE"><block type="variables_get" id="adgFnSplitsGet001"><field name="VAR" id="adgP_splits" variabletype="">recoverySplits</field></block></value>
-                <next>
-                  <block type="variables_set" id="adgFnAccLoss001">
-                    <field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field>
-                    <value name="VALUE"><block type="math_number" id="adgFnAccLossNum001"><field name="NUM">0</field></block></value>
-                    <next>
-                      <block type="variables_set" id="adgFnRemSplits001">
-                        <field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field>
-                        <value name="VALUE"><block type="math_number" id="adgFnRemSplitsNum001"><field name="NUM">0</field></block></value>
-                        <next>
-                          <block type="variables_set" id="adgFnCurStake001">
-                            <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
-                            <value name="VALUE"><block type="variables_get" id="adgFnCurStakeGet001"><field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field></block></value>
-                            <next>
               <block type="variables_set" id="adgFnProfit001">
                 <field name="VAR" id="*p5|Lkk9Q^ZuPBQ-48g2" variabletype="">martingale:profitThreshold</field>
                 <value name="VALUE"><block type="variables_get" id="adgFnProfitGet001"><field name="VAR" id="adgP_profit" variabletype="">profitThreshold</field></block></value>
@@ -325,44 +303,34 @@
                     <next>
                       <block type="variables_set" id="adgFnConsec001">
                         <field name="VAR" id="adgConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
-                        <value name="VALUE">
-                          <block type="math_number" id="adgFnConsecNum001"><field name="NUM">0</field></block>
-                        </value>
+                        <value name="VALUE"><block type="math_number" id="adgFnConsecNum001"><field name="NUM">0</field></block></value>
                         <next>
-                      <block type="variables_set" id="adgFnMin001">
-                        <field name="VAR" id="adgMin001LetUsTrade" variabletype="">adaptiveGap:minGap</field>
-                        <value name="VALUE"><block type="variables_get" id="adgFnMinGet001"><field name="VAR" id="adgP_minGap" variabletype="">minAdaptiveGap</field></block></value>
-                        <next>
-                          <block type="variables_set" id="adgFnMax001">
-                            <field name="VAR" id="adgMax001LetUsTrade" variabletype="">adaptiveGap:maxGap</field>
-                            <value name="VALUE"><block type="variables_get" id="adgFnMaxGet001"><field name="VAR" id="adgP_maxGap" variabletype="">maxAdaptiveGap</field></block></value>
+                          <block type="variables_set" id="adgFnMin001">
+                            <field name="VAR" id="adgMin001LetUsTrade" variabletype="">adaptiveGap:minGap</field>
+                            <value name="VALUE"><block type="variables_get" id="adgFnMinGet001"><field name="VAR" id="adgP_minGap" variabletype="">minAdaptiveGap</field></block></value>
                             <next>
-                              <block type="variables_set" id="adgFnMode001">
-                                <field name="VAR" id="adgMode001LetUsTrade" variabletype="">adaptiveGap:selectionMode</field>
-                                <value name="VALUE"><block type="variables_get" id="adgFnModeGet001"><field name="VAR" id="adgP_mode" variabletype="">selectionMode</field></block></value>
+                              <block type="variables_set" id="adgFnMax001">
+                                <field name="VAR" id="adgMax001LetUsTrade" variabletype="">adaptiveGap:maxGap</field>
+                                <value name="VALUE"><block type="variables_get" id="adgFnMaxGet001"><field name="VAR" id="adgP_maxGap" variabletype="">maxAdaptiveGap</field></block></value>
                                 <next>
-                                  <block type="variables_set" id="adgFnCd001">
-                                    <field name="VAR" id="adgCd001LetUsTrade" variabletype="">adaptiveGap:cooldown</field>
-                                    <value name="VALUE"><block type="variables_get" id="adgFnCdGet001"><field name="VAR" id="adgP_cooldown" variabletype="">cooldownAfterTrade</field></block></value>
+                                  <block type="variables_set" id="adgFnMode001">
+                                    <field name="VAR" id="adgMode001LetUsTrade" variabletype="">adaptiveGap:selectionMode</field>
+                                    <value name="VALUE"><block type="variables_get" id="adgFnModeGet001"><field name="VAR" id="adgP_mode" variabletype="">selectionMode</field></block></value>
                                     <next>
-                                      <block type="variables_set" id="adgFnMaxTr001">
-                                        <field name="VAR" id="adgMaxTrades001LetUsTrade" variabletype="">adaptiveGap:maxTrades</field>
-                                        <value name="VALUE"><block type="variables_get" id="adgFnMaxTrGet001"><field name="VAR" id="adgP_maxTrades" variabletype="">maxTradesPerSession</field></block></value>
+                                      <block type="variables_set" id="adgFnCd001">
+                                        <field name="VAR" id="adgCd001LetUsTrade" variabletype="">adaptiveGap:cooldown</field>
+                                        <value name="VALUE"><block type="variables_get" id="adgFnCdGet001"><field name="VAR" id="adgP_cooldown" variabletype="">cooldownAfterTrade</field></block></value>
+                                        <next>
+                                          <block type="variables_set" id="adgFnMaxTr001">
+                                            <field name="VAR" id="adgMaxTrades001LetUsTrade" variabletype="">adaptiveGap:maxTrades</field>
+                                            <value name="VALUE"><block type="variables_get" id="adgFnMaxTrGet001"><field name="VAR" id="adgP_maxTrades" variabletype="">maxTradesPerSession</field></block></value>
+                                          </block>
+                                        </next>
                                       </block>
                                     </next>
                                   </block>
                                 </next>
                               </block>
-                            </next>
-                          </block>
-                        </next>
-                      </block>
-                        </next>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
                             </next>
                           </block>
                         </next>
@@ -384,6 +352,7 @@
       <arg name="oneActiveTrade" varid="adgP_oneActive"></arg>
       <arg name="journal" varid="adgP_journal"></arg>
       <arg name="dashboard" varid="adgP_dashboard"></arg>
+      <arg name="enableMartingale" varid="adgP_enableMartingale"></arg>
     </mutation>
     <field name="NAME">Adaptive Digit Gap Booleans</field>
     <statement name="STACK">
@@ -406,7 +375,29 @@
                       <block type="variables_set" id="adgFnDash001">
                         <field name="VAR" id="adgDash001LetUsTrade" variabletype="">adaptiveGap:dashboard</field>
                         <value name="VALUE"><block type="variables_get" id="adgFnDashGet001"><field name="VAR" id="adgP_dashboard" variabletype="">dashboard</field></block></value>
-                        
+                        <next>
+                          <block type="variables_set" id="adgFnMartEn001">
+                            <field name="VAR" id="adgMartEn001LetUsTrade" variabletype="">enableMartingale?</field>
+                            <value name="VALUE"><block type="variables_get" id="adgFnMartEnGet001"><field name="VAR" id="adgP_enableMartingale" variabletype="">enableMartingale</field></block></value>
+                            <next>
+                              <block type="controls_if" id="adgMartOffIf001">
+                                <value name="IF0">
+                                  <block type="logic_negate" id="adgMartOffNeg001">
+                                    <value name="BOOL">
+                                      <block type="variables_get" id="adgMartOffGet001"><field name="VAR" id="adgMartEn001LetUsTrade" variabletype="">enableMartingale?</field></block>
+                                    </value>
+                                  </block>
+                                </value>
+                                <statement name="DO0">
+                                  <block type="variables_set" id="adgMartOffSize001">
+                                    <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
+                                    <value name="VALUE"><block type="math_number" id="adgMartOffSizeNum001"><field name="NUM">1</field></block></value>
+                                  </block>
+                                </statement>
+                              </block>
+                            </next>
+                          </block>
+                        </next>
                       </block>
                     </next>
                   </block>
@@ -418,7 +409,7 @@
       </block>
     </statement>
   </block>
-  <block type="procedures_defnoreturn" id="s`u(+vlS44fI;pul:nfW" collapsed="true" x="0" y="832">
+<block type="procedures_defnoreturn" id="s`u(+vlS44fI;pul:nfW" collapsed="true" x="0" y="832">
     <mutation>
       <arg name="martingale:resultIsWin" varid="x]b3MHpbtR?cJQDP@,eG"></arg>
     </mutation>
@@ -461,139 +452,29 @@
               </block>
             </value>
             <next>
-              <block type="controls_if" id="adgRecoverConsecIf001">
+              <block type="controls_if" id="B-,mWt$U5Ox.^T5l[AU)">
                 <mutation else="1"></mutation>
                 <value name="IF0">
-                  <block type="variables_get" id="adgRecoverConsecWinChk001">
+                  <block type="variables_get" id="LKMXXjt~M8@Xs?F,2_mg">
                     <field name="VAR" id="x]b3MHpbtR?cJQDP@,eG" variabletype="">martingale:resultIsWin</field>
                   </block>
                 </value>
                 <statement name="DO0">
-                  <block type="variables_set" id="adgWinResetConsec001">
-                    <field name="VAR" id="adgConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                  <block type="variables_set" id="o`/I0!/s^K{7$xZtceYh">
+                    <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
                     <value name="VALUE">
-                      <shadow type="math_number" id="adgWinResetConsecNum001">
-                        <field name="NUM">0</field>
+                      <shadow type="math_number" id="#{5k!r3Zgo@m8VSv[fPn">
+                        <field name="NUM">1</field>
                       </shadow>
                     </value>
                     <next>
-                      <block type="controls_if" id="adgWinRecoverIf001">
-                        <value name="IF0">
-                          <block type="logic_compare" id="adgWinRecoverCmp001">
-                            <field name="OP">GT</field>
-                            <value name="A">
-                              <block type="variables_get" id="adgWinGetAcc001"><field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field></block>
-                            </value>
-                            <value name="B">
-                              <block type="math_number" id="adgWinZero001"><field name="NUM">0</field></block>
-                            </value>
-                          </block>
+                      <block type="variables_set" id="adgWinResetConsec001">
+                        <field name="VAR" id="adgConsecLoss001LetUsTrade" variabletype="">martingale:consecutiveLosses</field>
+                        <value name="VALUE">
+                          <shadow type="math_number" id="adgWinResetConsecNum001">
+                            <field name="NUM">0</field>
+                          </shadow>
                         </value>
-                        <statement name="DO0">
-                          <block type="variables_set" id="adgWinSubLoss001">
-                            <field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field>
-                            <value name="VALUE">
-                              <block type="math_arithmetic" id="adgWinSubArith001">
-                                <field name="OP">MINUS</field>
-                                <value name="A">
-                                  <block type="variables_get" id="adgWinSubGetAcc001"><field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field></block>
-                                </value>
-                                <value name="B">
-                                  <block type="variables_get" id="adgWinSubGetProfit001"><field name="VAR" id="[M$5RsD`g|8-P;C+mbf4" variabletype="">martingale:profit</field></block>
-                                </value>
-                              </block>
-                            </value>
-                            <next>
-                              <block type="math_change" id="adgWinDecSplits001">
-                                <field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field>
-                                <value name="DELTA">
-                                  <shadow type="math_number" id="adgWinDecSplitsNum001"><field name="NUM">-1</field></shadow>
-                                </value>
-                                <next>
-                                  <block type="controls_if" id="adgWinFlatIf001">
-                                    <mutation else="1"></mutation>
-                                    <value name="IF0">
-                                      <block type="logic_operation" id="adgWinFlatOr001">
-                                        <field name="OP">OR</field>
-                                        <value name="A">
-                                          <block type="logic_compare" id="adgWinFlatLoss001">
-                                            <field name="OP">LTE</field>
-                                            <value name="A">
-                                              <block type="variables_get" id="adgWinFlatGetAcc001"><field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field></block>
-                                            </value>
-                                            <value name="B">
-                                              <block type="math_number" id="adgWinFlatZero001"><field name="NUM">0</field></block>
-                                            </value>
-                                          </block>
-                                        </value>
-                                        <value name="B">
-                                          <block type="logic_compare" id="adgWinFlatSplits001">
-                                            <field name="OP">LTE</field>
-                                            <value name="A">
-                                              <block type="variables_get" id="adgWinFlatGetRem001"><field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field></block>
-                                            </value>
-                                            <value name="B">
-                                              <block type="math_number" id="adgWinFlatZero2"><field name="NUM">0</field></block>
-                                            </value>
-                                          </block>
-                                        </value>
-                                      </block>
-                                    </value>
-                                    <statement name="DO0">
-                                      <block type="variables_set" id="adgWinResetAcc001">
-                                        <field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field>
-                                        <value name="VALUE"><block type="math_number" id="adgWinResetAccNum001"><field name="NUM">0</field></block></value>
-                                        <next>
-                                          <block type="variables_set" id="adgWinResetRem001">
-                                            <field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field>
-                                            <value name="VALUE"><block type="math_number" id="adgWinResetRemNum001"><field name="NUM">0</field></block></value>
-                                            <next>
-                                              <block type="variables_set" id="adgWinResetStake001">
-                                                <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
-                                                <value name="VALUE"><block type="variables_get" id="adgWinResetStakeGet001"><field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field></block></value>
-                                              </block>
-                                            </next>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </statement>
-                                    <statement name="ELSE">
-                                      <block type="variables_set" id="adgWinNextStake001">
-                                        <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
-                                        <value name="VALUE">
-                    <block type="math_arithmetic" id="adgWinStakeFormula">
-                      <field name="OP">DIVIDE</field>
-                      <value name="A">
-                        <block type="math_arithmetic" id="adgWinLossOverSplits">
-                          <field name="OP">MULTIPLY</field>
-                          <value name="A">
-                            <block type="math_arithmetic" id="adgWinLossDivSplits">
-                              <field name="OP">DIVIDE</field>
-                              <value name="A">
-                                <block type="variables_get" id="adgWinGetLoss"><field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field></block>
-                              </value>
-                              <value name="B">
-                                <block type="variables_get" id="adgWinGetSplits"><field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field></block>
-                              </value>
-                            </block>
-                          </value>
-                          <value name="B">
-                            <block type="math_number" id="adgWinHundred"><field name="NUM">100</field></block>
-                          </value>
-                        </block>
-                      </value>
-                      <value name="B">
-                        <block type="variables_get" id="adgWinGetPayout"><field name="VAR" id="adgPayout001LetUsTrade" variabletype="">martingale:payoutPercent</field></block>
-                      </value>
-                    </block></value>
-                                      </block>
-                                    </statement>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
-                        </statement>
                       </block>
                     </next>
                   </block>
@@ -607,54 +488,31 @@
                       </shadow>
                     </value>
                     <next>
-                      <block type="math_change" id="adgLossAddAcc001">
-                        <field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field>
-                        <value name="DELTA">
-                          <block type="math_single" id="adgLossAbsProfit001">
-                            <field name="OP">ABS</field>
-                            <value name="NUM">
-                              <block type="variables_get" id="adgLossGetProfit001"><field name="VAR" id="[M$5RsD`g|8-P;C+mbf4" variabletype="">martingale:profit</field></block>
-                            </value>
+                  <block type="variables_set" id="DA78AxndLk]Q@dIBt7O|">
+                    <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic" id="YzC3]lEc(!m8!NK/T/^0">
+                        <field name="OP">MULTIPLY</field>
+                        <value name="A">
+                          <shadow type="math_number">
+                            <field name="NUM">1</field>
+                          </shadow>
+                          <block type="variables_get" id="1q-nik8DE5Q2,h$gg}f6">
+                            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
                           </block>
                         </value>
-                        <next>
-                          <block type="variables_set" id="adgLossSetRem001">
-                            <field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field>
-                            <value name="VALUE"><block type="variables_get" id="adgLossGetSplits001"><field name="VAR" id="adgSplits001LetUsTrade" variabletype="">martingale:recoverySplits</field></block></value>
-                            <next>
-                              <block type="variables_set" id="adgLossSetStake001">
-                                <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
-                                <value name="VALUE">
-                    <block type="math_arithmetic" id="adgLossStakeFormula">
-                      <field name="OP">DIVIDE</field>
-                      <value name="A">
-                        <block type="math_arithmetic" id="adgLossLossOverSplits">
-                          <field name="OP">MULTIPLY</field>
-                          <value name="A">
-                            <block type="math_arithmetic" id="adgLossLossDivSplits">
-                              <field name="OP">DIVIDE</field>
-                              <value name="A">
-                                <block type="variables_get" id="adgLossGetLoss"><field name="VAR" id="adgAccLoss001LetUsTrade" variabletype="">martingale:accumulatedLoss</field></block>
-                              </value>
-                              <value name="B">
-                                <block type="variables_get" id="adgLossGetSplits"><field name="VAR" id="adgRemSplits001LetUsTrade" variabletype="">martingale:remainingRecoverySplits</field></block>
-                              </value>
-                            </block>
-                          </value>
-                          <value name="B">
-                            <block type="math_number" id="adgLossHundred"><field name="NUM">100</field></block>
-                          </value>
-                        </block>
-                      </value>
-                      <value name="B">
-                        <block type="variables_get" id="adgLossGetPayout"><field name="VAR" id="adgPayout001LetUsTrade" variabletype="">martingale:payoutPercent</field></block>
-                      </value>
-                    </block></value>
-                              </block>
-                            </next>
+                        <value name="B">
+                          <shadow type="math_number" id="#Om$-j0C[l$EXD$2JdKl">
+                            <field name="NUM">2</field>
+                          </shadow>
+                          <block type="variables_get" id="OIfB4l~Tv5_$I;ILt79^">
+                            <field name="VAR" id="ipD5?_dQ1Zkvf%v|[?DQ" variabletype="">martingale:size</field>
                           </block>
-                        </next>
+                        </value>
                       </block>
+                    </value>
+
+                  </block>
                     </next>
                   </block>
                 </statement>
@@ -767,29 +625,6 @@
                         </value>
                       </block>
                     </statement>
-                    <next>
-                      <block type="controls_if" id="adgCurStakeNullIf001">
-                        <value name="IF0">
-                          <block type="logic_compare" id="adgCurStakeNullCmp001">
-                            <field name="OP">EQ</field>
-                            <value name="A">
-                              <block type="variables_get" id="adgCurStakeNullGet001"><field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field></block>
-                            </value>
-                            <value name="B">
-                              <block type="logic_null" id="adgCurStakeNull001"></block>
-                            </value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set" id="adgCurStakeNullSet001">
-                            <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
-                            <value name="VALUE">
-                              <block type="variables_get" id="adgCurStakeNullInit001"><field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field></block>
-                            </value>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
                   </block>
                 </next>
               </block>
@@ -799,8 +634,24 @@
       </block>
     </statement>
     <value name="RETURN">
-      <block type="variables_get" id="adgRecoverStakeRet001">
-        <field name="VAR" id="adgCurStake001LetUsTrade" variabletype="">martingale:currentStake</field>
+      <block type="math_arithmetic" id="MR,#W3HBlh/CZGh.TF:m">
+        <field name="OP">MULTIPLY</field>
+        <value name="A">
+          <shadow type="math_number">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="DnN;77BHT-uqtZY4%{Z/">
+            <field name="VAR" id="FRbI:RhI/`[lrO`o;=P," variabletype="">martingale:multiplier</field>
+          </block>
+        </value>
+        <value name="B">
+          <shadow type="math_number">
+            <field name="NUM">1</field>
+          </shadow>
+          <block type="variables_get" id="w$Dd.MXXRvJmyJuC~XUu">
+            <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field>
+          </block>
+        </value>
       </block>
     </value>
   </block>

@@ -873,7 +873,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Tracks gaps between appearances of every digit 0–9. Requires two consecutive equal gaps within min–max, then waits that same gap and places Differs on the expected cycle tick (purchase lead avoids off-by-one). Cancels if the digit appears early. After losses, sizes stakes from payout % and recovery splits. Stops after consecutive losses.'
+                        'Tracks gaps between appearances of every digit 0–9. Requires two consecutive equal gaps within min–max, then waits that same gap and places Differs on the expected cycle tick (purchase lead avoids off-by-one). Keeps the countdown even if the digit appears early. Optional user-configurable Martingale multiplier after losses. Stops after consecutive losses.'
                     ),
                 ],
             },
@@ -896,10 +896,8 @@ export const STRATEGIES = (): TStrategies => ({
                 PROFIT(),
                 LABEL_CONSECUTIVE_LOSS(),
                 CONSECUTIVE_LOSS(),
-                LABEL_PAYOUT_PERCENT(),
-                PAYOUT_PERCENT(),
-                LABEL_RECOVERY_SPLITS(),
-                RECOVERY_SPLITS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
                 LABEL_COOLDOWN(),
                 COOLDOWN_AFTER_TRADE(),
                 LABEL_MAX_TRADES_SESSION(),
@@ -909,6 +907,7 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_DASHBOARD(),
+                CHECKBOX_MARTINGALE(),
             ],
         ],
     },

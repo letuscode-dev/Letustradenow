@@ -7,7 +7,8 @@
  * 3. After confirmation, wait that same gap again, then place Digit Differs
  * 4. Purchase one tick early (duration-1 lead) so the contract settles on the
  *    expected cycle tick — not the tick after it
- * 5. Cancel if the digit appears before the wait completes
+ * 5. If the digit appears again during the wait, keep counting down and still
+ *    Differs that digit on the scheduled tick
  *
  * Assumption: after two equal gaps, the digit may fail to repeat a third time.
  */
@@ -244,44 +245,37 @@ export const processDigitTick = (state, digit, options = normalizeAdaptiveGapOpt
         appeared.tradePlacedThisCycle = false;
     } else {
         const completed = appeared.currentGap;
-
-        // Digit returned before the scheduled wait finished → cancel.
-        if (appeared.schedulePhase === 'countdown' && appeared.targetTick != null && tick < appeared.targetTick) {
-            pushJournal(
-                state,
-                options,
-                'journal__text--error',
-                `Digit ${d} signal cancelled: appeared early before Differs.`
-            );
-            clearDigitSchedule(appeared);
-            appeared.lastGap = null;
-        }
+        const in_countdown = appeared.schedulePhase === 'countdown';
 
         appeared.currentGap = 0;
         appeared.lastOccurrenceTick = tick;
-        appeared.tradePlacedThisCycle = false;
 
-        if (gapInRange(completed, options)) {
-            if (appeared.lastGap !== null && appeared.lastGap === completed) {
-                // Two consecutive equal gaps — only schedule if not already waiting.
-                if (appeared.schedulePhase === 'none') {
-                    scheduleConfirmedGap(state, appeared, completed, options);
-                }
-                // After confirmation the candidate chain resets so the same
-                // pattern cannot spawn a duplicate schedule until used/cancelled.
-                appeared.lastGap = null;
-            } else {
-                appeared.lastGap = completed;
-                pushJournal(
-                    state,
-                    options,
-                    'journal__text',
-                    `Digit ${d} first gap recorded: ${completed} ticks.`
-                );
-            }
+        // While a Differs countdown is armed, keep waiting for the scheduled
+        // fire tick even if this digit appears again early — still Differs it.
+        if (in_countdown) {
+            // no schedule / gap-chain updates until the trade fires or is missed
         } else {
-            // Out-of-band gap breaks the equal-gap chain.
-            appeared.lastGap = null;
+            appeared.tradePlacedThisCycle = false;
+
+            if (gapInRange(completed, options)) {
+                if (appeared.lastGap !== null && appeared.lastGap === completed) {
+                    if (appeared.schedulePhase === 'none') {
+                        scheduleConfirmedGap(state, appeared, completed, options);
+                    }
+                    appeared.lastGap = null;
+                } else {
+                    appeared.lastGap = completed;
+                    pushJournal(
+                        state,
+                        options,
+                        'journal__text',
+                        `Digit ${d} first gap recorded: ${completed} ticks.`
+                    );
+                }
+            } else {
+                // Out-of-band gap breaks the equal-gap chain.
+                appeared.lastGap = null;
+            }
         }
     }
 

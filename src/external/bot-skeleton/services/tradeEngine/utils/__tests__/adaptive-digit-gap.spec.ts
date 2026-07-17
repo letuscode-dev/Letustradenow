@@ -70,17 +70,21 @@ describe('processDigitTick / repeated equal gaps', () => {
         expect(state.digits[7].lastGap).toBe(3);
     });
 
-    it('cancels a scheduled signal when the digit appears early', () => {
+    it('keeps countdown and still Differs when the digit appears early', () => {
         const state = createTrackerState();
         const opts = { min_adaptive_gap: 1, max_adaptive_gap: 20, journal_enabled: true };
         buildConfirmedPattern(7, 5).forEach(d => processDigitTick(state, d, opts));
         expect(state.digits[7].schedulePhase).toBe('countdown');
+        const fire_tick = state.digits[7].fireTick;
+        const target_tick = state.digits[7].targetTick;
 
         processDigitTick(state, 0, opts);
         processDigitTick(state, 7, opts);
 
-        expect(state.digits[7].schedulePhase).toBe('none');
-        expect(state.pendingJournal.some(m => String(m.message).includes('cancelled'))).toBe(true);
+        expect(state.digits[7].schedulePhase).toBe('countdown');
+        expect(state.digits[7].fireTick).toBe(fire_tick);
+        expect(state.digits[7].targetTick).toBe(target_tick);
+        expect(state.pendingJournal.some(m => String(m.message).includes('cancelled'))).toBe(false);
     });
 });
 
@@ -157,7 +161,7 @@ describe('evaluateAdaptiveDigitGap', () => {
         expect(state.digits[7].lastGap).toBeNull();
     });
 
-    it('cancels schedule when the digit appears before the wait completes', () => {
+    it('still places Differs after early reappearance during the wait', () => {
         const state = createTrackerState();
         const opts = { journal_enabled: true, min_adaptive_gap: 5, max_adaptive_gap: 5 };
         const history = toHistory(buildConfirmedPattern(7, 5));
@@ -168,12 +172,14 @@ describe('evaluateAdaptiveDigitGap', () => {
         epoch += 1;
         history.push({ epoch, digit: 0 });
         epoch += 1;
-        history.push({ epoch, digit: 7 });
-        const result = evaluateAdaptiveDigitGap(history, opts, state);
-
+        history.push({ epoch, digit: 7 }); // early reappearance — must NOT cancel
+        let result = evaluateAdaptiveDigitGap(history, opts, state);
+        expect(state.digits[7].schedulePhase).toBe('countdown');
         expect(result.prediction).toBe(-1);
-        expect(state.digits[7].schedulePhase).toBe('none');
-        expect(result.journal_messages.some(m => String(m.message).includes('cancelled'))).toBe(true);
+
+        result = runUntilFire(history, 7, opts, state);
+        expect(result.prediction).toBe(7);
+        expect(result.journal_messages.some(m => String(m.message).includes('trade placed'))).toBe(true);
     });
 
     it('blocks new signals until active Differs is released when one_active_trade_only is on', () => {
