@@ -774,6 +774,127 @@ const LONG_ABSENCE_THRESHOLD = (): TConfigItem => ({
     validation: ['number', 'required', 'floor'],
 });
 
+const LABEL_MIN_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum absence threshold'),
+    description: localize('Minimum consecutive ticks a digit must be absent before its return qualifies.'),
+});
+
+const MIN_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_absence_threshold',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_MAX_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Maximum absence threshold'),
+    description: localize('Optional upper absence cap (0 = disabled). Returns above this are ignored.'),
+});
+
+const MAX_ABSENCE_THRESHOLD = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_absence_threshold',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_RETURN_DELAY = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Return delay'),
+    description: localize('Ticks to wait after a qualifying return before placing Differs.'),
+});
+
+const RETURN_DELAY = (): TConfigItem => ({
+    type: 'number',
+    name: 'return_delay',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '0',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_REQUIRED_RETURN_CONFIRMATIONS = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required return confirmations'),
+    description: localize('Number of appearances required after a long absence before the delay starts.'),
+});
+
+const REQUIRED_RETURN_CONFIRMATIONS = (): TConfigItem => ({
+    type: 'number',
+    name: 'required_return_confirmations',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_CONFIRMATION_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Confirmation window'),
+    description: localize('Ticks allowed for additional return confirmations when required > 1.'),
+});
+
+const CONFIRMATION_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'confirmation_window',
+    validation: [
+        'number',
+        'required',
+        'floor',
+        {
+            type: 'min',
+            value: '1',
+            getMessage: (min: string | number) =>
+                localize('The value must be equal or greater than {{ min }}', { min }),
+        },
+    ],
+});
+
+const LABEL_MAX_SIGNAL_AGE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Maximum signal age'),
+    description: localize('Expire a scheduled signal after this many ticks (0 = disabled).'),
+});
+
+const MAX_SIGNAL_AGE = (): TConfigItem => ({
+    type: 'number',
+    name: 'max_signal_age',
+    validation: ['number', 'required', 'floor'],
+});
+
+const CHECKBOX_CANCEL_ON_REAPPEARANCE = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_cancel_early',
+    label: localize('Cancel if digit reappears during delay'),
+    description: localize(
+        'When on, cancels the scheduled Differs if the returned digit appears again before the delay completes.'
+    ),
+});
+
 const LABEL_SPIKE_RECENT_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Spike recent window'),
@@ -1146,6 +1267,61 @@ export const STRATEGIES = (): TStrategies => ({
                 SIZE(),
                 CHECKBOX_STRATEGY(),
                 CHECKBOX_JOURNAL(),
+                CHECKBOX_DASHBOARD(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
+                CHECKBOX_MARTINGALE(),
+            ],
+        ],
+    },
+    LONG_ABSENCE_RETURN_DIFFERS: {
+        name: 'long_absence_return_differs',
+        label: localize('Long-Absence Return Differs'),
+        rs_strategy_name: 'long absence return differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Tracks absence per digit 0–9. When a digit returns after a long absence, waits a configurable delay, then Differs that digit. Optional confirmation mode, early-reappearance cancellation, signal expiry, live dashboard, and Martingale.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_MIN_ABSENCE_THRESHOLD(),
+                MIN_ABSENCE_THRESHOLD(),
+                LABEL_MAX_ABSENCE_THRESHOLD(),
+                MAX_ABSENCE_THRESHOLD(),
+                LABEL_RETURN_DELAY(),
+                RETURN_DELAY(),
+            ],
+            [
+                LABEL_REQUIRED_RETURN_CONFIRMATIONS(),
+                REQUIRED_RETURN_CONFIRMATIONS(),
+                LABEL_CONFIRMATION_WINDOW(),
+                CONFIRMATION_WINDOW(),
+                LABEL_MAX_SIGNAL_AGE(),
+                MAX_SIGNAL_AGE(),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_CANCEL_ON_REAPPEARANCE(),
                 CHECKBOX_DASHBOARD(),
                 CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_MARTINGALE(),

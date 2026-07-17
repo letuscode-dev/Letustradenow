@@ -4,6 +4,7 @@ import { contract as broadcastContract, contractStatus } from '../utils/broadcas
 import { releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import { releaseIncreasingDigitGapActiveTrade } from '../utils/increasing-digit-gap';
 import { releaseSignalScoreDiffersActiveTrade } from '../utils/signal-score-differs';
+import { releaseLongAbsenceReturnActiveTrade } from '../utils/long-absence-return-differs';
 import { openContractReceived, sell } from './state/actions';
 
 export default Engine =>
@@ -32,6 +33,7 @@ export default Engine =>
                         releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
                         releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
                         releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
+                        releaseLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,

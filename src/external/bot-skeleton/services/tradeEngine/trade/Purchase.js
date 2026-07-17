@@ -26,6 +26,10 @@ import {
     openSignalScoreDiffersActiveTrade,
     releaseSignalScoreDiffersActiveTrade,
 } from '../utils/signal-score-differs';
+import {
+    openLongAbsenceReturnActiveTrade,
+    releaseLongAbsenceReturnActiveTrade,
+} from '../utils/long-absence-return-differs';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -104,6 +108,7 @@ export default Engine =>
             openAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             openIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
             openSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
+            openLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
 
             if (this.is_proposal_subscription_required) {
                 this.renewProposalsOnPurchase();
@@ -145,6 +150,7 @@ export default Engine =>
             releaseAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
             releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
+            releaseLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
             throw error;
         }
 

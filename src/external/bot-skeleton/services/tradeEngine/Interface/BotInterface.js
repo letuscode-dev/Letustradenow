@@ -20,6 +20,11 @@ import {
     evaluateSignalScoreDiffers,
     releaseSignalScoreDiffersActiveTrade,
 } from '../utils/signal-score-differs';
+import {
+    createTrackerState as createLongAbsenceReturnTrackerState,
+    evaluateLongAbsenceReturnDiffers,
+    releaseLongAbsenceReturnActiveTrade,
+} from '../utils/long-absence-return-differs';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -46,6 +51,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.increasingDigitGapState = null;
             releaseSignalScoreDiffersActiveTrade(tradeEngine.signalScoreDiffersState);
             tradeEngine.signalScoreDiffersState = null;
+            releaseLongAbsenceReturnActiveTrade(tradeEngine.longAbsenceReturnState);
+            tradeEngine.longAbsenceReturnState = null;
             if (tradeEngine.rangeMomentumState) {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
@@ -157,6 +164,20 @@ const getBotInterface = tradeEngine => {
             }
             const digit_ticks = tradeEngine.getCachedDigitTicks();
             return evaluateSignalScoreDiffers(digit_ticks, options || {}, tradeEngine.signalScoreDiffersState);
+        },
+        /**
+         * Long-Absence Return Differs — wait after a digit returns from long absence.
+         */
+        evaluateLongAbsenceReturnDiffers: options => {
+            if (!tradeEngine.longAbsenceReturnState) {
+                tradeEngine.longAbsenceReturnState = createLongAbsenceReturnTrackerState();
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateLongAbsenceReturnDiffers(
+                digit_ticks,
+                options || {},
+                tradeEngine.longAbsenceReturnState
+            );
         },
         /**
          * Complement Digit Differs — previous+current === 9 → Differs current digit.
