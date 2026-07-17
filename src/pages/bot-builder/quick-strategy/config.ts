@@ -988,6 +988,106 @@ const PRIMARY_SIGNAL_SOURCE = (): TConfigItem => ({
     validation: ['required'],
 });
 
+const CHECKBOX_HIGH_LOW_FILTER = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_high_low_filter',
+    label: localize('Enable High/Low filter'),
+    description: localize('Require High/Low group confirmation before placing a Digit Differs trade.'),
+});
+
+const LABEL_HIGH_LOW_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('High/Low analysis window'),
+    description: localize('Number of recent ticks used for High/Low distribution analysis.'),
+});
+
+const HIGH_LOW_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'analysis_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_HL_FILTER_MODE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('High/Low filter mode'),
+    description: localize(
+        '0 = matching group, 1 = opposite group, 2 = standalone dominant digit, 3 = primary + group leader (default).'
+    ),
+});
+
+const HL_FILTER_MODE = (): TConfigItem => ({
+    type: 'number',
+    name: 'filter_mode',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_DOMINANT_GROUP_COUNT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required dominant-group count'),
+    description: localize('Minimum High or Low ticks required when using count-based dominance.'),
+});
+
+const DOMINANT_GROUP_COUNT = (): TConfigItem => ({
+    type: 'number',
+    name: 'dominant_group_count',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_DOMINANCE_PERCENT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required dominance percentage'),
+    description: localize('Minimum High or Low percentage required when using percentage threshold.'),
+});
+
+const DOMINANCE_PERCENT = (): TConfigItem => ({
+    type: 'number',
+    name: 'dominance_percent',
+    validation: ['number', 'required', 'floor'],
+});
+
+const CHECKBOX_REQUIRE_MOST_FREQUENT = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_require_most_frequent',
+    label: localize('Require most frequent in group'),
+    description: localize('Target digit must be the most frequent digit in its High/Low group.'),
+});
+
+const LABEL_MIN_TARGET_APPEARANCES = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum target appearances'),
+    description: localize('Minimum times the target digit must appear in the analysis window.'),
+});
+
+const MIN_TARGET_APPEARANCES = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_target_appearances',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_MIN_TARGET_GROUP_SHARE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Minimum target group share (%)'),
+    description: localize('Minimum share of the dominant group that the target digit must represent.'),
+});
+
+const MIN_TARGET_GROUP_SHARE = (): TConfigItem => ({
+    type: 'number',
+    name: 'min_target_group_share',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_TIE_ACTION = (): TConfigItem => ({
+    type: 'label',
+    label: localize('High/Low tie action'),
+    description: localize('0 = reject, 1 = wait, 2 = prefer primary group, 3 = prefer previous window.'),
+});
+
+const TIE_ACTION = (): TConfigItem => ({
+    type: 'number',
+    name: 'tie_action',
+    validation: ['number', 'required', 'floor'],
+});
+
 const LABEL_SPIKE_RECENT_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Spike recent window'),
@@ -1474,6 +1574,74 @@ export const STRATEGIES = (): TStrategies => ({
                 SIZE(),
             ],
             [
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+                CHECKBOX_DASHBOARD(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
+                CHECKBOX_MARTINGALE(),
+            ],
+        ],
+    },
+    CONDITIONAL_HIGH_LOW_DIFFERS: {
+        name: 'conditional_high_low_differs',
+        label: localize('Conditional Differs With High/Low Filter'),
+        rs_strategy_name: 'conditional high low differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Combines a primary Digit Differs signal with a High/Low group confirmation filter. Trades only when the target belongs to the required group and meets frequency rules. Supports matching, opposite, standalone, and group-leader modes with live dashboard and journal output.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                CHECKBOX_HIGH_LOW_FILTER(),
+                LABEL_HIGH_LOW_WINDOW(),
+                HIGH_LOW_WINDOW(),
+                LABEL_HL_FILTER_MODE(),
+                HL_FILTER_MODE(),
+                LABEL_THRESHOLD_TYPE(),
+                THRESHOLD_TYPE(),
+            ],
+            [
+                LABEL_DOMINANT_GROUP_COUNT(),
+                DOMINANT_GROUP_COUNT(),
+                LABEL_DOMINANCE_PERCENT(),
+                DOMINANCE_PERCENT(),
+                CHECKBOX_REQUIRE_MOST_FREQUENT(),
+                LABEL_MIN_TARGET_APPEARANCES(),
+                MIN_TARGET_APPEARANCES(),
+                LABEL_MIN_TARGET_GROUP_SHARE(),
+                MIN_TARGET_GROUP_SHARE(),
+                LABEL_TIE_ACTION(),
+                TIE_ACTION(),
+            ],
+            [
+                LABEL_REQUIRED_CONFIRMATIONS(),
+                REQUIRED_CONFIRMATIONS(),
+                LABEL_MAX_SIGNAL_AGE(),
+                MAX_SIGNAL_AGE(),
+                LABEL_PRIMARY_SIGNAL_SOURCE(),
+                PRIMARY_SIGNAL_SOURCE(),
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
                 CHECKBOX_STRATEGY(),
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_DASHBOARD(),

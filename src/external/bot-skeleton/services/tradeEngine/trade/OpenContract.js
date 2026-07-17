@@ -6,6 +6,7 @@ import { releaseIncreasingDigitGapActiveTrade } from '../utils/increasing-digit-
 import { releaseSignalScoreDiffersActiveTrade } from '../utils/signal-score-differs';
 import { releaseLongAbsenceReturnActiveTrade } from '../utils/long-absence-return-differs';
 import { releaseConditionalEvenOddActiveTrade } from '../utils/conditional-even-odd-differs';
+import { releaseConditionalHighLowActiveTrade } from '../utils/conditional-high-low-differs';
 import { openContractReceived, sell } from './state/actions';
 
 export default Engine =>
@@ -36,6 +37,7 @@ export default Engine =>
                         releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
                         releaseLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
                         releaseConditionalEvenOddActiveTrade(this.conditionalEvenOddState);
+                        releaseConditionalHighLowActiveTrade(this.conditionalHighLowState);
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,

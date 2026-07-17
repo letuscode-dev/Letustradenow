@@ -135,7 +135,8 @@ export type TRsStrategyName =
     | `increasing gap differs`
     | `signal score differs`
     | `long absence return differs`
-    | `conditional even odd differs`;
+    | `conditional even odd differs`
+    | `conditional high low differs`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 

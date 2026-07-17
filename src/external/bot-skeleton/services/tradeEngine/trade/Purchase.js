@@ -34,6 +34,10 @@ import {
     openConditionalEvenOddActiveTrade,
     releaseConditionalEvenOddActiveTrade,
 } from '../utils/conditional-even-odd-differs';
+import {
+    openConditionalHighLowActiveTrade,
+    releaseConditionalHighLowActiveTrade,
+} from '../utils/conditional-high-low-differs';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -114,6 +118,7 @@ export default Engine =>
             openSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
             openLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
             openConditionalEvenOddActiveTrade(this.conditionalEvenOddState);
+            openConditionalHighLowActiveTrade(this.conditionalHighLowState);
 
             if (this.is_proposal_subscription_required) {
                 this.renewProposalsOnPurchase();
@@ -157,6 +162,7 @@ export default Engine =>
             releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
             releaseLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
             releaseConditionalEvenOddActiveTrade(this.conditionalEvenOddState);
+            releaseConditionalHighLowActiveTrade(this.conditionalHighLowState);
             throw error;
         }
 

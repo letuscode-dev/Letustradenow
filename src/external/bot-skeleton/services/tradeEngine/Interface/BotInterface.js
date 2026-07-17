@@ -30,6 +30,11 @@ import {
     evaluateConditionalEvenOddDiffers,
     releaseConditionalEvenOddActiveTrade,
 } from '../utils/conditional-even-odd-differs';
+import {
+    createTrackerState as createConditionalHighLowTrackerState,
+    evaluateConditionalHighLowDiffers,
+    releaseConditionalHighLowActiveTrade,
+} from '../utils/conditional-high-low-differs';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -60,6 +65,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.longAbsenceReturnState = null;
             releaseConditionalEvenOddActiveTrade(tradeEngine.conditionalEvenOddState);
             tradeEngine.conditionalEvenOddState = null;
+            releaseConditionalHighLowActiveTrade(tradeEngine.conditionalHighLowState);
+            tradeEngine.conditionalHighLowState = null;
             if (tradeEngine.rangeMomentumState) {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
@@ -205,6 +212,27 @@ const getBotInterface = tradeEngine => {
                 options || {},
                 tradeEngine.conditionalEvenOddState,
                 tradeEngine.conditionalEvenOddState.primaryProbeStates
+            );
+        },
+        /**
+         * Conditional High/Low Differs — primary digit signal + High/Low group confirmation filter.
+         */
+        evaluateConditionalHighLowDiffers: options => {
+            if (!tradeEngine.conditionalHighLowState) {
+                tradeEngine.conditionalHighLowState = createConditionalHighLowTrackerState();
+                tradeEngine.conditionalHighLowState.primaryProbeStates = {
+                    signalScoreState: createSignalScoreTrackerState(),
+                    increasingGapState: createIncreasingGapTrackerState(),
+                    longAbsenceState: createLongAbsenceReturnTrackerState(),
+                    adaptiveGapState: createTrackerState(),
+                };
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateConditionalHighLowDiffers(
+                digit_ticks,
+                options || {},
+                tradeEngine.conditionalHighLowState,
+                tradeEngine.conditionalHighLowState.primaryProbeStates
             );
         },
         /**
