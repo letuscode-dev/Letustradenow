@@ -25,6 +25,11 @@ import {
     evaluateLongAbsenceReturnDiffers,
     releaseLongAbsenceReturnActiveTrade,
 } from '../utils/long-absence-return-differs';
+import {
+    createTrackerState as createConditionalEvenOddTrackerState,
+    evaluateConditionalEvenOddDiffers,
+    releaseConditionalEvenOddActiveTrade,
+} from '../utils/conditional-even-odd-differs';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -53,6 +58,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.signalScoreDiffersState = null;
             releaseLongAbsenceReturnActiveTrade(tradeEngine.longAbsenceReturnState);
             tradeEngine.longAbsenceReturnState = null;
+            releaseConditionalEvenOddActiveTrade(tradeEngine.conditionalEvenOddState);
+            tradeEngine.conditionalEvenOddState = null;
             if (tradeEngine.rangeMomentumState) {
                 resetRangeMomentumState(tradeEngine.rangeMomentumState);
                 tradeEngine.rangeMomentumState = null;
@@ -177,6 +184,27 @@ const getBotInterface = tradeEngine => {
                 digit_ticks,
                 options || {},
                 tradeEngine.longAbsenceReturnState
+            );
+        },
+        /**
+         * Conditional Even/Odd Differs — primary digit signal + parity confirmation filter.
+         */
+        evaluateConditionalEvenOddDiffers: options => {
+            if (!tradeEngine.conditionalEvenOddState) {
+                tradeEngine.conditionalEvenOddState = createConditionalEvenOddTrackerState();
+                tradeEngine.conditionalEvenOddState.primaryProbeStates = {
+                    signalScoreState: createSignalScoreTrackerState(),
+                    increasingGapState: createIncreasingGapTrackerState(),
+                    longAbsenceState: createLongAbsenceReturnTrackerState(),
+                    adaptiveGapState: createTrackerState(),
+                };
+            }
+            const digit_ticks = tradeEngine.getCachedDigitTicks();
+            return evaluateConditionalEvenOddDiffers(
+                digit_ticks,
+                options || {},
+                tradeEngine.conditionalEvenOddState,
+                tradeEngine.conditionalEvenOddState.primaryProbeStates
             );
         },
         /**

@@ -5,6 +5,7 @@ import { releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap'
 import { releaseIncreasingDigitGapActiveTrade } from '../utils/increasing-digit-gap';
 import { releaseSignalScoreDiffersActiveTrade } from '../utils/signal-score-differs';
 import { releaseLongAbsenceReturnActiveTrade } from '../utils/long-absence-return-differs';
+import { releaseConditionalEvenOddActiveTrade } from '../utils/conditional-even-odd-differs';
 import { openContractReceived, sell } from './state/actions';
 
 export default Engine =>
@@ -34,6 +35,7 @@ export default Engine =>
                         releaseIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
                         releaseSignalScoreDiffersActiveTrade(this.signalScoreDiffersState);
                         releaseLongAbsenceReturnActiveTrade(this.longAbsenceReturnState);
+                        releaseConditionalEvenOddActiveTrade(this.conditionalEvenOddState);
                         contractStatus({
                             id: 'contract.sold',
                             data: contract.transaction_ids.sell,

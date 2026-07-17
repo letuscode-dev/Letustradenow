@@ -702,6 +702,68 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='conditional_even_odd_differs_prediction'>
+                        <Value name='ENABLED'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='FILTER_ON'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='WINDOW'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>10</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MODE'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='THRESHOLD_TYPE'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>0</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='COUNT'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>7</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='PERCENT'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>70</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='CONFIRMATIONS'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>1</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MAX_AGE'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>2</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='PRIMARY_SOURCE'>
+                            <Shadow type='text'>
+                                <Field name='TEXT'>signal_score</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='JOURNAL'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='DASHBOARD'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='complement_digit_prediction'>
                         <Value name='ENABLED'>
                             <Shadow type='logic_boolean'>

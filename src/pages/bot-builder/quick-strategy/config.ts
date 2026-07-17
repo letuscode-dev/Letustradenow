@@ -895,6 +895,99 @@ const CHECKBOX_CANCEL_ON_REAPPEARANCE = (): TConfigItem => ({
     ),
 });
 
+const CHECKBOX_EVEN_ODD_FILTER = (): TConfigItem => ({
+    type: 'checkbox',
+    name: 'boolean_even_odd_filter',
+    label: localize('Enable even/odd filter'),
+    description: localize('Require parity confirmation before placing a Digit Differs trade.'),
+});
+
+const LABEL_PARITY_WINDOW = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Even/odd analysis window'),
+    description: localize('Number of recent ticks used for even/odd distribution analysis.'),
+});
+
+const PARITY_WINDOW = (): TConfigItem => ({
+    type: 'number',
+    name: 'parity_window',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_FILTER_MODE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Filter mode'),
+    description: localize('0 = matching parity, 1 = opposite parity, 2 = any strong imbalance.'),
+});
+
+const FILTER_MODE = (): TConfigItem => ({
+    type: 'number',
+    name: 'filter_mode',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_THRESHOLD_TYPE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Threshold type'),
+    description: localize('0 = count-based, 1 = percentage-based.'),
+});
+
+const THRESHOLD_TYPE = (): TConfigItem => ({
+    type: 'number',
+    name: 'threshold_type',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_MATCHING_PARITY_COUNT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required matching parity count'),
+    description: localize('Minimum even or odd ticks required when using count-based threshold.'),
+});
+
+const MATCHING_PARITY_COUNT = (): TConfigItem => ({
+    type: 'number',
+    name: 'matching_parity_count',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_MATCHING_PARITY_PERCENT = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required matching parity percentage'),
+    description: localize('Minimum even or odd percentage required when using percentage threshold.'),
+});
+
+const MATCHING_PARITY_PERCENT = (): TConfigItem => ({
+    type: 'number',
+    name: 'matching_parity_percent',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_REQUIRED_CONFIRMATIONS = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Required consecutive confirmations'),
+    description: localize('Even/odd filter must pass this many ticks in a row before trading.'),
+});
+
+const REQUIRED_CONFIRMATIONS = (): TConfigItem => ({
+    type: 'number',
+    name: 'required_confirmations',
+    validation: ['number', 'required', 'floor'],
+});
+
+const LABEL_PRIMARY_SIGNAL_SOURCE = (): TConfigItem => ({
+    type: 'label',
+    label: localize('Primary signal source'),
+    description: localize(
+        'signal_score, increasing_gap, long_absence_return, repeated_gap, most_frequent, recent_double, frequency_spike'
+    ),
+});
+
+const PRIMARY_SIGNAL_SOURCE = (): TConfigItem => ({
+    type: 'text',
+    name: 'primary_signal_source',
+    validation: ['required'],
+});
+
 const LABEL_SPIKE_RECENT_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Spike recent window'),
@@ -1322,6 +1415,67 @@ export const STRATEGIES = (): TStrategies => ({
                 CHECKBOX_STRATEGY(),
                 CHECKBOX_JOURNAL(),
                 CHECKBOX_CANCEL_ON_REAPPEARANCE(),
+                CHECKBOX_DASHBOARD(),
+                CHECKBOX_ONE_ACTIVE_TRADE(),
+                CHECKBOX_MARTINGALE(),
+            ],
+        ],
+    },
+    CONDITIONAL_EVEN_ODD_DIFFERS: {
+        name: 'conditional_even_odd_differs',
+        label: localize('Conditional Differs With Even/Odd Filter'),
+        rs_strategy_name: 'conditional even odd differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Combines a primary Digit Differs signal with an even/odd parity confirmation filter. Trades only when both the target digit signal and the configured parity threshold pass. Supports matching, opposite, and imbalance modes with live dashboard and journal output.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                CHECKBOX_EVEN_ODD_FILTER(),
+                LABEL_PARITY_WINDOW(),
+                PARITY_WINDOW(),
+                LABEL_FILTER_MODE(),
+                FILTER_MODE(),
+                LABEL_THRESHOLD_TYPE(),
+                THRESHOLD_TYPE(),
+            ],
+            [
+                LABEL_MATCHING_PARITY_COUNT(),
+                MATCHING_PARITY_COUNT(),
+                LABEL_MATCHING_PARITY_PERCENT(),
+                MATCHING_PARITY_PERCENT(),
+                LABEL_REQUIRED_CONFIRMATIONS(),
+                REQUIRED_CONFIRMATIONS(),
+                LABEL_MAX_SIGNAL_AGE(),
+                MAX_SIGNAL_AGE(),
+                LABEL_PRIMARY_SIGNAL_SOURCE(),
+                PRIMARY_SIGNAL_SOURCE(),
+            ],
+            [
+                LABEL_COOLDOWN(),
+                COOLDOWN_AFTER_TRADE(),
+                LABEL_MAX_TRADES_SESSION(),
+                MAX_TRADES_SESSION(),
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
+                LABEL_MARTINGALE_SIZE(),
+                SIZE(),
+            ],
+            [
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
                 CHECKBOX_DASHBOARD(),
                 CHECKBOX_ONE_ACTIVE_TRADE(),
                 CHECKBOX_MARTINGALE(),

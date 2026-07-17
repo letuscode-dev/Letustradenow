@@ -134,7 +134,8 @@ export type TRsStrategyName =
     | `range momentum over 1`
     | `increasing gap differs`
     | `signal score differs`
-    | `long absence return differs`;
+    | `long absence return differs`
+    | `conditional even odd differs`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 
