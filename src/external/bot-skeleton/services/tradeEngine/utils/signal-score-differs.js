@@ -115,6 +115,8 @@ export const createTrackerState = () => ({
     activeTradeDigit: null,
     activeTradeLogEmitted: false,
     signaledAtTick: -1,
+    lastTradedDigit: null,
+    lastSameDigitBlockLogTick: -1,
     suppressJournal: false,
     pendingJournal: [],
     lastJournal: [],
@@ -375,9 +377,23 @@ export const scoreDigit = (digit, ctx, options) => {
  * @param {Array<{digit:number,total:number,breakdown:Array}>} scored
  * @param {number} min_score
  * @param {ReturnType<typeof createTrackerState>} state
+ * @param {{ excludeDigit?: number|null }} [selection_options]
  */
-export const selectWinningDigit = (scored, min_score, state) => {
-    const qualified = scored.filter(entry => entry.total >= min_score);
+export const selectWinningDigit = (scored, min_score, state, selection_options = {}) => {
+    const exclude_digit =
+        selection_options.excludeDigit === undefined || selection_options.excludeDigit === null
+            ? null
+            : Number(selection_options.excludeDigit);
+
+    const qualified = scored.filter(entry => {
+        if (entry.total < min_score) {
+            return false;
+        }
+        if (exclude_digit !== null && entry.digit === exclude_digit) {
+            return false;
+        }
+        return true;
+    });
     if (!qualified.length) {
         return -1;
     }
@@ -671,12 +687,18 @@ export const evaluateSignalScoreDiffers = (digits, raw_options = {}, state = cre
         return finish(-1, [], dashboard);
     }
 
-    const prediction = selectWinningDigit(scored, options.min_signal_score, state);
-    const eligible = scored.filter(row => row.total >= options.min_signal_score).map(row => row.digit);
+    const blocked_digit = state.lastTradedDigit;
+    const eligible = scored
+        .filter(row => row.total >= options.min_signal_score && row.digit !== blocked_digit)
+        .map(row => row.digit);
+    const prediction = selectWinningDigit(scored, options.min_signal_score, state, {
+        excludeDigit: blocked_digit,
+    });
 
     if (prediction >= 0) {
         const winner = scored.find(row => row.digit === prediction);
         state.tradesThisSession += 1;
+        state.lastTradedDigit = prediction;
         if (options.cooldown_after_trade > 0) {
             state.cooldownUntilTick = state.tickIndex + options.cooldown_after_trade;
         }
@@ -699,12 +721,27 @@ export const evaluateSignalScoreDiffers = (digits, raw_options = {}, state = cre
             });
         }
     } else if (options.journal_enabled && state.lastNoTradeLogTick !== state.tickIndex) {
-        const highest = scored.reduce((best, row) => (row.total > best.total ? row : best), scored[0]);
-        state.lastNoTradeLogTick = state.tickIndex;
-        journal_messages.push({
-            className: 'journal__text',
-            message: `Highest Score\n\n${highest.total}\n\nMinimum Required\n\n${options.min_signal_score}\n\nNo trade generated.`,
-        });
+        const same_digit_only =
+            blocked_digit != null &&
+            scored.some(row => row.digit === blocked_digit && row.total >= options.min_signal_score) &&
+            !eligible.length;
+
+        if (same_digit_only) {
+            if (state.lastSameDigitBlockLogTick !== state.tickIndex) {
+                state.lastSameDigitBlockLogTick = state.tickIndex;
+                journal_messages.push({
+                    className: 'journal__text--error',
+                    message: `Blocked: same digit DIFFER ${blocked_digit}. Scanning for another signal.`,
+                });
+            }
+        } else {
+            const highest = scored.reduce((best, row) => (row.total > best.total ? row : best), scored[0]);
+            state.lastNoTradeLogTick = state.tickIndex;
+            journal_messages.push({
+                className: 'journal__text',
+                message: `Highest Score\n\n${highest.total}\n\nMinimum Required\n\n${options.min_signal_score}\n\nNo trade generated.`,
+            });
+        }
     }
 
     return finish(prediction, eligible, dashboard);

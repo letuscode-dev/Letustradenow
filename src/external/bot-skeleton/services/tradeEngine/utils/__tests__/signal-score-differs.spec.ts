@@ -73,6 +73,16 @@ describe('selectWinningDigit', () => {
         expect(selectWinningDigit(scored, 6, state)).toBe(7);
     });
 
+    it('skips the excluded digit and picks the next best signal', () => {
+        const state = createTrackerState();
+        const scored = [
+            { digit: 2, total: 5, breakdown: [] },
+            { digit: 7, total: 8, breakdown: [] },
+            { digit: 5, total: 6, breakdown: [] },
+        ];
+        expect(selectWinningDigit(scored, 6, state, { excludeDigit: 7 })).toBe(5);
+    });
+
     it('returns -1 when no digit meets the minimum', () => {
         const state = createTrackerState();
         const scored = [
@@ -89,6 +99,24 @@ describe('evaluateSignalScoreDiffers', () => {
         const result = evaluateSignalScoreDiffers(toHistory(qualifyingDigits()), baseOpts, state);
         expect(result.prediction).toBe(7);
         expect(result.scores[7]).toBeGreaterThanOrEqual(6);
+    });
+
+    it('blocks the same digit and scans for another signal', () => {
+        const state = createTrackerState();
+        const history = toHistory(qualifyingDigits());
+        const first = evaluateSignalScoreDiffers(history, baseOpts, state);
+        expect(first.prediction).toBe(7);
+        expect(state.lastTradedDigit).toBe(7);
+
+        releaseSignalScoreDiffersActiveTrade(state);
+
+        const second = evaluateSignalScoreDiffers(history, { ...baseOpts, journal_enabled: true }, state);
+        expect(second.prediction).not.toBe(7);
+        if (second.prediction < 0) {
+            expect(second.journal_messages.some(m => String(m.message).includes('Scanning for another signal'))).toBe(
+                true
+            );
+        }
     });
 
     it('renders a score dashboard with the leader highlighted', () => {
