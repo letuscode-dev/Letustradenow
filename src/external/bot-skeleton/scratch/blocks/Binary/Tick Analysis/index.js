@@ -15,6 +15,7 @@ import './signal_score_differs_prediction';
 import './long_absence_return_differs_prediction';
 import './conditional_even_odd_differs_prediction';
 import './conditional_high_low_differs_prediction';
+import './consecutive_digits_over_prediction';
 import './complement_digit_prediction';
 import './cold_digit_prediction';
 import './range_momentum_over_one';

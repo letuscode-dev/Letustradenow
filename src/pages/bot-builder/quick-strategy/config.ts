@@ -1650,6 +1650,41 @@ export const STRATEGIES = (): TStrategies => ({
             ],
         ],
     },
+    CONSECUTIVE_DIGITS_OVER: {
+        name: 'consecutive_digits_over',
+        label: localize('Consecutive Digits Over 2'),
+        rs_strategy_name: 'consecutive digits over',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'When the last 3 digits are all greater than or equal to 3, places Over 2 at your base stake. After a loss, keeps watching every tick and on the same signal places Over 3 with a payout-based recovery stake (default 63%) to recover the full lost amount, then returns to the base stake.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_PAYOUT_PERCENT(),
+                PAYOUT_PERCENT(),
+                LABEL_RECOVERY_SPLITS(),
+                RECOVERY_SPLITS(),
+            ],
+            [
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_LOSS(),
+                LOSS(),
+                CHECKBOX_STRATEGY(),
+                CHECKBOX_JOURNAL(),
+            ],
+        ],
+    },
     D_ALEMBERT: {
         name: 'dalembert_max-stake',
         label: localizeDAlembert(),

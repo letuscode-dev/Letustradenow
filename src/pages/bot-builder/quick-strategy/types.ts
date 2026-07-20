@@ -136,7 +136,8 @@ export type TRsStrategyName =
     | `signal score differs`
     | `long absence return differs`
     | `conditional even odd differs`
-    | `conditional high low differs`;
+    | `conditional high low differs`
+    | `consecutive digits over`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 

@@ -35,6 +35,7 @@ import {
     evaluateConditionalHighLowDiffers,
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
+import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -112,6 +113,29 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.recoveryState = createRecoveryState();
             }
             applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
+        },
+        isRecovering: () => {
+            const state = tradeEngine.recoveryState;
+            if (!state) {
+                return false;
+            }
+            return Number(state.accumulatedLoss) > 0 && Number(state.remainingSplits) > 0;
+        },
+        /**
+         * Consecutive Digits Over — last N digits all >= min → Over 2 (or Over 3 while recovering).
+         */
+        evaluateConsecutiveDigitsOver: options => {
+            const opts = options || {};
+            const count = Math.max(1, Math.floor(Number(opts.digit_count)) || 3);
+            const digits = tradeEngine.getCachedLastDigitList(count);
+            const is_recovering = (() => {
+                const state = tradeEngine.recoveryState;
+                if (!state) {
+                    return false;
+                }
+                return Number(state.accumulatedLoss) > 0 && Number(state.remainingSplits) > 0;
+            })();
+            return evaluateConsecutiveDigitsOver(digits, opts, is_recovering);
         },
         getDigitTransitionPrediction: (tick_count, threshold) => {
             const requested = Math.max(2, Math.floor(Number(tick_count)) || 120);
