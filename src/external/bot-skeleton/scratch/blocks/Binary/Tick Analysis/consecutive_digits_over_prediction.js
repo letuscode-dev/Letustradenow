@@ -32,7 +32,7 @@ window.Blockly.Blocks.consecutive_digits_over_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'When the last N digits are all < max, returns Over barrier 2 (or 3 while recovering). Returns -1 when there is no signal.'
+                'When the last N digits are all < max, returns Over 2. After an Over 2 loss, immediately returns Over 3 without analysis. After an Over 3 loss, requires the digit signal again (analysis). Returns -1 when there is no signal.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -41,9 +41,9 @@ window.Blockly.Blocks.consecutive_digits_over_prediction = {
         return {
             display_name: localize('Consecutive digits Over prediction'),
             description: localize(
-                'Trades Over 2 when the last 3 digits are all less than 7. After a loss, the same signal places Over 3 using payout-based recovery stake.'
+                'Trades Over 2 when the last 6 digits are all less than 7. After a loss, immediately places Over 3 without analysis. If that also loses, starts analysis again (requires the digit signal) with recovery stake.'
             ),
-            key_words: localize('consecutive, digits, over, recovery, over 2, over 3'),
+            key_words: localize('consecutive, digits, over, recovery, over 2, over 3, analysis'),
         };
     },
     customContextMenu(menu) {
@@ -62,7 +62,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.consecutive_digits_over_p
     const code = `(function () {
         var BinaryBotPrivateCdoResult = Bot.evaluateConsecutiveDigitsOver({
             enabled: ${read('ENABLED') || 'true'},
-            digit_count: ${read('COUNT') || '3'},
+            digit_count: ${read('COUNT') || '6'},
             max_digit: ${read('MAX_DIGIT') || '7'},
             base_prediction: ${read('BASE_PREDICTION') || '2'},
             recovery_prediction: ${read('RECOVERY_PREDICTION') || '3'},

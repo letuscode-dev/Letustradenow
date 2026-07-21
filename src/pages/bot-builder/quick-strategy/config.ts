@@ -1659,7 +1659,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'When the last 3 digits are all less than 7, places Over 2 at your base stake. After a loss, keeps watching every tick and on the same signal places Over 3 with a payout-based recovery stake (default 63%) to recover the full lost amount, then returns to the base stake.'
+                        'When the last 6 digits are all less than 7, places Over 2 at your base stake. After a loss, immediately enters Over 3 without analysis (payout-based recovery stake, default 63%). If Over 3 also loses, starts analysis again — waits for the same 6-digit signal before trading Over 2. Turn off “Enable strategy” to disable this feature.'
                     ),
                 ],
             },
@@ -1680,7 +1680,14 @@ export const STRATEGIES = (): TStrategies => ({
                 PROFIT(),
                 LABEL_LOSS(),
                 LOSS(),
-                CHECKBOX_STRATEGY(),
+                {
+                    type: 'checkbox',
+                    name: 'boolean_strategy',
+                    label: localize('Enable strategy'),
+                    description: localize(
+                        'Turn this feature on or off. When off, no Consecutive Digits Over signals are produced.'
+                    ),
+                },
                 CHECKBOX_JOURNAL(),
             ],
         ],

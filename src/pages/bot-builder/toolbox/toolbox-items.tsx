@@ -849,7 +849,7 @@ export const ToolboxItems = () =>
                         </Value>
                         <Value name='COUNT'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>3</Field>
+                                <Field name='NUM'>6</Field>
                             </Shadow>
                         </Value>
                         <Value name='MAX_DIGIT'>

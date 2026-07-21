@@ -1,14 +1,20 @@
 /**
  * Consecutive Digits Over — last N digits all < max_digit → Over barrier.
  *
- * Base mode: Over 2 (barrier 2)
- * Recovery mode (after Over 2 loss): Over 3 (barrier 3) with payout-based recovery stake
+ * Phases:
+ * - base: last 6 digits all < 7 → Over 2
+ * - immediate: after Over 2 loss → enter Over 3 on the next tick (no digit analysis)
+ * - analysis: after Over 3 loss → require the digit signal again before trading
+ *
+ * Master toggle: options.enabled (Quick Strategy "Enable strategy").
  */
 
-export const DEFAULT_DIGIT_COUNT = 3;
+export const DEFAULT_DIGIT_COUNT = 6;
 export const DEFAULT_MAX_DIGIT = 7;
 export const DEFAULT_BASE_PREDICTION = 2;
 export const DEFAULT_RECOVERY_PREDICTION = 3;
+
+/** @typedef {'base' | 'immediate' | 'analysis'} ConsecutiveDigitsOverPhase */
 
 const toBool = (value, default_value = false) => {
     if (value === undefined || value === null) {
@@ -39,6 +45,62 @@ export const normalizeConsecutiveDigitsOverOptions = (options = {}) => ({
     ),
     journal_enabled: toBool(options.journal_enabled, true),
 });
+
+/**
+ * @returns {{
+ *   phase: ConsecutiveDigitsOverPhase,
+ *   lastPrediction: number,
+ * }}
+ */
+export const createConsecutiveDigitsOverState = () => ({
+    phase: 'base',
+    lastPrediction: -1,
+});
+
+/**
+ * Reset phase state (e.g. on bot stop).
+ * @param {{ phase?: ConsecutiveDigitsOverPhase, lastPrediction?: number } | null} state
+ */
+export const resetConsecutiveDigitsOverState = state => {
+    if (!state) {
+        return createConsecutiveDigitsOverState();
+    }
+    state.phase = 'base';
+    state.lastPrediction = -1;
+    return state;
+};
+
+/**
+ * Advance phase after a settled trade.
+ *
+ * Over 2 loss → immediate Over 3 (no analysis).
+ * Over 3 loss → analysis (require digit signal again).
+ * Win → base when flat, otherwise stay in analysis until recovered.
+ *
+ * @param {{ phase: ConsecutiveDigitsOverPhase, lastPrediction: number }} state
+ * @param {boolean} is_win
+ * @param {boolean} [still_recovering]
+ */
+export const applyConsecutiveDigitsOverResult = (state, is_win, still_recovering = false) => {
+    if (!state) {
+        return createConsecutiveDigitsOverState();
+    }
+
+    if (is_win) {
+        state.phase = still_recovering ? 'analysis' : 'base';
+        state.lastPrediction = -1;
+        return state;
+    }
+
+    const last = Number(state.lastPrediction);
+    if (last === DEFAULT_RECOVERY_PREDICTION || state.phase === 'immediate') {
+        state.phase = 'analysis';
+    } else {
+        state.phase = 'immediate';
+    }
+    state.lastPrediction = -1;
+    return state;
+};
 
 /**
  * Returns the last `count` digits from a digit list or digit-tick list.
@@ -78,31 +140,62 @@ export const allDigitsBelowMaximum = (window_digits, max_digit) => {
 };
 
 /**
- * Evaluate consecutive-digits Over signal.
+ * Evaluate consecutive-digits Over signal with phase-aware recovery.
  *
  * @param {Array<number|{digit:number}>} digits
  * @param {object} raw_options
- * @param {boolean} is_recovering - when true, return recovery barrier (Over 3)
+ * @param {{ phase?: ConsecutiveDigitsOverPhase, lastPrediction?: number } | null} [phase_state]
  * @returns {{
  *   prediction: number,
  *   allowed: boolean,
  *   enabled: boolean,
+ *   phase: ConsecutiveDigitsOverPhase,
  *   is_recovering: boolean,
  *   recent_digits: number[],
  *   journal_messages: Array<{className:string,message:string}>,
  * }}
  */
-export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recovering = false) => {
+export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, phase_state = null) => {
     const options = normalizeConsecutiveDigitsOverOptions(raw_options);
     const journal_messages = [];
+    const state = phase_state || createConsecutiveDigitsOverState();
+    const phase = state.phase === 'immediate' || state.phase === 'analysis' ? state.phase : 'base';
+    const is_recovering = phase === 'immediate' || phase === 'analysis';
 
     if (!options.enabled) {
         return {
             prediction: -1,
             allowed: false,
             enabled: false,
-            is_recovering: !!is_recovering,
+            phase,
+            is_recovering,
             recent_digits: [],
+            journal_messages,
+        };
+    }
+
+    // Immediate Over 3: no digit analysis — enter on the next tick after Over 2 loss.
+    if (phase === 'immediate') {
+        const prediction = options.recovery_prediction;
+        state.lastPrediction = prediction;
+        if (options.journal_enabled) {
+            journal_messages.push({
+                className: 'journal__text--warn',
+                message: [
+                    'Immediate recovery — skipping digit analysis.',
+                    '',
+                    `Mode: Immediate`,
+                    `Placing OVER ${prediction}.`,
+                ].join('\n'),
+            });
+        }
+        return {
+            prediction,
+            allowed: true,
+            enabled: true,
+            phase,
+            is_recovering: true,
+            recent_digits: getRecentDigits(digits, options.digit_count),
             journal_messages,
         };
     }
@@ -119,7 +212,8 @@ export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recov
             prediction: -1,
             allowed: false,
             enabled: true,
-            is_recovering: !!is_recovering,
+            phase,
+            is_recovering,
             recent_digits,
             journal_messages,
         };
@@ -131,20 +225,25 @@ export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recov
             prediction: -1,
             allowed: false,
             enabled: true,
-            is_recovering: !!is_recovering,
+            phase,
+            is_recovering,
             recent_digits,
             journal_messages,
         };
     }
 
-    const prediction = is_recovering ? options.recovery_prediction : options.base_prediction;
-    const mode_label = is_recovering ? 'Recovery' : 'Base';
+    // Base and analysis both require the digit signal; analysis keeps recovery stake.
+    const prediction = options.base_prediction;
+    const mode_label = phase === 'analysis' ? 'Analysis' : 'Base';
+    state.lastPrediction = prediction;
 
     if (options.journal_enabled) {
         journal_messages.push({
             className: 'journal__text--success',
             message: [
-                'Consecutive digits signal detected.',
+                phase === 'analysis'
+                    ? 'Analysis signal detected after recovery loss.'
+                    : 'Consecutive digits signal detected.',
                 '',
                 `Last ${options.digit_count} digits:`,
                 recent_digits.join(', '),
@@ -161,7 +260,8 @@ export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recov
         prediction,
         allowed: true,
         enabled: true,
-        is_recovering: !!is_recovering,
+        phase,
+        is_recovering,
         recent_digits,
         journal_messages,
     };
