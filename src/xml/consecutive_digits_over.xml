@@ -139,8 +139,8 @@
             <value name="COUNT">
               <block type="math_number" id="cdoCount001"><field name="NUM">3</field></block>
             </value>
-            <value name="MIN_DIGIT">
-              <block type="math_number" id="cdoMinDigit001"><field name="NUM">3</field></block>
+            <value name="MAX_DIGIT">
+              <block type="math_number" id="cdoMaxDigit001"><field name="NUM">7</field></block>
             </value>
             <value name="BASE_PREDICTION">
               <block type="math_number" id="cdoBasePred001"><field name="NUM">2</field></block>

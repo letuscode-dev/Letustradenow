@@ -852,9 +852,9 @@ export const ToolboxItems = () =>
                                 <Field name='NUM'>3</Field>
                             </Shadow>
                         </Value>
-                        <Value name='MIN_DIGIT'>
+                        <Value name='MAX_DIGIT'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>3</Field>
+                                <Field name='NUM'>7</Field>
                             </Shadow>
                         </Value>
                         <Value name='BASE_PREDICTION'>

@@ -1659,7 +1659,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'When the last 3 digits are all greater than or equal to 3, places Over 2 at your base stake. After a loss, keeps watching every tick and on the same signal places Over 3 with a payout-based recovery stake (default 63%) to recover the full lost amount, then returns to the base stake.'
+                        'When the last 3 digits are all less than 7, places Over 2 at your base stake. After a loss, keeps watching every tick and on the same signal places Over 3 with a payout-based recovery stake (default 63%) to recover the full lost amount, then returns to the base stake.'
                     ),
                 ],
             },

@@ -1,12 +1,12 @@
 /**
- * Consecutive Digits Over — last N digits all >= min_digit → Over barrier.
+ * Consecutive Digits Over — last N digits all < max_digit → Over barrier.
  *
  * Base mode: Over 2 (barrier 2)
  * Recovery mode (after Over 2 loss): Over 3 (barrier 3) with payout-based recovery stake
  */
 
 export const DEFAULT_DIGIT_COUNT = 3;
-export const DEFAULT_MIN_DIGIT = 3;
+export const DEFAULT_MAX_DIGIT = 7;
 export const DEFAULT_BASE_PREDICTION = 2;
 export const DEFAULT_RECOVERY_PREDICTION = 3;
 
@@ -31,7 +31,7 @@ const toInt = (value, fallback, min = null) => {
 export const normalizeConsecutiveDigitsOverOptions = (options = {}) => ({
     enabled: toBool(options.enabled, true),
     digit_count: Math.max(1, toInt(options.digit_count, DEFAULT_DIGIT_COUNT, 1)),
-    min_digit: Math.max(0, Math.min(9, toInt(options.min_digit, DEFAULT_MIN_DIGIT, 0))),
+    max_digit: Math.max(1, Math.min(10, toInt(options.max_digit ?? options.min_digit, DEFAULT_MAX_DIGIT, 1))),
     base_prediction: Math.max(0, Math.min(9, toInt(options.base_prediction, DEFAULT_BASE_PREDICTION, 0))),
     recovery_prediction: Math.max(
         0,
@@ -60,17 +60,17 @@ export const getRecentDigits = (digits, count) => {
 };
 
 /**
- * True when every digit in the window is >= min_digit.
+ * True when every digit in the window is strictly less than max_digit.
  * @param {number[]} window_digits
- * @param {number} min_digit
+ * @param {number} max_digit
  */
-export const allDigitsMeetMinimum = (window_digits, min_digit) => {
+export const allDigitsBelowMaximum = (window_digits, max_digit) => {
     if (!Array.isArray(window_digits) || window_digits.length === 0) {
         return false;
     }
     for (let i = 0; i < window_digits.length; i++) {
         const digit = window_digits[i];
-        if (!Number.isInteger(digit) || digit < min_digit || digit > 9) {
+        if (!Number.isInteger(digit) || digit < 0 || digit >= max_digit) {
             return false;
         }
     }
@@ -125,7 +125,7 @@ export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recov
         };
     }
 
-    const signal = allDigitsMeetMinimum(recent_digits, options.min_digit);
+    const signal = allDigitsBelowMaximum(recent_digits, options.max_digit);
     if (!signal) {
         return {
             prediction: -1,
@@ -149,7 +149,7 @@ export const evaluateConsecutiveDigitsOver = (digits, raw_options = {}, is_recov
                 `Last ${options.digit_count} digits:`,
                 recent_digits.join(', '),
                 '',
-                `All digits >= ${options.min_digit}.`,
+                `All digits < ${options.max_digit}.`,
                 '',
                 `Mode: ${mode_label}`,
                 `Placing OVER ${prediction}.`,

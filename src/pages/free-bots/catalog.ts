@@ -12,7 +12,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'consecutive-digits-over',
         title: localize('Consecutive Digits Over 2'),
         description: localize(
-            'When the last 3 digits are all >= 3, places Over 2. After a loss, the same signal places Over 3 with a 63% payout recovery stake to recover the full loss, then returns to the base stake.'
+            'When the last 3 digits are all less than 7, places Over 2. After a loss, the same signal places Over 3 with a 63% payout recovery stake to recover the full loss, then returns to the base stake.'
         ),
         tags: [localize('Over 2'), localize('Over 3'), localize('Recovery')],
         strategy: 'CONSECUTIVE_DIGITS_OVER',
