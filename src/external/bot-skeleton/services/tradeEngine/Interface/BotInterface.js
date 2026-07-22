@@ -129,7 +129,7 @@ const getBotInterface = tradeEngine => {
             const opts = options || {};
             const window_size = Math.max(
                 2,
-                Math.floor(Number(opts.tick_window ?? opts.digit_count)) || 120
+                Math.floor(Number(opts.tick_window ?? opts.digit_count)) || 5
             );
             const digits = tradeEngine.ensureTickHistory
                 ? await tradeEngine.ensureTickHistory(window_size)

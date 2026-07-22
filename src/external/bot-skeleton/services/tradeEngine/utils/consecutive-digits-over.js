@@ -9,7 +9,7 @@
  * Recovery stake sizing uses the existing payout-based recovery mechanism.
  */
 
-export const DEFAULT_TICK_WINDOW = 120;
+export const DEFAULT_TICK_WINDOW = 5;
 export const DEFAULT_PATTERN_THRESHOLD = 1;
 
 const toBool = (value, default_value = false) => {

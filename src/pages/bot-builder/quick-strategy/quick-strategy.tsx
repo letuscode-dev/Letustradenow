@@ -86,7 +86,7 @@ const FormikWrapper: React.FC<TFormikWrapper> = observer(({ children }) => {
             max_ticks: data?.max_ticks ?? 0,
             payout_percent: data?.payout_percent ?? '11',
             recovery_splits: data?.recovery_splits ?? '1',
-            tick_window: data?.tick_window ?? '120',
+            tick_window: data?.tick_window ?? '5',
             pattern_threshold: data?.pattern_threshold ?? '1',
             min_adaptive_gap: data?.min_adaptive_gap ?? '10',
             max_adaptive_gap: data?.max_adaptive_gap ?? '15',

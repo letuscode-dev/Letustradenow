@@ -23,7 +23,7 @@ export const FREE_BOTS: FreeBot[] = [
             stake: '1',
             duration: '1',
             durationtype: 't',
-            tick_window: '120',
+            tick_window: '5',
             pattern_threshold: '1',
             payout_percent: '9.6',
             recovery_splits: '1',

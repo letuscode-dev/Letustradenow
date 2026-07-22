@@ -58,7 +58,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.consecutive_digits_over_p
     const code = `(function () {
         var BinaryBotPrivateCdoResult = Bot.evaluateConsecutiveDigitsOver({
             enabled: ${read('ENABLED') || 'true'},
-            tick_window: ${read('TICK_WINDOW') || '120'},
+            tick_window: ${read('TICK_WINDOW') || '5'},
             pattern_threshold: ${read('THRESHOLD') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'}
         });

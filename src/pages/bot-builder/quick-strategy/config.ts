@@ -365,7 +365,7 @@ const LABEL_TICK_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Tick window'),
     description: localize(
-        'Number of recent ticks used to find what digit followed each of 0–9. The Differs barrier comes from that window. Default is 120.'
+        'Number of recent ticks used to find what digit followed each of 0–9. The Differs barrier comes from that window. Default is 5.'
     ),
 });
 

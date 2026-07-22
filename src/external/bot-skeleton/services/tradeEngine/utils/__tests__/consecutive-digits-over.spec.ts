@@ -27,7 +27,7 @@ describe('consecutive-digits-over (digit successor Differs)', () => {
         expect(getDigitSuccessorPrediction(digits, 1)).toBe(5);
 
         const result = evaluateConsecutiveDigitsOver(digits, {
-            tick_window: 120,
+            tick_window: 5,
             journal_enabled: false,
         });
         expect(result.allowed).toBe(true);
@@ -68,7 +68,7 @@ describe('consecutive-digits-over (digit successor Differs)', () => {
 
     it('waits until at least two ticks are available', () => {
         const result = evaluateConsecutiveDigitsOver([5], {
-            tick_window: 120,
+            tick_window: 5,
             journal_enabled: true,
         });
         expect(result.allowed).toBe(false);

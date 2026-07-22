@@ -137,7 +137,7 @@
               <block type="variables_get" id="cdoGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">consecutiveDigitsOver:enabled</field></block>
             </value>
             <value name="TICK_WINDOW" strategy_value="tick_window">
-              <block type="math_number" id="cdoTickWin001"><field name="NUM">120</field></block>
+              <block type="math_number" id="cdoTickWin001"><field name="NUM">5</field></block>
             </value>
             <value name="THRESHOLD" strategy_value="pattern_threshold">
               <block type="math_number" id="cdoThresh001"><field name="NUM">1</field></block>

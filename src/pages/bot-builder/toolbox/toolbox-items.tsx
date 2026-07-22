@@ -849,7 +849,7 @@ export const ToolboxItems = () =>
                         </Value>
                         <Value name='TICK_WINDOW'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>120</Field>
+                                <Field name='NUM'>5</Field>
                             </Shadow>
                         </Value>
                         <Value name='THRESHOLD'>
