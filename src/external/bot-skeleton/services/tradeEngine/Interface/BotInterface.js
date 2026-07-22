@@ -36,6 +36,12 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
+import {
+    applyWindowIndexDiffersResult,
+    createWindowIndexDiffersState,
+    evaluateWindowIndexDiffers,
+    resetWindowIndexDiffersState,
+} from '../utils/window-index-differs';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -73,6 +79,10 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.rangeMomentumState = null;
             }
             tradeEngine.recoveryState = null;
+            if (tradeEngine.windowIndexDiffersState) {
+                resetWindowIndexDiffersState(tradeEngine.windowIndexDiffersState);
+                tradeEngine.windowIndexDiffersState = null;
+            }
             if (tradeEngine.coldDigitState) {
                 resetColdDigitState(tradeEngine.coldDigitState);
                 tradeEngine.coldDigitState = null;
@@ -113,6 +123,14 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.recoveryState = createRecoveryState();
             }
             applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
+            if (tradeEngine.windowIndexDiffersState) {
+                const digits = tradeEngine.getCachedLastDigitList(1);
+                const last =
+                    Array.isArray(digits) && digits.length
+                        ? digits[digits.length - 1]
+                        : undefined;
+                applyWindowIndexDiffersResult(tradeEngine.windowIndexDiffersState, last);
+            }
         },
         isRecovering: () => {
             const state = tradeEngine.recoveryState;
@@ -136,6 +154,27 @@ const getBotInterface = tradeEngine => {
                 : tradeEngine.getCachedLastDigitList(window_size);
             const window_digits = Array.isArray(digits) ? digits.slice(-window_size) : [];
             return evaluateConsecutiveDigitsOver(window_digits, opts);
+        },
+        /**
+         * Window Index Differs — reference window of n digits; next window Differs
+         * each index against the digit at the same index in the previous window.
+         */
+        evaluateWindowIndexDiffers: async options => {
+            const opts = options || {};
+            if (!tradeEngine.windowIndexDiffersState) {
+                tradeEngine.windowIndexDiffersState = createWindowIndexDiffersState(
+                    opts.tick_window
+                );
+            }
+            const window_size = Math.max(2, Math.floor(Number(opts.tick_window)) || 5);
+            const digits = tradeEngine.ensureTickHistory
+                ? await tradeEngine.ensureTickHistory(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+            return evaluateWindowIndexDiffers(
+                Array.isArray(digits) ? digits : [],
+                opts,
+                tradeEngine.windowIndexDiffersState
+            );
         },
         getDigitTransitionPrediction: (tick_count, threshold) => {
             const requested = Math.max(2, Math.floor(Number(tick_count)) || 120);

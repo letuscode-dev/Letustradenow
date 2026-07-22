@@ -164,6 +164,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateConsecutiveDigitsOver)
             );
         }
+        if (typeof bot_interface.evaluateWindowIndexDiffers === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateWindowIndexDiffers',
+                createAsync(js_interpreter, bot_interface.evaluateWindowIndexDiffers)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,

@@ -137,7 +137,9 @@ export type TRsStrategyName =
     | `long absence return differs`
     | `conditional even odd differs`
     | `conditional high low differs`
-    | `consecutive digits over`;
+    | `consecutive digits over`
+    | `digit successor differs`
+    | `window index differs`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 

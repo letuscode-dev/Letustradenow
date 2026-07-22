@@ -1698,6 +1698,50 @@ export const STRATEGIES = (): TStrategies => ({
             ],
         ],
     },
+    WINDOW_INDEX_DIFFERS: {
+        name: 'window_index_differs',
+        label: localize('Window Index Differs'),
+        rs_strategy_name: 'window index differs',
+        description: [
+            {
+                type: 'text',
+                content: [
+                    localize(
+                        'Collects n digits as a reference window (indexes 1..n). In the next window of n ticks, Differs each index against the digit that was at the same index in the previous window, then rolls forward. Uses the same payout-based recovery as Digit Successor Differs (default 9.6%). Stops at your profit or consecutive-loss threshold.'
+                    ),
+                ],
+            },
+        ],
+        fields: [
+            [
+                LABEL_SYMBOL(),
+                SYMBOL(),
+                LABEL_STAKE(),
+                STAKE(),
+                LABEL_TICK_WINDOW(),
+                TICK_WINDOW(),
+            ],
+            [
+                LABEL_PAYOUT_PERCENT(),
+                PAYOUT_PERCENT(),
+                LABEL_RECOVERY_SPLITS(),
+                RECOVERY_SPLITS(),
+                LABEL_PROFIT(),
+                PROFIT(),
+                LABEL_LOSS(),
+                LOSS(),
+                {
+                    type: 'checkbox',
+                    name: 'boolean_strategy',
+                    label: localize('Enable strategy'),
+                    description: localize(
+                        'Turn this feature on or off. When off, no Window Index Differs signals are produced.'
+                    ),
+                },
+                CHECKBOX_JOURNAL(),
+            ],
+        ],
+    },
     D_ALEMBERT: {
         name: 'dalembert_max-stake',
         label: localizeDAlembert(),
