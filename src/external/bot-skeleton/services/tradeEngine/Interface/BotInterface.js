@@ -4,10 +4,10 @@ import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
-    applyRecoveryResult,
+    createRecoveryState,
     calculateRecoveryStake,
     configureRecoveryState,
-    createRecoveryState,
+    applyRecoveryResult,
 } from '../utils/recovery-stake';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
@@ -35,12 +35,7 @@ import {
     evaluateConditionalHighLowDiffers,
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
-import {
-    applyConsecutiveDigitsOverResult,
-    createConsecutiveDigitsOverState,
-    evaluateConsecutiveDigitsOver,
-    resetConsecutiveDigitsOverState,
-} from '../utils/consecutive-digits-over';
+import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -78,10 +73,6 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.rangeMomentumState = null;
             }
             tradeEngine.recoveryState = null;
-            if (tradeEngine.consecutiveDigitsOverState) {
-                resetConsecutiveDigitsOverState(tradeEngine.consecutiveDigitsOverState);
-                tradeEngine.consecutiveDigitsOverState = null;
-            }
             if (tradeEngine.coldDigitState) {
                 resetColdDigitState(tradeEngine.coldDigitState);
                 tradeEngine.coldDigitState = null;
@@ -122,18 +113,6 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.recoveryState = createRecoveryState();
             }
             applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
-            if (tradeEngine.consecutiveDigitsOverState) {
-                const recovery = tradeEngine.recoveryState;
-                const still_recovering =
-                    !!recovery &&
-                    Number(recovery.accumulatedLoss) > 0 &&
-                    Number(recovery.remainingSplits) > 0;
-                applyConsecutiveDigitsOverResult(
-                    tradeEngine.consecutiveDigitsOverState,
-                    !!is_win,
-                    still_recovering
-                );
-            }
         },
         isRecovering: () => {
             const state = tradeEngine.recoveryState;
@@ -143,18 +122,20 @@ const getBotInterface = tradeEngine => {
             return Number(state.accumulatedLoss) > 0 && Number(state.remainingSplits) > 0;
         },
         /**
-         * Consecutive Digits Over — last 6 digits all < 7 → Over 2;
-         * Over 2 loss → immediate Over 3 (no analysis);
-         * Over 3 loss → analysis (require digit signal again).
+         * Digit Successor Differs — within tick_window, map what followed each
+         * digit 0–9; when current is X and X→Y was seen, Differs on Y.
          */
-        evaluateConsecutiveDigitsOver: options => {
+        evaluateConsecutiveDigitsOver: async options => {
             const opts = options || {};
-            if (!tradeEngine.consecutiveDigitsOverState) {
-                tradeEngine.consecutiveDigitsOverState = createConsecutiveDigitsOverState();
-            }
-            const count = Math.max(1, Math.floor(Number(opts.digit_count)) || 6);
-            const digits = tradeEngine.getCachedLastDigitList(count);
-            return evaluateConsecutiveDigitsOver(digits, opts, tradeEngine.consecutiveDigitsOverState);
+            const window_size = Math.max(
+                2,
+                Math.floor(Number(opts.tick_window ?? opts.digit_count)) || 120
+            );
+            const digits = tradeEngine.ensureTickHistory
+                ? await tradeEngine.ensureTickHistory(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+            const window_digits = Array.isArray(digits) ? digits.slice(-window_size) : [];
+            return evaluateConsecutiveDigitsOver(window_digits, opts);
         },
         getDigitTransitionPrediction: (tick_count, threshold) => {
             const requested = Math.max(2, Math.floor(Number(tick_count)) || 120);

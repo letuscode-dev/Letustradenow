@@ -10,20 +10,22 @@ import { localize } from '@deriv-com/translations';
 export const FREE_BOTS: FreeBot[] = [
     {
         id: 'consecutive-digits-over',
-        title: localize('Consecutive Digits Over 2'),
+        title: localize('Digit Successor Differs'),
         description: localize(
-            'When the last 6 digits are all less than 7, places Over 2. After a loss, immediately enters Over 3 without analysis. If that also loses, starts analysis again (waits for the 6-digit signal). Toggle Enable strategy to turn the feature on or off.'
+            'Within your tick window, maps what followed each digit 0–9. When the current digit is X and X→Y was seen, places Digit Differs on Y. Uses payout-based recovery (default 9.6%).'
         ),
-        tags: [localize('Over 2'), localize('Over 3'), localize('Analysis'), localize('Recovery')],
+        tags: [localize('Differs'), localize('Successor'), localize('Recovery')],
         strategy: 'CONSECUTIVE_DIGITS_OVER',
         form: {
             symbol: '1HZ75V',
-            tradetype: 'overunder',
-            type: 'DIGITOVER',
+            tradetype: 'matchesdiffers',
+            type: 'DIGITDIFF',
             stake: '1',
             duration: '1',
             durationtype: 't',
-            payout_percent: '63',
+            tick_window: '120',
+            pattern_threshold: '1',
+            payout_percent: '9.6',
             recovery_splits: '1',
             boolean_strategy: true,
             boolean_journal: true,

@@ -364,7 +364,9 @@ const RUNS_PER_SIGNAL = (): TConfigItem => ({
 const LABEL_TICK_WINDOW = (): TConfigItem => ({
     type: 'label',
     label: localize('Tick window'),
-    description: localize('Number of recent ticks used to count digit-pair transitions. Default is 120.'),
+    description: localize(
+        'Number of recent ticks used to find what digit followed each of 0–9. The Differs barrier comes from that window. Default is 120.'
+    ),
 });
 
 const TICK_WINDOW = (): TConfigItem => ({
@@ -387,7 +389,7 @@ const LABEL_PATTERN_THRESHOLD = (): TConfigItem => ({
     type: 'label',
     label: localize('Pattern threshold'),
     description: localize(
-        'Minimum times a digit-pair transition must appear in the tick window before Differs is placed on the digit that started that pattern.'
+        'Minimum times a digit→next transition must appear in the tick window before Differs is placed on that next digit.'
     ),
 });
 
@@ -1652,14 +1654,14 @@ export const STRATEGIES = (): TStrategies => ({
     },
     CONSECUTIVE_DIGITS_OVER: {
         name: 'consecutive_digits_over',
-        label: localize('Consecutive Digits Over 2'),
-        rs_strategy_name: 'consecutive digits over',
+        label: localize('Digit Successor Differs'),
+        rs_strategy_name: 'digit successor differs',
         description: [
             {
                 type: 'text',
                 content: [
                     localize(
-                        'When the last 6 digits are all less than 7, places Over 2 at your base stake. After a loss, immediately enters Over 3 without analysis (payout-based recovery stake, default 63%). If Over 3 also loses, starts analysis again — waits for the same 6-digit signal before trading Over 2. Turn off “Enable strategy” to disable this feature.'
+                        'Within your configured tick window, maps what digit followed each of 0–9. When the current last digit is X and X→Y was observed in that window, places Digit Differs on Y (the barrier). Uses payout-based recovery (default 9.6%). Turn off “Enable strategy” to disable.'
                     ),
                 ],
             },
@@ -1670,12 +1672,16 @@ export const STRATEGIES = (): TStrategies => ({
                 SYMBOL(),
                 LABEL_STAKE(),
                 STAKE(),
+                LABEL_TICK_WINDOW(),
+                TICK_WINDOW(),
+                LABEL_PATTERN_THRESHOLD(),
+                PATTERN_THRESHOLD(),
+            ],
+            [
                 LABEL_PAYOUT_PERCENT(),
                 PAYOUT_PERCENT(),
                 LABEL_RECOVERY_SPLITS(),
                 RECOVERY_SPLITS(),
-            ],
-            [
                 LABEL_PROFIT(),
                 PROFIT(),
                 LABEL_LOSS(),
@@ -1685,7 +1691,7 @@ export const STRATEGIES = (): TStrategies => ({
                     name: 'boolean_strategy',
                     label: localize('Enable strategy'),
                     description: localize(
-                        'Turn this feature on or off. When off, no Consecutive Digits Over signals are produced.'
+                        'Turn this feature on or off. When off, no Digit Successor Differs signals are produced.'
                     ),
                 },
                 CHECKBOX_JOURNAL(),

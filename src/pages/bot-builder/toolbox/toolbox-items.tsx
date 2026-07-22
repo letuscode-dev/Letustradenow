@@ -847,24 +847,14 @@ export const ToolboxItems = () =>
                                 <Field name='BOOL'>TRUE</Field>
                             </Shadow>
                         </Value>
-                        <Value name='COUNT'>
+                        <Value name='TICK_WINDOW'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>6</Field>
+                                <Field name='NUM'>120</Field>
                             </Shadow>
                         </Value>
-                        <Value name='MAX_DIGIT'>
+                        <Value name='THRESHOLD'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>7</Field>
-                            </Shadow>
-                        </Value>
-                        <Value name='BASE_PREDICTION'>
-                            <Shadow type='math_number'>
-                                <Field name='NUM'>2</Field>
-                            </Shadow>
-                        </Value>
-                        <Value name='RECOVERY_PREDICTION'>
-                            <Shadow type='math_number'>
-                                <Field name='NUM'>3</Field>
+                                <Field name='NUM'>1</Field>
                             </Shadow>
                         </Value>
                         <Value name='JOURNAL'>

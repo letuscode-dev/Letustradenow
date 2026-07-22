@@ -157,6 +157,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateColdDigit)
             );
         }
+        if (typeof bot_interface.evaluateConsecutiveDigitsOver === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateConsecutiveDigitsOver',
+                createAsync(js_interpreter, bot_interface.evaluateConsecutiveDigitsOver)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,

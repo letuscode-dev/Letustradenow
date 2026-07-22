@@ -1,132 +1,111 @@
 import {
-    allDigitsBelowMaximum,
-    applyConsecutiveDigitsOverResult,
-    createConsecutiveDigitsOverState,
+    buildDigitSuccessorMap,
     evaluateConsecutiveDigitsOver,
+    getDigitSuccessorPrediction,
+    getDigitSuccessorSignal,
     getRecentDigits,
 } from '../consecutive-digits-over';
 
-describe('consecutive-digits-over', () => {
+describe('consecutive-digits-over (digit successor Differs)', () => {
     it('reads the last N digits', () => {
-        expect(getRecentDigits([1, 2, 3, 4, 5, 6, 7], 6)).toEqual([2, 3, 4, 5, 6, 7]);
+        expect(getRecentDigits([1, 2, 3, 4, 5], 3)).toEqual([3, 4, 5]);
     });
 
-    it('requires every digit to be strictly below the maximum', () => {
-        expect(allDigitsBelowMaximum([3, 5, 6, 0, 1, 2], 7)).toBe(true);
-        expect(allDigitsBelowMaximum([3, 7, 6, 0, 1, 2], 7)).toBe(false);
-        expect(allDigitsBelowMaximum([0, 1, 2, 3, 4, 5], 7)).toBe(true);
+    it('builds a successor map for digits 0–9', () => {
+        // 2→5 twice, 2→7 once, 0→1 once
+        const { successors } = buildDigitSuccessorMap([2, 5, 2, 5, 2, 7, 0, 1]);
+        expect(successors[2]).toEqual({ from: 2, to: 5, count: 2 });
+        expect(successors[0]).toEqual({ from: 0, to: 1, count: 1 });
+        expect(successors[5]).toEqual({ from: 5, to: 2, count: 2 });
     });
 
-    it('places Over 2 when last 6 digits are < 7 in base phase', () => {
-        const state = createConsecutiveDigitsOverState();
-        const result = evaluateConsecutiveDigitsOver(
-            [9, 8, 3, 5, 6, 0, 1, 2],
-            { journal_enabled: false },
-            state
-        );
+    it('places Differs on the digit that followed the current digit', () => {
+        // Pattern 2→5, current ends on 2 → Differs 5
+        const digits = [9, 2, 5, 8, 2, 5, 3, 2];
+        const signal = getDigitSuccessorSignal(digits, 1);
+        expect(signal).toEqual({ from: 2, to: 5, count: 2 });
+        expect(getDigitSuccessorPrediction(digits, 1)).toBe(5);
+
+        const result = evaluateConsecutiveDigitsOver(digits, {
+            tick_window: 120,
+            journal_enabled: false,
+        });
         expect(result.allowed).toBe(true);
-        expect(result.prediction).toBe(2);
-        expect(result.phase).toBe('base');
-        expect(result.recent_digits).toEqual([3, 5, 6, 0, 1, 2]);
+        expect(result.prediction).toBe(5);
+        expect(result.current_digit).toBe(2);
     });
 
-    it('places Over 3 immediately after an Over 2 loss without digit analysis', () => {
-        const state = createConsecutiveDigitsOverState();
-        evaluateConsecutiveDigitsOver([1, 2, 3, 4, 5, 6], { journal_enabled: false }, state);
-        applyConsecutiveDigitsOverResult(state, false, true);
-
-        expect(state.phase).toBe('immediate');
-
-        // Digits would fail the signal — still allow Over 3.
-        const result = evaluateConsecutiveDigitsOver(
-            [9, 9, 9, 9, 9, 9],
-            { journal_enabled: false },
-            state
-        );
+    it('uses the most recent successor on a count tie', () => {
+        // 4→1 once, then 4→8 once; last observation of 4→8 is newer → Differs 8
+        const digits = [4, 1, 9, 4, 8, 4];
+        const result = evaluateConsecutiveDigitsOver(digits, {
+            tick_window: 20,
+            journal_enabled: false,
+        });
         expect(result.allowed).toBe(true);
-        expect(result.prediction).toBe(3);
-        expect(result.phase).toBe('immediate');
+        expect(result.prediction).toBe(8);
     });
 
-    it('enters analysis after an Over 3 loss and requires the digit signal again', () => {
-        const state = createConsecutiveDigitsOverState();
-        state.phase = 'immediate';
-        state.lastPrediction = 3;
-        applyConsecutiveDigitsOverResult(state, false, true);
-        expect(state.phase).toBe('analysis');
-
-        const blocked = evaluateConsecutiveDigitsOver(
-            [9, 9, 9, 9, 9, 9],
-            { journal_enabled: false },
-            state
-        );
+    it('respects the pattern threshold', () => {
+        const digits = [2, 5, 9, 2];
+        const blocked = evaluateConsecutiveDigitsOver(digits, {
+            tick_window: 20,
+            pattern_threshold: 2,
+            journal_enabled: false,
+        });
         expect(blocked.allowed).toBe(false);
+        expect(blocked.prediction).toBe(-1);
 
-        const allowed = evaluateConsecutiveDigitsOver(
-            [1, 2, 3, 4, 5, 6],
-            { journal_enabled: false },
-            state
-        );
+        const digits2 = [2, 5, 9, 2, 5, 1, 2];
+        const allowed = evaluateConsecutiveDigitsOver(digits2, {
+            tick_window: 20,
+            pattern_threshold: 2,
+            journal_enabled: false,
+        });
         expect(allowed.allowed).toBe(true);
-        expect(allowed.prediction).toBe(2);
-        expect(allowed.phase).toBe('analysis');
+        expect(allowed.prediction).toBe(5);
     });
 
-    it('returns to base after a win that clears recovery', () => {
-        const state = createConsecutiveDigitsOverState();
-        state.phase = 'analysis';
-        applyConsecutiveDigitsOverResult(state, true, false);
-        expect(state.phase).toBe('base');
-    });
-
-    it('stays in analysis after a win while still recovering', () => {
-        const state = createConsecutiveDigitsOverState();
-        state.phase = 'immediate';
-        applyConsecutiveDigitsOverResult(state, true, true);
-        expect(state.phase).toBe('analysis');
-    });
-
-    it('rejects when any of the last 6 digits is >= 7', () => {
-        const result = evaluateConsecutiveDigitsOver(
-            [1, 2, 3, 4, 5, 7],
-            { journal_enabled: false },
-            createConsecutiveDigitsOverState()
-        );
-        expect(result.allowed).toBe(false);
-        expect(result.prediction).toBe(-1);
-    });
-
-    it('waits until enough ticks are available', () => {
-        const result = evaluateConsecutiveDigitsOver(
-            [5, 6, 1, 2, 3],
-            { journal_enabled: true },
-            createConsecutiveDigitsOverState()
-        );
+    it('waits until at least two ticks are available', () => {
+        const result = evaluateConsecutiveDigitsOver([5], {
+            tick_window: 120,
+            journal_enabled: true,
+        });
         expect(result.allowed).toBe(false);
         expect(result.prediction).toBe(-1);
         expect(result.journal_messages.length).toBeGreaterThan(0);
     });
 
-    it('does not miss a qualifying window on consecutive ticks', () => {
-        const ticks = [9, 8, 1, 2, 3, 4, 5, 6];
-        const state = createConsecutiveDigitsOverState();
-        const first = evaluateConsecutiveDigitsOver(ticks.slice(0, 5), { journal_enabled: false }, state);
-        expect(first.allowed).toBe(false);
-
-        const second = evaluateConsecutiveDigitsOver(ticks, { journal_enabled: false }, state);
-        expect(second.allowed).toBe(true);
-        expect(second.prediction).toBe(2);
-        expect(second.recent_digits).toEqual([1, 2, 3, 4, 5, 6]);
+    it('does not trade when the current digit has no observed successor', () => {
+        // 7 never appears as a "from" before the final tick
+        const result = evaluateConsecutiveDigitsOver([1, 2, 3, 7], {
+            tick_window: 20,
+            journal_enabled: false,
+        });
+        expect(result.allowed).toBe(false);
+        expect(result.prediction).toBe(-1);
+        expect(result.current_digit).toBe(7);
     });
 
     it('does not trade when the strategy is disabled', () => {
-        const result = evaluateConsecutiveDigitsOver(
-            [1, 2, 3, 4, 5, 6],
-            { enabled: false, journal_enabled: false },
-            createConsecutiveDigitsOverState()
-        );
+        const result = evaluateConsecutiveDigitsOver([2, 5, 2], {
+            enabled: false,
+            journal_enabled: false,
+        });
         expect(result.allowed).toBe(false);
         expect(result.enabled).toBe(false);
         expect(result.prediction).toBe(-1);
+    });
+
+    it('limits analysis to the configured tick window', () => {
+        // Older 1→9 pattern is outside a window of 4; inside window: 9,3,4,3 → 3→4
+        const digits = [1, 9, 1, 9, 3, 4, 3];
+        const result = evaluateConsecutiveDigitsOver(digits, {
+            tick_window: 4,
+            journal_enabled: false,
+        });
+        expect(result.recent_digits).toEqual([9, 3, 4, 3]);
+        expect(result.current_digit).toBe(3);
+        expect(result.prediction).toBe(4);
     });
 });
