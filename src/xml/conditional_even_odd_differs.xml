@@ -103,7 +103,7 @@
           <block type="math_number" id="ceodCallProfit001"><field name="NUM">5</field></block>
         </value>
         <value name="ARG3" strategy_value="loss">
-          <block type="math_number" id="ceodCallLoss001"><field name="NUM">5</field></block>
+          <block type="math_number" id="ceodCallLoss001"><field name="NUM">2</field></block>
         </value>
         <value name="ARG4" strategy_value="cooldown_after_trade">
           <block type="math_number" id="ceodCallCd001"><field name="NUM">0</field></block>
@@ -525,7 +525,7 @@
                 <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                 <value name="VALUE" strategy_value="loss">
                   <block type="math_number" id="UdK4EIuuo|^~SBqy^_UN">
-                    <field name="NUM">5</field>
+                    <field name="NUM">2</field>
                   </block>
                 </value>
               </block>

@@ -30,7 +30,7 @@ export const FREE_BOTS: FreeBot[] = [
             boolean_strategy: true,
             boolean_journal: true,
             profit: '5',
-            loss: '5',
+            loss: '2',
         },
     },
     {
@@ -54,7 +54,7 @@ export const FREE_BOTS: FreeBot[] = [
             boolean_strategy: true,
             boolean_journal: true,
             profit: '5',
-            loss: '5',
+            loss: '2',
         },
     },
 ];

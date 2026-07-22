@@ -1684,8 +1684,8 @@ export const STRATEGIES = (): TStrategies => ({
                 RECOVERY_SPLITS(),
                 LABEL_PROFIT(),
                 PROFIT(),
-                LABEL_LOSS(),
-                LOSS(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
                 {
                     type: 'checkbox',
                     name: 'boolean_strategy',
@@ -1728,8 +1728,8 @@ export const STRATEGIES = (): TStrategies => ({
                 RECOVERY_SPLITS(),
                 LABEL_PROFIT(),
                 PROFIT(),
-                LABEL_LOSS(),
-                LOSS(),
+                LABEL_CONSECUTIVE_LOSS(),
+                CONSECUTIVE_LOSS(),
                 {
                     type: 'checkbox',
                     name: 'boolean_strategy',

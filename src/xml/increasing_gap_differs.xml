@@ -108,7 +108,7 @@
           <block type="math_number" id="idgCallProfit001"><field name="NUM">5</field></block>
         </value>
         <value name="ARG3" strategy_value="loss">
-          <block type="math_number" id="idgCallLoss001"><field name="NUM">5</field></block>
+          <block type="math_number" id="idgCallLoss001"><field name="NUM">2</field></block>
         </value>
         <value name="ARG4" strategy_value="min_gap">
           <block type="math_number" id="idgCallMin001"><field name="NUM">1</field></block>
@@ -600,7 +600,7 @@
                 <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                 <value name="VALUE" strategy_value="loss">
                   <block type="math_number" id="UdK4EIuuo|^~SBqy^_UN">
-                    <field name="NUM">5</field>
+                    <field name="NUM">2</field>
                   </block>
                 </value>
               </block>

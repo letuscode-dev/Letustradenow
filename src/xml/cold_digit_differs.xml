@@ -93,7 +93,7 @@
           <block type="math_number" id="coldCallProfit001"><field name="NUM">5</field></block>
         </value>
         <value name="ARG5" strategy_value="loss">
-          <block type="math_number" id="coldCallLoss001"><field name="NUM">5</field></block>
+          <block type="math_number" id="coldCallLoss001"><field name="NUM">2</field></block>
         </value>
 
         <next>
@@ -477,7 +477,7 @@
                 <field name="VAR" id="a1BTYNHC?_yR4sfvNJ7N" variabletype="">martingale:lossThreshold</field>
                 <value name="VALUE" strategy_value="loss">
                   <block type="math_number" id="UdK4EIuuo|^~SBqy^_UN">
-                    <field name="NUM">5</field>
+                    <field name="NUM">2</field>
                   </block>
                 </value>
               </block>
