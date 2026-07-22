@@ -17,7 +17,16 @@ describe('window-index-differs', () => {
         expect(ready.index).toBe(0);
         expect(state.phase).toBe('trading');
         expect(state.reference).toEqual([1, 2, 3]);
-        expect(state.pendingTrade).toBe(true);
+    });
+
+    it('keeps the same prediction on re-evaluate so ticks are not dropped', () => {
+        const state = createWindowIndexDiffersState(2);
+        const first = evaluateWindowIndexDiffers([7, 8], { tick_window: 2, journal_enabled: false }, state);
+        const second = evaluateWindowIndexDiffers([7, 8], { tick_window: 2, journal_enabled: false }, state);
+        expect(first.prediction).toBe(7);
+        expect(second.allowed).toBe(true);
+        expect(second.prediction).toBe(7);
+        expect(state.nextIndex).toBe(0);
     });
 
     it('Differs each next-window index against the previous window digit', () => {
@@ -28,14 +37,13 @@ describe('window-index-differs', () => {
         applyWindowIndexDiffersResult(state, 9);
         expect(state.nextIndex).toBe(1);
         expect(state.currentWindow[0]).toBe(9);
-        expect(state.pendingTrade).toBe(false);
 
-        const second = evaluateWindowIndexDiffers([4, 5, 6, 9], { tick_window: 3, journal_enabled: false }, state);
+        const second = evaluateWindowIndexDiffers([], { tick_window: 3, journal_enabled: false }, state);
         expect(second.prediction).toBe(5);
         expect(second.index).toBe(1);
 
         applyWindowIndexDiffersResult(state, 8);
-        const third = evaluateWindowIndexDiffers([4, 5, 6, 9, 8], { tick_window: 3, journal_enabled: false }, state);
+        const third = evaluateWindowIndexDiffers([], { tick_window: 3, journal_enabled: false }, state);
         expect(third.prediction).toBe(6);
         expect(third.index).toBe(2);
 
@@ -45,26 +53,18 @@ describe('window-index-differs', () => {
         expect(state.phase).toBe('trading');
     });
 
-    it('rolls into the next reference window and continues', () => {
+    it('rolls into the next reference window and continues immediately', () => {
         const state = createWindowIndexDiffersState(2);
         evaluateWindowIndexDiffers([1, 2], { tick_window: 2, journal_enabled: false }, state);
         applyWindowIndexDiffersResult(state, 3);
-        evaluateWindowIndexDiffers([1, 2, 3], { tick_window: 2, journal_enabled: false }, state);
+        evaluateWindowIndexDiffers([], { tick_window: 2, journal_enabled: false }, state);
         applyWindowIndexDiffersResult(state, 4);
 
         expect(state.reference).toEqual([3, 4]);
 
-        const next = evaluateWindowIndexDiffers([1, 2, 3, 4], { tick_window: 2, journal_enabled: false }, state);
+        const next = evaluateWindowIndexDiffers([], { tick_window: 2, journal_enabled: false }, state);
         expect(next.prediction).toBe(3);
         expect(next.index).toBe(0);
-    });
-
-    it('blocks while a trade is pending', () => {
-        const state = createWindowIndexDiffersState(2);
-        evaluateWindowIndexDiffers([7, 8], { tick_window: 2, journal_enabled: false }, state);
-        const blocked = evaluateWindowIndexDiffers([7, 8], { tick_window: 2, journal_enabled: false }, state);
-        expect(blocked.allowed).toBe(false);
-        expect(blocked.prediction).toBe(-1);
     });
 
     it('does not trade when disabled', () => {

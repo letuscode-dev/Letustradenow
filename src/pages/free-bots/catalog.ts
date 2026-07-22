@@ -37,7 +37,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'window-index-differs',
         title: localize('Window Index Differs'),
         description: localize(
-            'Collects n digits as a reference window. In the next window, Differs each index against the digit at the same index previously, then rolls forward. Same payout recovery as bot #1 (default 9.6%).'
+            'Collects n digits as a reference window. Trades every next tick: Differs each index against the same prior-window index, then rolls forward — no skipped ticks. Same payout recovery as bot #1 (default 9.6%).'
         ),
         tags: [localize('Differs'), localize('Window'), localize('Recovery')],
         strategy: 'WINDOW_INDEX_DIFFERS',

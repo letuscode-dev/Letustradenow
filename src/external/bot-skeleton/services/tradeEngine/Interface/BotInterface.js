@@ -124,11 +124,21 @@ const getBotInterface = tradeEngine => {
             }
             applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
             if (tradeEngine.windowIndexDiffersState) {
-                const digits = tradeEngine.getCachedLastDigitList(1);
-                const last =
-                    Array.isArray(digits) && digits.length
-                        ? digits[digits.length - 1]
-                        : undefined;
+                // Prefer epoch-ordered live digits so settlement maps to the right tick.
+                const digit_ticks = tradeEngine.getCachedDigitTicks
+                    ? tradeEngine.getCachedDigitTicks()
+                    : null;
+                let last;
+                if (Array.isArray(digit_ticks) && digit_ticks.length) {
+                    const newest = digit_ticks[digit_ticks.length - 1];
+                    last = newest && typeof newest === 'object' ? newest.digit : newest;
+                } else {
+                    const digits = tradeEngine.getCachedLastDigitList(1);
+                    last =
+                        Array.isArray(digits) && digits.length
+                            ? digits[digits.length - 1]
+                            : undefined;
+                }
                 applyWindowIndexDiffersResult(tradeEngine.windowIndexDiffersState, last);
             }
         },
@@ -158,6 +168,7 @@ const getBotInterface = tradeEngine => {
         /**
          * Window Index Differs — reference window of n digits; next window Differs
          * each index against the digit at the same index in the previous window.
+         * Trading path is sync (no history await) so consecutive ticks are not skipped.
          */
         evaluateWindowIndexDiffers: async options => {
             const opts = options || {};
@@ -166,14 +177,25 @@ const getBotInterface = tradeEngine => {
                     opts.tick_window
                 );
             }
+            const state = tradeEngine.windowIndexDiffersState;
             const window_size = Math.max(2, Math.floor(Number(opts.tick_window)) || 5);
-            const digits = tradeEngine.ensureTickHistory
-                ? await tradeEngine.ensureTickHistory(window_size)
-                : tradeEngine.getCachedLastDigitList(window_size);
+
+            // Fast path while trading: prediction comes from reference[index] only.
+            if (state.phase === 'trading' && state.reference.length >= state.windowSize) {
+                return evaluateWindowIndexDiffers([], opts, state);
+            }
+
+            // Collecting: use live cache first; request history only if still short.
+            let digits = tradeEngine.getCachedLastDigitList(window_size);
+            if (!Array.isArray(digits) || digits.length < window_size) {
+                digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(window_size)
+                    : digits;
+            }
             return evaluateWindowIndexDiffers(
                 Array.isArray(digits) ? digits : [],
                 opts,
-                tradeEngine.windowIndexDiffersState
+                state
             );
         },
         getDigitTransitionPrediction: (tick_count, threshold) => {

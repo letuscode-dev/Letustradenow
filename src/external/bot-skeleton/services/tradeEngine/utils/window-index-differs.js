@@ -4,6 +4,9 @@
  * that sat at the same index in the previous window. When all n indexes are done,
  * roll the just-collected window into the new reference and repeat.
  *
+ * Designed to stay tick-aligned: evaluate is idempotent (safe to re-run), never
+ * blocks an armed prediction, and trading does not wait on history fetches.
+ *
  * Recovery stake sizing uses the shared payout-based recovery mechanism.
  */
 
@@ -64,8 +67,9 @@ export const normalizeWindowIndexDiffersOptions = (options = {}) => ({
  *   reference: number[],
  *   currentWindow: number[],
  *   nextIndex: number,
- *   pendingTrade: boolean,
  *   lastPrediction: number,
+ *   tradesInWindow: number,
+ *   referenceReadyNotified: boolean,
  * }}
  */
 export const createWindowIndexDiffersState = (window_size = DEFAULT_TICK_WINDOW) => ({
@@ -74,8 +78,9 @@ export const createWindowIndexDiffersState = (window_size = DEFAULT_TICK_WINDOW)
     reference: [],
     currentWindow: [],
     nextIndex: 0,
-    pendingTrade: false,
     lastPrediction: -1,
+    tradesInWindow: 0,
+    referenceReadyNotified: false,
 });
 
 /**
@@ -89,20 +94,21 @@ export const resetWindowIndexDiffersState = state => {
     state.reference = [];
     state.currentWindow = [];
     state.nextIndex = 0;
-    state.pendingTrade = false;
     state.lastPrediction = -1;
+    state.tradesInWindow = 0;
+    state.referenceReadyNotified = false;
     return state;
 };
 
 /**
  * After a Differs trade settles, record the result digit at the current index
- * and advance. When the window is complete, roll current → reference.
+ * and advance immediately so the next tick can be armed without a gap.
  *
  * @param {ReturnType<typeof createWindowIndexDiffersState>} state
  * @param {number} result_digit - last digit of the tick that settled the contract
  */
 export const applyWindowIndexDiffersResult = (state, result_digit) => {
-    if (!state || !state.pendingTrade) {
+    if (!state || state.phase !== 'trading' || state.reference.length < state.windowSize) {
         return state || createWindowIndexDiffersState();
     }
 
@@ -113,28 +119,32 @@ export const applyWindowIndexDiffersResult = (state, result_digit) => {
         state.currentWindow[idx] = digit;
     }
 
-    state.pendingTrade = false;
     state.lastPrediction = -1;
     state.nextIndex = idx + 1;
+    state.tradesInWindow = (Number(state.tradesInWindow) || 0) + 1;
 
     if (state.nextIndex >= state.windowSize) {
         const completed = [];
         for (let i = 0; i < state.windowSize; i++) {
             const value = state.currentWindow[i];
             if (!Number.isInteger(value) || value < 0 || value > 9) {
-                // Incomplete window — keep collecting from scratch.
                 state.phase = 'collecting';
                 state.reference = [];
                 state.currentWindow = [];
                 state.nextIndex = 0;
+                state.tradesInWindow = 0;
+                state.referenceReadyNotified = false;
                 return state;
             }
             completed.push(value);
         }
+        // Roll immediately — next evaluate arms index 1 of the new window.
         state.reference = completed;
         state.currentWindow = [];
         state.nextIndex = 0;
+        state.tradesInWindow = 0;
         state.phase = 'trading';
+        state.referenceReadyNotified = false;
     }
 
     return state;
@@ -177,8 +187,24 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
         return empty({ enabled: false });
     }
 
-    if (tracker.pendingTrade) {
-        return empty();
+    // Idempotent: if we already armed this index, keep returning the same
+    // prediction so a re-run of trade options cannot drop the signal mid-tick.
+    if (
+        tracker.phase === 'trading' &&
+        tracker.reference.length >= tracker.windowSize &&
+        tracker.lastPrediction >= 0 &&
+        tracker.lastPrediction <= 9
+    ) {
+        return {
+            prediction: tracker.lastPrediction,
+            allowed: true,
+            enabled: true,
+            phase: tracker.phase,
+            index: tracker.nextIndex,
+            window_size: tracker.windowSize,
+            reference: tracker.reference.slice(),
+            journal_messages,
+        };
     }
 
     const sequence = normalizeDigitSequence(digits);
@@ -198,21 +224,10 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
         tracker.reference = sequence.slice(-tracker.windowSize);
         tracker.currentWindow = [];
         tracker.nextIndex = 0;
+        tracker.tradesInWindow = 0;
         tracker.phase = 'trading';
-
-        if (options.journal_enabled) {
-            journal_messages.push({
-                className: 'journal__text--success',
-                message: [
-                    'Reference window ready.',
-                    '',
-                    `Indexes 1–${tracker.windowSize}:`,
-                    tracker.reference.map((d, i) => `${i + 1}:${d}`).join(', '),
-                    '',
-                    'Starting Differs for the next window.',
-                ].join('\n'),
-            });
-        }
+        tracker.lastPrediction = -1;
+        tracker.referenceReadyNotified = false;
     }
 
     const index = tracker.nextIndex;
@@ -220,22 +235,28 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
         tracker.phase = 'collecting';
         tracker.reference = [];
         tracker.nextIndex = 0;
+        tracker.lastPrediction = -1;
+        tracker.referenceReadyNotified = false;
         return empty();
     }
 
     const prediction = tracker.reference[index];
-    tracker.pendingTrade = true;
     tracker.lastPrediction = prediction;
 
     if (options.journal_enabled) {
+        if (!tracker.referenceReadyNotified) {
+            tracker.referenceReadyNotified = true;
+            journal_messages.push({
+                className: 'journal__text--success',
+                message: [
+                    'Reference window ready — trading every tick.',
+                    tracker.reference.map((d, i) => `${i + 1}:${d}`).join(', '),
+                ].join('\n'),
+            });
+        }
         journal_messages.push({
             className: 'journal__text--success',
-            message: [
-                `Window index ${index + 1}/${tracker.windowSize}.`,
-                '',
-                `Previous window digit at index ${index + 1}: ${prediction}`,
-                `Placing DIFFERS ${prediction}.`,
-            ].join('\n'),
+            message: `Index ${index + 1}/${tracker.windowSize} → DIFFERS ${prediction}`,
         });
     }
 
