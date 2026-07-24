@@ -132,7 +132,7 @@
       <block type="variables_set" id="dtSetPred001LetUsTrade">
         <field name="VAR" id="dtPredVar001LetUsTrade" variabletype="">predicted_digit</field>
         <value name="VALUE">
-                    <block type="strategy_voting_prediction" id="svPredBlk001LetUsTrade">
+          <block type="strategy_voting_prediction" id="svPredBlk001LetUsTrade">
             <value name="ENABLED">
               <block type="variables_get" id="svGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">strategyVoting:enabled</field></block>
             </value>
@@ -267,18 +267,6 @@
             </value>
             <value name="WT_modal_neighbor" strategy_value="weight_sv_modal_neighbor">
               <block type="math_number" id="svWt18"><field name="NUM">1.0</field></block>
-            </value>
-          </block>
-
-            </value>
-            <value name="TICK_WINDOW" strategy_value="tick_window">
-              <block type="math_number" id="cdoTickWin001"><field name="NUM">5</field></block>
-            </value>
-            <value name="THRESHOLD" strategy_value="pattern_threshold">
-              <block type="math_number" id="cdoThresh001"><field name="NUM">1</field></block>
-            </value>
-            <value name="JOURNAL">
-              <block type="variables_get" id="cdoGetJnl001"><field name="VAR" id="cdoJournal001LetUsTrade" variabletype="">strategyVoting:journal</field></block>
             </value>
           </block>
         </value>

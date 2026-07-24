@@ -3,39 +3,57 @@ import { modifyContextMenu } from '../../../utils';
 
 /** Keep in sync with strategy-voting-meta.js */
 const STRATEGY_VOTING_META = [
-    { id: 'digit_successor', default_weight: 1.5 },
-    { id: 'complement_digit', default_weight: 1.2 },
-    { id: 'digit_transition', default_weight: 1.0 },
-    { id: 'cold_digit', default_weight: 2.0 },
-    { id: 'least_frequent', default_weight: 1.4 },
-    { id: 'most_frequent', default_weight: 1.0 },
-    { id: 'streak_breaker', default_weight: 1.8 },
-    { id: 'last_repeat', default_weight: 1.3 },
-    { id: 'absent_digit', default_weight: 1.6 },
-    { id: 'second_last', default_weight: 0.9 },
-    { id: 'parity_fade', default_weight: 1.1 },
-    { id: 'edge_fade', default_weight: 1.0 },
-    { id: 'oscillation', default_weight: 1.3 },
-    { id: 'mid_range', default_weight: 1.0 },
-    { id: 'rising_run', default_weight: 1.2 },
-    { id: 'falling_run', default_weight: 1.2 },
-    { id: 'unique_tail', default_weight: 1.1 },
-    { id: 'modal_neighbor', default_weight: 1.0 },
+    { id: 'digit_successor', label: 'Successor', default_weight: 1.5 },
+    { id: 'complement_digit', label: 'Complement', default_weight: 1.2 },
+    { id: 'digit_transition', label: 'Transition', default_weight: 1.0 },
+    { id: 'cold_digit', label: 'Cold', default_weight: 2.0 },
+    { id: 'least_frequent', label: 'Least freq', default_weight: 1.4 },
+    { id: 'most_frequent', label: 'Most freq', default_weight: 1.0 },
+    { id: 'streak_breaker', label: 'Streak', default_weight: 1.8 },
+    { id: 'last_repeat', label: 'Repeat', default_weight: 1.3 },
+    { id: 'absent_digit', label: 'Absent', default_weight: 1.6 },
+    { id: 'second_last', label: '2nd last', default_weight: 0.9 },
+    { id: 'parity_fade', label: 'Parity', default_weight: 1.1 },
+    { id: 'edge_fade', label: 'Edge', default_weight: 1.0 },
+    { id: 'oscillation', label: 'Oscillation', default_weight: 1.3 },
+    { id: 'mid_range', label: 'Mid', default_weight: 1.0 },
+    { id: 'rising_run', label: 'Rising', default_weight: 1.2 },
+    { id: 'falling_run', label: 'Falling', default_weight: 1.2 },
+    { id: 'unique_tail', label: 'Unique tail', default_weight: 1.1 },
+    { id: 'modal_neighbor', label: 'Modal nbr', default_weight: 1.0 },
 ];
 
 window.Blockly.Blocks.strategy_voting_prediction = {
     init() {
         this.jsonInit(this.definition());
+        // Append strategy enable/weight inputs after the main row so jsonInit
+        // is not overloaded with 45 message args (which breaks registration).
+        STRATEGY_VOTING_META.forEach(meta => {
+            this.appendValueInput(`EN_${meta.id}`)
+                .setCheck('Boolean')
+                .setAlign(window.Blockly.ALIGN_RIGHT)
+                .appendField(`${meta.label} on`);
+            this.appendValueInput(`WT_${meta.id}`)
+                .setCheck('Number')
+                .setAlign(window.Blockly.ALIGN_RIGHT)
+                .appendField('wt');
+        });
     },
     definition() {
-        const strategy_args = STRATEGY_VOTING_META.flatMap(meta => [
-            { type: 'input_value', name: `EN_${meta.id}`, check: 'Boolean' },
-            { type: 'input_value', name: `WT_${meta.id}`, check: 'Number' },
-        ]);
-
         return {
             message0: localize(
-                'strategy voting (on %1 window %2 conf %3 minVoters %4 maxAbstain %5 journal %6 summary %7 tieReject %8 debug %9)'
+                'strategy voting (on {{ enabled }}, window {{ window }}, conf {{ conf }}, minVoters {{ minVoters }}, maxAbstain {{ maxAbstain }}, journal {{ journal }}, summary {{ summary }}, tieReject {{ tieReject }}, debug {{ debug }})',
+                {
+                    enabled: '%1',
+                    window: '%2',
+                    conf: '%3',
+                    minVoters: '%4',
+                    maxAbstain: '%5',
+                    journal: '%6',
+                    summary: '%7',
+                    tieReject: '%8',
+                    debug: '%9',
+                }
             ),
             args0: [
                 { type: 'input_value', name: 'ENABLED', check: 'Boolean' },
@@ -47,7 +65,6 @@ window.Blockly.Blocks.strategy_voting_prediction = {
                 { type: 'input_value', name: 'VOTE_SUMMARY', check: 'Boolean' },
                 { type: 'input_value', name: 'TIE_REJECTION', check: 'Boolean' },
                 { type: 'input_value', name: 'DEBUG', check: 'Boolean' },
-                ...strategy_args,
             ],
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
