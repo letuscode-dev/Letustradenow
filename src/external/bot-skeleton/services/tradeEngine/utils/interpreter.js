@@ -171,6 +171,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateWindowIndexDiffers)
             );
         }
+        if (typeof bot_interface.evaluateStrategyVoting === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateStrategyVoting',
+                createAsync(js_interpreter, bot_interface.evaluateStrategyVoting)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,

@@ -42,6 +42,11 @@ import {
     evaluateWindowIndexDiffers,
     resetWindowIndexDiffersState,
 } from '../utils/window-index-differs';
+import {
+    createStrategyVotingState,
+    evaluateStrategyVoting,
+    resetStrategyVotingState,
+} from '../utils/strategy-voting-engine';
 import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     consumeColdDigitSignal,
@@ -82,6 +87,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.windowIndexDiffersState) {
                 resetWindowIndexDiffersState(tradeEngine.windowIndexDiffersState);
                 tradeEngine.windowIndexDiffersState = null;
+            }
+            if (tradeEngine.strategyVotingState) {
+                resetStrategyVotingState(tradeEngine.strategyVotingState);
+                tradeEngine.strategyVotingState = null;
             }
             if (tradeEngine.coldDigitState) {
                 resetColdDigitState(tradeEngine.coldDigitState);
@@ -196,6 +205,28 @@ const getBotInterface = tradeEngine => {
                 Array.isArray(digits) ? digits : [],
                 opts,
                 state
+            );
+        },
+        /**
+         * Strategy Voting Engine — weighted Digit Differs votes across modular strategies.
+         */
+        evaluateStrategyVoting: async options => {
+            const opts = options || {};
+            if (!tradeEngine.strategyVotingState) {
+                tradeEngine.strategyVotingState = createStrategyVotingState();
+            }
+            const window_size = Math.max(10, Math.floor(Number(opts.tick_window)) || 50);
+            let digits = tradeEngine.getCachedLastDigitList(window_size);
+            if (!Array.isArray(digits) || digits.length < window_size) {
+                digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(window_size)
+                    : digits;
+            }
+            const window_digits = Array.isArray(digits) ? digits.slice(-window_size) : [];
+            return evaluateStrategyVoting(
+                window_digits,
+                opts,
+                tradeEngine.strategyVotingState
             );
         },
         getDigitTransitionPrediction: (tick_count, threshold) => {

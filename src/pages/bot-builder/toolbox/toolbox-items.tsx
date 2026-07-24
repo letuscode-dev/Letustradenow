@@ -880,6 +880,53 @@ export const ToolboxItems = () =>
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='strategy_voting_prediction'>
+                        <Value name='ENABLED'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='TICK_WINDOW'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>50</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='CONFIDENCE'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>70</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MIN_VOTERS'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>3</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='MAX_ABSTAIN'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>15</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='JOURNAL'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='VOTE_SUMMARY'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='TIE_REJECTION'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>TRUE</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='DEBUG'>
+                            <Shadow type='logic_boolean'>
+                                <Field name='BOOL'>FALSE</Field>
+                            </Shadow>
+                        </Value>
+                    </Block>
                     <Block type='complement_digit_prediction'>
                         <Value name='ENABLED'>
                             <Shadow type='logic_boolean'>

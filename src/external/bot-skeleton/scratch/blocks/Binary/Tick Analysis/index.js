@@ -17,6 +17,7 @@ import './conditional_even_odd_differs_prediction';
 import './conditional_high_low_differs_prediction';
 import './consecutive_digits_over_prediction';
 import './window_index_differs_prediction';
+import './strategy_voting_prediction';
 import './complement_digit_prediction';
 import './cold_digit_prediction';
 import './range_momentum_over_one';

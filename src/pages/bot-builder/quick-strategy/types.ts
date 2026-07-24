@@ -139,7 +139,8 @@ export type TRsStrategyName =
     | `conditional high low differs`
     | `consecutive digits over`
     | `digit successor differs`
-    | `window index differs`;
+    | `window index differs`
+    | `strategy voting differs`;
 
 export type TDurationType = 't' | 's' | 'm' | 'h' | 'd';
 
