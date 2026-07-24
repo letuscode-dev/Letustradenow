@@ -1,18 +1,17 @@
 /**
- * Window Index Differs — collect n digits as a reference window (indexes 1..n).
- * In the next window of n ticks, at each index i place Digit Differs on the digit
- * that sat at the same index in the previous window. When all n indexes are done,
- * roll the just-collected window into the new reference and repeat.
- *
- * Designed to stay tick-aligned: evaluate is idempotent (safe to re-run), never
- * blocks an armed prediction, and trading does not wait on history fetches.
+ * Same-Digit Wait Differs (Bot #2) — watch the last N ticks (default 2);
+ * when they are all the same digit D, wait M ticks (default 2), then place
+ * Digit Differs on D. After the trade settles, resume watching.
  *
  * Recovery stake sizing uses the shared payout-based recovery mechanism.
+ *
+ * File / export names keep `window-index-differs` for strategy key stability.
  */
 
-export const DEFAULT_TICK_WINDOW = 5;
+export const DEFAULT_MATCH_COUNT = 2;
+export const DEFAULT_WAIT_TICKS = 2;
 
-/** @typedef {'collecting' | 'trading'} WindowIndexDiffersPhase */
+/** @typedef {'watching' | 'waiting' | 'armed'} SameDigitWaitPhase */
 
 const toBool = (value, default_value = false) => {
     if (value === undefined || value === null) {
@@ -56,31 +55,38 @@ export const normalizeDigitSequence = digits => {
 
 export const normalizeWindowIndexDiffersOptions = (options = {}) => ({
     enabled: toBool(options.enabled, true),
-    tick_window: Math.max(2, toInt(options.tick_window ?? options.window_size, DEFAULT_TICK_WINDOW, 2)),
+    tick_window: Math.max(
+        2,
+        toInt(options.tick_window ?? options.match_count, DEFAULT_MATCH_COUNT, 2)
+    ),
+    trade_wait: Math.max(
+        0,
+        toInt(options.trade_wait ?? options.wait_ticks, DEFAULT_WAIT_TICKS, 0)
+    ),
     journal_enabled: toBool(options.journal_enabled, true),
 });
 
 /**
  * @returns {{
- *   phase: WindowIndexDiffersPhase,
- *   windowSize: number,
- *   reference: number[],
- *   currentWindow: number[],
- *   nextIndex: number,
+ *   phase: SameDigitWaitPhase,
+ *   matchCount: number,
+ *   waitTicks: number,
+ *   targetDigit: number,
+ *   matchEndLength: number,
  *   lastPrediction: number,
- *   tradesInWindow: number,
- *   referenceReadyNotified: boolean,
+ *   matchNotified: boolean,
+ *   waitNotified: boolean,
  * }}
  */
-export const createWindowIndexDiffersState = (window_size = DEFAULT_TICK_WINDOW) => ({
-    phase: 'collecting',
-    windowSize: Math.max(2, toInt(window_size, DEFAULT_TICK_WINDOW, 2)),
-    reference: [],
-    currentWindow: [],
-    nextIndex: 0,
+export const createWindowIndexDiffersState = (match_count = DEFAULT_MATCH_COUNT) => ({
+    phase: 'watching',
+    matchCount: Math.max(2, toInt(match_count, DEFAULT_MATCH_COUNT, 2)),
+    waitTicks: DEFAULT_WAIT_TICKS,
+    targetDigit: -1,
+    matchEndLength: 0,
     lastPrediction: -1,
-    tradesInWindow: 0,
-    referenceReadyNotified: false,
+    matchNotified: false,
+    waitNotified: false,
 });
 
 /**
@@ -90,64 +96,36 @@ export const resetWindowIndexDiffersState = state => {
     if (!state) {
         return createWindowIndexDiffersState();
     }
-    state.phase = 'collecting';
-    state.reference = [];
-    state.currentWindow = [];
-    state.nextIndex = 0;
+    state.phase = 'watching';
+    state.targetDigit = -1;
+    state.matchEndLength = 0;
     state.lastPrediction = -1;
-    state.tradesInWindow = 0;
-    state.referenceReadyNotified = false;
+    state.matchNotified = false;
+    state.waitNotified = false;
     return state;
 };
 
 /**
- * After a Differs trade settles, record the result digit at the current index
- * and advance immediately so the next tick can be armed without a gap.
+ * After a Differs trade settles, clear the armed signal and resume watching.
  *
  * @param {ReturnType<typeof createWindowIndexDiffersState>} state
- * @param {number} result_digit - last digit of the tick that settled the contract
+ * @param {number} [_result_digit] - unused; kept for call-site compatibility
  */
-export const applyWindowIndexDiffersResult = (state, result_digit) => {
-    if (!state || state.phase !== 'trading' || state.reference.length < state.windowSize) {
-        return state || createWindowIndexDiffersState();
+export const applyWindowIndexDiffersResult = (state, _result_digit) => {
+    return resetWindowIndexDiffersState(state || createWindowIndexDiffersState());
+};
+
+const allSameDigit = digits => {
+    if (!digits.length) {
+        return false;
     }
-
-    const digit = Number(result_digit);
-    const idx = Math.max(0, Math.floor(Number(state.nextIndex)) || 0);
-
-    if (Number.isInteger(digit) && digit >= 0 && digit <= 9) {
-        state.currentWindow[idx] = digit;
-    }
-
-    state.lastPrediction = -1;
-    state.nextIndex = idx + 1;
-    state.tradesInWindow = (Number(state.tradesInWindow) || 0) + 1;
-
-    if (state.nextIndex >= state.windowSize) {
-        const completed = [];
-        for (let i = 0; i < state.windowSize; i++) {
-            const value = state.currentWindow[i];
-            if (!Number.isInteger(value) || value < 0 || value > 9) {
-                state.phase = 'collecting';
-                state.reference = [];
-                state.currentWindow = [];
-                state.nextIndex = 0;
-                state.tradesInWindow = 0;
-                state.referenceReadyNotified = false;
-                return state;
-            }
-            completed.push(value);
+    const first = digits[0];
+    for (let i = 1; i < digits.length; i++) {
+        if (digits[i] !== first) {
+            return false;
         }
-        // Roll immediately — next evaluate arms index 1 of the new window.
-        state.reference = completed;
-        state.currentWindow = [];
-        state.nextIndex = 0;
-        state.tradesInWindow = 0;
-        state.phase = 'trading';
-        state.referenceReadyNotified = false;
     }
-
-    return state;
+    return true;
 };
 
 /**
@@ -158,10 +136,11 @@ export const applyWindowIndexDiffersResult = (state, result_digit) => {
  *   prediction: number,
  *   allowed: boolean,
  *   enabled: boolean,
- *   phase: WindowIndexDiffersPhase,
- *   index: number,
- *   window_size: number,
- *   reference: number[],
+ *   phase: SameDigitWaitPhase,
+ *   target_digit: number,
+ *   wait_remaining: number,
+ *   match_count: number,
+ *   trade_wait: number,
  *   journal_messages: Array<{className:string,message:string}>,
  * }}
  */
@@ -169,16 +148,21 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
     const options = normalizeWindowIndexDiffersOptions(raw_options);
     const journal_messages = [];
     const tracker = state || createWindowIndexDiffersState(options.tick_window);
-    tracker.windowSize = options.tick_window;
+    tracker.matchCount = options.tick_window;
+    tracker.waitTicks = options.trade_wait;
 
     const empty = (extra = {}) => ({
         prediction: -1,
         allowed: false,
         enabled: options.enabled,
         phase: tracker.phase,
-        index: tracker.nextIndex,
-        window_size: tracker.windowSize,
-        reference: tracker.reference.slice(),
+        target_digit: tracker.targetDigit,
+        wait_remaining: Math.max(
+            0,
+            tracker.waitTicks - Math.max(0, (extra.sequence_length || 0) - tracker.matchEndLength)
+        ),
+        match_count: tracker.matchCount,
+        trade_wait: tracker.waitTicks,
         journal_messages,
         ...extra,
     });
@@ -187,11 +171,9 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
         return empty({ enabled: false });
     }
 
-    // Idempotent: if we already armed this index, keep returning the same
-    // prediction so a re-run of trade options cannot drop the signal mid-tick.
+    // Idempotent while armed so trade-options re-runs do not drop the signal.
     if (
-        tracker.phase === 'trading' &&
-        tracker.reference.length >= tracker.windowSize &&
+        tracker.phase === 'armed' &&
         tracker.lastPrediction >= 0 &&
         tracker.lastPrediction <= 9
     ) {
@@ -200,74 +182,121 @@ export const evaluateWindowIndexDiffers = (digits, raw_options = {}, state = nul
             allowed: true,
             enabled: true,
             phase: tracker.phase,
-            index: tracker.nextIndex,
-            window_size: tracker.windowSize,
-            reference: tracker.reference.slice(),
+            target_digit: tracker.targetDigit,
+            wait_remaining: 0,
+            match_count: tracker.matchCount,
+            trade_wait: tracker.waitTicks,
             journal_messages,
         };
     }
 
     const sequence = normalizeDigitSequence(digits);
+    const seq_len = sequence.length;
 
-    if (tracker.phase === 'collecting' || tracker.reference.length < tracker.windowSize) {
-        if (sequence.length < tracker.windowSize) {
+    if (tracker.phase === 'watching') {
+        if (seq_len < tracker.matchCount) {
             if (options.journal_enabled) {
                 journal_messages.push({
                     className: 'journal__text',
-                    message: `Collecting reference window (${sequence.length}/${tracker.windowSize}).`,
+                    message: `Watching for ${tracker.matchCount} matching digits (${seq_len}/${tracker.matchCount}).`,
                 });
             }
-            tracker.phase = 'collecting';
-            return empty();
+            return empty({ sequence_length: seq_len });
         }
 
-        tracker.reference = sequence.slice(-tracker.windowSize);
-        tracker.currentWindow = [];
-        tracker.nextIndex = 0;
-        tracker.tradesInWindow = 0;
-        tracker.phase = 'trading';
+        const recent = sequence.slice(-tracker.matchCount);
+        if (!allSameDigit(recent)) {
+            return empty({ sequence_length: seq_len });
+        }
+
+        tracker.targetDigit = recent[0];
+        tracker.matchEndLength = seq_len;
+        tracker.matchNotified = false;
+        tracker.waitNotified = false;
         tracker.lastPrediction = -1;
-        tracker.referenceReadyNotified = false;
-    }
 
-    const index = tracker.nextIndex;
-    if (index < 0 || index >= tracker.reference.length) {
-        tracker.phase = 'collecting';
-        tracker.reference = [];
-        tracker.nextIndex = 0;
-        tracker.lastPrediction = -1;
-        tracker.referenceReadyNotified = false;
-        return empty();
-    }
-
-    const prediction = tracker.reference[index];
-    tracker.lastPrediction = prediction;
-
-    if (options.journal_enabled) {
-        if (!tracker.referenceReadyNotified) {
-            tracker.referenceReadyNotified = true;
+        if (options.journal_enabled) {
             journal_messages.push({
                 className: 'journal__text--success',
-                message: [
-                    'Reference window ready — trading every tick.',
-                    tracker.reference.map((d, i) => `${i + 1}:${d}`).join(', '),
-                ].join('\n'),
+                message: `Matched ${tracker.matchCount}× digit ${tracker.targetDigit}.`,
             });
+            tracker.matchNotified = true;
         }
-        journal_messages.push({
-            className: 'journal__text--success',
-            message: `Index ${index + 1}/${tracker.windowSize} → DIFFERS ${prediction}`,
-        });
+
+        if (tracker.waitTicks <= 0) {
+            tracker.phase = 'armed';
+            tracker.lastPrediction = tracker.targetDigit;
+            if (options.journal_enabled) {
+                journal_messages.push({
+                    className: 'journal__text--success',
+                    message: `DIFFERS ${tracker.targetDigit} (no wait).`,
+                });
+            }
+            return {
+                prediction: tracker.lastPrediction,
+                allowed: true,
+                enabled: true,
+                phase: tracker.phase,
+                target_digit: tracker.targetDigit,
+                wait_remaining: 0,
+                match_count: tracker.matchCount,
+                trade_wait: tracker.waitTicks,
+                journal_messages,
+            };
+        }
+
+        tracker.phase = 'waiting';
+        if (options.journal_enabled) {
+            journal_messages.push({
+                className: 'journal__text',
+                message: `Waiting ${tracker.waitTicks} tick(s) before Differs ${tracker.targetDigit}.`,
+            });
+            tracker.waitNotified = true;
+        }
+        return empty({ sequence_length: seq_len });
     }
 
-    return {
-        prediction,
-        allowed: true,
-        enabled: true,
-        phase: tracker.phase,
-        index,
-        window_size: tracker.windowSize,
-        reference: tracker.reference.slice(),
-        journal_messages,
-    };
+    if (tracker.phase === 'waiting') {
+        if (seq_len < tracker.matchEndLength) {
+            // History reset — start over.
+            resetWindowIndexDiffersState(tracker);
+            return empty({ sequence_length: seq_len });
+        }
+
+        const waited = seq_len - tracker.matchEndLength;
+        if (waited < tracker.waitTicks) {
+            if (options.journal_enabled) {
+                journal_messages.push({
+                    className: 'journal__text',
+                    message: `Waiting ${waited}/${tracker.waitTicks} before Differs ${tracker.targetDigit}.`,
+                });
+            }
+            return empty({
+                sequence_length: seq_len,
+                wait_remaining: tracker.waitTicks - waited,
+            });
+        }
+
+        tracker.phase = 'armed';
+        tracker.lastPrediction = tracker.targetDigit;
+        if (options.journal_enabled) {
+            journal_messages.push({
+                className: 'journal__text--success',
+                message: `Wait complete → DIFFERS ${tracker.targetDigit}`,
+            });
+        }
+        return {
+            prediction: tracker.lastPrediction,
+            allowed: true,
+            enabled: true,
+            phase: tracker.phase,
+            target_digit: tracker.targetDigit,
+            wait_remaining: 0,
+            match_count: tracker.matchCount,
+            trade_wait: tracker.waitTicks,
+            journal_messages,
+        };
+    }
+
+    return empty({ sequence_length: seq_len });
 };

@@ -1700,14 +1700,14 @@ export const STRATEGIES = (): TStrategies => ({
     },
     WINDOW_INDEX_DIFFERS: {
         name: 'window_index_differs',
-        label: localize('Window Index Differs'),
-        rs_strategy_name: 'window index differs',
+        label: localize('Same-Digit Wait Differs'),
+        rs_strategy_name: 'same digit wait differs',
         description: [
             {
                 type: 'text',
                 content: [
                     localize(
-                        'Collects n digits as a reference window (indexes 1..n). In the next window of n ticks, Differs each index against the digit that was at the same index in the previous window, then rolls forward. Uses the same payout-based recovery as Digit Successor Differs (default 9.6%). Stops at your profit or consecutive-loss threshold.'
+                        'Watches the last N ticks (default 2). When they are all the same digit, waits M ticks (default 2), then places Digit Differs on that digit. Uses the same payout-based recovery as Digit Successor Differs (default 9.6%). Stops at your profit or consecutive-loss threshold.'
                     ),
                 ],
             },
@@ -1718,8 +1718,22 @@ export const STRATEGIES = (): TStrategies => ({
                 SYMBOL(),
                 LABEL_STAKE(),
                 STAKE(),
-                LABEL_TICK_WINDOW(),
+                {
+                    type: 'label',
+                    label: localize('Matching ticks'),
+                    description: localize(
+                        'How many consecutive last digits must be the same before the wait starts. Default 2.'
+                    ),
+                },
                 TICK_WINDOW(),
+                {
+                    type: 'label',
+                    label: localize('Wait ticks'),
+                    description: localize(
+                        'After a matching run is found, wait this many ticks, then Differs that digit. Default 2.'
+                    ),
+                },
+                TRADE_WAIT(),
             ],
             [
                 LABEL_PAYOUT_PERCENT(),
@@ -1735,7 +1749,7 @@ export const STRATEGIES = (): TStrategies => ({
                     name: 'boolean_strategy',
                     label: localize('Enable strategy'),
                     description: localize(
-                        'Turn this feature on or off. When off, no Window Index Differs signals are produced.'
+                        'Turn this feature on or off. When off, no Same-Digit Wait Differs signals are produced.'
                     ),
                 },
                 CHECKBOX_JOURNAL(),

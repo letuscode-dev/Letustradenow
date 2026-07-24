@@ -871,7 +871,12 @@ export const ToolboxItems = () =>
                         </Value>
                         <Value name='TICK_WINDOW'>
                             <Shadow type='math_number'>
-                                <Field name='NUM'>5</Field>
+                                <Field name='NUM'>2</Field>
+                            </Shadow>
+                        </Value>
+                        <Value name='TRADE_WAIT'>
+                            <Shadow type='math_number'>
+                                <Field name='NUM'>2</Field>
                             </Shadow>
                         </Value>
                         <Value name='JOURNAL'>

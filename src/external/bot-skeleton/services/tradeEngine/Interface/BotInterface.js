@@ -175,9 +175,8 @@ const getBotInterface = tradeEngine => {
             return evaluateConsecutiveDigitsOver(window_digits, opts);
         },
         /**
-         * Window Index Differs — reference window of n digits; next window Differs
-         * each index against the digit at the same index in the previous window.
-         * Trading path is sync (no history await) so consecutive ticks are not skipped.
+         * Same-Digit Wait Differs — when the last N digits match, wait M ticks,
+         * then Differs that digit. Needs live digit length while waiting/armed.
          */
         evaluateWindowIndexDiffers: async options => {
             const opts = options || {};
@@ -187,18 +186,19 @@ const getBotInterface = tradeEngine => {
                 );
             }
             const state = tradeEngine.windowIndexDiffersState;
-            const window_size = Math.max(2, Math.floor(Number(opts.tick_window)) || 5);
+            const match_count = Math.max(2, Math.floor(Number(opts.tick_window)) || 2);
+            const wait_ticks = Math.max(0, Math.floor(Number(opts.trade_wait)) || 0);
+            const need = Math.max(match_count + wait_ticks + 2, match_count);
 
-            // Fast path while trading: prediction comes from reference[index] only.
-            if (state.phase === 'trading' && state.reference.length >= state.windowSize) {
+            // Armed: keep returning the locked prediction without blocking on history.
+            if (state.phase === 'armed' && state.lastPrediction >= 0 && state.lastPrediction <= 9) {
                 return evaluateWindowIndexDiffers([], opts, state);
             }
 
-            // Collecting: use live cache first; request history only if still short.
-            let digits = tradeEngine.getCachedLastDigitList(window_size);
-            if (!Array.isArray(digits) || digits.length < window_size) {
+            let digits = tradeEngine.getCachedLastDigitList(need);
+            if (!Array.isArray(digits) || digits.length < need) {
                 digits = tradeEngine.ensureTickHistory
-                    ? await tradeEngine.ensureTickHistory(window_size)
+                    ? await tradeEngine.ensureTickHistory(need)
                     : digits;
             }
             return evaluateWindowIndexDiffers(

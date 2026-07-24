@@ -8,16 +8,18 @@ window.Blockly.Blocks.window_index_differs_prediction = {
     definition() {
         return {
             message0: localize(
-                'window index Differs (on {{ enabled }}, window {{ window }}, journal {{ journal }})',
+                'same-digit wait Differs (on {{ enabled }}, match {{ match }}, wait {{ wait }}, journal {{ journal }})',
                 {
                     enabled: '%1',
-                    window: '%2',
-                    journal: '%3',
+                    match: '%2',
+                    wait: '%3',
+                    journal: '%4',
                 }
             ),
             args0: [
                 { type: 'input_value', name: 'ENABLED', check: 'Boolean' },
                 { type: 'input_value', name: 'TICK_WINDOW', check: 'Number' },
+                { type: 'input_value', name: 'TRADE_WAIT', check: 'Number' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
             output: 'Number',
@@ -26,18 +28,18 @@ window.Blockly.Blocks.window_index_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Collects n digits as a reference window. In the next window, Differs each index against the digit that was at the same index previously. Returns -1 while collecting or waiting.'
+                'When the last N ticks are the same digit, waits M ticks then returns that digit for Digit Differs. Returns -1 while watching or waiting.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
     },
     meta() {
         return {
-            display_name: localize('Window index Differs prediction'),
+            display_name: localize('Same-digit wait Differs prediction'),
             description: localize(
-                'Uses a rolling n-tick reference window. For each index 1..n in the next window, places Digit Differs on the digit from the same index in the previous window, then rolls forward.'
+                'Tracks the last N last digits. If they match, waits M ticks, then Differs that digit. Uses payout-based recovery after losses.'
             ),
-            key_words: localize('window, index, differs, recovery, barrier'),
+            key_words: localize('same, match, wait, differs, recovery, barrier'),
         };
     },
     customContextMenu(menu) {
@@ -56,7 +58,8 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.window_index_differs_pred
     const code = `(function () {
         var BinaryBotPrivateWidResult = Bot.evaluateWindowIndexDiffers({
             enabled: ${read('ENABLED') || 'true'},
-            tick_window: ${read('TICK_WINDOW') || '5'},
+            tick_window: ${read('TICK_WINDOW') || '2'},
+            trade_wait: ${read('TRADE_WAIT') || '2'},
             journal_enabled: ${read('JOURNAL') || 'true'}
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivateWidResult && BinaryBotPrivateWidResult.journal_messages;

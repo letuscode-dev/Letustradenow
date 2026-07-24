@@ -88,7 +88,7 @@
     </statement>
     <statement name="INITIALIZATION">
       <block type="procedures_callnoreturn" id="cdoInitNumsCall001LetUsTrade">
-        <mutation name="Window Index Differs Numbers">
+        <mutation name="Same-Digit Wait Differs Numbers">
           <arg name="initialStake"></arg>
           <arg name="profitThreshold"></arg>
           <arg name="lossThreshold"></arg>
@@ -113,7 +113,7 @@
         </value>
         <next>
           <block type="procedures_callnoreturn" id="cdoInitBoolsCall001LetUsTrade">
-            <mutation name="Window Index Differs Booleans">
+            <mutation name="Same-Digit Wait Differs Booleans">
               <arg name="enableStrategy"></arg>
               <arg name="journal"></arg>
             </mutation>
@@ -137,7 +137,10 @@
               <block type="variables_get" id="cdoGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">windowIndexDiffers:enabled</field></block>
             </value>
             <value name="TICK_WINDOW" strategy_value="tick_window">
-              <block type="math_number" id="cdoTickWin001"><field name="NUM">5</field></block>
+              <block type="math_number" id="cdoTickWin001"><field name="NUM">2</field></block>
+            </value>
+            <value name="TRADE_WAIT" strategy_value="trade_wait">
+              <block type="math_number" id="cdoTradeWait001"><field name="NUM">2</field></block>
             </value>
             <value name="JOURNAL">
               <block type="variables_get" id="cdoGetJnl001"><field name="VAR" id="cdoJournal001LetUsTrade" variabletype="">windowIndexDiffers:journal</field></block>
@@ -258,7 +261,7 @@
       <arg name="payoutPercent" varid="cdoP_payout"></arg>
       <arg name="recoverySplits" varid="cdoP_splits"></arg>
     </mutation>
-    <field name="NAME">Window Index Differs Numbers</field>
+    <field name="NAME">Same-Digit Wait Differs Numbers</field>
     <statement name="STACK">
       <block type="variables_set" id="cdoFnStake001">
         <field name="VAR" id="[$B]vBH,~wrN`PUt5m/f" variabletype="">martingale:initialStake</field>
@@ -320,7 +323,7 @@
       <arg name="enableStrategy" varid="cdoP_enabled"></arg>
       <arg name="journal" varid="cdoP_journal"></arg>
     </mutation>
-    <field name="NAME">Window Index Differs Booleans</field>
+    <field name="NAME">Same-Digit Wait Differs Booleans</field>
     <statement name="STACK">
       <block type="variables_set" id="cdoFnEn001">
         <field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">windowIndexDiffers:enabled</field>
