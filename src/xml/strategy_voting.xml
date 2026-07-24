@@ -132,142 +132,9 @@
       <block type="variables_set" id="dtSetPred001LetUsTrade">
         <field name="VAR" id="dtPredVar001LetUsTrade" variabletype="">predicted_digit</field>
         <value name="VALUE">
-          <block type="strategy_voting_prediction" id="svPredBlk001LetUsTrade">
-            <value name="ENABLED">
-              <block type="variables_get" id="svGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">strategyVoting:enabled</field></block>
-            </value>
-            <value name="TICK_WINDOW" strategy_value="tick_window">
-              <block type="math_number" id="svTickWin001"><field name="NUM">50</field></block>
-            </value>
-            <value name="CONFIDENCE" strategy_value="confidence_threshold">
-              <block type="math_number" id="svConf001"><field name="NUM">70</field></block>
-            </value>
-            <value name="MIN_VOTERS" strategy_value="min_voting_strategies">
-              <block type="math_number" id="svMinV001"><field name="NUM">3</field></block>
-            </value>
-            <value name="MAX_ABSTAIN" strategy_value="max_abstaining_strategies">
-              <block type="math_number" id="svMaxA001"><field name="NUM">15</field></block>
-            </value>
-            <value name="JOURNAL">
-              <block type="variables_get" id="svGetJnl001"><field name="VAR" id="cdoJournal001LetUsTrade" variabletype="">strategyVoting:journal</field></block>
-            </value>
-            <value name="VOTE_SUMMARY" strategy_value="boolean_vote_summary">
-              <block type="logic_boolean" id="svSum001"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="TIE_REJECTION" strategy_value="boolean_tie_rejection">
-              <block type="logic_boolean" id="svTie001"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="DEBUG" strategy_value="boolean_debug">
-              <block type="logic_boolean" id="svDbg001"><field name="BOOL">FALSE</field></block>
-            </value>
-            <value name="EN_digit_successor" strategy_value="boolean_sv_digit_successor">
-              <block type="logic_boolean" id="svEn1"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_digit_successor" strategy_value="weight_sv_digit_successor">
-              <block type="math_number" id="svWt1"><field name="NUM">1.5</field></block>
-            </value>
-            <value name="EN_complement_digit" strategy_value="boolean_sv_complement_digit">
-              <block type="logic_boolean" id="svEn2"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_complement_digit" strategy_value="weight_sv_complement_digit">
-              <block type="math_number" id="svWt2"><field name="NUM">1.2</field></block>
-            </value>
-            <value name="EN_digit_transition" strategy_value="boolean_sv_digit_transition">
-              <block type="logic_boolean" id="svEn3"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_digit_transition" strategy_value="weight_sv_digit_transition">
-              <block type="math_number" id="svWt3"><field name="NUM">1.0</field></block>
-            </value>
-            <value name="EN_cold_digit" strategy_value="boolean_sv_cold_digit">
-              <block type="logic_boolean" id="svEn4"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_cold_digit" strategy_value="weight_sv_cold_digit">
-              <block type="math_number" id="svWt4"><field name="NUM">2.0</field></block>
-            </value>
-            <value name="EN_least_frequent" strategy_value="boolean_sv_least_frequent">
-              <block type="logic_boolean" id="svEn5"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_least_frequent" strategy_value="weight_sv_least_frequent">
-              <block type="math_number" id="svWt5"><field name="NUM">1.4</field></block>
-            </value>
-            <value name="EN_most_frequent" strategy_value="boolean_sv_most_frequent">
-              <block type="logic_boolean" id="svEn6"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_most_frequent" strategy_value="weight_sv_most_frequent">
-              <block type="math_number" id="svWt6"><field name="NUM">1.0</field></block>
-            </value>
-            <value name="EN_streak_breaker" strategy_value="boolean_sv_streak_breaker">
-              <block type="logic_boolean" id="svEn7"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_streak_breaker" strategy_value="weight_sv_streak_breaker">
-              <block type="math_number" id="svWt7"><field name="NUM">1.8</field></block>
-            </value>
-            <value name="EN_last_repeat" strategy_value="boolean_sv_last_repeat">
-              <block type="logic_boolean" id="svEn8"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_last_repeat" strategy_value="weight_sv_last_repeat">
-              <block type="math_number" id="svWt8"><field name="NUM">1.3</field></block>
-            </value>
-            <value name="EN_absent_digit" strategy_value="boolean_sv_absent_digit">
-              <block type="logic_boolean" id="svEn9"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_absent_digit" strategy_value="weight_sv_absent_digit">
-              <block type="math_number" id="svWt9"><field name="NUM">1.6</field></block>
-            </value>
-            <value name="EN_second_last" strategy_value="boolean_sv_second_last">
-              <block type="logic_boolean" id="svEn10"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_second_last" strategy_value="weight_sv_second_last">
-              <block type="math_number" id="svWt10"><field name="NUM">0.9</field></block>
-            </value>
-            <value name="EN_parity_fade" strategy_value="boolean_sv_parity_fade">
-              <block type="logic_boolean" id="svEn11"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_parity_fade" strategy_value="weight_sv_parity_fade">
-              <block type="math_number" id="svWt11"><field name="NUM">1.1</field></block>
-            </value>
-            <value name="EN_edge_fade" strategy_value="boolean_sv_edge_fade">
-              <block type="logic_boolean" id="svEn12"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_edge_fade" strategy_value="weight_sv_edge_fade">
-              <block type="math_number" id="svWt12"><field name="NUM">1.0</field></block>
-            </value>
-            <value name="EN_oscillation" strategy_value="boolean_sv_oscillation">
-              <block type="logic_boolean" id="svEn13"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_oscillation" strategy_value="weight_sv_oscillation">
-              <block type="math_number" id="svWt13"><field name="NUM">1.3</field></block>
-            </value>
-            <value name="EN_mid_range" strategy_value="boolean_sv_mid_range">
-              <block type="logic_boolean" id="svEn14"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_mid_range" strategy_value="weight_sv_mid_range">
-              <block type="math_number" id="svWt14"><field name="NUM">1.0</field></block>
-            </value>
-            <value name="EN_rising_run" strategy_value="boolean_sv_rising_run">
-              <block type="logic_boolean" id="svEn15"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_rising_run" strategy_value="weight_sv_rising_run">
-              <block type="math_number" id="svWt15"><field name="NUM">1.2</field></block>
-            </value>
-            <value name="EN_falling_run" strategy_value="boolean_sv_falling_run">
-              <block type="logic_boolean" id="svEn16"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_falling_run" strategy_value="weight_sv_falling_run">
-              <block type="math_number" id="svWt16"><field name="NUM">1.2</field></block>
-            </value>
-            <value name="EN_unique_tail" strategy_value="boolean_sv_unique_tail">
-              <block type="logic_boolean" id="svEn17"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_unique_tail" strategy_value="weight_sv_unique_tail">
-              <block type="math_number" id="svWt17"><field name="NUM">1.1</field></block>
-            </value>
-            <value name="EN_modal_neighbor" strategy_value="boolean_sv_modal_neighbor">
-              <block type="logic_boolean" id="svEn18"><field name="BOOL">TRUE</field></block>
-            </value>
-            <value name="WT_modal_neighbor" strategy_value="weight_sv_modal_neighbor">
-              <block type="math_number" id="svWt18"><field name="NUM">1.0</field></block>
-            </value>
+          <block type="procedures_callreturn" id="svCallPred001LetUsTrade">
+            <mutation name="Strategy Voting Prediction"></mutation>
+            <data>svPredFn001LetUsTrade</data>
           </block>
         </value>
         <next>
@@ -996,6 +863,148 @@
       <block type="variables_get" id="j?CldGzC$5jEF4LPS]9j">
         <field name="VAR" id="6G^6o^Ic@rjF|sHv*m.6" variabletype="">martingale:tradeAgain</field>
       </block>
+    </value>
+  </block>
+  <block type="procedures_defreturn" id="svPredFn001LetUsTrade" collapsed="true" x="0" y="1120">
+    <field name="NAME">Strategy Voting Prediction</field>
+    <value name="RETURN">
+      <block type="strategy_voting_prediction" id="svPredBlk001LetUsTrade">
+            <value name="ENABLED">
+              <block type="variables_get" id="svGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">strategyVoting:enabled</field></block>
+            </value>
+            <value name="TICK_WINDOW" strategy_value="tick_window">
+              <block type="math_number" id="svTickWin001"><field name="NUM">50</field></block>
+            </value>
+            <value name="CONFIDENCE" strategy_value="confidence_threshold">
+              <block type="math_number" id="svConf001"><field name="NUM">70</field></block>
+            </value>
+            <value name="MIN_VOTERS" strategy_value="min_voting_strategies">
+              <block type="math_number" id="svMinV001"><field name="NUM">3</field></block>
+            </value>
+            <value name="MAX_ABSTAIN" strategy_value="max_abstaining_strategies">
+              <block type="math_number" id="svMaxA001"><field name="NUM">15</field></block>
+            </value>
+            <value name="JOURNAL">
+              <block type="variables_get" id="svGetJnl001"><field name="VAR" id="cdoJournal001LetUsTrade" variabletype="">strategyVoting:journal</field></block>
+            </value>
+            <value name="VOTE_SUMMARY" strategy_value="boolean_vote_summary">
+              <block type="logic_boolean" id="svSum001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="TIE_REJECTION" strategy_value="boolean_tie_rejection">
+              <block type="logic_boolean" id="svTie001"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="DEBUG" strategy_value="boolean_debug">
+              <block type="logic_boolean" id="svDbg001"><field name="BOOL">FALSE</field></block>
+            </value>
+            <value name="EN_digit_successor" strategy_value="boolean_sv_digit_successor">
+              <block type="logic_boolean" id="svEn1"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_digit_successor" strategy_value="weight_sv_digit_successor">
+              <block type="math_number" id="svWt1"><field name="NUM">1.5</field></block>
+            </value>
+            <value name="EN_complement_digit" strategy_value="boolean_sv_complement_digit">
+              <block type="logic_boolean" id="svEn2"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_complement_digit" strategy_value="weight_sv_complement_digit">
+              <block type="math_number" id="svWt2"><field name="NUM">1.2</field></block>
+            </value>
+            <value name="EN_digit_transition" strategy_value="boolean_sv_digit_transition">
+              <block type="logic_boolean" id="svEn3"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_digit_transition" strategy_value="weight_sv_digit_transition">
+              <block type="math_number" id="svWt3"><field name="NUM">1.0</field></block>
+            </value>
+            <value name="EN_cold_digit" strategy_value="boolean_sv_cold_digit">
+              <block type="logic_boolean" id="svEn4"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_cold_digit" strategy_value="weight_sv_cold_digit">
+              <block type="math_number" id="svWt4"><field name="NUM">2.0</field></block>
+            </value>
+            <value name="EN_least_frequent" strategy_value="boolean_sv_least_frequent">
+              <block type="logic_boolean" id="svEn5"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_least_frequent" strategy_value="weight_sv_least_frequent">
+              <block type="math_number" id="svWt5"><field name="NUM">1.4</field></block>
+            </value>
+            <value name="EN_most_frequent" strategy_value="boolean_sv_most_frequent">
+              <block type="logic_boolean" id="svEn6"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_most_frequent" strategy_value="weight_sv_most_frequent">
+              <block type="math_number" id="svWt6"><field name="NUM">1.0</field></block>
+            </value>
+            <value name="EN_streak_breaker" strategy_value="boolean_sv_streak_breaker">
+              <block type="logic_boolean" id="svEn7"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_streak_breaker" strategy_value="weight_sv_streak_breaker">
+              <block type="math_number" id="svWt7"><field name="NUM">1.8</field></block>
+            </value>
+            <value name="EN_last_repeat" strategy_value="boolean_sv_last_repeat">
+              <block type="logic_boolean" id="svEn8"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_last_repeat" strategy_value="weight_sv_last_repeat">
+              <block type="math_number" id="svWt8"><field name="NUM">1.3</field></block>
+            </value>
+            <value name="EN_absent_digit" strategy_value="boolean_sv_absent_digit">
+              <block type="logic_boolean" id="svEn9"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_absent_digit" strategy_value="weight_sv_absent_digit">
+              <block type="math_number" id="svWt9"><field name="NUM">1.6</field></block>
+            </value>
+            <value name="EN_second_last" strategy_value="boolean_sv_second_last">
+              <block type="logic_boolean" id="svEn10"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_second_last" strategy_value="weight_sv_second_last">
+              <block type="math_number" id="svWt10"><field name="NUM">0.9</field></block>
+            </value>
+            <value name="EN_parity_fade" strategy_value="boolean_sv_parity_fade">
+              <block type="logic_boolean" id="svEn11"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_parity_fade" strategy_value="weight_sv_parity_fade">
+              <block type="math_number" id="svWt11"><field name="NUM">1.1</field></block>
+            </value>
+            <value name="EN_edge_fade" strategy_value="boolean_sv_edge_fade">
+              <block type="logic_boolean" id="svEn12"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_edge_fade" strategy_value="weight_sv_edge_fade">
+              <block type="math_number" id="svWt12"><field name="NUM">1.0</field></block>
+            </value>
+            <value name="EN_oscillation" strategy_value="boolean_sv_oscillation">
+              <block type="logic_boolean" id="svEn13"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_oscillation" strategy_value="weight_sv_oscillation">
+              <block type="math_number" id="svWt13"><field name="NUM">1.3</field></block>
+            </value>
+            <value name="EN_mid_range" strategy_value="boolean_sv_mid_range">
+              <block type="logic_boolean" id="svEn14"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_mid_range" strategy_value="weight_sv_mid_range">
+              <block type="math_number" id="svWt14"><field name="NUM">1.0</field></block>
+            </value>
+            <value name="EN_rising_run" strategy_value="boolean_sv_rising_run">
+              <block type="logic_boolean" id="svEn15"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_rising_run" strategy_value="weight_sv_rising_run">
+              <block type="math_number" id="svWt15"><field name="NUM">1.2</field></block>
+            </value>
+            <value name="EN_falling_run" strategy_value="boolean_sv_falling_run">
+              <block type="logic_boolean" id="svEn16"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_falling_run" strategy_value="weight_sv_falling_run">
+              <block type="math_number" id="svWt16"><field name="NUM">1.2</field></block>
+            </value>
+            <value name="EN_unique_tail" strategy_value="boolean_sv_unique_tail">
+              <block type="logic_boolean" id="svEn17"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_unique_tail" strategy_value="weight_sv_unique_tail">
+              <block type="math_number" id="svWt17"><field name="NUM">1.1</field></block>
+            </value>
+            <value name="EN_modal_neighbor" strategy_value="boolean_sv_modal_neighbor">
+              <block type="logic_boolean" id="svEn18"><field name="BOOL">TRUE</field></block>
+            </value>
+            <value name="WT_modal_neighbor" strategy_value="weight_sv_modal_neighbor">
+              <block type="math_number" id="svWt18"><field name="NUM">1.0</field></block>
+            </value>
+          </block>
     </value>
   </block>
 </xml>
