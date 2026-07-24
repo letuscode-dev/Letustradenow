@@ -1707,7 +1707,7 @@ export const STRATEGIES = (): TStrategies => ({
                 type: 'text',
                 content: [
                     localize(
-                        'Watches the last N ticks (default 2). When they are all the same digit, waits M ticks (default 2), then places Digit Differs on that digit. Uses the same payout-based recovery as Digit Successor Differs (default 9.6%). Stops at your profit or consecutive-loss threshold.'
+                        'When previous last digit equals current last digit, waits N ticks (default 2), then places Digit Differs on that repeated digit. Uses the same payout-based recovery as Digit Successor Differs (default 9.6%). Stops at your profit or consecutive-loss threshold.'
                     ),
                 ],
             },
@@ -1720,17 +1720,9 @@ export const STRATEGIES = (): TStrategies => ({
                 STAKE(),
                 {
                     type: 'label',
-                    label: localize('Matching ticks'),
-                    description: localize(
-                        'How many consecutive last digits must be the same before the wait starts. Default 2.'
-                    ),
-                },
-                TICK_WINDOW(),
-                {
-                    type: 'label',
                     label: localize('Wait ticks'),
                     description: localize(
-                        'After a matching run is found, wait this many ticks, then Differs that digit. Default 2.'
+                        'After previous_digit equals current_digit, wait this many ticks, then Differs the repeated digit. Default 2.'
                     ),
                 },
                 TRADE_WAIT(),

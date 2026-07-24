@@ -136,9 +136,6 @@
             <value name="ENABLED">
               <block type="variables_get" id="cdoGetEn001"><field name="VAR" id="cdoEnabled001LetUsTrade" variabletype="">windowIndexDiffers:enabled</field></block>
             </value>
-            <value name="TICK_WINDOW" strategy_value="tick_window">
-              <block type="math_number" id="cdoTickWin001"><field name="NUM">2</field></block>
-            </value>
             <value name="TRADE_WAIT" strategy_value="trade_wait">
               <block type="math_number" id="cdoTradeWait001"><field name="NUM">2</field></block>
             </value>

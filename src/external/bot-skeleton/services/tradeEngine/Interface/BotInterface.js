@@ -175,37 +175,31 @@ const getBotInterface = tradeEngine => {
             return evaluateConsecutiveDigitsOver(window_digits, opts);
         },
         /**
-         * Same-Digit Wait Differs — when the last N digits match, wait M ticks,
-         * then Differs that digit. Needs live digit length while waiting/armed.
+         * Same-Digit Wait Differs — if previous_digit === current_digit, wait
+         * trade_wait ticks, then Differs that digit. Uses epoch-tagged ticks so
+         * the wait advances after the sliding cache stops growing.
          */
         evaluateWindowIndexDiffers: async options => {
             const opts = options || {};
             if (!tradeEngine.windowIndexDiffersState) {
-                tradeEngine.windowIndexDiffersState = createWindowIndexDiffersState(
-                    opts.tick_window
-                );
+                tradeEngine.windowIndexDiffersState = createWindowIndexDiffersState();
             }
             const state = tradeEngine.windowIndexDiffersState;
-            const match_count = Math.max(2, Math.floor(Number(opts.tick_window)) || 2);
-            const wait_ticks = Math.max(0, Math.floor(Number(opts.trade_wait)) || 0);
-            const need = Math.max(match_count + wait_ticks + 2, match_count);
 
-            // Armed: keep returning the locked prediction without blocking on history.
             if (state.phase === 'armed' && state.lastPrediction >= 0 && state.lastPrediction <= 9) {
                 return evaluateWindowIndexDiffers([], opts, state);
             }
 
-            let digits = tradeEngine.getCachedLastDigitList(need);
-            if (!Array.isArray(digits) || digits.length < need) {
-                digits = tradeEngine.ensureTickHistory
-                    ? await tradeEngine.ensureTickHistory(need)
-                    : digits;
+            let digit_ticks = tradeEngine.getCachedDigitTicks
+                ? tradeEngine.getCachedDigitTicks()
+                : null;
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
+                const digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(10)
+                    : tradeEngine.getCachedLastDigitList(10);
+                digit_ticks = Array.isArray(digits) ? digits : [];
             }
-            return evaluateWindowIndexDiffers(
-                Array.isArray(digits) ? digits : [],
-                opts,
-                state
-            );
+            return evaluateWindowIndexDiffers(digit_ticks, opts, state);
         },
         /**
          * Strategy Voting Engine — weighted Digit Differs votes across modular strategies.

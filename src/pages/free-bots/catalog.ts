@@ -37,9 +37,9 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'window-index-differs',
         title: localize('Same-Digit Wait Differs'),
         description: localize(
-            'When the last N ticks match (default 2), waits M ticks (default 2), then Differs that digit. Same payout recovery as bot #1 (default 9.6%).'
+            'When previous last digit equals current last digit, waits N ticks (default 2), then Differs that repeated digit. Same payout recovery as bot #1 (default 9.6%).'
         ),
-        tags: [localize('Differs'), localize('Match'), localize('Recovery')],
+        tags: [localize('Differs'), localize('Repeat'), localize('Recovery')],
         strategy: 'WINDOW_INDEX_DIFFERS',
         form: {
             symbol: '1HZ75V',
@@ -48,7 +48,6 @@ export const FREE_BOTS: FreeBot[] = [
             stake: '1',
             duration: '1',
             durationtype: 't',
-            tick_window: '2',
             trade_wait: '2',
             payout_percent: '9.6',
             recovery_splits: '1',
