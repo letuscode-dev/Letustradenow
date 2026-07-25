@@ -17,7 +17,7 @@ import './app-root.scss';
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
 
-const TAB_HASHES = new Set(['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots']);
+const TAB_HASHES = new Set(['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial']);
 
 const redirectInitialTabHashToMainUrl = () => {
     if (isPreviewMode() || typeof window === 'undefined') return;
