@@ -2,7 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import { evaluateDigitPercentageCondition } from '../utils/digit-percentage-condition';
+import { getDigitPercentageValue } from '../utils/digit-percentage-condition';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
     createRecoveryState,
@@ -259,19 +259,19 @@ const getBotInterface = tradeEngine => {
             });
         },
         /**
-         * Over / Under % of last N digits — returns the matching percentage (0–100).
-         * Middle value is the barrier digit (Over 5 → digits > 5, Under 4 → digits < 4).
+         * Over / Under % of last N digits — returns a finite number 0–100.
+         * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
+         * Returns 0 while the tick window is still filling (so comparisons stay false).
          */
         evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
-            const window_size = Math.max(1, Math.min(5000, Math.floor(Number(sample_size)) || 100));
+            const window_size = Math.max(1, Math.min(1000, Math.floor(Number(sample_size)) || 100));
             const digits = tradeEngine.ensureTickHistory
                 ? await tradeEngine.ensureTickHistory(window_size)
                 : tradeEngine.getCachedLastDigitList(window_size);
-            return evaluateDigitPercentageCondition(digits || [], {
+            return getDigitPercentageValue(digits || [], {
                 direction,
                 barrier,
                 sample_size: window_size,
-                journal_enabled: false,
             });
         },
         /**

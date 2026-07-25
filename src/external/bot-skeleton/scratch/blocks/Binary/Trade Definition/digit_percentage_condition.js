@@ -37,7 +37,7 @@ const BLOCK_DEFINITION = {
                     name: 'WINDOW',
                     value: 100,
                     min: 1,
-                    max: 5000,
+                    max: 1000,
                     precision: 1,
                 },
             ],
@@ -47,7 +47,7 @@ const BLOCK_DEFINITION = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Returns what percent of the last N digits are Over (strictly greater than) or Under (strictly less than) the barrier digit. Use with comparison blocks (>, <, …).'
+                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Example: Over 5 → share of digits 6–9. Use in math comparisons.'
             ),
             category: window.Blockly.Categories.Trade_Definition,
         };
@@ -56,7 +56,7 @@ const BLOCK_DEFINITION = {
         return {
             display_name: localize('% of last digits'),
             description: localize(
-                'Example: Over 5 % of last 100 digits returns how often digits 6–9 appeared. Under 4 % of last 100 digits returns how often digits 0–3 appeared. Choose Over or Under from the dropdown. Plug into math comparisons in Purchase conditions.'
+                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. Choose Over/Under from the dropdown, then compare with >, <, etc. in Purchase conditions.'
             ),
             key_words: localize('over, under, percentage, digits, barrier, trade parameters'),
         };
@@ -66,24 +66,22 @@ const BLOCK_DEFINITION = {
     },
 };
 
+/**
+ * Generate a direct async number call.
+ * Returning a bare number (not an object property) is required so js-interpreter
+ * comparisons like `Over% > Under%` receive real numeric operands.
+ */
 const generateDigitPercentageCode = block => {
     const direction = block.getFieldValue('DIRECTION') || 'OVER';
-    // Prefer BARRIER; keep THRESHOLD as a fallback for workspaces saved before the rename.
     const barrier_raw = block.getFieldValue('BARRIER') ?? block.getFieldValue('THRESHOLD');
     const barrier = Number(barrier_raw);
     const sample_size = Number(block.getFieldValue('WINDOW'));
-    const safe_barrier = Number.isFinite(barrier) ? barrier : 5;
-    const safe_window = Number.isFinite(sample_size) && sample_size >= 1 ? sample_size : 100;
+    const safe_barrier = Number.isFinite(barrier) ? Math.min(9, Math.max(0, Math.floor(barrier))) : 5;
+    const safe_window = Number.isFinite(sample_size) && sample_size >= 1 ? Math.min(1000, Math.floor(sample_size)) : 100;
 
-    const code = `(function () {
-        var BinaryBotPrivateDigitPctResult = Bot.evaluateDigitPercentageCondition(${JSON.stringify(
-            direction
-        )}, ${safe_barrier}, ${safe_window});
-        if (!BinaryBotPrivateDigitPctResult) {
-            return 0;
-        }
-        return Number(BinaryBotPrivateDigitPctResult.percentage) || 0;
-    })()`;
+    const code = `Bot.evaluateDigitPercentageCondition(${JSON.stringify(
+        direction
+    )}, ${safe_barrier}, ${safe_window})`;
 
     return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];
 };

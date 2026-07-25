@@ -1,8 +1,10 @@
 import {
     DEFAULT_WINDOW,
+    MAX_WINDOW,
     countMatchingDigits,
     digitMatchesDirection,
     evaluateDigitPercentageCondition,
+    getDigitPercentageValue,
 } from '../digit-percentage-condition';
 
 describe('digitMatchesDirection', () => {
@@ -85,18 +87,39 @@ describe('evaluateDigitPercentageCondition', () => {
     it('supports comparing Over % > Under % like purchase conditions', () => {
         // Over 5 → 60 digits in 6–9; Under 4 → 20 digits in 0–3
         const digits = [...Array(60).fill(8), ...Array(20).fill(1), ...Array(20).fill(5)];
-        const over = evaluateDigitPercentageCondition(digits, {
+        const over = getDigitPercentageValue(digits, {
             direction: 'OVER',
             barrier: 5,
             sample_size: 100,
         });
-        const under = evaluateDigitPercentageCondition(digits, {
+        const under = getDigitPercentageValue(digits, {
             direction: 'UNDER',
             barrier: 4,
             sample_size: 100,
         });
-        expect(over.percentage).toBe(60);
-        expect(under.percentage).toBe(20);
-        expect(over.percentage > under.percentage).toBe(true);
+        expect(over).toBe(60);
+        expect(under).toBe(20);
+        expect(over > under).toBe(true);
+    });
+
+    it('clamps the window to the Deriv history limit', () => {
+        const digits = Array.from({ length: MAX_WINDOW }, () => 8);
+        const result = evaluateDigitPercentageCondition(digits, {
+            direction: 'OVER',
+            barrier: 5,
+            sample_size: 5000,
+        });
+        expect(result.sample_size).toBe(MAX_WINDOW);
+        expect(result.percentage).toBe(100);
+    });
+
+    it('returns a plain finite number from getDigitPercentageValue while collecting', () => {
+        const value = getDigitPercentageValue([1, 2, 3], {
+            direction: 'OVER',
+            barrier: 5,
+            sample_size: 100,
+        });
+        expect(value).toBe(0);
+        expect(typeof value).toBe('number');
     });
 });

@@ -4,13 +4,16 @@
  * Over barrier B → digits strictly greater than B (e.g. Over 5 → 6–9)
  * Under barrier B → digits strictly less than B (e.g. Under 4 → 0–3)
  *
- * Returns the percentage (0–100) of matching digits in the newest window.
+ * Returns the integer percentage (0–100) of matching digits in the newest window.
+ * Deriv tick history is capped at 1000, so the window is clamped to that.
  */
 
 import { getLatestDigitSample } from './percentage-filter';
 
 export const DEFAULT_BARRIER = 5;
 export const DEFAULT_WINDOW = 100;
+/** Matches ticks_service requestTicks `count: 1000`. */
+export const MAX_WINDOW = 1000;
 
 const toDirection = value => {
     const normalized = String(value || 'OVER').toUpperCase();
@@ -36,8 +39,8 @@ const toWindow = value => {
     if (!Number.isFinite(n) || n < 1) {
         n = DEFAULT_WINDOW;
     }
-    if (n > 5000) {
-        n = 5000;
+    if (n > MAX_WINDOW) {
+        n = MAX_WINDOW;
     }
     return n;
 };
@@ -158,6 +161,7 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
     }
 
     const matching_count = countMatchingDigits(sample, direction, barrier);
+    // Integer percent so purchase comparisons stay predictable in Blockly math blocks.
     const percentage = Math.round((matching_count / sample_size) * 100);
     const message = formatDigitPercentageJournalMessage({
         status: 'ready',
@@ -179,4 +183,17 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
         journal_enabled,
         message,
     };
+};
+
+/**
+ * Convenience helper for the bot runtime — always a finite number 0–100.
+ *
+ * @param {Array<number|string>} digits
+ * @param {{ direction?: string, barrier?: number, sample_size?: number }} options
+ * @returns {number}
+ */
+export const getDigitPercentageValue = (digits, options = {}) => {
+    const result = evaluateDigitPercentageCondition(digits, options);
+    const percentage = Number(result.percentage);
+    return Number.isFinite(percentage) ? percentage : 0;
 };
