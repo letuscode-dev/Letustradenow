@@ -157,6 +157,16 @@ export const ToolboxItems = () =>
                         </Shadow>
                     </Value>
                 </Block>
+                <Block type='digit_percentage_over'>
+                    <Field name='DIRECTION'>OVER</Field>
+                    <Field name='THRESHOLD'>5</Field>
+                    <Field name='WINDOW'>100</Field>
+                </Block>
+                <Block type='digit_percentage_under'>
+                    <Field name='DIRECTION'>UNDER</Field>
+                    <Field name='THRESHOLD'>4</Field>
+                    <Field name='WINDOW'>100</Field>
+                </Block>
             </Category>
             <Category id='purchase_conditions' name={localize('Purchase conditions')}>
                 <Block type='before_purchase' />

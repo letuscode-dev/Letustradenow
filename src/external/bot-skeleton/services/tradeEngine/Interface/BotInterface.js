@@ -2,6 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
+import { evaluateDigitPercentageCondition } from '../utils/digit-percentage-condition';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
     createRecoveryState,
@@ -255,6 +256,21 @@ const getBotInterface = tradeEngine => {
                 enabled,
                 threshold,
                 journal_enabled,
+            });
+        },
+        /**
+         * Over / Under % of last N digits — configurable direction, threshold, window.
+         */
+        evaluateDigitPercentageCondition: async (direction, threshold, sample_size) => {
+            const window_size = Math.max(1, Math.min(5000, Math.floor(Number(sample_size)) || 100));
+            const digits = tradeEngine.ensureTickHistory
+                ? await tradeEngine.ensureTickHistory(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+            return evaluateDigitPercentageCondition(digits || [], {
+                direction,
+                threshold,
+                sample_size: window_size,
+                journal_enabled: true,
             });
         },
         /**
