@@ -157,14 +157,9 @@ export const ToolboxItems = () =>
                         </Shadow>
                     </Value>
                 </Block>
-                <Block type='digit_percentage_over'>
+                <Block type='digit_percentage_condition'>
                     <Field name='DIRECTION'>OVER</Field>
                     <Field name='BARRIER'>5</Field>
-                    <Field name='WINDOW'>100</Field>
-                </Block>
-                <Block type='digit_percentage_under'>
-                    <Field name='DIRECTION'>UNDER</Field>
-                    <Field name='BARRIER'>4</Field>
                     <Field name='WINDOW'>100</Field>
                 </Block>
             </Category>
