@@ -1,33 +1,32 @@
 /**
- * Digit percentage condition — Over / Under share of last N digits.
+ * Digit percentage value — Over / Under share of last N digits vs a barrier.
  *
- * Over digits: 5–9. Under digits: 0–4.
- * Passes when the selected group's share of the last `window` digits
- * is at least `threshold` percent.
+ * Over barrier B → digits strictly greater than B (e.g. Over 5 → 6–9)
+ * Under barrier B → digits strictly less than B (e.g. Under 4 → 0–3)
+ *
+ * Returns the percentage (0–100) of matching digits in the newest window.
  */
 
 import { getLatestDigitSample } from './percentage-filter';
 
-export const DEFAULT_THRESHOLD = 5;
+export const DEFAULT_BARRIER = 5;
 export const DEFAULT_WINDOW = 100;
-export const OVER_DIGITS = new Set([5, 6, 7, 8, 9]);
-export const UNDER_DIGITS = new Set([0, 1, 2, 3, 4]);
 
 const toDirection = value => {
     const normalized = String(value || 'OVER').toUpperCase();
     return normalized === 'UNDER' ? 'UNDER' : 'OVER';
 };
 
-const toThreshold = value => {
+const toBarrier = value => {
     let n = Math.floor(Number(value));
     if (!Number.isFinite(n)) {
-        n = DEFAULT_THRESHOLD;
+        n = DEFAULT_BARRIER;
     }
     if (n < 0) {
         n = 0;
     }
-    if (n > 100) {
-        n = 100;
+    if (n > 9) {
+        n = 9;
     }
     return n;
 };
@@ -45,23 +44,33 @@ const toWindow = value => {
 
 /**
  * @param {'OVER'|'UNDER'} direction
- * @returns {Set<number>}
+ * @param {number} barrier
+ * @param {number} digit
+ * @returns {boolean}
  */
-export const getDigitGroup = direction => (toDirection(direction) === 'UNDER' ? UNDER_DIGITS : OVER_DIGITS);
+export const digitMatchesDirection = (direction, barrier, digit) => {
+    if (!Number.isInteger(digit) || digit < 0 || digit > 9) {
+        return false;
+    }
+    if (toDirection(direction) === 'UNDER') {
+        return digit < barrier;
+    }
+    return digit > barrier;
+};
 
 /**
  * @param {number[]} sample
  * @param {'OVER'|'UNDER'} direction
+ * @param {number} barrier
  * @returns {number}
  */
-export const countGroupDigits = (sample, direction) => {
+export const countMatchingDigits = (sample, direction, barrier) => {
     if (!Array.isArray(sample) || sample.length === 0) {
         return 0;
     }
-    const group = getDigitGroup(direction);
     let count = 0;
     for (let i = 0; i < sample.length; i++) {
-        if (group.has(sample[i])) {
+        if (digitMatchesDirection(direction, barrier, sample[i])) {
             count += 1;
         }
     }
@@ -70,10 +79,10 @@ export const countGroupDigits = (sample, direction) => {
 
 /**
  * @param {{
- *   status: 'collecting'|'passed'|'failed',
+ *   status: 'collecting'|'ready',
  *   direction: 'OVER'|'UNDER',
+ *   barrier: number,
  *   percentage: number,
- *   threshold: number,
  *   tick_count: number,
  *   sample_size: number,
  * }} params
@@ -82,35 +91,42 @@ export const countGroupDigits = (sample, direction) => {
 export const formatDigitPercentageJournalMessage = ({
     status,
     direction,
+    barrier,
     percentage,
-    threshold,
     tick_count,
     sample_size,
 }) => {
     const label = direction === 'UNDER' ? 'Under' : 'Over';
 
     if (status === 'collecting') {
-        return `${label} digit condition collecting ticks (${tick_count}/${sample_size}).`;
+        return `${label} ${barrier}: collecting ticks (${tick_count}/${sample_size}).`;
     }
 
-    if (status === 'passed') {
-        return `${label} ${percentage}% of last ${sample_size} digits ≥ ${threshold}%. Condition passed.`;
-    }
-
-    return `${label} ${percentage}% of last ${sample_size} digits < ${threshold}%. Condition failed.`;
+    return `${label} ${barrier}: ${percentage}% of last ${sample_size} digits.`;
 };
 
 /**
  * @param {Array<number|string>} digits
- * @param {{ direction?: string, threshold?: number, sample_size?: number, journal_enabled?: boolean }} options
+ * @param {{ direction?: string, barrier?: number, sample_size?: number, journal_enabled?: boolean }} options
+ * @returns {{
+ *   percentage: number,
+ *   status: 'collecting'|'ready',
+ *   direction: 'OVER'|'UNDER',
+ *   barrier: number,
+ *   tick_count: number,
+ *   sample_size: number,
+ *   matching_count: number,
+ *   journal_enabled: boolean,
+ *   message: string,
+ * }}
  */
 export const evaluateDigitPercentageCondition = (digits, options = {}) => {
     const direction = toDirection(options.direction);
-    const threshold = toThreshold(options.threshold);
+    const barrier = toBarrier(options.barrier ?? options.threshold);
     const sample_size = toWindow(options.sample_size);
     const journal_enabled =
         options.journal_enabled === undefined || options.journal_enabled === null
-            ? true
+            ? false
             : options.journal_enabled === true ||
               options.journal_enabled === 1 ||
               options.journal_enabled === 'TRUE' ||
@@ -123,17 +139,16 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
         const message = formatDigitPercentageJournalMessage({
             status: 'collecting',
             direction,
+            barrier,
             percentage: 0,
-            threshold,
             tick_count,
             sample_size,
         });
         return {
-            allowed: false,
+            percentage: 0,
             status: 'collecting',
             direction,
-            percentage: 0,
-            threshold,
+            barrier,
             tick_count,
             sample_size,
             matching_count: 0,
@@ -142,25 +157,22 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
         };
     }
 
-    const matching_count = countGroupDigits(sample, direction);
+    const matching_count = countMatchingDigits(sample, direction, barrier);
     const percentage = Math.round((matching_count / sample_size) * 100);
-    const allowed = percentage >= threshold;
-    const status = allowed ? 'passed' : 'failed';
     const message = formatDigitPercentageJournalMessage({
-        status,
+        status: 'ready',
         direction,
+        barrier,
         percentage,
-        threshold,
         tick_count,
         sample_size,
     });
 
     return {
-        allowed,
-        status,
-        direction,
         percentage,
-        threshold,
+        status: 'ready',
+        direction,
+        barrier,
         tick_count,
         sample_size,
         matching_count,

@@ -1,82 +1,102 @@
 import {
     DEFAULT_WINDOW,
-    countGroupDigits,
+    countMatchingDigits,
+    digitMatchesDirection,
     evaluateDigitPercentageCondition,
-    getDigitGroup,
 } from '../digit-percentage-condition';
 
-describe('getDigitGroup', () => {
-    it('maps Over to digits 5–9 and Under to 0–4', () => {
-        expect([...getDigitGroup('OVER')].sort()).toEqual([5, 6, 7, 8, 9]);
-        expect([...getDigitGroup('UNDER')].sort()).toEqual([0, 1, 2, 3, 4]);
+describe('digitMatchesDirection', () => {
+    it('matches Over as strictly greater than the barrier', () => {
+        expect(digitMatchesDirection('OVER', 5, 6)).toBe(true);
+        expect(digitMatchesDirection('OVER', 5, 5)).toBe(false);
+        expect(digitMatchesDirection('OVER', 5, 4)).toBe(false);
+    });
+
+    it('matches Under as strictly less than the barrier', () => {
+        expect(digitMatchesDirection('UNDER', 4, 3)).toBe(true);
+        expect(digitMatchesDirection('UNDER', 4, 4)).toBe(false);
+        expect(digitMatchesDirection('UNDER', 4, 5)).toBe(false);
     });
 });
 
-describe('countGroupDigits', () => {
-    it('counts matching Over / Under digits', () => {
+describe('countMatchingDigits', () => {
+    it('counts Over 5 and Under 4 digits in a full 0–9 sample', () => {
         const sample = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        expect(countGroupDigits(sample, 'OVER')).toBe(5);
-        expect(countGroupDigits(sample, 'UNDER')).toBe(5);
+        expect(countMatchingDigits(sample, 'OVER', 5)).toBe(4); // 6–9
+        expect(countMatchingDigits(sample, 'UNDER', 4)).toBe(4); // 0–3
     });
 });
 
 describe('evaluateDigitPercentageCondition', () => {
-    const makeSample = (matching_count: number, direction: 'OVER' | 'UNDER', size = DEFAULT_WINDOW) => {
-        const match = direction === 'OVER' ? 7 : 2;
-        const other = direction === 'OVER' ? 1 : 8;
-        const digits: number[] = [];
-        for (let i = 0; i < matching_count; i++) {
-            digits.push(match);
-        }
+    const makeWindow = (matching: number[], filler: number, size = DEFAULT_WINDOW) => {
+        const digits = [...matching];
         while (digits.length < size) {
-            digits.push(other);
+            digits.push(filler);
         }
-        return digits;
+        return digits.slice(0, size);
     };
 
-    it('reports collecting until the window is full', () => {
+    it('returns 0 while collecting ticks', () => {
         const result = evaluateDigitPercentageCondition(Array.from({ length: 40 }, () => 7), {
             direction: 'OVER',
-            threshold: 5,
+            barrier: 5,
             sample_size: 100,
         });
-        expect(result.allowed).toBe(false);
+        expect(result.percentage).toBe(0);
         expect(result.status).toBe('collecting');
         expect(result.tick_count).toBe(40);
     });
 
-    it('passes Over when matching share meets the threshold', () => {
-        const result = evaluateDigitPercentageCondition(makeSample(10, 'OVER'), {
+    it('returns the Over barrier percentage for the last window', () => {
+        // 40 digits > 5, rest = 1 → 40%
+        const result = evaluateDigitPercentageCondition(makeWindow(Array(40).fill(8), 1), {
             direction: 'OVER',
-            threshold: 5,
+            barrier: 5,
             sample_size: 100,
         });
-        expect(result.allowed).toBe(true);
-        expect(result.status).toBe('passed');
-        expect(result.percentage).toBe(10);
-        expect(result.matching_count).toBe(10);
+        expect(result.status).toBe('ready');
+        expect(result.percentage).toBe(40);
+        expect(result.matching_count).toBe(40);
     });
 
-    it('fails Under when matching share is below the threshold', () => {
-        const result = evaluateDigitPercentageCondition(makeSample(3, 'UNDER'), {
+    it('returns the Under barrier percentage for the last window', () => {
+        // 25 digits < 4, rest = 9 → 25%
+        const result = evaluateDigitPercentageCondition(makeWindow(Array(25).fill(2), 9), {
             direction: 'UNDER',
-            threshold: 4,
+            barrier: 4,
             sample_size: 100,
         });
-        expect(result.allowed).toBe(false);
-        expect(result.status).toBe('failed');
-        expect(result.percentage).toBe(3);
+        expect(result.status).toBe('ready');
+        expect(result.percentage).toBe(25);
+        expect(result.matching_count).toBe(25);
     });
 
     it('uses only the newest window digits', () => {
-        const older = Array.from({ length: 50 }, () => 1); // Under digits
-        const newer = Array.from({ length: 100 }, () => 8); // Over digits
+        const older = Array.from({ length: 50 }, () => 1);
+        const newer = Array.from({ length: 100 }, () => 8);
         const result = evaluateDigitPercentageCondition([...older, ...newer], {
             direction: 'OVER',
-            threshold: 90,
+            barrier: 5,
             sample_size: 100,
         });
         expect(result.percentage).toBe(100);
-        expect(result.allowed).toBe(true);
+    });
+
+    it('supports comparing Over % > Under % like purchase conditions', () => {
+        // Over 5 → 60 digits in 6–9; Under 4 → 20 digits in 0–3
+        const digits = [...Array(60).fill(8), ...Array(20).fill(1), ...Array(20).fill(5)];
+        const over = evaluateDigitPercentageCondition(digits, {
+            direction: 'OVER',
+            barrier: 5,
+            sample_size: 100,
+        });
+        const under = evaluateDigitPercentageCondition(digits, {
+            direction: 'UNDER',
+            barrier: 4,
+            sample_size: 100,
+        });
+        expect(over.percentage).toBe(60);
+        expect(under.percentage).toBe(20);
+        expect(over.percentage > under.percentage).toBe(true);
     });
 });

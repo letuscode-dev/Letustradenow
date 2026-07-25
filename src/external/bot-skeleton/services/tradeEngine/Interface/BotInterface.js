@@ -259,18 +259,19 @@ const getBotInterface = tradeEngine => {
             });
         },
         /**
-         * Over / Under % of last N digits — configurable direction, threshold, window.
+         * Over / Under % of last N digits — returns the matching percentage (0–100).
+         * Middle value is the barrier digit (Over 5 → digits > 5, Under 4 → digits < 4).
          */
-        evaluateDigitPercentageCondition: async (direction, threshold, sample_size) => {
+        evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
             const window_size = Math.max(1, Math.min(5000, Math.floor(Number(sample_size)) || 100));
             const digits = tradeEngine.ensureTickHistory
                 ? await tradeEngine.ensureTickHistory(window_size)
                 : tradeEngine.getCachedLastDigitList(window_size);
             return evaluateDigitPercentageCondition(digits || [], {
                 direction,
-                threshold,
+                barrier,
                 sample_size: window_size,
-                journal_enabled: true,
+                journal_enabled: false,
             });
         },
         /**

@@ -6,7 +6,7 @@ const DIRECTION_OPTIONS = [
     [localize('Under'), 'UNDER'],
 ];
 
-const createDigitPercentageConditionBlock = ({ type, default_direction, default_threshold, display_name }) => {
+const createDigitPercentageConditionBlock = ({ type, default_direction, default_barrier, display_name }) => {
     window.Blockly.Blocks[type] = {
         init() {
             this.jsonInit(this.definition());
@@ -14,9 +14,9 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
         },
         definition() {
             return {
-                message0: localize('{{ direction }} {{ threshold }} % of last {{ window }} digits', {
+                message0: localize('{{ direction }} {{ barrier }} % of last {{ window }} digits', {
                     direction: '%1',
-                    threshold: '%2',
+                    barrier: '%2',
                     window: '%3',
                 }),
                 args0: [
@@ -27,10 +27,10 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
                     },
                     {
                         type: 'field_number',
-                        name: 'THRESHOLD',
-                        value: default_threshold,
+                        name: 'BARRIER',
+                        value: default_barrier,
                         min: 0,
-                        max: 100,
+                        max: 9,
                         precision: 1,
                     },
                     {
@@ -42,13 +42,13 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
                         precision: 1,
                     },
                 ],
-                output: 'Boolean',
-                outputShape: window.Blockly.OUTPUT_SHAPE_HEXAGONAL,
+                output: 'Number',
+                outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
                 colour: window.Blockly.Colours.Special1.colour,
                 colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
                 colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
                 tooltip: localize(
-                    'True when the selected Over (5–9) or Under (0–4) digit group makes up at least the given percent of the last N digits. Over, Under, percent, and window are all configurable.'
+                    'Returns what percent of the last N digits are Over (strictly greater than) or Under (strictly less than) the barrier digit. Use with comparison blocks (>, <, …).'
                 ),
                 category: window.Blockly.Categories.Trade_Definition,
             };
@@ -57,9 +57,9 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
             return {
                 display_name,
                 description: localize(
-                    'Checks whether Over digits (5–9) or Under digits (0–4) meet your percentage threshold across the last N ticks. Use inside Purchase conditions (for example with an if block) before buying.'
+                    'Example: Over 5 % of last 100 digits returns how often digits 6–9 appeared. Under 4 % of last 100 digits returns how often digits 0–3 appeared. Plug into math comparisons in Purchase conditions.'
                 ),
-                key_words: localize('over, under, percentage, digits, trade parameters, filter'),
+                key_words: localize('over, under, percentage, digits, barrier, trade parameters'),
             };
         },
         customContextMenu(menu) {
@@ -69,31 +69,21 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
 
     window.Blockly.JavaScript.javascriptGenerator.forBlock[type] = block => {
         const direction = block.getFieldValue('DIRECTION') || default_direction;
-        const threshold = Number(block.getFieldValue('THRESHOLD'));
+        // Prefer BARRIER; keep THRESHOLD as a fallback for workspaces saved before the rename.
+        const barrier_raw = block.getFieldValue('BARRIER') ?? block.getFieldValue('THRESHOLD');
+        const barrier = Number(barrier_raw);
         const sample_size = Number(block.getFieldValue('WINDOW'));
-        const safe_threshold = Number.isFinite(threshold) ? threshold : default_threshold;
+        const safe_barrier = Number.isFinite(barrier) ? barrier : default_barrier;
         const safe_window = Number.isFinite(sample_size) && sample_size >= 1 ? sample_size : 100;
 
         const code = `(function () {
             var BinaryBotPrivateDigitPctResult = Bot.evaluateDigitPercentageCondition(${JSON.stringify(
                 direction
-            )}, ${safe_threshold}, ${safe_window});
-            if (BinaryBotPrivateDigitPctResult && BinaryBotPrivateDigitPctResult.journal_enabled) {
-                var BinaryBotPrivateDigitPctClass = 'journal__text';
-                if (BinaryBotPrivateDigitPctResult.status === 'passed') {
-                    BinaryBotPrivateDigitPctClass = 'journal__text--success';
-                } else if (BinaryBotPrivateDigitPctResult.status === 'failed') {
-                    BinaryBotPrivateDigitPctClass = 'journal__text--error';
-                }
-                Bot.notify({
-                    className: BinaryBotPrivateDigitPctClass,
-                    message: BinaryBotPrivateDigitPctResult.message,
-                    sound: 'silent',
-                    block_id: ${JSON.stringify(block.id)},
-                    variable_name: null
-                });
+            )}, ${safe_barrier}, ${safe_window});
+            if (!BinaryBotPrivateDigitPctResult) {
+                return 0;
             }
-            return !!(BinaryBotPrivateDigitPctResult && BinaryBotPrivateDigitPctResult.allowed);
+            return Number(BinaryBotPrivateDigitPctResult.percentage) || 0;
         })()`;
 
         return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];
@@ -103,13 +93,13 @@ const createDigitPercentageConditionBlock = ({ type, default_direction, default_
 createDigitPercentageConditionBlock({
     type: 'digit_percentage_over',
     default_direction: 'OVER',
-    default_threshold: 5,
+    default_barrier: 5,
     display_name: localize('Over % of last digits'),
 });
 
 createDigitPercentageConditionBlock({
     type: 'digit_percentage_under',
     default_direction: 'UNDER',
-    default_threshold: 4,
+    default_barrier: 4,
     display_name: localize('Under % of last digits'),
 });
