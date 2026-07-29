@@ -132,9 +132,11 @@ export default Engine =>
         }
 
         /**
-         * Ensure at least `minimum_tick_count` ticks are available by requesting
-         * Deriv ticks_history when the live cache is short. After the first
-         * successful subscribe, new ticks continue to update the cache.
+         * Ensure at least `minimum_tick_count` ticks are available.
+         *
+         * Prefer a one-shot history fill when the live cache is short. A subscribe:1
+         * request often hits AlreadySubscribed and returns a tiny buffer; live updates
+         * then only slide that short window, so strategies waiting for N digits stall.
          *
          * @param {number} minimum_tick_count
          * @returns {Promise<number[]>} last-digit list (oldest → newest)
@@ -144,25 +146,26 @@ export default Engine =>
                 return [];
             }
 
-            const required = Math.max(1, Math.floor(Number(minimum_tick_count)) || 100);
-            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            const required = Math.max(1, Math.min(1000, Math.floor(Number(minimum_tick_count)) || 100));
+            let cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
 
             if (cached_ticks?.length >= required) {
                 return this.getLastDigitsFromList(cached_ticks);
             }
 
-            // Force a Deriv history request (bypasses request()'s "any cache" short-circuit
-            // so a short live buffer cannot block loading a full sample).
-            const ticks = await this.$scope.ticksService.requestTicks({
-                symbol: this.symbol,
-                style: 'ticks',
-            });
-
-            if (Array.isArray(ticks) && ticks.length) {
-                return this.getLastDigitsFromList(ticks);
+            if (typeof this.$scope.ticksService.requestHistoryFill === 'function') {
+                cached_ticks = await this.$scope.ticksService.requestHistoryFill(this.symbol, required);
+            } else {
+                const ticks = await this.$scope.ticksService.requestTicks({
+                    symbol: this.symbol,
+                    style: 'ticks',
+                });
+                if (Array.isArray(ticks) && ticks.length) {
+                    cached_ticks = ticks;
+                }
             }
 
-            const refreshed = this.$scope.ticksService.getCachedTicks(this.symbol);
+            const refreshed = this.$scope.ticksService.getCachedTicks(this.symbol) || cached_ticks;
             return refreshed?.length ? this.getLastDigitsFromList(refreshed) : [];
         }
 

@@ -20,7 +20,19 @@ const parseOhlc = ohlc => ({
 
 const parseCandles = candles => candles.map(t => parseOhlc(t));
 
-const updateTicks = (ticks, newTick) => (getLast(ticks).epoch >= newTick.epoch ? ticks : [...ticks.slice(1), newTick]);
+const updateTicks = (ticks, newTick) => {
+    if (!Array.isArray(ticks) || ticks.length === 0) {
+        return [newTick];
+    }
+    if (getLast(ticks).epoch >= newTick.epoch) {
+        return ticks;
+    }
+    // Grow until the Deriv history cap so a short AlreadySubscribed buffer can recover.
+    if (ticks.length < 1000) {
+        return [...ticks, newTick];
+    }
+    return [...ticks.slice(1), newTick];
+};
 
 const updateCandles = (candles, ohlc) => {
     const lastCandle = getLast(candles);
@@ -314,6 +326,54 @@ export default class TicksService {
                     reject(error);
                 });
         });
+    }
+
+    /**
+     * One-shot ticks_history fill (no subscribe). Used when the live cache is shorter
+     * than a strategy window — subscribe:1 often returns AlreadySubscribed with a
+     * short buffer that would otherwise never grow past its initial length.
+     *
+     * @param {string} symbol
+     * @param {number} count
+     * @returns {Promise<Array<{epoch:number, quote:number}>>}
+     */
+    requestHistoryFill(symbol, count = 1000) {
+        const required = Math.max(1, Math.min(1000, Math.floor(Number(count)) || 1000));
+        const cached = this.getCachedTicks(symbol);
+
+        if (cached?.length >= required) {
+            return Promise.resolve(cached);
+        }
+
+        if (!api_base.api) {
+            return Promise.resolve(cached || []);
+        }
+
+        const request_object = {
+            ticks_history: symbol === 'na' ? 'R_100' : symbol,
+            end: 'latest',
+            count: 1000,
+            style: 'ticks',
+        };
+
+        return doUntilDone(() => api_base.api.send(request_object), [], api_base)
+            .then(r => {
+                const history = historyToTicks(r.history);
+                const existing = this.getCachedTicks(symbol) || [];
+
+                if (!Array.isArray(history) || history.length === 0) {
+                    return existing;
+                }
+
+                const last_history_epoch = Number(history[history.length - 1]?.epoch);
+                const newer_live = Array.isArray(existing)
+                    ? existing.filter(tick => Number(tick?.epoch) > last_history_epoch)
+                    : [];
+                const merged = [...history, ...newer_live].slice(-1000);
+                this.updateTicksAndCallListeners(symbol, merged);
+                return merged;
+            })
+            .catch(() => this.getCachedTicks(symbol) || []);
     }
 
     forget = () => {

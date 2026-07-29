@@ -262,13 +262,30 @@ const getBotInterface = tradeEngine => {
          * Over / Under % of last N digits — returns a finite number 0–100.
          * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
          * Returns 0 while the tick window is still filling (so comparisons stay false).
+         *
+         * Snapshots digits once per tick tip so Over and Under in the same comparison
+         * always see the identical window (avoids intermittent flip-flops).
          */
         evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
             const window_size = Math.max(1, Math.min(1000, Math.floor(Number(sample_size)) || 100));
-            const digits = tradeEngine.ensureTickHistory
-                ? await tradeEngine.ensureTickHistory(window_size)
-                : tradeEngine.getCachedLastDigitList(window_size);
-            return getDigitPercentageValue(digits || [], {
+            const tip_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            const tip = Array.isArray(tip_ticks) && tip_ticks.length ? tip_ticks[tip_ticks.length - 1] : null;
+            const tip_key = tip ? `${tip.epoch}:${tip.digit}` : `len:${tip_ticks?.length || 0}`;
+            const cache = tradeEngine.digitPercentageSnapshot;
+
+            if (!cache || cache.tip_key !== tip_key || cache.window_size < window_size) {
+                const needed = Math.max(window_size, cache?.window_size || 0);
+                const digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(needed)
+                    : tradeEngine.getCachedLastDigitList(needed);
+                tradeEngine.digitPercentageSnapshot = {
+                    tip_key,
+                    window_size: needed,
+                    digits: Array.isArray(digits) ? digits : [],
+                };
+            }
+
+            return getDigitPercentageValue(tradeEngine.digitPercentageSnapshot.digits, {
                 direction,
                 barrier,
                 sample_size: window_size,

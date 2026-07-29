@@ -122,4 +122,14 @@ describe('evaluateDigitPercentageCondition', () => {
         expect(value).toBe(0);
         expect(typeof value).toBe('number');
     });
+
+    it('ignores invalid digits when building the window sample', () => {
+        const digits = [...Array(5).fill(NaN), ...Array(40).fill(8), ...Array(60).fill(1)];
+        const value = getDigitPercentageValue(digits, {
+            direction: 'OVER',
+            barrier: 5,
+            sample_size: 100,
+        });
+        expect(value).toBe(40);
+    });
 });
