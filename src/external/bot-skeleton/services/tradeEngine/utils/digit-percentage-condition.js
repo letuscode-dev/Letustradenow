@@ -1,14 +1,16 @@
 /**
  * Digit percentage value — Over / Under share of last N digits vs a barrier.
  *
+ * Sliding window (required behaviour):
+ *   Keep only the newest N digits. When a new digit arrives, the oldest digit
+ *   in that window is removed and the new digit is appended.
+ *
  * Over barrier B → digits strictly greater than B (e.g. Over 5 → 6–9)
  * Under barrier B → digits strictly less than B (e.g. Under 4 → 0–3)
  *
- * Returns the integer percentage (0–100) of matching digits in the newest window.
+ * Returns the integer percentage (0–100) of matching digits in the window.
  * Deriv tick history is capped at 1000, so the window is clamped to that.
  */
-
-import { getLatestDigitSample } from './percentage-filter';
 
 export const DEFAULT_BARRIER = 5;
 export const DEFAULT_WINDOW = 100;
@@ -45,6 +47,61 @@ const toWindow = value => {
     return n;
 };
 
+const isValidDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
+
+/**
+ * Build / refresh a sliding window of the newest `window_size` valid digits.
+ * Equivalent to: drop everything older than the last N digits.
+ *
+ * @param {Array<number|string>} digits - oldest → newest
+ * @param {number} window_size
+ * @returns {number[]}
+ */
+export const getSlidingDigitWindow = (digits, window_size = DEFAULT_WINDOW) => {
+    const size = toWindow(window_size);
+    if (!Array.isArray(digits) || digits.length === 0) {
+        return [];
+    }
+
+    const cleaned = [];
+    for (let i = 0; i < digits.length; i++) {
+        const digit = Number(digits[i]);
+        if (isValidDigit(digit)) {
+            cleaned.push(digit);
+        }
+    }
+
+    if (cleaned.length <= size) {
+        return cleaned;
+    }
+
+    return cleaned.slice(cleaned.length - size);
+};
+
+/**
+ * Advance a sliding window by one digit: remove the oldest when full, then append.
+ *
+ * @param {number[]} window
+ * @param {number} next_digit
+ * @param {number} window_size
+ * @returns {number[]}
+ */
+export const appendToSlidingDigitWindow = (window, next_digit, window_size = DEFAULT_WINDOW) => {
+    const size = toWindow(window_size);
+    const digit = Number(next_digit);
+    if (!isValidDigit(digit)) {
+        return Array.isArray(window) ? window.slice() : [];
+    }
+
+    const next = Array.isArray(window) ? window.slice() : [];
+    next.push(digit);
+    if (next.length > size) {
+        // Drop the oldest digit(s) so the window stays at most N.
+        return next.slice(next.length - size);
+    }
+    return next;
+};
+
 /**
  * @param {'OVER'|'UNDER'} direction
  * @param {number} barrier
@@ -52,7 +109,7 @@ const toWindow = value => {
  * @returns {boolean}
  */
 export const digitMatchesDirection = (direction, barrier, digit) => {
-    if (!Number.isInteger(digit) || digit < 0 || digit > 9) {
+    if (!isValidDigit(digit)) {
         return false;
     }
     if (toDirection(direction) === 'UNDER') {
@@ -111,17 +168,6 @@ export const formatDigitPercentageJournalMessage = ({
 /**
  * @param {Array<number|string>} digits
  * @param {{ direction?: string, barrier?: number, sample_size?: number, journal_enabled?: boolean }} options
- * @returns {{
- *   percentage: number,
- *   status: 'collecting'|'ready',
- *   direction: 'OVER'|'UNDER',
- *   barrier: number,
- *   tick_count: number,
- *   sample_size: number,
- *   matching_count: number,
- *   journal_enabled: boolean,
- *   message: string,
- * }}
  */
 export const evaluateDigitPercentageCondition = (digits, options = {}) => {
     const direction = toDirection(options.direction);
@@ -135,7 +181,8 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
               options.journal_enabled === 'TRUE' ||
               options.journal_enabled === 'true';
 
-    const sample = getLatestDigitSample(digits, sample_size);
+    // Always the newest N digits — oldest falls off as the series grows.
+    const sample = getSlidingDigitWindow(digits, sample_size);
     const tick_count = sample.length;
 
     if (tick_count < sample_size) {
@@ -161,7 +208,6 @@ export const evaluateDigitPercentageCondition = (digits, options = {}) => {
     }
 
     const matching_count = countMatchingDigits(sample, direction, barrier);
-    // Integer percent so purchase comparisons stay predictable in Blockly math blocks.
     const percentage = Math.round((matching_count / sample_size) * 100);
     const message = formatDigitPercentageJournalMessage({
         status: 'ready',

@@ -1,10 +1,12 @@
 import {
     DEFAULT_WINDOW,
     MAX_WINDOW,
+    appendToSlidingDigitWindow,
     countMatchingDigits,
     digitMatchesDirection,
     evaluateDigitPercentageCondition,
     getDigitPercentageValue,
+    getSlidingDigitWindow,
 } from '../digit-percentage-condition';
 
 describe('digitMatchesDirection', () => {
@@ -18,6 +20,25 @@ describe('digitMatchesDirection', () => {
         expect(digitMatchesDirection('UNDER', 4, 3)).toBe(true);
         expect(digitMatchesDirection('UNDER', 4, 4)).toBe(false);
         expect(digitMatchesDirection('UNDER', 4, 5)).toBe(false);
+    });
+});
+
+describe('getSlidingDigitWindow / appendToSlidingDigitWindow', () => {
+    it('keeps only the newest N digits', () => {
+        const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+        expect(getSlidingDigitWindow(digits, 4)).toEqual([7, 8, 9, 0]);
+    });
+
+    it('drops the oldest digit when a new one arrives on a full window', () => {
+        const window = [1, 2, 3, 4, 5];
+        const next = appendToSlidingDigitWindow(window, 9, 5);
+        expect(next).toEqual([2, 3, 4, 5, 9]);
+        expect(next).not.toContain(1);
+        expect(next[next.length - 1]).toBe(9);
+    });
+
+    it('grows until the window is full before dropping', () => {
+        expect(appendToSlidingDigitWindow([1, 2], 3, 5)).toEqual([1, 2, 3]);
     });
 });
 
@@ -50,7 +71,6 @@ describe('evaluateDigitPercentageCondition', () => {
     });
 
     it('returns the Over barrier percentage for the last window', () => {
-        // 40 digits > 5, rest = 1 → 40%
         const result = evaluateDigitPercentageCondition(makeWindow(Array(40).fill(8), 1), {
             direction: 'OVER',
             barrier: 5,
@@ -62,7 +82,6 @@ describe('evaluateDigitPercentageCondition', () => {
     });
 
     it('returns the Under barrier percentage for the last window', () => {
-        // 25 digits < 4, rest = 9 → 25%
         const result = evaluateDigitPercentageCondition(makeWindow(Array(25).fill(2), 9), {
             direction: 'UNDER',
             barrier: 4,
@@ -73,7 +92,7 @@ describe('evaluateDigitPercentageCondition', () => {
         expect(result.matching_count).toBe(25);
     });
 
-    it('uses only the newest window digits', () => {
+    it('uses only the newest window digits (oldest fall off)', () => {
         const older = Array.from({ length: 50 }, () => 1);
         const newer = Array.from({ length: 100 }, () => 8);
         const result = evaluateDigitPercentageCondition([...older, ...newer], {
@@ -84,8 +103,18 @@ describe('evaluateDigitPercentageCondition', () => {
         expect(result.percentage).toBe(100);
     });
 
+    it('updates the percentage when the window slides after a new digit', () => {
+        // Window of 5: four Unders (1) + one Over (8) → Over 5 = 20%
+        const before = [1, 1, 1, 1, 8];
+        expect(getDigitPercentageValue(before, { direction: 'OVER', barrier: 5, sample_size: 5 })).toBe(20);
+
+        // New Over digit arrives → oldest 1 drops → three Unders + two Overs → 40%
+        const after = [...before, 9];
+        expect(getSlidingDigitWindow(after, 5)).toEqual([1, 1, 1, 8, 9]);
+        expect(getDigitPercentageValue(after, { direction: 'OVER', barrier: 5, sample_size: 5 })).toBe(40);
+    });
+
     it('supports comparing Over % > Under % like purchase conditions', () => {
-        // Over 5 → 60 digits in 6–9; Under 4 → 20 digits in 0–3
         const digits = [...Array(60).fill(8), ...Array(20).fill(1), ...Array(20).fill(5)];
         const over = getDigitPercentageValue(digits, {
             direction: 'OVER',

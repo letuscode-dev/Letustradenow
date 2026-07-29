@@ -47,7 +47,7 @@ const BLOCK_DEFINITION = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Updates on every new tick while the bot is running. Example: Over 5 → share of digits 6–9. Use in math comparisons.'
+                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Uses a sliding window: each new digit drops the oldest. Example: Over 5 → share of digits 6–9.'
             ),
             category: window.Blockly.Categories.Trade_Definition,
         };
