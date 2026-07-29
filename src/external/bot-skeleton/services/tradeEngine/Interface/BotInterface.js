@@ -267,7 +267,13 @@ const getBotInterface = tradeEngine => {
          * Over/Under on the same tip share one snapshot so comparisons stay consistent.
          */
         evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
-            const window_size = Math.max(1, Math.min(1000, Math.floor(Number(sample_size)) || 100));
+            // Honour the user-configured window N (default 100 only when missing/invalid).
+            // Cap at MAX live-history depth — never force a hard limit of 100.
+            const parsed_window = Math.floor(Number(sample_size));
+            const window_size = Math.max(
+                1,
+                Math.min(1000, Number.isFinite(parsed_window) && parsed_window >= 1 ? parsed_window : 100)
+            );
 
             let digits = tradeEngine.getAvailableLastDigitList
                 ? tradeEngine.getAvailableLastDigitList()

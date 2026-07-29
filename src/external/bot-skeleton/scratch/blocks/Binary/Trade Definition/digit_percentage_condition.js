@@ -1,5 +1,6 @@
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
+import { DEFAULT_WINDOW, MAX_WINDOW } from '../../../../services/tradeEngine/utils/digit-percentage-condition';
 
 const DIRECTION_OPTIONS = [
     [localize('Over'), 'OVER'],
@@ -25,20 +26,16 @@ const BLOCK_DEFINITION = {
                     options: DIRECTION_OPTIONS,
                 },
                 {
-                    type: 'field_number',
+                    // Digit barrier 0–9 (Over 5 → digits 6–9, etc.)
+                    type: 'input_value',
                     name: 'BARRIER',
-                    value: 5,
-                    min: 0,
-                    max: 9,
-                    precision: 1,
+                    check: 'Number',
                 },
                 {
-                    type: 'field_number',
+                    // User-configurable sliding window size N (not fixed at 100).
+                    type: 'input_value',
                     name: 'WINDOW',
-                    value: 100,
-                    min: 1,
-                    max: 1000,
-                    precision: 1,
+                    check: 'Number',
                 },
             ],
             output: 'Number',
@@ -47,7 +44,8 @@ const BLOCK_DEFINITION = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Uses a sliding window: each new digit drops the oldest. Example: Over 5 → share of digits 6–9.'
+                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. N is user-configurable (1–{{ max }}). Sliding window: each new digit drops the oldest.',
+                { max: MAX_WINDOW }
             ),
             category: window.Blockly.Categories.Trade_Definition,
         };
@@ -56,9 +54,10 @@ const BLOCK_DEFINITION = {
         return {
             display_name: localize('% of last digits'),
             description: localize(
-                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. Sliding window: each new tick drops the oldest digit. Compare with >, <, etc. in Purchase conditions.'
+                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Set N yourself (default 100, up to {{ max }}). Over 5 → digits 6–9. Under 4 → digits 0–3. Compare with >, <, etc. in Purchase conditions.',
+                { max: MAX_WINDOW }
             ),
-            key_words: localize('over, under, percentage, digits, barrier, trade parameters'),
+            key_words: localize('over, under, percentage, digits, barrier, trade parameters, window'),
         };
     },
     customContextMenu(menu) {
@@ -67,21 +66,35 @@ const BLOCK_DEFINITION = {
 };
 
 /**
- * Generate a direct async number call.
- * Returning a bare number (not an object property) is required so js-interpreter
- * comparisons like `Over% > Under%` receive real numeric operands.
+ * Resolve a numeric Blockly input or legacy field into a code expression.
  */
+const readNumberArg = (block, name, fallback) => {
+    const from_input = window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+        block,
+        name,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
+    );
+    if (from_input) {
+        return from_input;
+    }
+    // Legacy workspaces used field_number for BARRIER / WINDOW / THRESHOLD.
+    const from_field =
+        block.getFieldValue(name) ?? (name === 'BARRIER' ? block.getFieldValue('THRESHOLD') : null);
+    if (from_field !== null && from_field !== undefined && from_field !== '') {
+        return String(from_field);
+    }
+    return String(fallback);
+};
+
 const generateDigitPercentageCode = block => {
     const direction = block.getFieldValue('DIRECTION') || 'OVER';
-    const barrier_raw = block.getFieldValue('BARRIER') ?? block.getFieldValue('THRESHOLD');
-    const barrier = Number(barrier_raw);
-    const sample_size = Number(block.getFieldValue('WINDOW'));
-    const safe_barrier = Number.isFinite(barrier) ? Math.min(9, Math.max(0, Math.floor(barrier))) : 5;
-    const safe_window = Number.isFinite(sample_size) && sample_size >= 1 ? Math.min(1000, Math.floor(sample_size)) : 100;
+    const barrier_code = readNumberArg(block, 'BARRIER', 5);
+    const window_code = readNumberArg(block, 'WINDOW', DEFAULT_WINDOW);
 
+    // Clamp at runtime so any user-entered N is honoured up to the live-history cap.
     const code = `Bot.evaluateDigitPercentageCondition(${JSON.stringify(
         direction
-    )}, ${safe_barrier}, ${safe_window})`;
+    )}, ${barrier_code}, ${window_code})`;
 
     return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];
 };

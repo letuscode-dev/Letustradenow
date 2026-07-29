@@ -9,7 +9,8 @@
  * Under barrier B → digits strictly less than B (e.g. Under 4 → 0–3)
  *
  * Returns the integer percentage (0–100) of matching digits in the window.
- * Deriv tick history is capped at 1000, so the window is clamped to that.
+ * Window size N is user-configurable (default 100 only when missing). Soft-capped
+ * at MAX_WINDOW to match Deriv live tick history depth — never hard-capped at 100.
  */
 
 export const DEFAULT_BARRIER = 5;

@@ -131,6 +131,26 @@ describe('evaluateDigitPercentageCondition', () => {
         expect(over > under).toBe(true);
     });
 
+    it('honours a user-configured window size other than 100', () => {
+        // 10 Overs in a window of 25 → 40%
+        const digits = [...Array(10).fill(8), ...Array(15).fill(1)];
+        expect(
+            getDigitPercentageValue(digits, { direction: 'OVER', barrier: 5, sample_size: 25 })
+        ).toBe(40);
+        // Same series with window 10 → only the last 10 (all Unders) → 0%
+        expect(
+            getDigitPercentageValue(digits, { direction: 'OVER', barrier: 5, sample_size: 10 })
+        ).toBe(0);
+        // Window 250 is accepted (not clamped down to 100) — collecting until full.
+        const short = evaluateDigitPercentageCondition(digits, {
+            direction: 'OVER',
+            barrier: 5,
+            sample_size: 250,
+        });
+        expect(short.sample_size).toBe(250);
+        expect(short.status).toBe('collecting');
+    });
+
     it('clamps the window to the Deriv history limit', () => {
         const digits = Array.from({ length: MAX_WINDOW }, () => 8);
         const result = evaluateDigitPercentageCondition(digits, {
