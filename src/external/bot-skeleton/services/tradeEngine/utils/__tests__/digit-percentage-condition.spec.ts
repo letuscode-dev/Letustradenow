@@ -2,12 +2,22 @@ import {
     DEFAULT_WINDOW,
     MAX_WINDOW,
     appendToSlidingDigitWindow,
+    clampDigitPercentageWindow,
     countMatchingDigits,
     digitMatchesDirection,
     evaluateDigitPercentageCondition,
     getDigitPercentageValue,
     getSlidingDigitWindow,
 } from '../digit-percentage-condition';
+
+describe('clampDigitPercentageWindow', () => {
+    it('defaults invalid values to 100 and caps at MAX_WINDOW', () => {
+        expect(clampDigitPercentageWindow(undefined)).toBe(DEFAULT_WINDOW);
+        expect(clampDigitPercentageWindow(0)).toBe(DEFAULT_WINDOW);
+        expect(clampDigitPercentageWindow(250)).toBe(250);
+        expect(clampDigitPercentageWindow(9999)).toBe(MAX_WINDOW);
+    });
+});
 
 describe('digitMatchesDirection', () => {
     it('matches Over as strictly greater than the barrier', () => {

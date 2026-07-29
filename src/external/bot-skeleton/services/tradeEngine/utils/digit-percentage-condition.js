@@ -48,6 +48,9 @@ const toWindow = value => {
     return n;
 };
 
+/** Public clamp for runtime callers (BotInterface / generators). */
+export const clampDigitPercentageWindow = value => toWindow(value);
+
 const isValidDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
 
 /**
