@@ -329,9 +329,10 @@ export default class TicksService {
     }
 
     /**
-     * One-shot ticks_history fill (no subscribe). Used when the live cache is shorter
-     * than a strategy window — subscribe:1 often returns AlreadySubscribed with a
-     * short buffer that would otherwise never grow past its initial length.
+     * One-shot ticks_history fill (no subscribe, no retry loop).
+     * Used when the live cache is shorter than a strategy window.
+     * Concurrent callers share one in-flight promise; failed/short results
+     * cool down so we do not spam Deriv with ticks_history retries.
      *
      * @param {string} symbol
      * @param {number} count
@@ -345,9 +346,29 @@ export default class TicksService {
             return Promise.resolve(cached);
         }
 
+        if (!this._history_fill_promises) {
+            this._history_fill_promises = new Map();
+        }
+        if (!this._history_fill_attempt_at) {
+            this._history_fill_attempt_at = new Map();
+        }
+
+        const in_flight = this._history_fill_promises.get(symbol);
+        if (in_flight) {
+            return in_flight;
+        }
+
+        // Avoid hammering ticks_history when a recent fill already failed or returned short.
+        const last_attempt_at = this._history_fill_attempt_at.get(symbol) || 0;
+        if (Date.now() - last_attempt_at < 15000) {
+            return Promise.resolve(cached || []);
+        }
+
         if (!api_base.api) {
             return Promise.resolve(cached || []);
         }
+
+        this._history_fill_attempt_at.set(symbol, Date.now());
 
         const request_object = {
             ticks_history: symbol === 'na' ? 'R_100' : symbol,
@@ -356,7 +377,8 @@ export default class TicksService {
             style: 'ticks',
         };
 
-        return doUntilDone(() => api_base.api.send(request_object), [], api_base)
+        const fill_promise = api_base.api
+            .send(request_object)
             .then(r => {
                 const history = historyToTicks(r.history);
                 const existing = this.getCachedTicks(symbol) || [];
@@ -373,21 +395,32 @@ export default class TicksService {
                 this.updateTicksAndCallListeners(symbol, merged);
                 return merged;
             })
-            .catch(() => this.getCachedTicks(symbol) || []);
+            .catch(() => this.getCachedTicks(symbol) || [])
+            .finally(() => {
+                this._history_fill_promises.delete(symbol);
+            });
+
+        this._history_fill_promises.set(symbol, fill_promise);
+        return fill_promise;
     }
 
     /**
-     * True when we already track a live tick subscription id for this symbol.
+     * True when we already track a live tick subscription id for this symbol,
+     * or when the bot/chart already registered tick listeners (stream is owned elsewhere).
      * @param {string} symbol
      * @returns {boolean}
      */
     hasTickSubscription(symbol) {
-        return Boolean(this.subscriptions.getIn(['tick', symbol]));
+        if (this.subscriptions.getIn(['tick', symbol])) {
+            return true;
+        }
+        const listeners = this.tickListeners.get(symbol);
+        return Boolean(listeners && listeners.size);
     }
 
     /**
-     * Ensure a live ticks stream is active so the cache keeps sliding while strategies run.
-     * History-only fills (subscribe:0) do not receive new ticks on their own.
+     * Ensure a live ticks stream is active. Safe to call often — no-ops when a
+     * subscription or monitor listener already exists. Never retries in a loop.
      *
      * @param {string} symbol
      * @returns {Promise<Array<{epoch:number, quote:number}>>}
@@ -401,7 +434,23 @@ export default class TicksService {
             return Promise.resolve(this.getCachedTicks(symbol) || []);
         }
 
-        return this.requestTicks({ symbol, style: 'ticks' }).then(() => this.getCachedTicks(symbol) || []);
+        if (!this._ensure_sub_promises) {
+            this._ensure_sub_promises = new Map();
+        }
+        const in_flight = this._ensure_sub_promises.get(symbol);
+        if (in_flight) {
+            return in_flight;
+        }
+
+        const sub_promise = this.requestTicks({ symbol, style: 'ticks' })
+            .then(() => this.getCachedTicks(symbol) || [])
+            .catch(() => this.getCachedTicks(symbol) || [])
+            .finally(() => {
+                this._ensure_sub_promises.delete(symbol);
+            });
+
+        this._ensure_sub_promises.set(symbol, sub_promise);
+        return sub_promise;
     }
 
     forget = () => {

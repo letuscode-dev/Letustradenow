@@ -263,19 +263,22 @@ const getBotInterface = tradeEngine => {
          * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
          * Returns 0 while the tick window is still filling (so comparisons stay false).
          *
-         * Always refreshes from the live tick cache when the tip advances so the
-         * percentage keeps updating while the bot is running. Within the same tip,
-         * Over and Under reuse one snapshot so comparisons stay consistent.
+         * Prefers the live tick cache (updated by watchTicks). Only asks for a
+         * one-shot history fill when the buffer is still shorter than the window —
+         * never re-subscribes ticks_history on every tip.
          */
         evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
             const window_size = Math.max(1, Math.min(1000, Math.floor(Number(sample_size)) || 100));
 
-            // Fill history if needed and keep the live stream alive so the window slides.
-            const digits = tradeEngine.ensureTickHistory
-                ? await tradeEngine.ensureTickHistory(window_size)
-                : tradeEngine.getAvailableLastDigitList
-                  ? tradeEngine.getAvailableLastDigitList()
-                  : tradeEngine.getCachedLastDigitList(window_size);
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList()
+                : tradeEngine.getCachedLastDigitList(window_size);
+
+            if (!Array.isArray(digits) || digits.length < window_size) {
+                digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(window_size)
+                    : digits || [];
+            }
 
             const tip_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
             const tip = Array.isArray(tip_ticks) && tip_ticks.length ? tip_ticks[tip_ticks.length - 1] : null;
