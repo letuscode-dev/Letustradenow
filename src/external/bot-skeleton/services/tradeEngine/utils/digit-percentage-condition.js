@@ -67,19 +67,18 @@ export const getSlidingDigitWindow = (digits, window_size = DEFAULT_WINDOW) => {
         return [];
     }
 
+    // Scan newest → oldest and stop once we have N valid digits.
+    // Callers typically pass only the last N ticks already, but this stays O(N).
     const cleaned = [];
-    for (let i = 0; i < digits.length; i++) {
+    for (let i = digits.length - 1; i >= 0 && cleaned.length < size; i--) {
         const digit = Number(digits[i]);
         if (isValidDigit(digit)) {
             cleaned.push(digit);
         }
     }
 
-    if (cleaned.length <= size) {
-        return cleaned;
-    }
-
-    return cleaned.slice(cleaned.length - size);
+    cleaned.reverse();
+    return cleaned;
 };
 
 /**

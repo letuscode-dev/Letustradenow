@@ -150,13 +150,8 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluatePercentageFilter)
             );
         }
-        if (typeof bot_interface.evaluateDigitPercentageCondition === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluateDigitPercentageCondition',
-                createAsync(js_interpreter, bot_interface.evaluateDigitPercentageCondition)
-            );
-        }
+        // Digit % is intentionally sync — bots call Over/Under many times per tick.
+        // Keep the nativeToPseudo binding from bot_interface (do not wrap in createAsync).
         if (typeof bot_interface.evaluateColdDigit === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

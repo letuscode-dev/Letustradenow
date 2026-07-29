@@ -102,6 +102,7 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.coldDigitState = null;
             }
             tradeEngine.digitPercentageSnapshot = null;
+            tradeEngine._digitPctFillPending = false;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -268,53 +269,77 @@ const getBotInterface = tradeEngine => {
          * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
          * Returns 0 while the tick window is still filling (so comparisons stay false).
          *
-         * Sliding window: always the newest N live digits (oldest dropped as ticks arrive).
-         * Over/Under on the same tip share one snapshot so comparisons stay consistent.
+         * Sync on purpose: bots often evaluate Over + Under many times per tick
+         * (notify + purchase conditions). An async interpreter pause per call caused
+         * visible lag. History fill (if needed) is kicked off in the background.
+         *
+         * Sliding window: newest N live digits. Same-tick Over/Under share one
+         * snapshot (window + per-direction results) so work is not repeated.
          */
-        evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
+        evaluateDigitPercentageCondition: (direction, barrier, sample_size) => {
             const window_size = clampDigitPercentageWindow(sample_size);
-
-            let digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList()
-                : tradeEngine.getCachedLastDigitList(window_size);
-
-            // Prefer cleaned length — raw tick lists may include NaNs.
-            let digit_window = getSlidingDigitWindow(digits || [], window_size);
-            if (digit_window.length < window_size && tradeEngine.ensureTickHistory) {
-                digits = await tradeEngine.ensureTickHistory(window_size);
-                digit_window = getSlidingDigitWindow(digits || [], window_size);
-            }
-
-            const tip_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
-            const tip = Array.isArray(tip_ticks) && tip_ticks.length ? tip_ticks[tip_ticks.length - 1] : null;
-            const tip_key = tip ? `${tip.epoch}:${tip.digit}` : `len:${digit_window.length}`;
+            const tip_key = tradeEngine.getLatestTickTipKey
+                ? tradeEngine.getLatestTickTipKey()
+                : `len:${window_size}`;
+            const result_key = `${String(direction || 'OVER').toUpperCase()}:${Number(barrier)}`;
 
             const cache = tradeEngine.digitPercentageSnapshot;
             if (
                 cache &&
                 cache.tip_key === tip_key &&
                 cache.window_size === window_size &&
-                Array.isArray(cache.window) &&
-                cache.window.length === digit_window.length
+                cache.results &&
+                Object.prototype.hasOwnProperty.call(cache.results, result_key)
             ) {
-                return getDigitPercentageValue(cache.window, {
-                    direction,
-                    barrier,
-                    sample_size: window_size,
-                });
+                return cache.results[result_key];
             }
 
-            tradeEngine.digitPercentageSnapshot = {
-                tip_key,
-                window_size,
-                window: digit_window,
-            };
+            let digit_window;
+            let results;
+            if (
+                cache &&
+                cache.tip_key === tip_key &&
+                cache.window_size === window_size &&
+                Array.isArray(cache.window)
+            ) {
+                digit_window = cache.window;
+                results = cache.results || {};
+            } else {
+                // Map only the newest N ticks — not the full live cache.
+                const digits = tradeEngine.getAvailableLastDigitList
+                    ? tradeEngine.getAvailableLastDigitList(window_size)
+                    : tradeEngine.getCachedLastDigitList(window_size);
+                digit_window = getSlidingDigitWindow(digits || [], window_size);
+                results = {};
 
-            return getDigitPercentageValue(digit_window, {
+                // Non-blocking history fill — do not pause the interpreter.
+                if (
+                    digit_window.length < window_size &&
+                    tradeEngine.ensureTickHistory &&
+                    !tradeEngine._digitPctFillPending
+                ) {
+                    tradeEngine._digitPctFillPending = true;
+                    Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                        .catch(() => {})
+                        .finally(() => {
+                            tradeEngine._digitPctFillPending = false;
+                        });
+                }
+            }
+
+            const percentage = getDigitPercentageValue(digit_window, {
                 direction,
                 barrier,
                 sample_size: window_size,
             });
+            results[result_key] = percentage;
+            tradeEngine.digitPercentageSnapshot = {
+                tip_key,
+                window_size,
+                window: digit_window,
+                results,
+            };
+            return percentage;
         },
         /**
          * Adaptive per-digit gap Differs — returns { prediction, journal_messages, dashboard, ... }.

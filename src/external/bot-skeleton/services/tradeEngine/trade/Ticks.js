@@ -173,14 +173,34 @@ export default Engine =>
          * than a requested window). Unlike getCachedLastDigitList, never returns
          * [] solely because the buffer is still growing.
          *
+         * When `limit` is set, only the newest `limit` ticks are mapped — avoids
+         * remapping a full 1000-tick cache on every block evaluation.
+         *
+         * @param {number} [limit]
          * @returns {number[]}
          */
-        getAvailableLastDigitList() {
+        getAvailableLastDigitList(limit) {
             const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
             if (!cached_ticks?.length) {
                 return [];
             }
-            return this.getLastDigitsFromList(cached_ticks);
+            const n = Math.floor(Number(limit));
+            const ticks =
+                Number.isFinite(n) && n > 0 ? cached_ticks.slice(-Math.min(n, cached_ticks.length)) : cached_ticks;
+            return this.getLastDigitsFromList(ticks);
+        }
+
+        /**
+         * Cheap tip identity for digit-percentage snapshotting (epoch of newest tick).
+         * @returns {string}
+         */
+        getLatestTickTipKey() {
+            const latest = this.$scope.ticksService.getLatestTick(this.symbol);
+            if (latest && latest.epoch != null) {
+                return String(latest.epoch);
+            }
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            return cached_ticks?.length ? `len:${cached_ticks.length}` : 'empty';
         }
 
         /**
