@@ -376,6 +376,34 @@ export default class TicksService {
             .catch(() => this.getCachedTicks(symbol) || []);
     }
 
+    /**
+     * True when we already track a live tick subscription id for this symbol.
+     * @param {string} symbol
+     * @returns {boolean}
+     */
+    hasTickSubscription(symbol) {
+        return Boolean(this.subscriptions.getIn(['tick', symbol]));
+    }
+
+    /**
+     * Ensure a live ticks stream is active so the cache keeps sliding while strategies run.
+     * History-only fills (subscribe:0) do not receive new ticks on their own.
+     *
+     * @param {string} symbol
+     * @returns {Promise<Array<{epoch:number, quote:number}>>}
+     */
+    ensureTickSubscription(symbol) {
+        if (!symbol) {
+            return Promise.resolve([]);
+        }
+
+        if (this.hasTickSubscription(symbol)) {
+            return Promise.resolve(this.getCachedTicks(symbol) || []);
+        }
+
+        return this.requestTicks({ symbol, style: 'ticks' }).then(() => this.getCachedTicks(symbol) || []);
+    }
+
     forget = () => {
         return new Promise((resolve, reject) => {
             if (api_base?.api) {

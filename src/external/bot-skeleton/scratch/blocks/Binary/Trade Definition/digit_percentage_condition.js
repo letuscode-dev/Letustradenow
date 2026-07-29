@@ -47,7 +47,7 @@ const BLOCK_DEFINITION = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Example: Over 5 → share of digits 6–9. Use in math comparisons.'
+                'Returns what percent (0–100) of the last N digits are Over (>) or Under (<) the barrier. Updates on every new tick while the bot is running. Example: Over 5 → share of digits 6–9. Use in math comparisons.'
             ),
             category: window.Blockly.Categories.Trade_Definition,
         };
@@ -56,7 +56,7 @@ const BLOCK_DEFINITION = {
         return {
             display_name: localize('% of last digits'),
             description: localize(
-                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. Choose Over/Under from the dropdown, then compare with >, <, etc. in Purchase conditions.'
+                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. The value refreshes on every new live tick while the bot runs. Choose Over/Under from the dropdown, then compare with >, <, etc. in Purchase conditions.'
             ),
             key_words: localize('over, under, percentage, digits, barrier, trade parameters'),
         };

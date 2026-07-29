@@ -132,11 +132,8 @@ export default Engine =>
         }
 
         /**
-         * Ensure at least `minimum_tick_count` ticks are available.
-         *
-         * Prefer a one-shot history fill when the live cache is short. A subscribe:1
-         * request often hits AlreadySubscribed and returns a tiny buffer; live updates
-         * then only slide that short window, so strategies waiting for N digits stall.
+         * Ensure at least `minimum_tick_count` ticks are available AND a live
+         * subscription is active so the window keeps sliding on every new tick.
          *
          * @param {number} minimum_tick_count
          * @returns {Promise<number[]>} last-digit list (oldest → newest)
@@ -149,24 +146,43 @@ export default Engine =>
             const required = Math.max(1, Math.min(1000, Math.floor(Number(minimum_tick_count)) || 100));
             let cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
 
-            if (cached_ticks?.length >= required) {
-                return this.getLastDigitsFromList(cached_ticks);
+            if (!cached_ticks?.length || cached_ticks.length < required) {
+                if (typeof this.$scope.ticksService.requestHistoryFill === 'function') {
+                    cached_ticks = await this.$scope.ticksService.requestHistoryFill(this.symbol, required);
+                } else {
+                    const ticks = await this.$scope.ticksService.requestTicks({
+                        symbol: this.symbol,
+                        style: 'ticks',
+                    });
+                    if (Array.isArray(ticks) && ticks.length) {
+                        cached_ticks = ticks;
+                    }
+                }
             }
 
-            if (typeof this.$scope.ticksService.requestHistoryFill === 'function') {
-                cached_ticks = await this.$scope.ticksService.requestHistoryFill(this.symbol, required);
-            } else {
-                const ticks = await this.$scope.ticksService.requestTicks({
-                    symbol: this.symbol,
-                    style: 'ticks',
-                });
-                if (Array.isArray(ticks) && ticks.length) {
-                    cached_ticks = ticks;
-                }
+            // History-only fills do not stream. Keep/repair the live subscription
+            // so % of last digits (and other filters) update on every new tick.
+            if (typeof this.$scope.ticksService.ensureTickSubscription === 'function') {
+                await this.$scope.ticksService.ensureTickSubscription(this.symbol);
             }
 
             const refreshed = this.$scope.ticksService.getCachedTicks(this.symbol) || cached_ticks;
             return refreshed?.length ? this.getLastDigitsFromList(refreshed) : [];
+        }
+
+        /**
+         * All currently cached last digits for the active symbol (may be shorter
+         * than a requested window). Unlike getCachedLastDigitList, never returns
+         * [] solely because the buffer is still growing.
+         *
+         * @returns {number[]}
+         */
+        getAvailableLastDigitList() {
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+            if (!cached_ticks?.length) {
+                return [];
+            }
+            return this.getLastDigitsFromList(cached_ticks);
         }
 
         /**
