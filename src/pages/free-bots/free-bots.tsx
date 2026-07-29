@@ -2,15 +2,16 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import Button from '@/components/shared_ui/button';
+import { load, save_types } from '@/external/bot-skeleton';
 import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
 import { FREE_BOTS } from './catalog';
-import type { FreeBot, FreeBotAction } from './types';
+import type { FreeBot } from './types';
 import './free-bots.scss';
 
 const FreeBots = () => {
-    const { dashboard, quick_strategy, run_panel } = useStore();
+    const { dashboard, run_panel } = useStore();
     const [status_by_id, setStatusById] = React.useState<Record<string, string>>({});
     const [busy_id, setBusyId] = React.useState<string | null>(null);
 
@@ -18,38 +19,26 @@ const FreeBots = () => {
         setStatusById(prev => ({ ...prev, [bot_id]: message }));
     };
 
-    const launchBot = async (bot: FreeBot, action: FreeBotAction) => {
-        if (action === 'RUN' && run_panel.is_running) {
-            setStatus(bot.id, localize('Stop the running bot before starting another free bot.'));
-            return;
-        }
-
+    const loadBot = async (bot: FreeBot) => {
         try {
             setBusyId(bot.id);
-            setStatus(
-                bot.id,
-                action === 'RUN' ? localize('Preparing free bot...') : localize('Loading free bot...')
-            );
+            setStatus(bot.id, localize('Loading bot into Bot Builder...'));
 
-            quick_strategy.setSelectedStrategy(bot.strategy);
-            await quick_strategy.onSubmit({
-                ...bot.form,
-                action,
+            await load({
+                block_string: bot.xml,
+                file_name: bot.title,
+                workspace: window.Blockly?.derivWorkspace,
+                from: save_types.UNSAVED,
+                drop_event: null,
+                strategy_id: null,
+                showIncompatibleStrategyDialog: null,
             });
 
-            if (action === 'LOAD') {
-                dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
-            }
-
-            setStatus(
-                bot.id,
-                action === 'RUN'
-                    ? localize('{{title}} is running.', { title: bot.title })
-                    : localize('{{title}} loaded in Bot Builder.', { title: bot.title })
-            );
+            dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
+            setStatus(bot.id, localize('{{title}} loaded in Bot Builder.', { title: bot.title }));
         } catch (error) {
             const message =
-                error?.message || error?.error?.message || localize('Could not prepare this free bot.');
+                error?.message || error?.error?.message || localize('Could not load this free bot.');
             setStatus(bot.id, message);
         } finally {
             setBusyId(null);
@@ -63,7 +52,7 @@ const FreeBots = () => {
                     <Localize i18n_default_text='Free Bots' />
                 </h2>
                 <p className='free-bots__subtitle'>
-                    <Localize i18n_default_text='Ready-made bots from the team. Run one now, or load it into Bot Builder to customize.' />
+                    <Localize i18n_default_text='Ready-made bots from the team. Load one into Bot Builder to inspect, customise, and run it.' />
                 </p>
             </header>
 
@@ -84,7 +73,10 @@ const FreeBots = () => {
                             <li key={bot.id} className='free-bots__card'>
                                 <div className='free-bots__card-body'>
                                     <div className='free-bots__card-heading'>
-                                        <span className='free-bots__card-number' aria-label={localize('Bot {{number}}', { number: bot_number })}>
+                                        <span
+                                            className='free-bots__card-number'
+                                            aria-label={localize('Bot {{number}}', { number: bot_number })}
+                                        >
                                             {bot_number}
                                         </span>
                                         <h3 className='free-bots__card-title'>{bot.title}</h3>
@@ -105,20 +97,11 @@ const FreeBots = () => {
                                     <Button
                                         className='free-bots__button'
                                         is_disabled={is_busy || run_panel.is_running}
-                                        onClick={() => launchBot(bot, 'RUN')}
+                                        onClick={() => loadBot(bot)}
                                         primary
                                         type='button'
                                     >
-                                        {localize('Run')}
-                                    </Button>
-                                    <Button
-                                        className='free-bots__button'
-                                        is_disabled={is_busy}
-                                        onClick={() => launchBot(bot, 'LOAD')}
-                                        secondary
-                                        type='button'
-                                    >
-                                        {localize('Load')}
+                                        {localize('Load into Bot Builder')}
                                     </Button>
                                 </div>
                             </li>

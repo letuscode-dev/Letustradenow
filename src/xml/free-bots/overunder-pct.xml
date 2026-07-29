@@ -1,7 +1,4 @@
-import type { FreeBot } from './types';
-
-// eslint-disable-next-line max-len
-const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="}JBS(IGZVJxQ4aTX_jAu">Stake</variable>
     <variable id="BA845or56_M%NsYmKYQ,">text</variable>
@@ -11,7 +8,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
     <variable id="1.;7AUt6Jf/o7#QT_cQI">Loss_count</variable>
     <variable id="T0Pq3}#j#r55@FT$Zm+E">Total_loss</variable>
     <variable id="%ET3~e{c!wTzMYQGP-%v">Prediction:</variable>
-    <variable id="+M\`TMXD%w(@IX~)ugrg!">Profit Threshold:</variable>
+    <variable id="+M`TMXD%w(@IX~)ugrg!">Profit Threshold:</variable>
     <variable id="ePb/J%t:DM!gYq:I/n^:">Initial_stake</variable>
     <variable id="ny]ap/Lz#w~XWvj_eLdF">Payout%</variable>
   </variables>
@@ -75,14 +72,14 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                 </value>
                 <next>
                   <block type="variables_set" id="W6xZ$JU%o,!Uz!_2j31b">
-                    <field name="VAR" id="+M\`TMXD%w(@IX~)ugrg!">Profit Threshold:</field>
+                    <field name="VAR" id="+M`TMXD%w(@IX~)ugrg!">Profit Threshold:</field>
                     <value name="VALUE">
                       <block type="math_number" id="I,88J/7hy|.la$kBmIfd">
                         <field name="NUM">7</field>
                       </block>
                     </value>
                     <next>
-                      <block type="variables_set" id="1_ENM|U*?|=)\`B\`[mOY7">
+                      <block type="variables_set" id="1_ENM|U*?|=)`B`[mOY7">
                         <field name="VAR" id="ePb/J%t:DM!gYq:I/n^:">Initial_stake</field>
                         <value name="VALUE">
                           <block type="variables_get" id="8Ro=W?9bm6agKa:*zqzq">
@@ -130,12 +127,12 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
               </shadow>
             </value>
             <next>
-              <block type="text_statement" id="JhL^UsRUZc/^Yw6qe\`jm">
+              <block type="text_statement" id="JhL^UsRUZc/^Yw6qe`jm">
                 <value name="TEXT">
                   <shadow type="text" id="ca8zw#NVpbuqLc69RSRT">
                     <field name="TEXT"></field>
                   </shadow>
-                  <block type="digit_percentage_condition" id="djGL*\`()w1LP6SYl^RY@">
+                  <block type="digit_percentage_condition" id="djGL*`()w1LP6SYl^RY@">
                     <field name="DIRECTION">OVER</field>
                     <value name="BARRIER">
                       <block type="math_number" id="-j_b{a/XjE_Pad8jMOLT">
@@ -143,7 +140,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                       </block>
                     </value>
                     <value name="WINDOW">
-                      <block type="math_number" id=".qFZR%\`YaNZ7IqY5F|P%">
+                      <block type="math_number" id=".qFZR%`YaNZ7IqY5F|P%">
                         <field name="NUM">15</field>
                       </block>
                     </value>
@@ -157,19 +154,19 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                       </shadow>
                     </value>
                     <next>
-                      <block type="text_statement" id="\`O$d2:9i]Sx,HIr(w#ek">
+                      <block type="text_statement" id="`O$d2:9i]Sx,HIr(w#ek">
                         <value name="TEXT">
                           <shadow type="text" id=":2hvZzM_6i%(zCQZ:Ag,">
                             <field name="TEXT">Under:</field>
                           </shadow>
                         </value>
                         <next>
-                          <block type="text_statement" id="lgEnS-L$l~\`c9IYw+Q\`^">
+                          <block type="text_statement" id="lgEnS-L$l~`c9IYw+Q`^">
                             <value name="TEXT">
                               <shadow type="text" id="H?eXLUA,W[l6lEw$2vPk">
                                 <field name="TEXT"></field>
                               </shadow>
-                              <block type="digit_percentage_condition" id="vc[=J\`x5Z[8F3Fay~|Nn">
+                              <block type="digit_percentage_condition" id="vc[=J`x5Z[8F3Fay~|Nn">
                                 <field name="DIRECTION">UNDER</field>
                                 <value name="BARRIER">
                                   <block type="math_number" id="N=CNl_nN3Vv.1(yGz({0">
@@ -198,9 +195,9 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                                       </shadow>
                                     </value>
                                     <next>
-                                      <block type="text_statement" id="VW\`t$yuJ[3Qv6V*OxHog">
+                                      <block type="text_statement" id="VW`t$yuJ[3Qv6V*OxHog">
                                         <value name="TEXT">
-                                          <shadow type="text" id="Npi2yFgAq\`*pB}KuO3$H">
+                                          <shadow type="text" id="Npi2yFgAq`*pB}KuO3$H">
                                             <field name="TEXT"></field>
                                           </shadow>
                                           <block type="last_digit" id="OCb{QU!-nDpo!C$PN@^E"></block>
@@ -222,7 +219,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
           </block>
         </statement>
         <next>
-          <block type="notify" id="!0\`UkAN;klS,_^3RY3e]">
+          <block type="notify" id="!0`UkAN;klS,_^3RY3e]">
             <field name="NOTIFICATION_TYPE">success</field>
             <field name="NOTIFICATION_SOUND">silent</field>
             <value name="MESSAGE">
@@ -260,7 +257,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                           <block type="digit_percentage_condition" id="Bt8%hDVtM-58nsdEt3iY">
                             <field name="DIRECTION">UNDER</field>
                             <value name="BARRIER">
-                              <block type="math_number" id="o\`ju#ps.Ic5X9;,cyP/{">
+                              <block type="math_number" id="o`ju#ps.Ic5X9;,cyP/{">
                                 <field name="NUM">5</field>
                               </block>
                             </value>
@@ -292,7 +289,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                   <block type="variables_set" id="c90uwPie$:rVeSx?KFbE">
                     <field name="VAR" id="%ET3~e{c!wTzMYQGP-%v">Prediction:</field>
                     <value name="VALUE">
-                      <block type="math_number" id="\`=@)TP{xr$HRz*@r-}\`v">
+                      <block type="math_number" id="`=@)TP{xr$HRz*@r-}`v">
                         <field name="NUM">7</field>
                       </block>
                     </value>
@@ -310,7 +307,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                               <block type="digit_percentage_condition" id="ZD4OG^6fe@]zJi*BTLp2">
                                 <field name="DIRECTION">OVER</field>
                                 <value name="BARRIER">
-                                  <block type="math_number" id="u:OQ.,h\`_?q;1e0e_%K(">
+                                  <block type="math_number" id="u:OQ.,h`_?q;1e0e_%K(">
                                     <field name="NUM">5</field>
                                   </block>
                                 </value>
@@ -330,7 +327,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                                   </block>
                                 </value>
                                 <value name="WINDOW">
-                                  <block type="math_number" id="v$PYj4v\`~?KwDE,tCADH">
+                                  <block type="math_number" id="v$PYj4v`~?KwDE,tCADH">
                                     <field name="NUM">15</field>
                                   </block>
                                 </value>
@@ -342,10 +339,10 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                           <block type="logic_compare" id="P25d{(TY*CP+fX_+d4Z;">
                             <field name="OP">LT</field>
                             <value name="A">
-                              <block type="last_digit" id="hw-|a%,f%s4kkR\`vXNzP"></block>
+                              <block type="last_digit" id="hw-|a%,f%s4kkR`vXNzP"></block>
                             </value>
                             <value name="B">
-                              <block type="math_number" id="c_HG+?OVGH:ZCL5a$9\`n">
+                              <block type="math_number" id="c_HG+?OVGH:ZCL5a$9`n">
                                 <field name="NUM">4</field>
                               </block>
                             </value>
@@ -381,7 +378,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                           </block>
                         </value>
                         <value name="PREDICTION">
-                          <shadow type="math_number_positive" id="|4#%R\`FCGebNNqROMU(M" inline="true">
+                          <shadow type="math_number_positive" id="|4#%R`FCGebNNqROMU(M" inline="true">
                             <field name="NUM">1</field>
                           </shadow>
                           <block type="variables_get" id="Y$wkBDJIADao*OBf2GQ*">
@@ -399,12 +396,12 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="6-.P6/-F\`E3Aj{pQJ8/D" collapsed="true" x="1382" y="60">
+  <block type="after_purchase" id="6-.P6/-F`E3Aj{pQJ8/D" collapsed="true" x="1382" y="60">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="!=NR^!l_c#K?S{aO^h7F">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0">
-          <block type="contract_check_result" id="^7\`m3EGN{k66aG6kq.0]">
+          <block type="contract_check_result" id="^7`m3EGN{k66aG6kq.0]">
             <field name="CHECK_RESULT">loss</field>
           </block>
         </value>
@@ -417,7 +414,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
               </shadow>
             </value>
             <next>
-              <block type="variables_set" id="o{N8hwIt-cJqOt\`Wy93C">
+              <block type="variables_set" id="o{N8hwIt-cJqOt`Wy93C">
                 <field name="VAR" id="1.;7AUt6Jf/o7#QT_cQI">Loss_count</field>
                 <value name="VALUE">
                   <block type="math_number" id="phP/|=Jpgc~psu36[(vc">
@@ -445,18 +442,18 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
           <block type="variables_set" id="_wAvnQp:@S$ZnDkb]Z.Z">
             <field name="VAR" id="S8n,HCk)+YVIo@!,[8[R">InArow</field>
             <value name="VALUE">
-              <block type="math_number" id="\`w!G;.1yjh2IW$dD@*~y">
+              <block type="math_number" id="`w!G;.1yjh2IW$dD@*~y">
                 <field name="NUM">0</field>
               </block>
             </value>
             <next>
-              <block type="math_change" id="x\`IxvDDq*iXxCFl^|qD%">
+              <block type="math_change" id="x`IxvDDq*iXxCFl^|qD%">
                 <field name="VAR" id="T0Pq3}#j#r55@FT$Zm+E">Total_loss</field>
                 <value name="DELTA">
                   <shadow type="math_number" id="_u|3tC;s#Qvcg)6)evFY">
                     <field name="NUM">1</field>
                   </shadow>
-                  <block type="math_single" id="1M|N@+$a!~MN\`2osN!/x">
+                  <block type="math_single" id="1M|N@+$a!~MN`2osN!/x">
                     <field name="OP">NEG</field>
                     <value name="NUM">
                       <shadow type="math_number" id="4pAt?1XhpJ,L~^I0^$AV">
@@ -469,7 +466,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                   </block>
                 </value>
                 <next>
-                  <block type="controls_if" id="M6QtPSz}mI\`=QzUUi3d|">
+                  <block type="controls_if" id="M6QtPSz}mI`=QzUUi3d|">
                     <value name="IF0">
                       <block type="logic_compare" id="{d$j$S,N2rL)+spB?_s]">
                         <field name="OP">LT</field>
@@ -505,7 +502,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
           <block type="controls_if" id="ZO2B/tW403qgg4;d(=/~">
             <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
             <value name="IF0">
-              <block type="logic_compare" id="Pk)([A;jXK19\`r-e5c_)">
+              <block type="logic_compare" id="Pk)([A;jXK19`r-e5c_)">
                 <field name="OP">GT</field>
                 <value name="A">
                   <block type="variables_get" id="wN[MC9!Y7c86QCHPJt(E">
@@ -513,14 +510,14 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                   </block>
                 </value>
                 <value name="B">
-                  <block type="math_number" id="!xk{\`XF=!jv*4p=~YU9r">
+                  <block type="math_number" id="!xk{`XF=!jv*4p=~YU9r">
                     <field name="NUM">0</field>
                   </block>
                 </value>
               </block>
             </value>
             <statement name="DO0">
-              <block type="math_change" id="\`|mlOWn6PeW)))_[6+k-">
+              <block type="math_change" id="`|mlOWn6PeW)))_[6+k-">
                 <field name="VAR" id="1.;7AUt6Jf/o7#QT_cQI">Loss_count</field>
                 <value name="DELTA">
                   <shadow type="math_number" id="#OzK^R4p[Mr_ro:dZBfp">
@@ -551,7 +548,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                           <block type="math_arithmetic" id="?Gt[wM9{LEraIQEkU=n@">
                             <field name="OP">DIVIDE</field>
                             <value name="A">
-                              <shadow type="math_number" id="#Q:Zmb@hW~}\`j^d}o}wQ">
+                              <shadow type="math_number" id="#Q:Zmb@hW~}`j^d}o}wQ">
                                 <field name="NUM">1</field>
                               </shadow>
                               <block type="math_arithmetic" id="ww$z2/pVm]50[Syz1lt,">
@@ -575,7 +572,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                               </block>
                             </value>
                             <value name="B">
-                              <shadow type="math_number" id="*XhT!\`\`BvZ~3?1Y-R!Nk">
+                              <shadow type="math_number" id="*XhT!``BvZ~3?1Y-R!Nk">
                                 <field name="NUM">1</field>
                               </shadow>
                               <block type="variables_get" id="b_oIfmJFaVa*6U]KQ!tP">
@@ -591,7 +588,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
               </block>
             </statement>
             <statement name="ELSE">
-              <block type="variables_set" id="bSTN-\`_,WaRA3B!Kc\`s)">
+              <block type="variables_set" id="bSTN-`_,WaRA3B!Kc`s)">
                 <field name="VAR" id="1.;7AUt6Jf/o7#QT_cQI">Loss_count</field>
                 <value name="VALUE">
                   <block type="math_number" id="Az|i=#^6?#1Z%5L]P22l">
@@ -611,9 +608,9 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
               </block>
             </statement>
             <next>
-              <block type="controls_if" id="jM|N.i\`uJVM6f.8Io8])">
+              <block type="controls_if" id="jM|N.i`uJVM6f.8Io8])">
                 <value name="IF0">
-                  <block type="logic_compare" id="-Y%yyfn+f1kkY{c.b;t\`">
+                  <block type="logic_compare" id="-Y%yyfn+f1kkY{c.b;t`">
                     <field name="OP">LT</field>
                     <value name="A">
                       <block type="variables_get" id="z-xg,S3t#CiBJ.;.~c%*">
@@ -668,7 +665,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                             <next>
                               <block type="text_statement" id="#Lh%GTP[W(H1smuyso]+">
                                 <value name="TEXT">
-                                  <shadow type="text" id="3EZFt}ffdvU0)O\`/VutW">
+                                  <shadow type="text" id="3EZFt}ffdvU0)O`/VutW">
                                     <field name="TEXT"></field>
                                   </shadow>
                                   <block type="variables_get" id="vRpwZ++98]B5Z*wwCl9P">
@@ -710,7 +707,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                         </value>
                         <value name="B">
                           <block type="variables_get" id="L?E$iBI3!_XTJ%[w]9bA">
-                            <field name="VAR" id="+M\`TMXD%w(@IX~)ugrg!">Profit Threshold:</field>
+                            <field name="VAR" id="+M`TMXD%w(@IX~)ugrg!">Profit Threshold:</field>
                           </block>
                         </value>
                       </block>
@@ -726,9 +723,9 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                               </shadow>
                             </value>
                             <next>
-                              <block type="text_statement" id=",t8(!w%6U@\`,^^}GD2mi">
+                              <block type="text_statement" id=",t8(!w%6U@`,^^}GD2mi">
                                 <value name="TEXT">
-                                  <shadow type="text" id="3EZFt}ffdvU0)O\`/VutW">
+                                  <shadow type="text" id="3EZFt}ffdvU0)O`/VutW">
                                     <field name="TEXT"></field>
                                   </shadow>
                                   <block type="total_profit" id="2e}6T4|3h]YsW?dXUg/e"></block>
@@ -761,7 +758,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
                       </block>
                     </statement>
                     <statement name="ELSE">
-                      <block type="trade_again" id="nRx*Q)=B?\`|3c6BqNH4L"></block>
+                      <block type="trade_again" id="nRx*Q)=B?`|3c6BqNH4L"></block>
                     </statement>
                   </block>
                 </next>
@@ -772,11 +769,11 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="K]sM[t\`N/LY-}_[6f]XP" collapsed="true" deletable="false" x="0" y="1337">
+  <block type="before_purchase" id="K]sM[t`N/LY-}_[6f]XP" collapsed="true" deletable="false" x="0" y="1337">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="*-kOt7jZrR\`WMrQfnO1j">
+      <block type="controls_if" id="*-kOt7jZrR`WMrQfnO1j">
         <value name="IF0">
-          <block type="logic_compare" id="i})8;\`]R*6B}%!lWWzwS">
+          <block type="logic_compare" id="i})8;`]R*6B}%!lWWzwS">
             <field name="OP">LTE</field>
             <value name="A">
               <block type="variables_get" id="+s3oKC?a%L_Q(:*%peRN">
@@ -796,7 +793,7 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
           </block>
         </statement>
         <next>
-          <block type="controls_if" id="||E!t=!=dT?0D\`?uC+@U">
+          <block type="controls_if" id="||E!t=!=dT?0D`?uC+@U">
             <value name="IF0">
               <block type="logic_compare" id="k}I]PaOqP/~2:1|ff~d*">
                 <field name="OP">GTE</field>
@@ -822,21 +819,4 @@ const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml
       </block>
     </statement>
   </block>
-</xml>`;
-
-/**
- * Free Bots catalog.
- *
- * Add a new bot by appending an entry below.
- * Users can Load it into Bot Builder to inspect or run it.
- */
-export const FREE_BOTS: FreeBot[] = [
-    {
-        id: 'overunder-pct-v1',
-        title: 'Over/Under % Bot',
-        description:
-            'Trades Digit Over/Under on Volatility 75 (1s) index. Uses the % of last N digits block to decide between Over 7, Under 2, or skip. Includes martingale-style stake recovery and configurable consecutive-loss / profit-threshold stops.',
-        tags: ['Over/Under', 'Digits', 'Volatility 75 (1s)', 'Martingale'],
-        xml: OVERUNDER_PCT_XML,
-    },
-];
+</xml>
