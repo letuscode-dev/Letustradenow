@@ -2,11 +2,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { createDetails } from '../utils/helpers';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import {
-    appendToSlidingDigitWindow,
-    getDigitPercentageValue,
-    getSlidingDigitWindow,
-} from '../utils/digit-percentage-condition';
+import { getDigitPercentageValue, getSlidingDigitWindow } from '../utils/digit-percentage-condition';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
     createRecoveryState,
@@ -267,8 +263,8 @@ const getBotInterface = tradeEngine => {
          * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
          * Returns 0 while the tick window is still filling (so comparisons stay false).
          *
-         * Sliding window: each new live tip drops the oldest digit from the N-window
-         * and appends the newest. Over/Under on the same tip share one snapshot.
+         * Sliding window: always the newest N live digits (oldest dropped as ticks arrive).
+         * Over/Under on the same tip share one snapshot so comparisons stay consistent.
          */
         evaluateDigitPercentageCondition: async (direction, barrier, sample_size) => {
             const window_size = Math.max(1, Math.min(1000, Math.floor(Number(sample_size)) || 100));
@@ -277,27 +273,30 @@ const getBotInterface = tradeEngine => {
                 ? tradeEngine.getAvailableLastDigitList()
                 : tradeEngine.getCachedLastDigitList(window_size);
 
-            if (!Array.isArray(digits) || digits.length < window_size) {
+            // Decide fill from cleaned window length — raw lists may include NaNs.
+            let digit_window = getSlidingDigitWindow(digits || [], window_size);
+            if (digit_window.length < window_size) {
                 digits = tradeEngine.ensureTickHistory
                     ? await tradeEngine.ensureTickHistory(window_size)
                     : digits || [];
+                digit_window = getSlidingDigitWindow(digits || [], window_size);
             }
 
             const tip_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
             const tip = Array.isArray(tip_ticks) && tip_ticks.length ? tip_ticks[tip_ticks.length - 1] : null;
             const tip_key = tip
                 ? `${tip.epoch}:${tip.digit}`
-                : `len:${Array.isArray(digits) ? digits.length : 0}`;
+                : `len:${digit_window.length}`;
 
             const cache = tradeEngine.digitPercentageSnapshot;
 
-            // Same tip → reuse the already-slid window (Over and Under stay in sync).
+            // Same tip → reuse snapshot (Over and Under stay in sync).
             if (
                 cache &&
                 cache.tip_key === tip_key &&
                 cache.window_size === window_size &&
                 Array.isArray(cache.window) &&
-                cache.window.length
+                cache.window.length === digit_window.length
             ) {
                 return getDigitPercentageValue(cache.window, {
                     direction,
@@ -306,32 +305,14 @@ const getBotInterface = tradeEngine => {
                 });
             }
 
-            let window;
-            if (
-                cache &&
-                cache.window_size === window_size &&
-                Array.isArray(cache.window) &&
-                tip &&
-                Number.isInteger(tip.digit) &&
-                tip.digit >= 0 &&
-                tip.digit <= 9 &&
-                cache.tip_key &&
-                cache.tip_key !== tip_key
-            ) {
-                // New digit arrived → drop oldest (when full) and append the newest.
-                window = appendToSlidingDigitWindow(cache.window, tip.digit, window_size);
-            } else {
-                // Seed / reseed from the newest N live digits.
-                window = getSlidingDigitWindow(digits || [], window_size);
-            }
-
+            // Always rebuild from live series so the oldest digit falls off with each tip.
             tradeEngine.digitPercentageSnapshot = {
                 tip_key,
                 window_size,
-                window,
+                window: digit_window,
             };
 
-            return getDigitPercentageValue(window, {
+            return getDigitPercentageValue(digit_window, {
                 direction,
                 barrier,
                 sample_size: window_size,

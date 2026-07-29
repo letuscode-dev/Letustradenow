@@ -56,7 +56,7 @@ const BLOCK_DEFINITION = {
         return {
             display_name: localize('% of last digits'),
             description: localize(
-                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. The value refreshes on every new live tick while the bot runs. Choose Over/Under from the dropdown, then compare with >, <, etc. in Purchase conditions.'
+                'Returns a number: the percent of the last N digits matching Over or Under the barrier. Over 5 → digits 6–9. Under 4 → digits 0–3. Sliding window: each new tick drops the oldest digit. Compare with >, <, etc. in Purchase conditions.'
             ),
             key_words: localize('over, under, percentage, digits, barrier, trade parameters'),
         };
