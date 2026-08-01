@@ -1,5 +1,7 @@
 /**
  * Pattern Probability free bots — Over-only and Under-only variants.
+ * Signal logic lives in custom functions (not Blocks Menu entries).
+ * Defaults: lookback 400, min_occurrences 3.
  */
 export const PATTERN_PROBABILITY_OVER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -60,7 +62,7 @@ export const PATTERN_PROBABILITY_OVER_XML = `<xml xmlns="https://developers.goog
         <next>
           <block type="variables_set" id="ppo_set_lookback">
             <field name="VAR" id="ppo_lookback">Lookback</field>
-            <value name="VALUE"><block type="math_number"><field name="NUM">1000</field></block></value>
+            <value name="VALUE"><block type="math_number"><field name="NUM">400</field></block></value>
             <next>
               <block type="variables_set" id="ppo_set_plen">
                 <field name="VAR" id="ppo_plen">Pattern_length</field>
@@ -68,7 +70,7 @@ export const PATTERN_PROBABILITY_OVER_XML = `<xml xmlns="https://developers.goog
                 <next>
                   <block type="variables_set" id="ppo_set_minocc">
                     <field name="VAR" id="ppo_minocc">Min_occurrences</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value>
                     <next>
                       <block type="variables_set" id="ppo_set_minconf">
                         <field name="VAR" id="ppo_minconf">Min_confidence</field>
@@ -129,13 +131,9 @@ export const PATTERN_PROBABILITY_OVER_XML = `<xml xmlns="https://developers.goog
       <block type="variables_set" id="ppo_set_pred">
         <field name="VAR" id="ppo_prediction">Prediction:</field>
         <value name="VALUE">
-          <block type="pattern_probability_over_under" id="ppo_signal">
-            <field name="MARKET_SIDE">OVER</field>
-            <value name="LOOKBACK"><block type="variables_get"><field name="VAR" id="ppo_lookback">Lookback</field></block></value>
-            <value name="PATTERN_LENGTH"><block type="variables_get"><field name="VAR" id="ppo_plen">Pattern_length</field></block></value>
-            <value name="MIN_OCCURRENCES"><block type="variables_get"><field name="VAR" id="ppo_minocc">Min_occurrences</field></block></value>
-            <value name="MIN_CONFIDENCE"><block type="variables_get"><field name="VAR" id="ppo_minconf">Min_confidence</field></block></value>
-            <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
+          <block type="procedures_callreturn" id="ppo_call_barrier">
+            <mutation name="Pattern Probability Over Barrier"></mutation>
+            <data>ppo_fn_barrier</data>
           </block>
         </value>
         <next>
@@ -160,6 +158,19 @@ export const PATTERN_PROBABILITY_OVER_XML = `<xml xmlns="https://developers.goog
         </next>
       </block>
     </statement>
+  </block>
+  <block type="procedures_defreturn" id="ppo_fn_barrier" collapsed="true" x="0" y="900">
+    <field name="NAME">Pattern Probability Over Barrier</field>
+    <value name="RETURN">
+      <block type="pattern_probability_over_under" id="ppo_signal">
+        <field name="MARKET_SIDE">OVER</field>
+        <value name="LOOKBACK"><block type="variables_get"><field name="VAR" id="ppo_lookback">Lookback</field></block></value>
+        <value name="PATTERN_LENGTH"><block type="variables_get"><field name="VAR" id="ppo_plen">Pattern_length</field></block></value>
+        <value name="MIN_OCCURRENCES"><block type="variables_get"><field name="VAR" id="ppo_minocc">Min_occurrences</field></block></value>
+        <value name="MIN_CONFIDENCE"><block type="variables_get"><field name="VAR" id="ppo_minconf">Min_confidence</field></block></value>
+        <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
+      </block>
+    </value>
   </block>
   <block type="after_purchase" id="ppo_after" collapsed="true" x="1200" y="60">
     <statement name="AFTERPURCHASE_STACK">
@@ -342,7 +353,7 @@ export const PATTERN_PROBABILITY_UNDER_XML = `<xml xmlns="https://developers.goo
         <next>
           <block type="variables_set" id="ppu_set_lookback">
             <field name="VAR" id="ppu_lookback">Lookback</field>
-            <value name="VALUE"><block type="math_number"><field name="NUM">1000</field></block></value>
+            <value name="VALUE"><block type="math_number"><field name="NUM">400</field></block></value>
             <next>
               <block type="variables_set" id="ppu_set_plen">
                 <field name="VAR" id="ppu_plen">Pattern_length</field>
@@ -350,7 +361,7 @@ export const PATTERN_PROBABILITY_UNDER_XML = `<xml xmlns="https://developers.goo
                 <next>
                   <block type="variables_set" id="ppu_set_minocc">
                     <field name="VAR" id="ppu_minocc">Min_occurrences</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value>
                     <next>
                       <block type="variables_set" id="ppu_set_minconf">
                         <field name="VAR" id="ppu_minconf">Min_confidence</field>
@@ -411,13 +422,9 @@ export const PATTERN_PROBABILITY_UNDER_XML = `<xml xmlns="https://developers.goo
       <block type="variables_set" id="ppu_set_pred">
         <field name="VAR" id="ppu_prediction">Prediction:</field>
         <value name="VALUE">
-          <block type="pattern_probability_over_under" id="ppu_signal">
-            <field name="MARKET_SIDE">UNDER</field>
-            <value name="LOOKBACK"><block type="variables_get"><field name="VAR" id="ppu_lookback">Lookback</field></block></value>
-            <value name="PATTERN_LENGTH"><block type="variables_get"><field name="VAR" id="ppu_plen">Pattern_length</field></block></value>
-            <value name="MIN_OCCURRENCES"><block type="variables_get"><field name="VAR" id="ppu_minocc">Min_occurrences</field></block></value>
-            <value name="MIN_CONFIDENCE"><block type="variables_get"><field name="VAR" id="ppu_minconf">Min_confidence</field></block></value>
-            <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
+          <block type="procedures_callreturn" id="ppu_call_barrier">
+            <mutation name="Pattern Probability Under Barrier"></mutation>
+            <data>ppu_fn_barrier</data>
           </block>
         </value>
         <next>
@@ -442,6 +449,19 @@ export const PATTERN_PROBABILITY_UNDER_XML = `<xml xmlns="https://developers.goo
         </next>
       </block>
     </statement>
+  </block>
+  <block type="procedures_defreturn" id="ppu_fn_barrier" collapsed="true" x="0" y="900">
+    <field name="NAME">Pattern Probability Under Barrier</field>
+    <value name="RETURN">
+      <block type="pattern_probability_over_under" id="ppu_signal">
+        <field name="MARKET_SIDE">UNDER</field>
+        <value name="LOOKBACK"><block type="variables_get"><field name="VAR" id="ppu_lookback">Lookback</field></block></value>
+        <value name="PATTERN_LENGTH"><block type="variables_get"><field name="VAR" id="ppu_plen">Pattern_length</field></block></value>
+        <value name="MIN_OCCURRENCES"><block type="variables_get"><field name="VAR" id="ppu_minocc">Min_occurrences</field></block></value>
+        <value name="MIN_CONFIDENCE"><block type="variables_get"><field name="VAR" id="ppu_minconf">Min_confidence</field></block></value>
+        <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
+      </block>
+    </value>
   </block>
   <block type="after_purchase" id="ppu_after" collapsed="true" x="1200" y="60">
     <statement name="AFTERPURCHASE_STACK">

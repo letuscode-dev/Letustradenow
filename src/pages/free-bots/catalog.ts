@@ -847,7 +847,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'pattern-probability-over-v1',
         title: 'Pattern Probability Over',
         description:
-            'Statistical Digit Over bot: matches the current digit pattern, scores Over 1–5, and trades the highest-probability Over market when filters pass. After a loss, Over 1 is skipped (low payout) until a win.',
+            'Statistical Digit Over bot via custom function. Defaults: lookback 400, min occurrences 3. After a loss, Over 1 is skipped (low payout) until a win.',
         tags: ['Over', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
         xml: PATTERN_PROBABILITY_OVER_XML,
     },
@@ -855,7 +855,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'pattern-probability-under-v1',
         title: 'Pattern Probability Under',
         description:
-            'Statistical Digit Under bot: matches the current digit pattern, scores Under 8–4, and trades the highest-probability Under market when filters pass. After a loss, Under 8 is skipped (low payout) until a win.',
+            'Statistical Digit Under bot via custom function. Defaults: lookback 400, min occurrences 3. After a loss, Under 8 is skipped (low payout) until a win.',
         tags: ['Under', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
         xml: PATTERN_PROBABILITY_UNDER_XML,
     },

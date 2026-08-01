@@ -201,9 +201,9 @@ describe('evaluatePatternProbabilityOverUnder', () => {
     });
 
     it('honours defaults and lookback clamp', () => {
-        expect(DEFAULT_LOOKBACK).toBe(1000);
+        expect(DEFAULT_LOOKBACK).toBe(400);
         expect(DEFAULT_PATTERN_LENGTH).toBe(2);
-        expect(DEFAULT_MIN_OCCURRENCES).toBe(5);
+        expect(DEFAULT_MIN_OCCURRENCES).toBe(3);
         expect(DEFAULT_MIN_CONFIDENCE).toBe(70);
         expect(MAX_LOOKBACK).toBe(1000);
     });

@@ -389,7 +389,7 @@ const getBotInterface = tradeEngine => {
             const options_key = [
                 lookback,
                 Math.floor(Number(opts.pattern_length)) || 2,
-                Math.floor(Number(opts.min_occurrences)) || 5,
+                Math.floor(Number(opts.min_occurrences)) || 3,
                 Number(opts.min_confidence) || 70,
                 String(opts.market_side || 'BOTH').toUpperCase(),
                 opts.multi_length_consensus === false ? 0 : 1,
