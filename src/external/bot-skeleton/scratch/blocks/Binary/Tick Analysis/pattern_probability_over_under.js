@@ -68,7 +68,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Statistical pattern bot: score Over 1–5 and/or Under 8–4 from historical pattern matches. Choose Over, Under, or Both. Returns the best barrier (or -1). After a loss, Over 1 and Under 8 are skipped (low payout).'
+                'Statistical pattern bot: Over targets Over 2; Under targets Under 7; Both compares those two. Returns the barrier (or -1). After a loss, Over 1 and Under 8 stay skipped if present.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -77,7 +77,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
         return {
             display_name: localize('Pattern probability Over/Under'),
             description: localize(
-                'Looks up every past occurrence of the current digit pattern, builds a 0–9 frequency table, and picks the highest-probability Over and/or Under market — only when filters pass.'
+                'Looks up every past occurrence of the current digit pattern, builds a 0–9 frequency table, and picks Over 2 and/or Under 7 — only when filters pass.'
             ),
             key_words: localize('pattern, probability, over, under, frequency, statistics, digits'),
         };

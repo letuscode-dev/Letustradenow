@@ -3,8 +3,9 @@
  *
  * Finds every historical occurrence of the current digit pattern (length 1–5)
  * inside a sliding lookback window, builds a successor frequency table (0–9),
- * then scores every Over 1–5 and Under 8–4 market. Trades only when the best
- * market clears minimum occurrences, confidence, and theoretical-edge filters.
+ * then scores the configured Over / Under market(s). Over-only targets Over 2;
+ * Under-only targets Under 7. Trades only when the best market clears minimum
+ * occurrences, confidence, and theoretical-edge filters.
  *
  * Performance: one O(n) scan builds a Map of pattern → successor counts.
  * Same-tick callers reuse a tip snapshot (handled in BotInterface).
@@ -19,25 +20,13 @@ export const MIN_PATTERN_LENGTH = 1;
 export const MAX_PATTERN_LENGTH = 5;
 
 /** Markets evaluated every tick (barrier is the purchase prediction). */
-export const OVER_MARKETS = [
-    { side: 'OVER', barrier: 1 },
-    { side: 'OVER', barrier: 2 },
-    { side: 'OVER', barrier: 3 },
-    { side: 'OVER', barrier: 4 },
-    { side: 'OVER', barrier: 5 },
-];
+export const OVER_MARKETS = [{ side: 'OVER', barrier: 2 }];
 
-export const UNDER_MARKETS = [
-    { side: 'UNDER', barrier: 8 },
-    { side: 'UNDER', barrier: 7 },
-    { side: 'UNDER', barrier: 6 },
-    { side: 'UNDER', barrier: 5 },
-    { side: 'UNDER', barrier: 4 },
-];
+export const UNDER_MARKETS = [{ side: 'UNDER', barrier: 7 }];
 
 export const OVER_UNDER_MARKETS = [...OVER_MARKETS, ...UNDER_MARKETS];
 
-/** Low-payout barriers to skip after a loss (Over 1 / Under 8 ≈ 80% theory, thin payout). */
+/** Low-payout barriers to skip after a loss (kept for BOTH / legacy configs). */
 export const LOW_PAYOUT_AFTER_LOSS = [
     { side: 'OVER', barrier: 1 },
     { side: 'UNDER', barrier: 8 },
