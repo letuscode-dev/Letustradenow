@@ -7,6 +7,12 @@ import {
     DEFAULT_PATTERN_LENGTH,
 } from '../../../../services/tradeEngine/utils/pattern-probability-over-under';
 
+const SIDE_OPTIONS = [
+    [localize('Over'), 'OVER'],
+    [localize('Under'), 'UNDER'],
+    [localize('Both'), 'BOTH'],
+];
+
 const readArg = (block, name, fallback) => {
     const from_input = window.Blockly.JavaScript.javascriptGenerator.valueToCode(
         block,
@@ -24,8 +30,7 @@ const readArg = (block, name, fallback) => {
 };
 
 /**
- * Main signal block — returns the best Over/Under barrier, or -1 when filters reject.
- * Journal lines explain pattern, frequencies, and the trade / no-trade reason.
+ * Main signal block — returns the best Over and/or Under barrier, or -1 when filters reject.
  */
 window.Blockly.Blocks.pattern_probability_over_under = {
     init() {
@@ -35,16 +40,22 @@ window.Blockly.Blocks.pattern_probability_over_under = {
     definition() {
         return {
             message0: localize(
-                'pattern OU barrier (lookback {{ lookback }}, length {{ length }}, min occ {{ occ }}, min % {{ conf }}, journal {{ journal }})',
+                'pattern {{ side }} barrier (lookback {{ lookback }}, length {{ length }}, min occ {{ occ }}, min % {{ conf }}, journal {{ journal }})',
                 {
-                    lookback: '%1',
-                    length: '%2',
-                    occ: '%3',
-                    conf: '%4',
-                    journal: '%5',
+                    side: '%1',
+                    lookback: '%2',
+                    length: '%3',
+                    occ: '%4',
+                    conf: '%5',
+                    journal: '%6',
                 }
             ),
             args0: [
+                {
+                    type: 'field_dropdown',
+                    name: 'MARKET_SIDE',
+                    options: SIDE_OPTIONS,
+                },
                 { type: 'input_value', name: 'LOOKBACK', check: 'Number' },
                 { type: 'input_value', name: 'PATTERN_LENGTH', check: 'Number' },
                 { type: 'input_value', name: 'MIN_OCCURRENCES', check: 'Number' },
@@ -57,7 +68,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Statistical Over/Under: find historical matches of the current digit pattern, score Over 1–5 and Under 8–4, return the best barrier (or -1). Only trades with enough matches, confidence, and edge vs theory.'
+                'Statistical pattern bot: score Over 1–5 and/or Under 8–4 from historical pattern matches. Choose Over, Under, or Both. Returns the best barrier (or -1).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -66,7 +77,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
         return {
             display_name: localize('Pattern probability Over/Under'),
             description: localize(
-                'Looks up every past occurrence of the current 1–5 digit pattern in the lookback window, builds a 0–9 frequency table of what followed, and picks the Over/Under market with the highest historical probability — only when filters pass.'
+                'Looks up every past occurrence of the current digit pattern, builds a 0–9 frequency table, and picks the highest-probability Over and/or Under market — only when filters pass.'
             ),
             key_words: localize('pattern, probability, over, under, frequency, statistics, digits'),
         };
@@ -77,6 +88,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.pattern_probability_over_under = block => {
+    const market_side = block.getFieldValue('MARKET_SIDE') || 'BOTH';
     const lookback = readArg(block, 'LOOKBACK', DEFAULT_LOOKBACK);
     const pattern_length = readArg(block, 'PATTERN_LENGTH', DEFAULT_PATTERN_LENGTH);
     const min_occurrences = readArg(block, 'MIN_OCCURRENCES', DEFAULT_MIN_OCCURRENCES);
@@ -85,6 +97,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.pattern_probability_over_
 
     const code = `(function () {
         var BinaryBotPrivatePatternOu = Bot.evaluatePatternProbabilityOverUnder({
+            market_side: ${JSON.stringify(market_side)},
             lookback: ${lookback},
             pattern_length: ${pattern_length},
             min_occurrences: ${min_occurrences},
@@ -116,10 +129,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.pattern_probability_over_
     return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];
 };
 
-/**
- * True when the last pattern-OU evaluation selected an Over market.
- * Call after the barrier block so both share the tip snapshot.
- */
 window.Blockly.Blocks.pattern_probability_is_over = {
     init() {
         this.jsonInit(this.definition());
@@ -155,9 +164,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.pattern_probability_is_ov
     window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
 ];
 
-/**
- * Confidence score (0–100) from the last pattern-OU evaluation.
- */
 window.Blockly.Blocks.pattern_probability_confidence = {
     init() {
         this.jsonInit(this.definition());

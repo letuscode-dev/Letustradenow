@@ -370,6 +370,7 @@ const getBotInterface = tradeEngine => {
                 Math.floor(Number(opts.pattern_length)) || 2,
                 Math.floor(Number(opts.min_occurrences)) || 5,
                 Number(opts.min_confidence) || 70,
+                String(opts.market_side || 'BOTH').toUpperCase(),
                 opts.multi_length_consensus === false ? 0 : 1,
             ].join(':');
 

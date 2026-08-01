@@ -19,18 +19,45 @@ export const MIN_PATTERN_LENGTH = 1;
 export const MAX_PATTERN_LENGTH = 5;
 
 /** Markets evaluated every tick (barrier is the purchase prediction). */
-export const OVER_UNDER_MARKETS = [
+export const OVER_MARKETS = [
     { side: 'OVER', barrier: 1 },
     { side: 'OVER', barrier: 2 },
     { side: 'OVER', barrier: 3 },
     { side: 'OVER', barrier: 4 },
     { side: 'OVER', barrier: 5 },
+];
+
+export const UNDER_MARKETS = [
     { side: 'UNDER', barrier: 8 },
     { side: 'UNDER', barrier: 7 },
     { side: 'UNDER', barrier: 6 },
     { side: 'UNDER', barrier: 5 },
     { side: 'UNDER', barrier: 4 },
 ];
+
+export const OVER_UNDER_MARKETS = [...OVER_MARKETS, ...UNDER_MARKETS];
+
+const toMarketSide = value => {
+    const normalized = String(value || 'BOTH').toUpperCase();
+    if (normalized === 'OVER' || normalized === 'DIGITOVER') {
+        return 'OVER';
+    }
+    if (normalized === 'UNDER' || normalized === 'DIGITUNDER') {
+        return 'UNDER';
+    }
+    return 'BOTH';
+};
+
+export const getMarketsForSide = market_side => {
+    const side = toMarketSide(market_side);
+    if (side === 'OVER') {
+        return OVER_MARKETS;
+    }
+    if (side === 'UNDER') {
+        return UNDER_MARKETS;
+    }
+    return OVER_UNDER_MARKETS;
+};
 
 const isValidDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
 
@@ -316,6 +343,7 @@ const emptyResult = (overrides = {}) => ({
  *   min_confidence?: number,
  *   journal_enabled?: boolean,
  *   multi_length_consensus?: boolean,
+ *   market_side?: 'OVER'|'UNDER'|'BOTH',
  * }} options
  */
 export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
@@ -323,6 +351,9 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     const pattern_length = toPatternLength(options.pattern_length);
     const min_occurrences = toMinOccurrences(options.min_occurrences);
     const min_confidence = toMinConfidence(options.min_confidence);
+    const market_side = toMarketSide(options.market_side);
+    const markets = getMarketsForSide(market_side);
+    const side_label = market_side === 'BOTH' ? 'OU' : market_side === 'UNDER' ? 'Under' : 'Over';
     const journal_enabled =
         options.journal_enabled === undefined || options.journal_enabled === null
             ? true
@@ -347,13 +378,14 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         return emptyResult({
             pattern_length,
             lookback,
+            market_side,
             reason: 'collecting_ticks',
             status: 'collecting',
             journal_messages: journal_enabled
                 ? [
                       {
                           className: 'info',
-                          message: `Pattern OU: collecting ticks (${window.length}/${pattern_length + 1}).`,
+                          message: `Pattern ${side_label}: collecting ticks (${window.length}/${pattern_length + 1}).`,
                       },
                   ]
                 : [],
@@ -365,10 +397,11 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         return emptyResult({
             pattern_length,
             lookback,
+            market_side,
             reason: 'invalid_pattern',
             status: 'skip',
             journal_messages: journal_enabled
-                ? [{ className: 'error', message: 'Pattern OU: current pattern invalid.' }]
+                ? [{ className: 'error', message: `Pattern ${side_label}: current pattern invalid.` }]
                 : [],
         });
     }
@@ -378,31 +411,33 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     const occurrences = frequency.reduce((sum, n) => sum + n, 0);
     const successors = collectPatternSuccessors(window, pattern_length, current.key);
 
-    const market_probabilities = OVER_UNDER_MARKETS.map(market => {
-        const { probability, matching, total } = getMarketProbabilityFromCounts(
-            frequency,
-            market.side,
-            market.barrier
-        );
-        const theoretical = getTheoreticalProbability(market.side, market.barrier);
-        const edge = probability - theoretical;
-        const recent_agreement = getRecentAgreement(successors, market.side, market.barrier);
-        return {
-            side: market.side,
-            barrier: market.barrier,
-            label: `${market.side === 'UNDER' ? 'Under' : 'Over'} ${market.barrier}`,
-            probability: Math.round(probability * 100) / 100,
-            theoretical,
-            edge: Math.round(edge * 100) / 100,
-            matching,
-            total,
-            recent_agreement: Math.round(recent_agreement * 1000) / 1000,
-        };
-    }).sort((a, b) => b.probability - a.probability || b.edge - a.edge);
+    const market_probabilities = markets
+        .map(market => {
+            const { probability, matching, total } = getMarketProbabilityFromCounts(
+                frequency,
+                market.side,
+                market.barrier
+            );
+            const theoretical = getTheoreticalProbability(market.side, market.barrier);
+            const edge = probability - theoretical;
+            const recent_agreement = getRecentAgreement(successors, market.side, market.barrier);
+            return {
+                side: market.side,
+                barrier: market.barrier,
+                label: `${market.side === 'UNDER' ? 'Under' : 'Over'} ${market.barrier}`,
+                probability: Math.round(probability * 100) / 100,
+                theoretical,
+                edge: Math.round(edge * 100) / 100,
+                matching,
+                total,
+                recent_agreement: Math.round(recent_agreement * 1000) / 1000,
+            };
+        })
+        .sort((a, b) => b.probability - a.probability || b.edge - a.edge);
 
     const best = market_probabilities[0] || null;
 
-    // Multi-length consensus: how many nearby lengths pick the same side.
+    // Multi-length consensus: how many nearby lengths pick the same side (+ barrier family).
     let consensus_ratio = 0;
     if (multi_length && best) {
         const lengths = [];
@@ -435,8 +470,8 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
             checked += 1;
             let alt_best = null;
             let alt_best_p = -1;
-            for (let m = 0; m < OVER_UNDER_MARKETS.length; m++) {
-                const market = OVER_UNDER_MARKETS[m];
+            for (let m = 0; m < markets.length; m++) {
+                const market = markets[m];
                 const { probability } = getMarketProbabilityFromCounts(alt_freq, market.side, market.barrier);
                 if (probability > alt_best_p) {
                     alt_best_p = probability;
@@ -495,7 +530,7 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     if (journal_enabled) {
         journal_messages.push({
             className: should_trade ? 'success' : 'info',
-            message: `Pattern OU [${current.key}] L=${pattern_length} N=${lookback} matches=${occurrences} → ${
+            message: `Pattern ${side_label} [${current.key}] L=${pattern_length} N=${lookback} matches=${occurrences} → ${
                 should_trade ? `${best.label} @ ${best.probability.toFixed(1)}%` : 'NO TRADE'
             } (${reason})`,
         });
@@ -518,11 +553,11 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         pattern: current.key,
         pattern_length,
         lookback,
+        market_side,
         frequency,
         market_probabilities,
         reason,
         status,
-        // Soft hint for collecting UI when window still short of preferred lookback.
         collecting: window.length < Math.min(lookback, min_needed),
         journal_messages,
     };

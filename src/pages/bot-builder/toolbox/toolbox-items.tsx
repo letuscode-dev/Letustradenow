@@ -171,6 +171,7 @@ export const ToolboxItems = () =>
                     </Value>
                 </Block>
                 <Block type='pattern_probability_over_under'>
+                    <Field name='MARKET_SIDE'>OVER</Field>
                     <Value name='LOOKBACK'>
                         <Shadow type='math_number'>
                             <Field name='NUM'>1000</Field>

@@ -1,5 +1,8 @@
 import type { FreeBot } from './types';
-import { PATTERN_PROBABILITY_OU_XML } from './bots/pattern-probability-ou';
+import {
+    PATTERN_PROBABILITY_OVER_XML,
+    PATTERN_PROBABILITY_UNDER_XML,
+} from './bots/pattern-probability-ou';
 
 // eslint-disable-next-line max-len
 const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -841,11 +844,19 @@ export const FREE_BOTS: FreeBot[] = [
         xml: OVERUNDER_PCT_XML,
     },
     {
-        id: 'pattern-probability-ou-v1',
-        title: 'Pattern Probability Over/Under',
+        id: 'pattern-probability-over-v1',
+        title: 'Pattern Probability Over',
         description:
-            'Statistical Over/Under bot: matches the current digit pattern in a lookback window, builds a 0–9 successor frequency table, scores Over 1–5 and Under 8–4, and trades only the highest-probability market when occurrence, confidence, and theoretical-edge filters all pass. Adaptive multi-length consensus + martingale recovery.',
-        tags: ['Over/Under', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
-        xml: PATTERN_PROBABILITY_OU_XML,
+            'Statistical Digit Over bot: matches the current digit pattern in a lookback window, scores Over 1–5 only, and trades the highest-probability Over market when occurrence, confidence, and theoretical-edge filters all pass.',
+        tags: ['Over', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
+        xml: PATTERN_PROBABILITY_OVER_XML,
+    },
+    {
+        id: 'pattern-probability-under-v1',
+        title: 'Pattern Probability Under',
+        description:
+            'Statistical Digit Under bot: matches the current digit pattern in a lookback window, scores Under 8–4 only, and trades the highest-probability Under market when occurrence, confidence, and theoretical-edge filters all pass.',
+        tags: ['Under', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
+        xml: PATTERN_PROBABILITY_UNDER_XML,
     },
 ];

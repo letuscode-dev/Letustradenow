@@ -40,7 +40,6 @@ describe('getMarketProbabilityFromCounts', () => {
 
 describe('buildPatternSuccessorIndex / getCurrentPattern', () => {
     it('indexes successors for a repeating pattern', () => {
-        // Pattern 4,7,2 followed by various digits
         const digits = [4, 7, 2, 6, 4, 7, 2, 5, 4, 7, 2, 8, 4, 7, 2, 6, 9];
         const index = buildPatternSuccessorIndex(digits, 3);
         const counts = index.get('472');
@@ -48,7 +47,6 @@ describe('buildPatternSuccessorIndex / getCurrentPattern', () => {
         expect(counts[6]).toBe(2);
         expect(counts[5]).toBe(1);
         expect(counts[8]).toBe(1);
-        // Series ends with …2,6,9 → current 3-digit pattern is "269"
         expect(getCurrentPattern(digits, 3).key).toBe('269');
     });
 });
@@ -77,12 +75,10 @@ describe('scoreConfidence', () => {
 
 describe('evaluatePatternProbabilityOverUnder', () => {
     const makeBiasedSeries = () => {
-        // After pattern "12", successor is usually 9 (wins Over 5 heavily).
         const digits = [];
         for (let i = 0; i < 40; i++) {
             digits.push(1, 2, 9);
         }
-        // Pad with noise so lookback fills; keep ending on pattern "12"
         for (let i = 0; i < 20; i++) {
             digits.push(3, 4, 5);
         }
@@ -125,6 +121,7 @@ describe('evaluatePatternProbabilityOverUnder', () => {
             min_confidence: 70,
             journal_enabled: false,
             multi_length_consensus: false,
+            market_side: 'OVER',
         });
         expect(result.pattern).toBe('12');
         expect(result.occurrences).toBeGreaterThanOrEqual(10);
@@ -133,6 +130,30 @@ describe('evaluatePatternProbabilityOverUnder', () => {
         expect(result.barrier).toBeGreaterThanOrEqual(1);
         expect(result.contract_type).toBe('DIGITOVER');
         expect(result.probability).toBeGreaterThan(result.theoretical);
+    });
+
+    it('restricts Under-only mode to Under markets', () => {
+        const digits = [];
+        for (let i = 0; i < 40; i++) {
+            digits.push(1, 2, 0);
+        }
+        for (let i = 0; i < 20; i++) {
+            digits.push(3, 4, 5);
+        }
+        digits.push(1, 2);
+        const result = evaluatePatternProbabilityOverUnder(digits, {
+            lookback: 500,
+            pattern_length: 2,
+            min_occurrences: 10,
+            min_confidence: 70,
+            journal_enabled: false,
+            multi_length_consensus: false,
+            market_side: 'UNDER',
+        });
+        expect(result.should_trade).toBe(true);
+        expect(result.side).toBe('UNDER');
+        expect(result.contract_type).toBe('DIGITUNDER');
+        expect(result.market_probabilities.every(m => m.side === 'UNDER')).toBe(true);
     });
 
     it('honours defaults and lookback clamp', () => {
