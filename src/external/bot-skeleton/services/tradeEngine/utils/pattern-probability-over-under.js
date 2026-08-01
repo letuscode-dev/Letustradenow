@@ -374,11 +374,10 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
               options.avoid_low_payout_after_loss === 'TRUE' ||
               options.avoid_low_payout_after_loss === 'true';
     const last_was_loss = options.last_was_loss === true || options.last_was_loss === 1;
-    const markets = filterMarketsAfterLoss(
-        getMarketsForSide(market_side),
-        avoid_low_payout && last_was_loss
-    );
-    const skipped_low_payout = avoid_low_payout && last_was_loss;
+    const base_markets = getMarketsForSide(market_side);
+    const markets = filterMarketsAfterLoss(base_markets, avoid_low_payout && last_was_loss);
+    // Only true when markets were actually removed (e.g. Over 1 / Under 8 in BOTH mode).
+    const skipped_low_payout = markets.length < base_markets.length;
     const side_label = market_side === 'BOTH' ? 'OU' : market_side === 'UNDER' ? 'Under' : 'Over';
     const journal_enabled =
         options.journal_enabled === undefined || options.journal_enabled === null
@@ -543,10 +542,9 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     } else if (best.probability <= best.theoretical) {
         reason = `no_edge_vs_theoretical (${best.probability.toFixed(1)}%≤${best.theoretical}%)`;
         status = 'skip';
-    } else if (confidence < min_confidence) {
-        reason = `confidence_score_low (${confidence}<${min_confidence})`;
-        status = 'skip';
     } else {
+        // Adaptive confidence is informational / soft — min_confidence applies to
+        // historical market probability only (avoids a double-gate that blocked valid edges).
         should_trade = true;
         reason = `trade_${best.side}_${best.barrier}`;
         status = 'trade';

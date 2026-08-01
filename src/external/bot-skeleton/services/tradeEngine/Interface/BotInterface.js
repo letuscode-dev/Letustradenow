@@ -406,7 +406,7 @@ const getBotInterface = tradeEngine => {
                 : tradeEngine.getCachedLastDigitList(lookback);
 
             if (
-                (!Array.isArray(digits) || digits.length < Math.min(lookback, 100)) &&
+                (!Array.isArray(digits) || digits.length < lookback) &&
                 tradeEngine.ensureTickHistory &&
                 !tradeEngine._patternOuFillPending
             ) {

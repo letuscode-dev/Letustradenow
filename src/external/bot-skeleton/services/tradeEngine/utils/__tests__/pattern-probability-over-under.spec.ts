@@ -202,6 +202,31 @@ describe('evaluatePatternProbabilityOverUnder', () => {
         }
     });
 
+    it('gates min_confidence on historical probability only (adaptive score is soft)', () => {
+        // Over 2 theory = 70%. Bias successors to 9 → historical Over 2 ≈ 100%.
+        const digits = [];
+        for (let i = 0; i < 5; i++) {
+            digits.push(1, 2, 9);
+        }
+        digits.push(1, 2);
+        const result = evaluatePatternProbabilityOverUnder(digits, {
+            lookback: 100,
+            pattern_length: 2,
+            min_occurrences: 3,
+            min_confidence: 70,
+            journal_enabled: false,
+            multi_length_consensus: false,
+            market_side: 'OVER',
+        });
+        expect(result.occurrences).toBeGreaterThanOrEqual(3);
+        expect(result.probability).toBeGreaterThanOrEqual(70);
+        expect(result.should_trade).toBe(true);
+        expect(result.barrier).toBe(2);
+        expect(result.reason).not.toMatch(/confidence_score_low/);
+        // Adaptive score may be above or below min_confidence; it must not block the trade.
+        expect(result.status).toBe('trade');
+    });
+
     it('honours defaults and lookback clamp', () => {
         expect(DEFAULT_LOOKBACK).toBe(400);
         expect(DEFAULT_PATTERN_LENGTH).toBe(2);
