@@ -6,11 +6,28 @@ import {
     MAX_LOOKBACK,
     buildPatternSuccessorIndex,
     evaluatePatternProbabilityOverUnder,
+    filterMarketsAfterLoss,
     getCurrentPattern,
     getMarketProbabilityFromCounts,
+    getMarketsForSide,
     getTheoreticalProbability,
     scoreConfidence,
 } from '../pattern-probability-over-under';
+
+describe('filterMarketsAfterLoss', () => {
+    it('removes Over 1 and Under 8 after a loss', () => {
+        const filtered = filterMarketsAfterLoss(getMarketsForSide('BOTH'), true);
+        expect(filtered.some(m => m.side === 'OVER' && m.barrier === 1)).toBe(false);
+        expect(filtered.some(m => m.side === 'UNDER' && m.barrier === 8)).toBe(false);
+        expect(filtered.some(m => m.side === 'OVER' && m.barrier === 2)).toBe(true);
+        expect(filtered.some(m => m.side === 'UNDER' && m.barrier === 7)).toBe(true);
+    });
+
+    it('keeps full market list when last trade was not a loss', () => {
+        const filtered = filterMarketsAfterLoss(getMarketsForSide('OVER'), false);
+        expect(filtered.some(m => m.side === 'OVER' && m.barrier === 1)).toBe(true);
+    });
+});
 
 describe('getTheoreticalProbability', () => {
     it('matches uniform digit theory for Over/Under markets', () => {
@@ -154,6 +171,33 @@ describe('evaluatePatternProbabilityOverUnder', () => {
         expect(result.side).toBe('UNDER');
         expect(result.contract_type).toBe('DIGITUNDER');
         expect(result.market_probabilities.every(m => m.side === 'UNDER')).toBe(true);
+    });
+
+    it('skips Over 1 after a loss in Over-only mode', () => {
+        // Bias successors to 9 — Over 1 would normally win, but must be skipped after loss.
+        const digits = [];
+        for (let i = 0; i < 40; i++) {
+            digits.push(1, 2, 9);
+        }
+        digits.push(1, 2);
+        const after_loss = evaluatePatternProbabilityOverUnder(digits, {
+            lookback: 500,
+            pattern_length: 2,
+            min_occurrences: 10,
+            min_confidence: 50,
+            journal_enabled: false,
+            multi_length_consensus: false,
+            market_side: 'OVER',
+            last_was_loss: true,
+            avoid_low_payout_after_loss: true,
+        });
+        expect(after_loss.market_probabilities.every(m => !(m.side === 'OVER' && m.barrier === 1))).toBe(
+            true
+        );
+        expect(after_loss.skipped_low_payout).toBe(true);
+        if (after_loss.should_trade) {
+            expect(after_loss.barrier).not.toBe(1);
+        }
     });
 
     it('honours defaults and lookback clamp', () => {

@@ -111,6 +111,7 @@ const getBotInterface = tradeEngine => {
             tradeEngine.patternProbabilitySnapshot = null;
             tradeEngine._patternOuFillPending = false;
             tradeEngine._patternOuLastJournalKey = null;
+            tradeEngine.patternProbabilityLastWasLoss = false;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -147,6 +148,8 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.recoveryState = createRecoveryState();
             }
             applyRecoveryResult(tradeEngine.recoveryState, !!is_win, profit);
+            tradeEngine.patternProbabilityLastWasLoss = !is_win;
+            tradeEngine.patternProbabilitySnapshot = null;
             if (tradeEngine.windowIndexDiffersState) {
                 // Prefer epoch-ordered live digits so settlement maps to the right tick.
                 const digit_ticks = tradeEngine.getCachedDigitTicks
@@ -362,6 +365,24 @@ const getBotInterface = tradeEngine => {
                     Math.floor(Number(opts.lookback)) || PATTERN_OU_DEFAULT_LOOKBACK
                 )
             );
+
+            // After a loss, skip Over 1 / Under 8 (thin payouts hurt recovery).
+            let last_was_loss = false;
+            if (typeof tradeEngine.patternProbabilityLastWasLoss === 'boolean') {
+                last_was_loss = tradeEngine.patternProbabilityLastWasLoss;
+            }
+            if (tradeEngine.data?.contract) {
+                try {
+                    const details = createDetails(tradeEngine.data.contract);
+                    if (details?.[10] === 'loss' || details?.[10] === 'win') {
+                        last_was_loss = details[10] === 'loss';
+                        tradeEngine.patternProbabilityLastWasLoss = last_was_loss;
+                    }
+                } catch (e) {
+                    // keep prior flag
+                }
+            }
+
             const tip_key = tradeEngine.getLatestTickTipKey
                 ? tradeEngine.getLatestTickTipKey()
                 : `lb:${lookback}`;
@@ -372,6 +393,7 @@ const getBotInterface = tradeEngine => {
                 Number(opts.min_confidence) || 70,
                 String(opts.market_side || 'BOTH').toUpperCase(),
                 opts.multi_length_consensus === false ? 0 : 1,
+                last_was_loss ? 1 : 0,
             ].join(':');
 
             const cache = tradeEngine.patternProbabilitySnapshot;
@@ -399,10 +421,15 @@ const getBotInterface = tradeEngine => {
             const result = runPatternProbabilityOverUnder(digits || [], {
                 ...opts,
                 lookback,
+                last_was_loss,
+                avoid_low_payout_after_loss:
+                    opts.avoid_low_payout_after_loss === undefined ? true : opts.avoid_low_payout_after_loss,
             });
 
             // Suppress duplicate NO-TRADE journal spam while Start() retries each second.
-            const journal_key = `${result.pattern}|${result.reason}|${result.should_trade ? 1 : 0}`;
+            const journal_key = `${result.pattern}|${result.reason}|${result.should_trade ? 1 : 0}|${
+                last_was_loss ? 1 : 0
+            }`;
             let public_result = result;
             if (
                 !result.should_trade &&
@@ -420,6 +447,13 @@ const getBotInterface = tradeEngine => {
                 result: public_result,
             };
             return public_result;
+        },
+        /**
+         * Record last pattern-OU trade outcome so Over 1 / Under 8 can be skipped after losses.
+         */
+        setPatternProbabilityLastResult: is_loss => {
+            tradeEngine.patternProbabilityLastWasLoss = !!is_loss;
+            tradeEngine.patternProbabilitySnapshot = null;
         },
         getPatternProbabilityIsOver: () => {
             const result = tradeEngine.patternProbabilitySnapshot?.result;

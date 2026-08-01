@@ -37,6 +37,12 @@ export const UNDER_MARKETS = [
 
 export const OVER_UNDER_MARKETS = [...OVER_MARKETS, ...UNDER_MARKETS];
 
+/** Low-payout barriers to skip after a loss (Over 1 / Under 8 ≈ 80% theory, thin payout). */
+export const LOW_PAYOUT_AFTER_LOSS = [
+    { side: 'OVER', barrier: 1 },
+    { side: 'UNDER', barrier: 8 },
+];
+
 const toMarketSide = value => {
     const normalized = String(value || 'BOTH').toUpperCase();
     if (normalized === 'OVER' || normalized === 'DIGITOVER') {
@@ -57,6 +63,23 @@ export const getMarketsForSide = market_side => {
         return UNDER_MARKETS;
     }
     return OVER_UNDER_MARKETS;
+};
+
+/**
+ * Drop Over 1 / Under 8 when recovering from a loss — their payouts are too thin
+ * for stake recovery. Falls back to the full list if filtering would leave nothing.
+ */
+export const filterMarketsAfterLoss = (markets, last_was_loss) => {
+    if (!last_was_loss || !Array.isArray(markets) || markets.length === 0) {
+        return Array.isArray(markets) ? markets.slice() : [];
+    }
+    const filtered = markets.filter(
+        market =>
+            !LOW_PAYOUT_AFTER_LOSS.some(
+                banned => banned.side === market.side && banned.barrier === market.barrier
+            )
+    );
+    return filtered.length > 0 ? filtered : markets.slice();
 };
 
 const isValidDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
@@ -344,6 +367,8 @@ const emptyResult = (overrides = {}) => ({
  *   journal_enabled?: boolean,
  *   multi_length_consensus?: boolean,
  *   market_side?: 'OVER'|'UNDER'|'BOTH',
+ *   avoid_low_payout_after_loss?: boolean,
+ *   last_was_loss?: boolean,
  * }} options
  */
 export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
@@ -352,7 +377,19 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     const min_occurrences = toMinOccurrences(options.min_occurrences);
     const min_confidence = toMinConfidence(options.min_confidence);
     const market_side = toMarketSide(options.market_side);
-    const markets = getMarketsForSide(market_side);
+    const avoid_low_payout =
+        options.avoid_low_payout_after_loss === undefined
+            ? true
+            : options.avoid_low_payout_after_loss === true ||
+              options.avoid_low_payout_after_loss === 1 ||
+              options.avoid_low_payout_after_loss === 'TRUE' ||
+              options.avoid_low_payout_after_loss === 'true';
+    const last_was_loss = options.last_was_loss === true || options.last_was_loss === 1;
+    const markets = filterMarketsAfterLoss(
+        getMarketsForSide(market_side),
+        avoid_low_payout && last_was_loss
+    );
+    const skipped_low_payout = avoid_low_payout && last_was_loss;
     const side_label = market_side === 'BOTH' ? 'OU' : market_side === 'UNDER' ? 'Under' : 'Over';
     const journal_enabled =
         options.journal_enabled === undefined || options.journal_enabled === null
@@ -534,9 +571,10 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
                 should_trade ? `${best.label} @ ${best.probability.toFixed(1)}%` : 'NO TRADE'
             } (${reason})`,
         });
+        const skip_note = skipped_low_payout ? ' | skip Over 1/Under 8 after loss' : '';
         journal_messages.push({
             className: 'info',
-            message: `Freq {${freq_text}} | ${market_text} | conf=${confidence}%`,
+            message: `Freq {${freq_text}} | ${market_text} | conf=${confidence}%${skip_note}`,
         });
     }
 
@@ -554,6 +592,7 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         pattern_length,
         lookback,
         market_side,
+        skipped_low_payout,
         frequency,
         market_probabilities,
         reason,

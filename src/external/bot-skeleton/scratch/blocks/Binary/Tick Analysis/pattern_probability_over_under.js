@@ -68,7 +68,7 @@ window.Blockly.Blocks.pattern_probability_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Statistical pattern bot: score Over 1–5 and/or Under 8–4 from historical pattern matches. Choose Over, Under, or Both. Returns the best barrier (or -1).'
+                'Statistical pattern bot: score Over 1–5 and/or Under 8–4 from historical pattern matches. Choose Over, Under, or Both. Returns the best barrier (or -1). After a loss, Over 1 and Under 8 are skipped (low payout).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
