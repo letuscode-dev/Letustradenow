@@ -323,7 +323,7 @@ const getBotInterface = tradeEngine => {
                 digit_window = getSlidingDigitWindow(digits || [], window_size);
                 results = {};
 
-                // Non-blocking history fill — do not pause the interpreter.
+                // Non-blocking history fill — never await inside the interpreter.
                 if (
                     digit_window.length < window_size &&
                     tradeEngine.ensureTickHistory &&
@@ -334,6 +334,8 @@ const getBotInterface = tradeEngine => {
                         .catch(() => {})
                         .finally(() => {
                             tradeEngine._digitPctFillPending = false;
+                            // History grew without a new tip — force recompute on next call.
+                            tradeEngine.digitPercentageSnapshot = null;
                         });
                 }
             }
@@ -354,6 +356,8 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Pattern-probability Over/Under — sync, tip-snapshotted.
+         * Never awaits history fill (no interpreter pause). Uses whatever digits
+         * are already cached and kicks off a background fill when short.
          * Returns full analysis object; Blockly unwraps barrier / side / confidence.
          */
         evaluatePatternProbabilityOverUnder: options => {
@@ -383,9 +387,18 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
-            const tip_key = tradeEngine.getLatestTickTipKey
+            // Prefer available (possibly short) digits — never block until lookback is full.
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(lookback)
+                : tradeEngine.getCachedLastDigitList(lookback);
+            const history_len = Array.isArray(digits) ? digits.length : 0;
+
+            const tip_base = tradeEngine.getLatestTickTipKey
                 ? tradeEngine.getLatestTickTipKey()
                 : `lb:${lookback}`;
+            // Include history length so a background fill invalidates the tip cache
+            // without waiting for the next live tick.
+            const tip_key = `${tip_base}:hlen:${history_len}`;
             const options_key = [
                 lookback,
                 Math.floor(Number(opts.pattern_length)) || 2,
@@ -401,20 +414,15 @@ const getBotInterface = tradeEngine => {
                 return cache.result;
             }
 
-            const digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(lookback)
-                : tradeEngine.getCachedLastDigitList(lookback);
-
-            if (
-                (!Array.isArray(digits) || digits.length < lookback) &&
-                tradeEngine.ensureTickHistory &&
-                !tradeEngine._patternOuFillPending
-            ) {
+            // Non-blocking history fill — never await inside the interpreter.
+            if (history_len < lookback && tradeEngine.ensureTickHistory && !tradeEngine._patternOuFillPending) {
                 tradeEngine._patternOuFillPending = true;
                 Promise.resolve(tradeEngine.ensureTickHistory(lookback))
                     .catch(() => {})
                     .finally(() => {
                         tradeEngine._patternOuFillPending = false;
+                        // Fill completed without a new tip — force recompute on next call.
+                        tradeEngine.patternProbabilitySnapshot = null;
                     });
             }
 
@@ -429,7 +437,7 @@ const getBotInterface = tradeEngine => {
             // Suppress duplicate NO-TRADE journal spam while Start() retries each second.
             const journal_key = `${result.pattern}|${result.reason}|${result.should_trade ? 1 : 0}|${
                 last_was_loss ? 1 : 0
-            }`;
+            }|hlen:${history_len}`;
             let public_result = result;
             if (
                 !result.should_trade &&

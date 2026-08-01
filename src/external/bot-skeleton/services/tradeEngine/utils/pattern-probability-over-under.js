@@ -397,8 +397,8 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
     const cleaned = cleanDigits(digits);
     const window = cleaned.length > lookback ? cleaned.slice(cleaned.length - lookback) : cleaned;
 
-    // Need lookback digits plus room for at least one successor historically.
-    const min_needed = Math.max(lookback, pattern_length + min_occurrences);
+    // Trade as soon as a pattern + successor exists — never wait for full lookback.
+    // Background history fill (BotInterface) grows the window without blocking.
     if (window.length < pattern_length + 1) {
         return emptyResult({
             pattern_length,
@@ -550,11 +550,12 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         status = 'trade';
     }
 
+    const lookback_label = window.length < lookback ? `${window.length}/${lookback}` : String(lookback);
     const journal_messages = [];
     if (journal_enabled) {
         journal_messages.push({
             className: should_trade ? 'success' : 'info',
-            message: `Pattern ${side_label} [${current.key}] L=${pattern_length} N=${lookback} matches=${occurrences} → ${
+            message: `Pattern ${side_label} [${current.key}] L=${pattern_length} N=${lookback_label} matches=${occurrences} → ${
                 should_trade ? `${best.label} @ ${best.probability.toFixed(1)}%` : 'NO TRADE'
             } (${reason})`,
         });
@@ -584,7 +585,8 @@ export const evaluatePatternProbabilityOverUnder = (digits, options = {}) => {
         market_probabilities,
         reason,
         status,
-        collecting: window.length < Math.min(lookback, min_needed),
+        // Only true while we lack a pattern+successor — full lookback is optional.
+        collecting: window.length < pattern_length + 1,
         journal_messages,
     };
 };
