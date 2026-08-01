@@ -170,6 +170,35 @@ export const ToolboxItems = () =>
                         </Shadow>
                     </Value>
                 </Block>
+                <Block type='pattern_probability_over_under'>
+                    <Value name='LOOKBACK'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>500</Field>
+                        </Shadow>
+                    </Value>
+                    <Value name='PATTERN_LENGTH'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>2</Field>
+                        </Shadow>
+                    </Value>
+                    <Value name='MIN_OCCURRENCES'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>10</Field>
+                        </Shadow>
+                    </Value>
+                    <Value name='MIN_CONFIDENCE'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>75</Field>
+                        </Shadow>
+                    </Value>
+                    <Value name='JOURNAL'>
+                        <Shadow type='logic_boolean'>
+                            <Field name='BOOL'>TRUE</Field>
+                        </Shadow>
+                    </Value>
+                </Block>
+                <Block type='pattern_probability_is_over' />
+                <Block type='pattern_probability_confidence' />
             </Category>
             <Category id='purchase_conditions' name={localize('Purchase conditions')}>
                 <Block type='before_purchase' />

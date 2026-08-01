@@ -1,4 +1,5 @@
 import type { FreeBot } from './types';
+import { PATTERN_PROBABILITY_OU_XML } from './bots/pattern-probability-ou';
 
 // eslint-disable-next-line max-len
 const OVERUNDER_PCT_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
@@ -838,5 +839,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Trades Digit Over/Under on Volatility 75 (1s) index. Uses the % of last N digits block to decide between Over 7, Under 2, or skip. Includes martingale-style stake recovery and configurable consecutive-loss / profit-threshold stops.',
         tags: ['Over/Under', 'Digits', 'Volatility 75 (1s)', 'Martingale'],
         xml: OVERUNDER_PCT_XML,
+    },
+    {
+        id: 'pattern-probability-ou-v1',
+        title: 'Pattern Probability Over/Under',
+        description:
+            'Statistical Over/Under bot: matches the current digit pattern in a lookback window, builds a 0–9 successor frequency table, scores Over 1–5 and Under 8–4, and trades only the highest-probability market when occurrence, confidence, and theoretical-edge filters all pass. Adaptive multi-length consensus + martingale recovery.',
+        tags: ['Over/Under', 'Pattern', 'Probability', 'Statistics', 'Volatility 75 (1s)'],
+        xml: PATTERN_PROBABILITY_OU_XML,
     },
 ];

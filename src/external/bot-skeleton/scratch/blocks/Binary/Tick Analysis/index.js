@@ -20,6 +20,7 @@ import './window_index_differs_prediction';
 import './strategy_voting_prediction';
 import './complement_digit_prediction';
 import './cold_digit_prediction';
+import './pattern_probability_over_under';
 import './range_momentum_over_one';
 import './over_zero_gap_filter';
 import './percentage_filter';

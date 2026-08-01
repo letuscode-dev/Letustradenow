@@ -7,6 +7,11 @@ import {
     getDigitPercentageValue,
     getSlidingDigitWindow,
 } from '../utils/digit-percentage-condition';
+import {
+    DEFAULT_LOOKBACK as PATTERN_OU_DEFAULT_LOOKBACK,
+    evaluatePatternProbabilityOverUnder as runPatternProbabilityOverUnder,
+    MAX_LOOKBACK as PATTERN_OU_MAX_LOOKBACK,
+} from '../utils/pattern-probability-over-under';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
     createRecoveryState,
@@ -103,6 +108,8 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine.digitPercentageSnapshot = null;
             tradeEngine._digitPctFillPending = false;
+            tradeEngine.patternProbabilitySnapshot = null;
+            tradeEngine._patternOuFillPending = false;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -340,6 +347,73 @@ const getBotInterface = tradeEngine => {
                 results,
             };
             return percentage;
+        },
+        /**
+         * Pattern-probability Over/Under — sync, tip-snapshotted.
+         * Returns full analysis object; Blockly unwraps barrier / side / confidence.
+         */
+        evaluatePatternProbabilityOverUnder: options => {
+            const opts = options || {};
+            const lookback = Math.max(
+                10,
+                Math.min(
+                    PATTERN_OU_MAX_LOOKBACK,
+                    Math.floor(Number(opts.lookback)) || PATTERN_OU_DEFAULT_LOOKBACK
+                )
+            );
+            const tip_key = tradeEngine.getLatestTickTipKey
+                ? tradeEngine.getLatestTickTipKey()
+                : `lb:${lookback}`;
+            const options_key = [
+                lookback,
+                Math.floor(Number(opts.pattern_length)) || 2,
+                Math.floor(Number(opts.min_occurrences)) || 10,
+                Number(opts.min_confidence) || 75,
+                opts.multi_length_consensus === false ? 0 : 1,
+            ].join(':');
+
+            const cache = tradeEngine.patternProbabilitySnapshot;
+            if (cache && cache.tip_key === tip_key && cache.options_key === options_key && cache.result) {
+                return cache.result;
+            }
+
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(lookback)
+                : tradeEngine.getCachedLastDigitList(lookback);
+
+            if (
+                (!Array.isArray(digits) || digits.length < lookback) &&
+                tradeEngine.ensureTickHistory &&
+                !tradeEngine._patternOuFillPending
+            ) {
+                tradeEngine._patternOuFillPending = true;
+                Promise.resolve(tradeEngine.ensureTickHistory(lookback))
+                    .catch(() => {})
+                    .finally(() => {
+                        tradeEngine._patternOuFillPending = false;
+                    });
+            }
+
+            const result = runPatternProbabilityOverUnder(digits || [], {
+                ...opts,
+                lookback,
+            });
+
+            tradeEngine.patternProbabilitySnapshot = {
+                tip_key,
+                options_key,
+                result,
+            };
+            return result;
+        },
+        getPatternProbabilityIsOver: () => {
+            const result = tradeEngine.patternProbabilitySnapshot?.result;
+            return Boolean(result && result.should_trade && result.side === 'OVER');
+        },
+        getPatternProbabilityConfidence: () => {
+            const result = tradeEngine.patternProbabilitySnapshot?.result;
+            const confidence = Number(result?.confidence);
+            return Number.isFinite(confidence) ? confidence : 0;
         },
         /**
          * Adaptive per-digit gap Differs — returns { prediction, journal_messages, dashboard, ... }.
