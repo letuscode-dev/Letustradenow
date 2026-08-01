@@ -110,6 +110,7 @@ const getBotInterface = tradeEngine => {
             tradeEngine._digitPctFillPending = false;
             tradeEngine.patternProbabilitySnapshot = null;
             tradeEngine._patternOuFillPending = false;
+            tradeEngine._patternOuLastJournalKey = null;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -367,8 +368,8 @@ const getBotInterface = tradeEngine => {
             const options_key = [
                 lookback,
                 Math.floor(Number(opts.pattern_length)) || 2,
-                Math.floor(Number(opts.min_occurrences)) || 10,
-                Number(opts.min_confidence) || 75,
+                Math.floor(Number(opts.min_occurrences)) || 5,
+                Number(opts.min_confidence) || 70,
                 opts.multi_length_consensus === false ? 0 : 1,
             ].join(':');
 
@@ -382,7 +383,7 @@ const getBotInterface = tradeEngine => {
                 : tradeEngine.getCachedLastDigitList(lookback);
 
             if (
-                (!Array.isArray(digits) || digits.length < lookback) &&
+                (!Array.isArray(digits) || digits.length < Math.min(lookback, 100)) &&
                 tradeEngine.ensureTickHistory &&
                 !tradeEngine._patternOuFillPending
             ) {
@@ -399,12 +400,25 @@ const getBotInterface = tradeEngine => {
                 lookback,
             });
 
+            // Suppress duplicate NO-TRADE journal spam while Start() retries each second.
+            const journal_key = `${result.pattern}|${result.reason}|${result.should_trade ? 1 : 0}`;
+            let public_result = result;
+            if (
+                !result.should_trade &&
+                tradeEngine._patternOuLastJournalKey === journal_key &&
+                Array.isArray(result.journal_messages)
+            ) {
+                public_result = { ...result, journal_messages: [] };
+            } else {
+                tradeEngine._patternOuLastJournalKey = journal_key;
+            }
+
             tradeEngine.patternProbabilitySnapshot = {
                 tip_key,
                 options_key,
-                result,
+                result: public_result,
             };
-            return result;
+            return public_result;
         },
         getPatternProbabilityIsOver: () => {
             const result = tradeEngine.patternProbabilitySnapshot?.result;

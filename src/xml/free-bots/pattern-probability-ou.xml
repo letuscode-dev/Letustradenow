@@ -64,11 +64,11 @@ export const PATTERN_PROBABILITY_OU_XML = `<xml xmlns="https://developers.google
           </block>
         </value>
         <next>
-          <block type="variables_set" id="pp_set_lookback">
+              <block type="variables_set" id="pp_set_lookback">
             <field name="VAR" id="pp_lookback">Lookback</field>
             <value name="VALUE">
               <block type="math_number" id="pp_lookback_n">
-                <field name="NUM">500</field>
+                <field name="NUM">1000</field>
               </block>
             </value>
             <next>
@@ -84,7 +84,7 @@ export const PATTERN_PROBABILITY_OU_XML = `<xml xmlns="https://developers.google
                     <field name="VAR" id="pp_minocc">Min_occurrences</field>
                     <value name="VALUE">
                       <block type="math_number" id="pp_minocc_n">
-                        <field name="NUM">10</field>
+                        <field name="NUM">5</field>
                       </block>
                     </value>
                     <next>
@@ -92,7 +92,7 @@ export const PATTERN_PROBABILITY_OU_XML = `<xml xmlns="https://developers.google
                         <field name="VAR" id="pp_minconf">Min_confidence</field>
                         <value name="VALUE">
                           <block type="math_number" id="pp_minconf_n">
-                            <field name="NUM">75</field>
+                            <field name="NUM">70</field>
                           </block>
                         </value>
                         <next>
@@ -214,57 +214,52 @@ export const PATTERN_PROBABILITY_OU_XML = `<xml xmlns="https://developers.google
           </block>
         </value>
         <next>
-          <block type="trade_definition_tradeoptions" id="pp_tradeopts">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
-            <field name="DURATIONTYPE_LIST">t</field>
-            <value name="DURATION">
-              <shadow type="math_number_positive">
-                <field name="NUM">1</field>
-              </shadow>
-              <block type="variables_get" id="pp_get_dur">
-                <field name="VAR" id="pp_duration">Duration</field>
-              </block>
-            </value>
-            <value name="AMOUNT">
-              <shadow type="math_number_positive">
-                <field name="NUM">0.35</field>
-              </shadow>
-              <block type="variables_get" id="pp_get_amt">
-                <field name="VAR" id="pp_initstake">Initial_stake</field>
-              </block>
-            </value>
-            <value name="PREDICTION">
-              <shadow type="math_number_positive" inline="true">
-                <field name="NUM">5</field>
-              </shadow>
-              <block type="logic_ternary" id="pp_pred_ternary">
-                <value name="IF">
-                  <block type="logic_compare" id="pp_pred_ok">
-                    <field name="OP">GTE</field>
-                    <value name="A">
-                      <block type="variables_get" id="pp_get_pred">
-                        <field name="VAR" id="pp_prediction">Prediction:</field>
-                      </block>
-                    </value>
-                    <value name="B">
-                      <block type="math_number" id="pp_zero">
-                        <field name="NUM">0</field>
-                      </block>
-                    </value>
+          <block type="controls_if" id="pp_if_signal">
+            <value name="IF0">
+              <block type="logic_compare" id="pp_pred_ok">
+                <field name="OP">GTE</field>
+                <value name="A">
+                  <block type="variables_get" id="pp_get_pred">
+                    <field name="VAR" id="pp_prediction">Prediction:</field>
                   </block>
                 </value>
-                <value name="THEN">
+                <value name="B">
+                  <block type="math_number" id="pp_zero">
+                    <field name="NUM">0</field>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="trade_definition_tradeoptions" id="pp_tradeopts">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION">
+                  <shadow type="math_number_positive">
+                    <field name="NUM">1</field>
+                  </shadow>
+                  <block type="variables_get" id="pp_get_dur">
+                    <field name="VAR" id="pp_duration">Duration</field>
+                  </block>
+                </value>
+                <value name="AMOUNT">
+                  <shadow type="math_number_positive">
+                    <field name="NUM">0.35</field>
+                  </shadow>
+                  <block type="variables_get" id="pp_get_amt">
+                    <field name="VAR" id="pp_initstake">Initial_stake</field>
+                  </block>
+                </value>
+                <value name="PREDICTION">
+                  <shadow type="math_number_positive" inline="true">
+                    <field name="NUM">5</field>
+                  </shadow>
                   <block type="variables_get" id="pp_get_pred2">
                     <field name="VAR" id="pp_prediction">Prediction:</field>
                   </block>
                 </value>
-                <value name="ELSE">
-                  <block type="math_number" id="pp_dummy_pred">
-                    <field name="NUM">5</field>
-                  </block>
-                </value>
               </block>
-            </value>
+            </statement>
           </block>
         </next>
       </block>

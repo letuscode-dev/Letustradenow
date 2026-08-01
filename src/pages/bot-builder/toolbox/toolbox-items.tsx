@@ -173,7 +173,7 @@ export const ToolboxItems = () =>
                 <Block type='pattern_probability_over_under'>
                     <Value name='LOOKBACK'>
                         <Shadow type='math_number'>
-                            <Field name='NUM'>500</Field>
+                            <Field name='NUM'>1000</Field>
                         </Shadow>
                     </Value>
                     <Value name='PATTERN_LENGTH'>
@@ -183,12 +183,12 @@ export const ToolboxItems = () =>
                     </Value>
                     <Value name='MIN_OCCURRENCES'>
                         <Shadow type='math_number'>
-                            <Field name='NUM'>10</Field>
+                            <Field name='NUM'>5</Field>
                         </Shadow>
                     </Value>
                     <Value name='MIN_CONFIDENCE'>
                         <Shadow type='math_number'>
-                            <Field name='NUM'>75</Field>
+                            <Field name='NUM'>70</Field>
                         </Shadow>
                     </Value>
                     <Value name='JOURNAL'>

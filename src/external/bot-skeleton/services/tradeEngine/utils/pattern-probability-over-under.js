@@ -10,10 +10,10 @@
  * Same-tick callers reuse a tip snapshot (handled in BotInterface).
  */
 
-export const DEFAULT_LOOKBACK = 500;
+export const DEFAULT_LOOKBACK = 1000;
 export const DEFAULT_PATTERN_LENGTH = 2;
-export const DEFAULT_MIN_OCCURRENCES = 10;
-export const DEFAULT_MIN_CONFIDENCE = 75;
+export const DEFAULT_MIN_OCCURRENCES = 5;
+export const DEFAULT_MIN_CONFIDENCE = 70;
 export const MAX_LOOKBACK = 1000;
 export const MIN_PATTERN_LENGTH = 1;
 export const MAX_PATTERN_LENGTH = 5;
