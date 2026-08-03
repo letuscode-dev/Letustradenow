@@ -241,6 +241,103 @@ export default Engine =>
             return digits;
         }
 
+        /**
+         * Last digits for an arbitrary symbol (does not change the active stream).
+         * Uses that symbol's pip size when known; otherwise the quote's last char.
+         *
+         * @param {Array<{quote?:number,epoch?:number}|number>} ticks
+         * @param {string} symbol
+         * @returns {number[]}
+         */
+        getLastDigitsFromListForSymbol(ticks, symbol) {
+            if (!Array.isArray(ticks) || !ticks.length) {
+                return [];
+            }
+            const pip_raw = this.$scope?.ticksService?.pipSizes?.[symbol];
+            const pip_size = Number.isFinite(Number(pip_raw)) ? Number(pip_raw) : null;
+
+            return ticks.map(tick => {
+                const quote = typeof tick === 'object' && tick !== null ? tick.quote : tick;
+                const numeric_quote = Number(quote);
+                if (!Number.isFinite(numeric_quote)) {
+                    return NaN;
+                }
+                if (pip_size !== null) {
+                    return getLastDigit(numeric_quote.toFixed(pip_size));
+                }
+                return getLastDigit(String(numeric_quote));
+            });
+        }
+
+        /**
+         * Ensure at least `count` digits are available for `symbol` (one-shot fill).
+         * Does not switch the bot's active trading symbol.
+         *
+         * @param {string} symbol
+         * @param {number} [count=5]
+         * @returns {Promise<number[]>}
+         */
+        async getDigitsForSymbol(symbol, count = 5) {
+            if (!symbol) {
+                return [];
+            }
+            const required = Math.max(1, Math.min(1000, Math.floor(Number(count)) || 5));
+            let ticks = this.$scope.ticksService.getCachedTicks(symbol);
+
+            if (!ticks?.length || ticks.length < required) {
+                if (typeof this.$scope.ticksService.requestHistoryFill === 'function') {
+                    ticks = await this.$scope.ticksService.requestHistoryFill(symbol, required);
+                } else {
+                    ticks = await this.$scope.ticksService.requestTicks({
+                        symbol,
+                        style: 'ticks',
+                    });
+                }
+            }
+
+            const refreshed = this.$scope.ticksService.getCachedTicks(symbol) || ticks || [];
+            const digits = this.getLastDigitsFromListForSymbol(refreshed, symbol);
+            return digits.length > required ? digits.slice(-required) : digits;
+        }
+
+        /**
+         * Switch the active trading symbol (options + live tick watch).
+         * Updates the Trade Definition market dropdown when Blockly is present.
+         *
+         * @param {string} symbol
+         * @returns {Promise<string>}
+         */
+        async switchTradeSymbol(symbol) {
+            const next = String(symbol || '').trim();
+            if (!next) {
+                return this.symbol || '';
+            }
+            if (this.options) {
+                this.options = { ...this.options, symbol: next };
+            }
+            if (this.data) {
+                this.data.proposals = [];
+            }
+            await this.watchTicks(next);
+
+            try {
+                const Blockly = typeof window !== 'undefined' ? window.Blockly : null;
+                const workspace = Blockly?.derivWorkspace;
+                if (workspace) {
+                    const market_block = workspace
+                        .getAllBlocks(true)
+                        .find(block => block.type === 'trade_definition_market');
+                    if (market_block?.getField('SYMBOL_LIST')) {
+                        market_block.setFieldValue(next, 'SYMBOL_LIST');
+                    }
+                }
+            } catch (e) {
+                // UI update is best-effort — trading uses options.symbol.
+            }
+
+            return next;
+        }
+
         checkDirection(dir) {
             const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
 

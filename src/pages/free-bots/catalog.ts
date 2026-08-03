@@ -3,6 +3,7 @@ import {
     PATTERN_PROBABILITY_OVER_XML,
     PATTERN_PROBABILITY_UNDER_XML,
 } from './bots/pattern-probability-ou';
+import { SEQUENTIAL_DIGIT_DIFFERS_XML } from './bots/sequential-digit-differs';
 
 /**
  * Free Bots catalog.
@@ -11,6 +12,14 @@ import {
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'sequential-digit-differs-v1',
+        title: 'Sequential Digit Differs',
+        description:
+            'Scans your chosen volatility group (1s, standard, or all). When the last 3 digits ascend (1→2→3) Differs 4; when they descend (8→7→6) Differs 5. Switches to the matching market automatically.',
+        tags: ['Differs', 'Sequential', 'Ascending', 'Descending', 'Multi-market', '1s / Standard'],
+        xml: SEQUENTIAL_DIGIT_DIFFERS_XML,
+    },
     {
         id: 'pattern-probability-over-v1',
         title: 'Pattern Probability Over',

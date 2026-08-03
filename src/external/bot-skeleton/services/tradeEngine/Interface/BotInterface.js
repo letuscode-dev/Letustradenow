@@ -69,6 +69,13 @@ import {
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
 } from '../utils/range-momentum';
+import {
+    buildSequentialScanResult,
+    evaluateSymbolSequentialSignal,
+    orderSymbolsForScan,
+    pickFirstMatch,
+    resolveScanSymbols,
+} from '../utils/sequential-digit-differs';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -112,6 +119,7 @@ const getBotInterface = tradeEngine => {
             tradeEngine._patternOuFillPending = false;
             tradeEngine._patternOuLastJournalKey = null;
             tradeEngine.patternProbabilityLastWasLoss = false;
+            tradeEngine.sequentialDigitDiffersSnapshot = null;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -603,6 +611,69 @@ const getBotInterface = tradeEngine => {
                 : tradeEngine.getCachedLastDigitList(1);
             return evaluateRangeMomentumOverOne(digit_ticks, options || {}, tradeEngine.rangeMomentumState);
         },
+        /**
+         * Sequential Digit Differs — scan configured volatility symbols for
+         * ascending/descending consecutive last-3 runs; optionally switch market.
+         */
+        evaluateSequentialDigitDiffersScan: async options => {
+            const opts = options || {};
+            const market_group = opts.market_group;
+            const symbols = resolveScanSymbols(opts);
+            const active_symbol =
+                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
+            const ordered = orderSymbolsForScan(symbols, active_symbol);
+            const switch_symbol =
+                opts.switch_symbol === undefined
+                    ? true
+                    : opts.switch_symbol === true ||
+                      opts.switch_symbol === 1 ||
+                      opts.switch_symbol === 'TRUE' ||
+                      opts.switch_symbol === 'true';
+
+            const evaluations = [];
+            for (let i = 0; i < ordered.length; i++) {
+                const symbol = ordered[i];
+                let digits = [];
+                try {
+                    digits = tradeEngine.getDigitsForSymbol
+                        ? await tradeEngine.getDigitsForSymbol(symbol, 5)
+                        : [];
+                } catch (e) {
+                    digits = [];
+                }
+                evaluations.push(evaluateSymbolSequentialSignal(symbol, digits));
+            }
+
+            const match = pickFirstMatch(evaluations);
+            let switched = false;
+            if (match && switch_symbol && match.symbol && match.symbol !== active_symbol) {
+                try {
+                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                        await tradeEngine.switchTradeSymbol(match.symbol);
+                        switched = true;
+                    }
+                } catch (e) {
+                    switched = false;
+                }
+            }
+
+            const result = buildSequentialScanResult({
+                market_group,
+                symbols: ordered,
+                active_symbol,
+                journal_enabled: opts.journal_enabled,
+                evaluations,
+                match,
+                switched,
+            });
+
+            tradeEngine.sequentialDigitDiffersSnapshot = result;
+            return result;
+        },
+        switchTradeSymbol: symbol =>
+            tradeEngine.switchTradeSymbol
+                ? tradeEngine.switchTradeSymbol(symbol)
+                : Promise.resolve(symbol),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
         isSellAvailable: () => tradeEngine.isSellAtMarketAvailable(),
         sellAtMarket: () => tradeEngine.sellAtMarket(),

@@ -22,6 +22,7 @@ import './complement_digit_prediction';
 import './cold_digit_prediction';
 import './pattern_probability_over_under';
 import './range_momentum_over_one';
+import './sequential_digit_differs_prediction';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

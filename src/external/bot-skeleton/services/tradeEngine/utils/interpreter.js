@@ -180,6 +180,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateStrategyVoting)
             );
         }
+        if (typeof bot_interface.evaluateSequentialDigitDiffersScan === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateSequentialDigitDiffersScan',
+                createAsync(js_interpreter, bot_interface.evaluateSequentialDigitDiffersScan)
+            );
+        }
+        if (typeof bot_interface.switchTradeSymbol === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'switchTradeSymbol',
+                createAsync(js_interpreter, bot_interface.switchTradeSymbol)
+            );
+        }
         js_interpreter.setProperty(scope, 'Bot', pseudo_bot_interface);
         js_interpreter.setProperty(
             scope,
