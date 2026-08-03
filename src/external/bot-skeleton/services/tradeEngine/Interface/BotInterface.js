@@ -87,20 +87,19 @@ import {
     toMarketGroup,
 } from '../utils/sequential-digit-differs';
 import {
-    applyOddEvenHotDigitTradeResult,
-    armOddEvenHotDigitCycle,
-    buildOddEvenHotDigitResult,
-    createOddEvenHotDigitState,
-    decideOddEvenHotDigitAction,
-    evaluateSymbolOddEvenHotDigit,
-    normalizeOddEvenHotDigitOptions,
+    armHotOddEvenDiffersPrediction,
+    buildHotOddEvenDiffersResult,
+    clearHotOddEvenDiffersCommit,
+    createHotOddEvenDiffersRuntimeState,
+    evaluateSymbolHotOddEvenDiffers,
+    isHotOddEvenDiffersSignalConsumed,
+    makeHotOddEvenDiffersSignalKey,
+    normalizeHotOddEvenDiffersOptions,
     orderSymbolsForScan as oeOrderSymbolsForScan,
-    PHASE_IDLE,
-    pickBestHotDigitMatch,
-    releaseStaleOddEvenCommit,
-    resetOddEvenHotDigitState,
+    pickBestHotOddEvenDiffersMatch,
+    releaseStaleHotOddEvenDiffersCommit,
+    resetHotOddEvenDiffersRuntimeState,
     resolveScanSymbols as oeResolveScanSymbols,
-    SIDE_NONE,
 } from '../utils/odd-even-hot-digit';
 
 const getBotInterface = tradeEngine => {
@@ -154,8 +153,9 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine.oddEvenHotDigitSnapshot = null;
             tradeEngine._oeHotLastJournalFp = null;
+            tradeEngine._oeHotConsumedKey = null;
             if (tradeEngine.oddEvenHotDigitState) {
-                resetOddEvenHotDigitState(tradeEngine.oddEvenHotDigitState);
+                resetHotOddEvenDiffersRuntimeState(tradeEngine.oddEvenHotDigitState);
                 tradeEngine.oddEvenHotDigitState = null;
             }
             return tradeEngine.stop(...args);
@@ -924,13 +924,13 @@ const getBotInterface = tradeEngine => {
             return public_result;
         },
         /**
-         * Odd/Even Hot-Digit — scan markets for ≥3 odd or even digits at ≥min %,
-         * wait for opposite streak, take ≤max_trades, then optional martingale recovery.
+         * Hot Odd/Even Differs — if tip equals hottest odd or hottest even digit
+         * in lookback, Differ the coldest digit on that market.
          */
         evaluateOddEvenHotDigitScan: async options => {
-            const opts = normalizeOddEvenHotDigitOptions(options || {});
+            const opts = normalizeHotOddEvenDiffersOptions(options || {});
             if (!tradeEngine.oddEvenHotDigitState) {
-                tradeEngine.oddEvenHotDigitState = createOddEvenHotDigitState();
+                tradeEngine.oddEvenHotDigitState = createHotOddEvenDiffersRuntimeState();
             }
             const runtime = tradeEngine.oddEvenHotDigitState;
 
@@ -945,100 +945,26 @@ const getBotInterface = tradeEngine => {
                 contract.sell_price != null &&
                 contract.transaction_ids?.buy
             ) {
-                try {
-                    const details = createDetails(contract);
-                    const outcome = details?.[10];
-                    const contract_id =
-                        contract.contract_id || contract.transaction_ids?.buy || details?.[0] || null;
-                    if (outcome === 'loss' || outcome === 'win') {
-                        applyOddEvenHotDigitTradeResult(runtime, {
-                            is_loss: outcome === 'loss',
-                            max_trades: opts.max_trades,
-                            contract_id,
-                        });
-                    }
-                } catch (e) {
-                    // keep prior runtime
-                }
+                clearHotOddEvenDiffersCommit(runtime);
             }
 
-            if (!has_open_contract) {
-                releaseStaleOddEvenCommit(runtime, 20000);
+            if (!has_open_contract && releaseStaleHotOddEvenDiffersCommit(runtime, 20000)) {
+                tradeEngine._oeHotConsumedKey = null;
             }
 
             if (runtime.trade_committed || has_open_contract) {
-                const waiting = buildOddEvenHotDigitResult({
-                    action: {
-                        should_trade: false,
-                        side_code: SIDE_NONE,
-                        stake_multiplier: runtime.stake_multiplier || 1,
-                        reason: 'awaiting_settlement',
-                    },
-                    market_group: opts.market_group,
-                    active_symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
-                    journal_enabled: false,
-                    state: runtime,
-                });
+                const waiting = {
+                    prediction: -1,
+                    barrier: -1,
+                    matched: false,
+                    reason: 'awaiting_settlement',
+                    journal_messages: [],
+                    stake_multiplier: 1,
+                };
                 tradeEngine.oddEvenHotDigitSnapshot = waiting;
                 return waiting;
             }
 
-            // Active cycle — advance wait / issue trades / recovery.
-            if (runtime.phase && runtime.phase !== PHASE_IDLE) {
-                const active_symbol = tradeEngine.options?.symbol || tradeEngine.symbol || runtime.symbol;
-                let digit = null;
-                let tip_key = null;
-                const ticks_service = tradeEngine.$scope?.ticksService;
-                if (ticks_service?.getCachedTicks) {
-                    const ticks = ticks_service.getCachedTicks(active_symbol) || [];
-                    const tip = ticks[ticks.length - 1];
-                    if (tip) {
-                        tip_key =
-                            tip.epoch != null && Number.isFinite(Number(tip.epoch))
-                                ? String(tip.epoch)
-                                : `${ticks.length}:${tip.quote ?? ''}`;
-                    }
-                }
-                if (tradeEngine.getCachedDigitsForSymbol) {
-                    const digits = tradeEngine.getCachedDigitsForSymbol(active_symbol, 1);
-                    if (Array.isArray(digits) && digits.length) {
-                        digit = digits[digits.length - 1];
-                    }
-                }
-
-                const action = decideOddEvenHotDigitAction(runtime, {
-                    digit,
-                    tip_key,
-                    opposite_streak: opts.opposite_streak,
-                    martingale_multiplier: opts.martingale_multiplier,
-                    max_trades: opts.max_trades,
-                });
-
-                const result = buildOddEvenHotDigitResult({
-                    action,
-                    market_group: opts.market_group,
-                    active_symbol,
-                    journal_enabled: opts.journal_enabled,
-                    state: runtime,
-                });
-
-                const tip_fp = `${runtime.phase}:${runtime.opposite_count}:${runtime.trades_done}:${action.reason}`;
-                let public_result = result;
-                if (
-                    !result.should_trade &&
-                    tradeEngine._oeHotLastJournalFp === tip_fp &&
-                    Array.isArray(result.journal_messages)
-                ) {
-                    public_result = { ...result, journal_messages: [] };
-                } else {
-                    tradeEngine._oeHotLastJournalFp = tip_fp;
-                }
-
-                tradeEngine.oddEvenHotDigitSnapshot = public_result;
-                return public_result;
-            }
-
-            // Idle — scan markets for a fresh hot-digit signal.
             const symbols = oeResolveScanSymbols({ market_group: opts.market_group });
             const active_symbol =
                 tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
@@ -1056,7 +982,6 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
-            // Fill history for one short symbol per cycle (avoid parallel 1000-tick storms).
             const short = ordered.find(symbol => {
                 const cached = tradeEngine.getCachedDigitsForSymbol
                     ? tradeEngine.getCachedDigitsForSymbol(symbol, opts.lookback)
@@ -1075,13 +1000,30 @@ const getBotInterface = tradeEngine => {
                 const digits = tradeEngine.getCachedDigitsForSymbol
                     ? tradeEngine.getCachedDigitsForSymbol(symbol, opts.lookback)
                     : [];
-                return evaluateSymbolOddEvenHotDigit(symbol, digits, opts);
+                return evaluateSymbolHotOddEvenDiffers(symbol, digits, opts);
             });
 
-            const match = pickBestHotDigitMatch(evaluations);
+            const raw_match = pickBestHotOddEvenDiffersMatch(evaluations);
+            let tip_epoch = null;
+            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+                const tip = ticks[ticks.length - 1];
+                if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+                    tip_epoch = Number(tip.epoch);
+                } else if (tip) {
+                    tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
+                }
+            }
+
+            const skipped_consumed = isHotOddEvenDiffersSignalConsumed(
+                raw_match,
+                tip_epoch,
+                tradeEngine._oeHotConsumedKey
+            );
+            const match = skipped_consumed ? null : raw_match;
+
             let switched = false;
             let switch_failed = false;
-
             if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
                 try {
                     if (typeof tradeEngine.switchTradeSymbol === 'function') {
@@ -1101,46 +1043,46 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
-            if (match && !switch_failed) {
-                armOddEvenHotDigitCycle(runtime, match);
+            const tradeable = match?.matched && !switch_failed ? match : null;
+            if (tradeable) {
+                tradeEngine._oeHotConsumedKey = makeHotOddEvenDiffersSignalKey(
+                    tradeable,
+                    tip_epoch
+                );
+                armHotOddEvenDiffersPrediction(runtime, tradeable.barrier);
             }
 
-            const result = buildOddEvenHotDigitResult({
-                action: {
-                    should_trade: false,
-                    side_code: SIDE_NONE,
-                    stake_multiplier: 1,
-                    reason: switch_failed
-                        ? 'switch_failed'
-                        : match
-                          ? 'armed_wait_opposite'
-                          : 'no_match',
-                },
-                match: switch_failed ? null : match,
-                evaluations,
+            const result = buildHotOddEvenDiffersResult({
                 market_group: opts.market_group,
                 active_symbol,
-                switched,
                 journal_enabled: opts.journal_enabled,
-                state: runtime,
+                evaluations,
+                match: switch_failed ? null : raw_match,
+                switched,
+                skipped_consumed: skipped_consumed || switch_failed,
             });
 
             if (switch_failed && opts.journal_enabled) {
                 result.reason = 'switch_failed';
+                result.matched = false;
+                result.prediction = -1;
+                result.barrier = -1;
                 result.journal_messages = [
                     {
                         className: 'error',
-                        message: `Odd/Even Hot: signal on ${match.symbol} but market switch failed — skipping`,
+                        message: `Hot O/E Differs: signal on ${match.symbol} but market switch failed — skipping`,
                     },
                 ];
             }
 
-            const tip_fp = match
-                ? `armed:${match.symbol}:${match.side}:${(match.hot_digits || []).join(',')}`
-                : evaluations.map(e => `${e.symbol}:${e.reason}`).join('|');
+            const tip_fp = skipped_consumed
+                ? `consumed:${tradeEngine._oeHotConsumedKey}`
+                : switch_failed
+                  ? `switch_failed:${match?.symbol}:${tip_epoch}`
+                  : evaluations.map(e => `${e.symbol}:${e.reason}`).join('|');
             let public_result = result;
             if (
-                !result.should_trade &&
+                !result.matched &&
                 tradeEngine._oeHotLastJournalFp === tip_fp &&
                 Array.isArray(result.journal_messages)
             ) {
@@ -1151,11 +1093,6 @@ const getBotInterface = tradeEngine => {
 
             tradeEngine.oddEvenHotDigitSnapshot = public_result;
             return public_result;
-        },
-        getOddEvenHotDigitStakeMultiplier: () => {
-            const snap = tradeEngine.oddEvenHotDigitSnapshot;
-            const mult = Number(snap?.stake_multiplier);
-            return Number.isFinite(mult) && mult > 0 ? mult : 1;
         },
         setSequentialDigitDiffersLastResult: (is_loss, immediate_loss_retry) => {
             if (!tradeEngine.sequentialDigitDiffersState) {

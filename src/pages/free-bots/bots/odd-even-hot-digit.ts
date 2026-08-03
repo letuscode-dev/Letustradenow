@@ -1,25 +1,27 @@
 /**
- * Odd/Even Hot-Digit free bot.
+ * Hot Odd/Even Differs free bot.
  *
  * Configure in Run once at start:
  *   Market_group — "1S" | "STANDARD" | "ALL"
- *   Lookback — tick history window (default 1000)
- *   Min_digit_pct — hot digit threshold (default 10.4)
+ *   Lookback — tick history (default 1000)
  *
- * Logic: ≥3 odd (or even) digits at ≥Min_digit_pct → wait for 3 opposite
- * consecutive tips → up to 5 favored trades → if last lost, ×2 recovery then stop.
+ * If tip = hottest odd or hottest even in lookback → Differ coldest digit.
+ * Recovery matches Sequential Digit Differs (Bot #2): Total_loss / Payout% / Split_size.
  */
 export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="oeh_stake">Stake</variable>
+    <variable id="oeh_split">Split_size</variable>
     <variable id="oeh_inarow">InArow</variable>
     <variable id="oeh_maxloss">Max Cons Loss:</variable>
-    <variable id="oeh_side">Side</variable>
+    <variable id="oeh_losscount">Loss_count</variable>
+    <variable id="oeh_totalloss">Total_loss</variable>
+    <variable id="oeh_prediction">Prediction:</variable>
     <variable id="oeh_profit">Profit Threshold:</variable>
     <variable id="oeh_initstake">Initial_stake</variable>
+    <variable id="oeh_payout">Payout%</variable>
     <variable id="oeh_duration">Duration</variable>
     <variable id="oeh_lookback">Lookback</variable>
-    <variable id="oeh_minpct">Min_digit_pct</variable>
     <variable id="oeh_mktgroup">Market_group</variable>
   </variables>
   <block type="trade_definition" id="oeh_trade_def" deletable="false" x="0" y="60">
@@ -31,10 +33,10 @@ export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com
         <next>
           <block type="trade_definition_tradetype" id="oeh_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>
-            <field name="TRADETYPE_LIST">evenodd</field>
+            <field name="TRADETYPE_LIST">matchesdiffers</field>
             <next>
               <block type="trade_definition_contracttype" id="oeh_contract" deletable="false" movable="false">
-                <field name="TYPE_LIST">both</field>
+                <field name="TYPE_LIST">DIGITDIFF</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="oeh_candle" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">60</field>
@@ -69,33 +71,45 @@ export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com
                 <field name="VAR" id="oeh_lookback">Lookback</field>
                 <value name="VALUE"><block type="math_number"><field name="NUM">1000</field></block></value>
                 <next>
-                  <block type="variables_set" id="oeh_set_minpct">
-                    <field name="VAR" id="oeh_minpct">Min_digit_pct</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">10.4</field></block></value>
+                  <block type="variables_set" id="oeh_set_mktgroup">
+                    <field name="VAR" id="oeh_mktgroup">Market_group</field>
+                    <value name="VALUE"><block type="text"><field name="TEXT">1S</field></block></value>
                     <next>
-                      <block type="variables_set" id="oeh_set_mktgroup">
-                        <field name="VAR" id="oeh_mktgroup">Market_group</field>
-                        <value name="VALUE"><block type="text"><field name="TEXT">1S</field></block></value>
+                      <block type="variables_set" id="oeh_set_maxloss">
+                        <field name="VAR" id="oeh_maxloss">Max Cons Loss:</field>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
                         <next>
-                          <block type="variables_set" id="oeh_set_maxloss">
-                            <field name="VAR" id="oeh_maxloss">Max Cons Loss:</field>
+                          <block type="variables_set" id="oeh_set_profit">
+                            <field name="VAR" id="oeh_profit">Profit Threshold:</field>
                             <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
                             <next>
-                              <block type="variables_set" id="oeh_set_profit">
-                                <field name="VAR" id="oeh_profit">Profit Threshold:</field>
-                                <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
+                              <block type="variables_set" id="oeh_set_split">
+                                <field name="VAR" id="oeh_split">Split_size</field>
+                                <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
                                 <next>
                                   <block type="variables_set" id="oeh_set_init">
                                     <field name="VAR" id="oeh_initstake">Initial_stake</field>
                                     <value name="VALUE"><block type="variables_get"><field name="VAR" id="oeh_stake">Stake</field></block></value>
                                     <next>
-                                      <block type="variables_set" id="oeh_set_inarow">
-                                        <field name="VAR" id="oeh_inarow">InArow</field>
-                                        <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                      <block type="variables_set" id="oeh_set_payout">
+                                        <field name="VAR" id="oeh_payout">Payout%</field>
+                                        <value name="VALUE"><block type="math_number"><field name="NUM">9.6</field></block></value>
                                         <next>
-                                          <block type="variables_set" id="oeh_set_side">
-                                            <field name="VAR" id="oeh_side">Side</field>
-                                            <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                                          <block type="variables_set" id="oeh_set_inarow">
+                                            <field name="VAR" id="oeh_inarow">InArow</field>
+                                            <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                            <next>
+                                              <block type="variables_set" id="oeh_set_losscount">
+                                                <field name="VAR" id="oeh_losscount">Loss_count</field>
+                                                <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                                <next>
+                                                  <block type="variables_set" id="oeh_set_totalloss">
+                                                    <field name="VAR" id="oeh_totalloss">Total_loss</field>
+                                                    <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                                  </block>
+                                                </next>
+                                              </block>
+                                            </next>
                                           </block>
                                         </next>
                                       </block>
@@ -117,55 +131,43 @@ export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="variables_set" id="oeh_set_side_run">
-        <field name="VAR" id="oeh_side">Side</field>
+      <block type="variables_set" id="oeh_set_pred">
+        <field name="VAR" id="oeh_prediction">Prediction:</field>
         <value name="VALUE">
-          <block type="procedures_callreturn" id="oeh_call_side">
-            <mutation name="Odd Even Hot Side"></mutation>
-            <data>oeh_fn_side</data>
+          <block type="procedures_callreturn" id="oeh_call_barrier">
+            <mutation name="Hot Odd Even Differs Barrier"></mutation>
+            <data>oeh_fn_barrier</data>
           </block>
         </value>
         <next>
-          <block type="variables_set" id="oeh_set_stake_run">
-            <field name="VAR" id="oeh_initstake">Initial_stake</field>
-            <value name="VALUE">
-              <block type="math_arithmetic">
-                <field name="OP">MULTIPLY</field>
-                <value name="A"><block type="variables_get"><field name="VAR" id="oeh_stake">Stake</field></block></value>
-                <value name="B"><block type="odd_even_hot_digit_stake_mult" id="oeh_mult"></block></value>
+          <block type="controls_if" id="oeh_if_signal">
+            <value name="IF0">
+              <block type="logic_compare">
+                <field name="OP">GTE</field>
+                <value name="A"><block type="variables_get"><field name="VAR" id="oeh_prediction">Prediction:</field></block></value>
+                <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
               </block>
             </value>
-            <next>
-              <block type="controls_if" id="oeh_if_signal">
-                <value name="IF0">
-                  <block type="logic_compare">
-                    <field name="OP">GTE</field>
-                    <value name="A"><block type="variables_get"><field name="VAR" id="oeh_side">Side</field></block></value>
-                    <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
-                  </block>
-                </value>
-                <statement name="DO0">
-                  <block type="trade_definition_tradeoptions" id="oeh_tradeopts">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="false"></mutation>
-                    <field name="DURATIONTYPE_LIST">t</field>
-                    <value name="DURATION"><block type="variables_get"><field name="VAR" id="oeh_duration">Duration</field></block></value>
-                    <value name="AMOUNT"><block type="variables_get"><field name="VAR" id="oeh_initstake">Initial_stake</field></block></value>
-                  </block>
-                </statement>
+            <statement name="DO0">
+              <block type="trade_definition_tradeoptions" id="oeh_tradeopts">
+                <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+                <field name="DURATIONTYPE_LIST">t</field>
+                <value name="DURATION"><block type="variables_get"><field name="VAR" id="oeh_duration">Duration</field></block></value>
+                <value name="AMOUNT"><block type="variables_get"><field name="VAR" id="oeh_initstake">Initial_stake</field></block></value>
+                <value name="PREDICTION"><block type="variables_get"><field name="VAR" id="oeh_prediction">Prediction:</field></block></value>
               </block>
-            </next>
+            </statement>
           </block>
         </next>
       </block>
     </statement>
   </block>
-  <block type="procedures_defreturn" id="oeh_fn_side" collapsed="true" x="0" y="900">
-    <field name="NAME">Odd Even Hot Side</field>
+  <block type="procedures_defreturn" id="oeh_fn_barrier" collapsed="true" x="0" y="900">
+    <field name="NAME">Hot Odd Even Differs Barrier</field>
     <value name="RETURN">
       <block type="odd_even_hot_digit_scan" id="oeh_signal">
         <value name="MARKET_GROUP"><block type="variables_get"><field name="VAR" id="oeh_mktgroup">Market_group</field></block></value>
         <value name="LOOKBACK"><block type="variables_get"><field name="VAR" id="oeh_lookback">Lookback</field></block></value>
-        <value name="MIN_DIGIT_PCT"><block type="variables_get"><field name="VAR" id="oeh_minpct">Min_digit_pct</field></block></value>
         <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
       </block>
     </value>
@@ -176,25 +178,102 @@ export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0"><block type="contract_check_result"><field name="CHECK_RESULT">loss</field></block></value>
         <statement name="DO0">
-          <block type="math_change"><field name="VAR" id="oeh_inarow">InArow</field><value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value></block>
+          <block type="math_change"><field name="VAR" id="oeh_inarow">InArow</field><value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+            <next>
+              <block type="variables_set"><field name="VAR" id="oeh_losscount">Loss_count</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                <next>
+                  <block type="math_change"><field name="VAR" id="oeh_totalloss">Total_loss</field><value name="DELTA"><block type="variables_get"><field name="VAR" id="oeh_initstake">Initial_stake</field></block></value></block>
+                </next>
+              </block>
+            </next>
+          </block>
         </statement>
         <statement name="ELSE">
-          <block type="variables_set"><field name="VAR" id="oeh_inarow">InArow</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block>
+          <block type="variables_set"><field name="VAR" id="oeh_inarow">InArow</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+            <next>
+              <block type="math_change"><field name="VAR" id="oeh_totalloss">Total_loss</field>
+                <value name="DELTA">
+                  <block type="math_single"><field name="OP">NEG</field>
+                    <value name="NUM"><block type="read_details"><field name="DETAIL_INDEX">4</field></block></value>
+                  </block>
+                </value>
+                <next>
+                  <block type="controls_if">
+                    <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
+                      <value name="A"><block type="variables_get"><field name="VAR" id="oeh_totalloss">Total_loss</field></block></value>
+                      <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+                    </block></value>
+                    <statement name="DO0"><block type="variables_set"><field name="VAR" id="oeh_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
         </statement>
         <next>
           <block type="controls_if">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-            <value name="IF0"><block type="logic_compare"><field name="OP">LTE</field>
-              <value name="A"><block type="variables_get"><field name="VAR" id="oeh_maxloss">Max Cons Loss:</field></block></value>
-              <value name="B"><block type="variables_get"><field name="VAR" id="oeh_inarow">InArow</field></block></value>
+            <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+            <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
+              <value name="A"><block type="variables_get"><field name="VAR" id="oeh_totalloss">Total_loss</field></block></value>
+              <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
             </block></value>
-            <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Max consecutive losses reached.</field></block></value></block></statement>
-            <value name="IF1"><block type="logic_compare"><field name="OP">GTE</field>
-              <value name="A"><block type="total_profit"></block></value>
-              <value name="B"><block type="variables_get"><field name="VAR" id="oeh_profit">Profit Threshold:</field></block></value>
-            </block></value>
-            <statement name="DO1"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Profit threshold reached.</field></block></value></block></statement>
-            <statement name="ELSE"><block type="trade_again"></block></statement>
+            <statement name="DO0">
+              <block type="math_change"><field name="VAR" id="oeh_losscount">Loss_count</field><value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
+                <next>
+                  <block type="controls_if">
+                    <value name="IF0"><block type="logic_compare"><field name="OP">EQ</field>
+                      <value name="A"><block type="variables_get"><field name="VAR" id="oeh_losscount">Loss_count</field></block></value>
+                      <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
+                    </block></value>
+                    <statement name="DO0">
+                      <block type="variables_set"><field name="VAR" id="oeh_initstake">Initial_stake</field>
+                        <value name="VALUE">
+                          <block type="math_arithmetic"><field name="OP">DIVIDE</field>
+                            <value name="A"><block type="math_arithmetic"><field name="OP">MULTIPLY</field>
+                              <value name="A"><block type="variables_get"><field name="VAR" id="oeh_totalloss">Total_loss</field></block></value>
+                              <value name="B"><block type="variables_get"><field name="VAR" id="oeh_payout">Payout%</field></block></value>
+                            </block></value>
+                            <value name="B"><block type="variables_get"><field name="VAR" id="oeh_split">Split_size</field></block></value>
+                          </block>
+                        </value>
+                      </block>
+                    </statement>
+                  </block>
+                </next>
+              </block>
+            </statement>
+            <statement name="ELSE">
+              <block type="variables_set"><field name="VAR" id="oeh_losscount">Loss_count</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                <next>
+                  <block type="variables_set"><field name="VAR" id="oeh_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="oeh_stake">Stake</field></block></value></block>
+                </next>
+              </block>
+            </statement>
+            <next>
+              <block type="controls_if">
+                <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
+                  <value name="A"><block type="variables_get"><field name="VAR" id="oeh_initstake">Initial_stake</field></block></value>
+                  <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+                </block></value>
+                <statement name="DO0"><block type="variables_set"><field name="VAR" id="oeh_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="oeh_stake">Stake</field></block></value></block></statement>
+                <next>
+                  <block type="controls_if">
+                    <value name="IF0"><block type="logic_operation"><field name="OP">OR</field>
+                      <value name="A"><block type="logic_compare"><field name="OP">LTE</field>
+                        <value name="A"><block type="variables_get"><field name="VAR" id="oeh_maxloss">Max Cons Loss:</field></block></value>
+                        <value name="B"><block type="variables_get"><field name="VAR" id="oeh_inarow">InArow</field></block></value>
+                      </block></value>
+                      <value name="B"><block type="logic_compare"><field name="OP">GTE</field>
+                        <value name="A"><block type="total_profit"></block></value>
+                        <value name="B"><block type="variables_get"><field name="VAR" id="oeh_profit">Profit Threshold:</field></block></value>
+                      </block></value>
+                    </block></value>
+                    <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Done!</field></block></value></block></statement>
+                    <next><block type="trade_again"></block></next>
+                  </block>
+                </next>
+              </block>
+            </next>
           </block>
         </next>
       </block>
@@ -203,26 +282,15 @@ export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com
   <block type="before_purchase" id="oeh_before" collapsed="true" deletable="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="controls_if" id="oeh_bp_if">
-        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1"></mutation>
         <value name="IF0">
           <block type="logic_compare">
-            <field name="OP">EQ</field>
-            <value name="A"><block type="variables_get"><field name="VAR" id="oeh_side">Side</field></block></value>
+            <field name="OP">GTE</field>
+            <value name="A"><block type="variables_get"><field name="VAR" id="oeh_prediction">Prediction:</field></block></value>
             <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
           </block>
         </value>
         <statement name="DO0">
-          <block type="purchase" id="oeh_buy_even"><field name="PURCHASE_LIST">DIGITEVEN</field></block>
-        </statement>
-        <value name="IF1">
-          <block type="logic_compare">
-            <field name="OP">EQ</field>
-            <value name="A"><block type="variables_get"><field name="VAR" id="oeh_side">Side</field></block></value>
-            <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
-          </block>
-        </value>
-        <statement name="DO1">
-          <block type="purchase" id="oeh_buy_odd"><field name="PURCHASE_LIST">DIGITODD</field></block>
+          <block type="purchase" id="oeh_buy"><field name="PURCHASE_LIST">DIGITDIFF</field></block>
         </statement>
       </block>
     </statement>

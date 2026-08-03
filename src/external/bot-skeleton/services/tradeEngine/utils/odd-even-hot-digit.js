@@ -1,13 +1,11 @@
 /**
- * Odd/Even Hot-Digit scanner.
+ * Hot Odd/Even → Differs coldest digit.
  *
- * On each market's lookback window, compute digit % occurrence.
- * If ≥ min_hot_digits odd digits are each ≥ min_digit_pct → favor Odd
- * (vice versa for Even). Pick the best qualifying market.
- *
- * Then wait for `opposite_streak` consecutive opposite-parity tips,
- * take up to `max_trades` on the favored side at base stake, and if the
- * last trade loses, take one martingale recovery (× multiplier) then stop.
+ * On each market's lookback window:
+ *   - Find the most-appearing odd digit and most-appearing even digit
+ *   - Find the least-appearing digit overall (coldest)
+ *   - If the last tip digit equals either hot odd or hot even → Digit Differs
+ *     on the coldest digit (same market)
  */
 
 import {
@@ -19,28 +17,16 @@ import {
 
 export { resolveScanSymbols, orderSymbolsForScan, toMarketGroup, DEFAULT_MARKET_GROUP };
 
-export const SIDE_NONE = -1;
-export const SIDE_EVEN = 0;
-export const SIDE_ODD = 1;
-
-export const PHASE_IDLE = 'idle';
-export const PHASE_WAIT_OPPOSITE = 'wait_opposite';
-export const PHASE_TRADING = 'trading';
-export const PHASE_RECOVERY = 'recovery';
-
 export const DEFAULT_LOOKBACK = 1000;
-export const DEFAULT_MIN_DIGIT_PCT = 10.4;
-export const DEFAULT_MIN_HOT_DIGITS = 3;
-export const DEFAULT_OPPOSITE_STREAK = 3;
-export const DEFAULT_MAX_TRADES = 5;
-export const DEFAULT_MARTINGALE_MULTIPLIER = 2;
-
 export const EVEN_DIGITS = [0, 2, 4, 6, 8];
 export const ODD_DIGITS = [1, 3, 5, 7, 9];
 
-const toNum = (value, fallback) => {
+const toDigit = value => {
     const n = Number(value);
-    return Number.isFinite(n) ? n : fallback;
+    if (!Number.isInteger(n) || n < 0 || n > 9) {
+        return null;
+    }
+    return n;
 };
 
 const toInt = (value, fallback, min = null, max = null) => {
@@ -57,61 +43,8 @@ const toInt = (value, fallback, min = null, max = null) => {
     return n;
 };
 
-const toDigit = value => {
-    const n = Number(value);
-    if (!Number.isInteger(n) || n < 0 || n > 9) {
-        return null;
-    }
-    return n;
-};
-
-export const isEvenDigit = digit => {
-    const d = toDigit(digit);
-    return d !== null && d % 2 === 0;
-};
-
-export const isOddDigit = digit => {
-    const d = toDigit(digit);
-    return d !== null && d % 2 === 1;
-};
-
-export const sideToCode = side => {
-    if (side === 'even') {
-        return SIDE_EVEN;
-    }
-    if (side === 'odd') {
-        return SIDE_ODD;
-    }
-    return SIDE_NONE;
-};
-
-export const codeToSide = code => {
-    if (code === SIDE_EVEN || code === 0) {
-        return 'even';
-    }
-    if (code === SIDE_ODD || code === 1) {
-        return 'odd';
-    }
-    return null;
-};
-
-export const oppositeSide = side => {
-    if (side === 'even') {
-        return 'odd';
-    }
-    if (side === 'odd') {
-        return 'even';
-    }
-    return null;
-};
-
-export const normalizeOddEvenHotDigitOptions = (options = {}) => ({
+export const normalizeHotOddEvenDiffersOptions = (options = {}) => ({
     lookback: toInt(options.lookback, DEFAULT_LOOKBACK, 50, 1000),
-    min_digit_pct: Math.max(0.1, toNum(options.min_digit_pct, DEFAULT_MIN_DIGIT_PCT)),
-    min_hot_digits: toInt(options.min_hot_digits, DEFAULT_MIN_HOT_DIGITS, 1, 5),
-    opposite_streak: toInt(options.opposite_streak, DEFAULT_OPPOSITE_STREAK, 1, 20),
-    max_trades: toInt(options.max_trades, DEFAULT_MAX_TRADES, 1, 20),
-    martingale_multiplier: Math.max(1, toNum(options.martingale_multiplier, DEFAULT_MARTINGALE_MULTIPLIER)),
     market_group: toMarketGroup(options.market_group),
     journal_enabled:
         options.journal_enabled === undefined
@@ -130,11 +63,11 @@ export const normalizeOddEvenHotDigitOptions = (options = {}) => ({
 });
 
 /**
- * % occurrence of digits 0–9 over the newest `lookback` samples.
+ * Count digits 0–9 over the newest `lookback` samples.
  * @param {Array<number|string>} digits
  * @param {number} lookback
  */
-export const computeDigitPercentages = (digits, lookback = DEFAULT_LOOKBACK) => {
+export const computeDigitCounts = (digits, lookback = DEFAULT_LOOKBACK) => {
     const window = Math.max(1, Math.min(1000, Math.floor(Number(lookback)) || DEFAULT_LOOKBACK));
     const counts = Array(10).fill(0);
     const slice = Array.isArray(digits) ? digits.slice(-window) : [];
@@ -149,107 +82,141 @@ export const computeDigitPercentages = (digits, lookback = DEFAULT_LOOKBACK) => 
         total += 1;
     }
 
-    const percentages = counts.map(c => (total > 0 ? (c / total) * 100 : 0));
-    return { counts, percentages, total, window };
+    const last_digit = slice.length ? toDigit(slice[slice.length - 1]) : null;
+    return { counts, total, window, last_digit };
 };
 
 /**
- * Find hot odd/even digit groups meeting the threshold.
- * @param {number[]} percentages length 10
- * @param {number} min_digit_pct
- * @param {number} min_hot_digits
+ * Most-appearing digit among `candidates`. Ties → lowest digit.
+ * @param {number[]} counts
+ * @param {number[]} candidates
+ * @returns {{ digit: number|null, count: number }}
  */
-export const findHotParitySignal = (percentages, min_digit_pct = DEFAULT_MIN_DIGIT_PCT, min_hot_digits = DEFAULT_MIN_HOT_DIGITS) => {
-    const pcts = Array.isArray(percentages) ? percentages : [];
-    const threshold = Math.max(0, Number(min_digit_pct) || DEFAULT_MIN_DIGIT_PCT);
-    const need = Math.max(1, Math.floor(Number(min_hot_digits)) || DEFAULT_MIN_HOT_DIGITS);
-
-    const hot_even = EVEN_DIGITS.filter(d => Number(pcts[d]) >= threshold);
-    const hot_odd = ODD_DIGITS.filter(d => Number(pcts[d]) >= threshold);
-
-    const even_sum = hot_even.reduce((s, d) => s + Number(pcts[d] || 0), 0);
-    const odd_sum = hot_odd.reduce((s, d) => s + Number(pcts[d] || 0), 0);
-
-    const even_ok = hot_even.length >= need;
-    const odd_ok = hot_odd.length >= need;
-
-    let side = null;
-    let hot_digits = [];
-    let score = 0;
-
-    if (even_ok && odd_ok) {
-        // Stronger side wins; tie → higher % sum; still tied → more hot digits.
-        const even_score = hot_even.length * 1000 + even_sum;
-        const odd_score = hot_odd.length * 1000 + odd_sum;
-        if (odd_score > even_score) {
-            side = 'odd';
-            hot_digits = hot_odd;
-            score = odd_score;
-        } else {
-            side = 'even';
-            hot_digits = hot_even;
-            score = even_score;
+export const pickHottestAmong = (counts, candidates) => {
+    const list = Array.isArray(candidates) ? candidates : [];
+    const c = Array.isArray(counts) ? counts : [];
+    let best = null;
+    let best_count = -1;
+    for (let i = 0; i < list.length; i++) {
+        const d = list[i];
+        const n = Number(c[d]) || 0;
+        if (n > best_count || (n === best_count && best !== null && d < best)) {
+            best = d;
+            best_count = n;
+        } else if (best === null) {
+            best = d;
+            best_count = n;
         }
-    } else if (odd_ok) {
-        side = 'odd';
-        hot_digits = hot_odd;
-        score = hot_odd.length * 1000 + odd_sum;
-    } else if (even_ok) {
-        side = 'even';
-        hot_digits = hot_even;
-        score = hot_even.length * 1000 + even_sum;
+    }
+    return { digit: best, count: best_count < 0 ? 0 : best_count };
+};
+
+/**
+ * Least-appearing digit 0–9. Ties → lowest digit.
+ * @param {number[]} counts
+ */
+export const pickColdestDigit = counts => {
+    const c = Array.isArray(counts) ? counts : [];
+    let best = 0;
+    let best_count = Number.isFinite(Number(c[0])) ? Number(c[0]) : 0;
+    for (let d = 1; d <= 9; d++) {
+        const n = Number.isFinite(Number(c[d])) ? Number(c[d]) : 0;
+        if (n < best_count) {
+            best = d;
+            best_count = n;
+        }
+    }
+    return { digit: best, count: best_count };
+};
+
+/**
+ * Detect signal: tip is hot odd or hot even → Differ coldest digit.
+ */
+export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBACK) => {
+    const stats = computeDigitCounts(digits, lookback);
+    const hot_odd = pickHottestAmong(stats.counts, ODD_DIGITS);
+    const hot_even = pickHottestAmong(stats.counts, EVEN_DIGITS);
+    const cold = pickColdestDigit(stats.counts);
+    const last = stats.last_digit;
+
+    const base = {
+        last_digit: last,
+        hot_odd: hot_odd.digit,
+        hot_odd_count: hot_odd.count,
+        hot_even: hot_even.digit,
+        hot_even_count: hot_even.count,
+        cold_digit: cold.digit,
+        cold_count: cold.count,
+        counts: stats.counts,
+        total: stats.total,
+        lookback,
+        barrier: -1,
+        matched: false,
+        trigger: null,
+        score: 0,
+        reason: 'no_signal',
+    };
+
+    if (stats.total < lookback) {
+        return {
+            ...base,
+            reason: `insufficient_history_${stats.total}/${lookback}`,
+        };
     }
 
+    if (last === null || cold.digit === null) {
+        return { ...base, reason: 'invalid_digits' };
+    }
+
+    // Differs barrier must not equal the tip we just observed as "hot".
+    if (cold.digit === last) {
+        return {
+            ...base,
+            reason: `cold_equals_tip_${last}`,
+        };
+    }
+
+    const is_hot_odd = last === hot_odd.digit;
+    const is_hot_even = last === hot_even.digit;
+    if (!is_hot_odd && !is_hot_even) {
+        return {
+            ...base,
+            reason: `tip_${last}_not_hot_odd${hot_odd.digit}_even${hot_even.digit}`,
+        };
+    }
+
+    const trigger = is_hot_odd ? 'odd' : 'even';
+    const hot_count = is_hot_odd ? hot_odd.count : hot_even.count;
+    // Prefer larger separation between hot tip frequency and cold target.
+    const score = hot_count - cold.count;
+
     return {
-        matched: Boolean(side),
-        side,
-        hot_digits,
-        hot_even,
-        hot_odd,
+        ...base,
+        matched: true,
+        barrier: cold.digit,
+        trigger,
         score,
-        even_sum,
-        odd_sum,
-        reason: side
-            ? `${side}_hot_${hot_digits.join(',')}`
-            : `no_hot_group_even${hot_even.length}_odd${hot_odd.length}`,
+        reason: `tip_${last}_hot_${trigger}_differ_${cold.digit}`,
     };
 };
 
-/**
- * Evaluate one symbol's digit window for a hot-parity signal.
- */
-export const evaluateSymbolOddEvenHotDigit = (symbol, digits, options = {}) => {
-    const opts = normalizeOddEvenHotDigitOptions(options);
-    const stats = computeDigitPercentages(digits, opts.lookback);
-    const signal = findHotParitySignal(stats.percentages, opts.min_digit_pct, opts.min_hot_digits);
-    const ready = stats.total >= opts.lookback;
-
+export const evaluateSymbolHotOddEvenDiffers = (symbol, digits, options = {}) => {
+    const opts = normalizeHotOddEvenDiffersOptions(options);
+    const signal = detectHotOddEvenDiffersSignal(digits, opts.lookback);
     return {
         symbol: String(symbol || ''),
-        ready,
-        total: stats.total,
-        lookback: opts.lookback,
-        percentages: stats.percentages,
-        counts: stats.counts,
         ...signal,
-        matched: Boolean(signal.matched && ready),
-        reason: !ready
-            ? `insufficient_history_${stats.total}/${opts.lookback}`
-            : signal.reason,
     };
 };
 
-/**
- * Pick the best qualifying evaluation (highest score).
- */
-export const pickBestHotDigitMatch = evaluations => {
+export const pickBestHotOddEvenDiffersMatch = evaluations => {
     if (!Array.isArray(evaluations)) {
         return null;
     }
     let best = null;
     for (let i = 0; i < evaluations.length; i++) {
         const item = evaluations[i];
-        if (!item?.matched || !item.side) {
+        if (!item?.matched || item.barrier < 0 || item.barrier > 9) {
             continue;
         }
         if (!best || item.score > best.score) {
@@ -259,46 +226,61 @@ export const pickBestHotDigitMatch = evaluations => {
     return best;
 };
 
-export const createOddEvenHotDigitState = () => ({
-    phase: PHASE_IDLE,
-    favored: null,
-    symbol: '',
-    opposite_count: 0,
-    trades_done: 0,
-    last_was_loss: false,
+export const makeHotOddEvenDiffersSignalKey = (match, tip_epoch) => {
+    if (!match?.matched || match.barrier < 0) {
+        return null;
+    }
+    const epoch =
+        tip_epoch === undefined || tip_epoch === null || tip_epoch === ''
+            ? ''
+            : String(tip_epoch);
+    return `${match.symbol}|tip:${match.last_digit}|diff:${match.barrier}|e:${epoch}`;
+};
+
+export const isHotOddEvenDiffersSignalConsumed = (match, tip_epoch, consumed_key) => {
+    const key = makeHotOddEvenDiffersSignalKey(match, tip_epoch);
+    return Boolean(key && consumed_key && key === consumed_key);
+};
+
+export const createHotOddEvenDiffersRuntimeState = () => ({
     trade_committed: false,
     signal_issued_at: 0,
-    last_handled_contract_id: null,
-    last_tip_key: null,
-    cycle_hot_digits: [],
-    stake_multiplier: 1,
+    last_barrier: null,
+    armed_prediction: -1,
 });
 
-export const resetOddEvenHotDigitState = (state = null) => {
-    const tracker = state || createOddEvenHotDigitState();
-    tracker.phase = PHASE_IDLE;
-    tracker.favored = null;
-    tracker.symbol = '';
-    tracker.opposite_count = 0;
-    tracker.trades_done = 0;
-    tracker.last_was_loss = false;
+export const resetHotOddEvenDiffersRuntimeState = (state = null) => {
+    const tracker = state || createHotOddEvenDiffersRuntimeState();
     tracker.trade_committed = false;
     tracker.signal_issued_at = 0;
-    tracker.last_handled_contract_id = null;
-    tracker.last_tip_key = null;
-    tracker.cycle_hot_digits = [];
-    tracker.stake_multiplier = 1;
+    tracker.last_barrier = null;
+    tracker.armed_prediction = -1;
     return tracker;
 };
 
-const armTrade = (state, multiplier = 1) => {
-    state.trade_committed = true;
-    state.signal_issued_at = Date.now();
-    state.stake_multiplier = multiplier;
+export const armHotOddEvenDiffersPrediction = (state, barrier) => {
+    const tracker = state || createHotOddEvenDiffersRuntimeState();
+    const digit = toDigit(barrier);
+    if (digit === null) {
+        return tracker;
+    }
+    tracker.last_barrier = digit;
+    tracker.armed_prediction = digit;
+    tracker.trade_committed = true;
+    tracker.signal_issued_at = Date.now();
+    return tracker;
 };
 
-export const releaseStaleOddEvenCommit = (state, max_age_ms = 20000) => {
-    const tracker = state || createOddEvenHotDigitState();
+export const clearHotOddEvenDiffersCommit = state => {
+    const tracker = state || createHotOddEvenDiffersRuntimeState();
+    tracker.trade_committed = false;
+    tracker.signal_issued_at = 0;
+    tracker.armed_prediction = -1;
+    return tracker;
+};
+
+export const releaseStaleHotOddEvenDiffersCommit = (state, max_age_ms = 20000) => {
+    const tracker = state || createHotOddEvenDiffersRuntimeState();
     if (!tracker.trade_committed) {
         return false;
     }
@@ -306,226 +288,35 @@ export const releaseStaleOddEvenCommit = (state, max_age_ms = 20000) => {
     if (!issued || Date.now() - issued < max_age_ms) {
         return false;
     }
-    tracker.trade_committed = false;
-    tracker.stake_multiplier = tracker.phase === PHASE_RECOVERY ? tracker.stake_multiplier : 1;
+    clearHotOddEvenDiffersCommit(tracker);
     return true;
 };
 
-/**
- * Apply settled contract result to the cycle state machine.
- */
-export const applyOddEvenHotDigitTradeResult = (state, args = {}) => {
-    const tracker = state || createOddEvenHotDigitState();
-    const contract_id =
-        args.contract_id === undefined || args.contract_id === null ? null : String(args.contract_id);
-    if (contract_id && tracker.last_handled_contract_id === contract_id) {
-        return tracker;
-    }
-    if (contract_id) {
-        tracker.last_handled_contract_id = contract_id;
-    }
-
-    if (!tracker.trade_committed && tracker.phase !== PHASE_TRADING && tracker.phase !== PHASE_RECOVERY) {
-        return tracker;
-    }
-
-    tracker.trade_committed = false;
-    const is_loss = args.is_loss === true || args.is_loss === 1;
-    const max_trades = toInt(args.max_trades, DEFAULT_MAX_TRADES, 1, 20);
-
-    if (tracker.phase === PHASE_RECOVERY) {
-        // Stop after recovery whether win or loss — rescan next.
-        resetOddEvenHotDigitState(tracker);
-        return tracker;
-    }
-
-    if (tracker.phase === PHASE_TRADING) {
-        tracker.trades_done += 1;
-        tracker.last_was_loss = is_loss;
-        tracker.stake_multiplier = 1;
-
-        if (tracker.trades_done >= max_trades) {
-            if (tracker.last_was_loss) {
-                tracker.phase = PHASE_RECOVERY;
-            } else {
-                resetOddEvenHotDigitState(tracker);
-            }
-        }
-    }
-
-    return tracker;
-};
-
-/**
- * Advance opposite-parity streak on a new tip. Returns true when streak met.
- */
-export const advanceOppositeStreak = (state, digit, tip_key, opposite_needed) => {
-    const tracker = state || createOddEvenHotDigitState();
-    if (tracker.phase !== PHASE_WAIT_OPPOSITE || !tracker.favored) {
-        return false;
-    }
-
-    const key = tip_key == null ? null : String(tip_key);
-    if (key && tracker.last_tip_key === key) {
-        return tracker.opposite_count >= opposite_needed;
-    }
-    if (key) {
-        tracker.last_tip_key = key;
-    }
-
-    const d = toDigit(digit);
-    if (d === null) {
-        return false;
-    }
-
-    const want_opposite = oppositeSide(tracker.favored);
-    const is_opposite =
-        (want_opposite === 'even' && isEvenDigit(d)) || (want_opposite === 'odd' && isOddDigit(d));
-
-    if (is_opposite) {
-        tracker.opposite_count += 1;
-    } else {
-        tracker.opposite_count = 0;
-    }
-
-    if (tracker.opposite_count >= opposite_needed) {
-        tracker.phase = PHASE_TRADING;
-        tracker.trades_done = 0;
-        tracker.last_was_loss = false;
-        tracker.stake_multiplier = 1;
-        return true;
-    }
-    return false;
-};
-
-/**
- * Start a new wait cycle from a scan match.
- */
-export const armOddEvenHotDigitCycle = (state, match) => {
-    const tracker = state || createOddEvenHotDigitState();
-    if (!match?.matched || !match.side) {
-        return tracker;
-    }
-    tracker.phase = PHASE_WAIT_OPPOSITE;
-    tracker.favored = match.side;
-    tracker.symbol = String(match.symbol || '');
-    tracker.opposite_count = 0;
-    tracker.trades_done = 0;
-    tracker.last_was_loss = false;
-    tracker.trade_committed = false;
-    tracker.signal_issued_at = 0;
-    tracker.last_tip_key = null;
-    tracker.cycle_hot_digits = Array.isArray(match.hot_digits) ? [...match.hot_digits] : [];
-    tracker.stake_multiplier = 1;
-    return tracker;
-};
-
-/**
- * Decide what to return this tick given runtime phase (after settlement handling).
- * Caller supplies latest digit/tip for wait_opposite advancement.
- */
-export const decideOddEvenHotDigitAction = (state, args = {}) => {
-    const tracker = state || createOddEvenHotDigitState();
-    const opposite_needed = toInt(args.opposite_streak, DEFAULT_OPPOSITE_STREAK, 1, 20);
-    const martingale = Math.max(1, toNum(args.martingale_multiplier, DEFAULT_MARTINGALE_MULTIPLIER));
-
-    if (tracker.trade_committed) {
-        return {
-            side_code: SIDE_NONE,
-            side: null,
-            should_trade: false,
-            stake_multiplier: tracker.stake_multiplier || 1,
-            phase: tracker.phase,
-            reason: 'awaiting_settlement',
-        };
-    }
-
-    if (tracker.phase === PHASE_WAIT_OPPOSITE) {
-        advanceOppositeStreak(tracker, args.digit, args.tip_key, opposite_needed);
-        if (tracker.phase === PHASE_WAIT_OPPOSITE) {
-            return {
-                side_code: SIDE_NONE,
-                side: null,
-                should_trade: false,
-                stake_multiplier: 1,
-                phase: tracker.phase,
-                reason: `wait_opposite_${tracker.opposite_count}/${opposite_needed}`,
-                favored: tracker.favored,
-                opposite_count: tracker.opposite_count,
-            };
-        }
-        // fell through into trading on this tip — take first trade now
-    }
-
-    if (tracker.phase === PHASE_RECOVERY) {
-        armTrade(tracker, martingale);
-        return {
-            side_code: sideToCode(tracker.favored),
-            side: tracker.favored,
-            should_trade: true,
-            stake_multiplier: martingale,
-            phase: PHASE_RECOVERY,
-            reason: `recovery_x${martingale}`,
-            favored: tracker.favored,
-            trades_done: tracker.trades_done,
-        };
-    }
-
-    if (tracker.phase === PHASE_TRADING && tracker.favored) {
-        armTrade(tracker, 1);
-        return {
-            side_code: sideToCode(tracker.favored),
-            side: tracker.favored,
-            should_trade: true,
-            stake_multiplier: 1,
-            phase: PHASE_TRADING,
-            reason: `trade_${tracker.trades_done + 1}`,
-            favored: tracker.favored,
-            trades_done: tracker.trades_done,
-        };
-    }
-
-    return {
-        side_code: SIDE_NONE,
-        side: null,
-        should_trade: false,
-        stake_multiplier: 1,
-        phase: tracker.phase,
-        reason: 'idle',
-    };
-};
-
-export const buildOddEvenHotDigitResult = ({
-    action = {},
-    match = null,
-    evaluations = [],
+export const buildHotOddEvenDiffersResult = ({
     market_group = DEFAULT_MARKET_GROUP,
     active_symbol = '',
-    switched = false,
     journal_enabled = true,
-    state = null,
+    evaluations = [],
+    match = null,
+    switched = false,
+    skipped_consumed = false,
 } = {}) => {
-    const tracker = state || createOddEvenHotDigitState();
-    const side_code = action.should_trade ? action.side_code : SIDE_NONE;
+    const hit = !skipped_consumed && match?.matched ? match : null;
+    const prediction = hit ? hit.barrier : -1;
     const journal_messages = [];
 
     if (journal_enabled) {
-        if (action.should_trade) {
+        if (hit) {
             journal_messages.push({
                 className: 'success',
-                message: `Odd/Even Hot: ${String(action.side || '').toUpperCase()} trade (${action.reason}) stake×${action.stake_multiplier}${
+                message: `Hot O/E Differs ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ ${hit.barrier} (cold)${
                     switched ? ' (switched market)' : ''
                 }`,
             });
-        } else if (tracker.phase === PHASE_WAIT_OPPOSITE) {
+        } else if (skipped_consumed && match?.matched) {
             journal_messages.push({
                 className: 'info',
-                message: `Odd/Even Hot: waiting ${oppositeSide(tracker.favored)} streak ${tracker.opposite_count} — favor ${tracker.favored} on ${tracker.symbol}`,
-            });
-        } else if (match?.matched) {
-            journal_messages.push({
-                className: 'success',
-                message: `Odd/Even Hot: locked ${match.side} on ${match.symbol} hot[${(match.hot_digits || []).join(',')}] — waiting opposite streak`,
+                message: `Hot O/E Differs ${match.symbol}: already traded this tip — waiting`,
             });
         } else {
             const sample = (evaluations || [])
@@ -534,29 +325,29 @@ export const buildOddEvenHotDigitResult = ({
                 .join(' | ');
             journal_messages.push({
                 className: 'info',
-                message: `Odd/Even Hot: scanning [${toMarketGroup(market_group)}]${sample ? ` — ${sample}` : ''}`,
+                message: `Hot O/E Differs: no tip-hot signal on ${
+                    Array.isArray(evaluations) ? evaluations.length : 0
+                } symbol(s) [${toMarketGroup(market_group)}]${sample ? ` — ${sample}` : ''}`,
             });
         }
     }
 
     return {
-        prediction: side_code,
-        side_code,
-        side: action.side || null,
-        should_trade: Boolean(action.should_trade),
-        stake_multiplier: action.stake_multiplier || 1,
-        phase: tracker.phase,
-        favored: tracker.favored,
-        symbol: tracker.symbol || match?.symbol || active_symbol || '',
+        prediction,
+        barrier: prediction,
+        matched: Boolean(hit),
+        last_digit: hit ? hit.last_digit : null,
+        hot_odd: hit ? hit.hot_odd : null,
+        hot_even: hit ? hit.hot_even : null,
+        cold_digit: hit ? hit.cold_digit : null,
+        trigger: hit ? hit.trigger : null,
+        symbol: hit ? hit.symbol : active_symbol || '',
         market_group: toMarketGroup(market_group),
-        hot_digits: tracker.cycle_hot_digits.length
-            ? tracker.cycle_hot_digits
-            : match?.hot_digits || [],
-        trades_done: tracker.trades_done,
-        opposite_count: tracker.opposite_count,
-        switched: Boolean(switched),
+        symbols_scanned: (evaluations || []).map(e => e.symbol),
         evaluations,
-        reason: action.reason || 'idle',
+        switched: Boolean(switched),
+        skipped_consumed: Boolean(skipped_consumed),
+        reason: hit ? hit.reason : skipped_consumed ? 'signal_consumed' : 'no_match',
         journal_messages,
     };
 };

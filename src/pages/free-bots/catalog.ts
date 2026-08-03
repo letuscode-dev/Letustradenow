@@ -15,10 +15,10 @@ import { ODD_EVEN_HOT_DIGIT_XML } from './bots/odd-even-hot-digit';
 export const FREE_BOTS: FreeBot[] = [
     {
         id: 'odd-even-hot-digit-v1',
-        title: 'Odd/Even Hot Digit',
+        title: 'Hot Odd/Even Differs',
         description:
-            'Scans markets for ≥3 odd or even digits at ≥10.4% (Lookback default 1000). Waits for 3 opposite tips, takes up to 5 favored Even/Odd trades, then ×2 recovery if the last lost. Set Market_group / Lookback / Min_digit_pct in Run once at start.',
-        tags: ['Even', 'Odd', 'Hot digit', 'Percentage', 'Multi-market', 'Martingale'],
+            'Scans markets over Lookback (default 1000). If tip = hottest odd or hottest even digit, Differs the coldest digit on that market. Recovery matches Sequential Digit Differs (Total_loss / Payout% / Split_size). Set Market_group and Lookback in Run once at start.',
+        tags: ['Differs', 'Hot digit', 'Odd', 'Even', 'Cold digit', 'Multi-market', 'Recovery'],
         xml: ODD_EVEN_HOT_DIGIT_XML,
     },
     {
