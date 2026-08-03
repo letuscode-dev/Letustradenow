@@ -256,18 +256,18 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
                 <statement name="DO0"><block type="variables_set"><field name="VAR" id="sqd_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="sqd_stake">Stake</field></block></value></block></statement>
                 <next>
                   <block type="controls_if">
-                    <value name="IF0"><block type="logic_operation"><field name="OP">OR</field>
-                      <value name="A"><block type="logic_compare"><field name="OP">LTE</field>
-                        <value name="A"><block type="variables_get"><field name="VAR" id="sqd_maxloss">Max Cons Loss:</field></block></value>
-                        <value name="B"><block type="variables_get"><field name="VAR" id="sqd_inarow">InArow</field></block></value>
-                      </block></value>
-                      <value name="B"><block type="logic_compare"><field name="OP">GTE</field>
-                        <value name="A"><block type="total_profit"></block></value>
-                        <value name="B"><block type="variables_get"><field name="VAR" id="sqd_profit">Profit Threshold:</field></block></value>
-                      </block></value>
+                    <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+                    <value name="IF0"><block type="logic_compare"><field name="OP">GTE</field>
+                      <value name="A"><block type="variables_get"><field name="VAR" id="sqd_inarow">InArow</field></block></value>
+                      <value name="B"><block type="variables_get"><field name="VAR" id="sqd_maxloss">Max Cons Loss:</field></block></value>
                     </block></value>
-                    <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Done!</field></block></value></block></statement>
-                    <next><block type="trade_again"></block></next>
+                    <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Max consecutive losses reached. Stopping.</field></block></value></block></statement>
+                    <value name="IF1"><block type="logic_compare"><field name="OP">GTE</field>
+                      <value name="A"><block type="total_profit"></block></value>
+                      <value name="B"><block type="variables_get"><field name="VAR" id="sqd_profit">Profit Threshold:</field></block></value>
+                    </block></value>
+                    <statement name="DO1"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">Profit threshold reached. Stopping.</field></block></value></block></statement>
+                    <statement name="ELSE"><block type="trade_again"></block></statement>
                   </block>
                 </next>
               </block>

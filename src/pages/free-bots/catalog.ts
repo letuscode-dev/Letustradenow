@@ -17,7 +17,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'odd-even-hot-digit-v1',
         title: 'Odd/Even Hot Digit',
         description:
-            'Digit Differs on the selected market only. If tip = hottest even → Differ coldest even; if tip = hottest odd → Differ coldest odd (Lookback default 1000). Recovery: Total_loss / Payout% / Split_size. Set Lookback in Run once at start; pick the symbol in Trade parameters.',
+            'Digit Differs on the selected market only. Tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd. Recovery uses Split_size via Splits_left (recalculates stake each recovery trade). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Split_size in Run once at start.',
         tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Even', 'Cold digit', 'Single market', 'Recovery'],
         xml: ODD_EVEN_HOT_DIGIT_XML,
     },
