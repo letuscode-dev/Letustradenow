@@ -1,5 +1,5 @@
 /**
- * Hot Odd/Even Differs free bot.
+ * Odd/Even Hot Digit free bot — Digit Differs trading.
  *
  * Configure in Run once at start:
  *   Market_group — "1S" | "STANDARD" | "ALL"
