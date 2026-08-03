@@ -4,6 +4,7 @@ import {
     PATTERN_PROBABILITY_UNDER_XML,
 } from './bots/pattern-probability-ou';
 import { SEQUENTIAL_DIGIT_DIFFERS_XML } from './bots/sequential-digit-differs';
+import { ODD_EVEN_HOT_DIGIT_XML } from './bots/odd-even-hot-digit';
 
 /**
  * Free Bots catalog.
@@ -12,6 +13,14 @@ import { SEQUENTIAL_DIGIT_DIFFERS_XML } from './bots/sequential-digit-differs';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'odd-even-hot-digit-v1',
+        title: 'Odd/Even Hot Digit',
+        description:
+            'Scans markets for ≥3 odd or even digits at ≥10.4% (Lookback default 1000). Waits for 3 opposite tips, takes up to 5 favored Even/Odd trades, then ×2 recovery if the last lost. Set Market_group / Lookback / Min_digit_pct in Run once at start.',
+        tags: ['Even', 'Odd', 'Hot digit', 'Percentage', 'Multi-market', 'Martingale'],
+        xml: ODD_EVEN_HOT_DIGIT_XML,
+    },
     {
         id: 'sequential-digit-differs-v1',
         title: 'Sequential Digit Differs',

@@ -187,6 +187,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateSequentialDigitDiffersScan)
             );
         }
+        if (typeof bot_interface.evaluateOddEvenHotDigitScan === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateOddEvenHotDigitScan',
+                createAsync(js_interpreter, bot_interface.evaluateOddEvenHotDigitScan)
+            );
+        }
+        if (typeof bot_interface.getOddEvenHotDigitStakeMultiplier === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'getOddEvenHotDigitStakeMultiplier',
+                js_interpreter.nativeToPseudo(bot_interface.getOddEvenHotDigitStakeMultiplier)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

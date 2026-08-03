@@ -314,6 +314,35 @@ export default Engine =>
         }
 
         /**
+         * Ensure ≥ `count` digits for an arbitrary symbol (history fill when short).
+         * Serial-friendly — callers should avoid Promise.all storms.
+         *
+         * @param {string} symbol
+         * @param {number} [count=1000]
+         * @returns {Promise<number[]>}
+         */
+        async ensureDigitsForSymbol(symbol, count = 1000) {
+            if (!symbol) {
+                return [];
+            }
+            const required = Math.max(1, Math.min(1000, Math.floor(Number(count)) || 1000));
+            const ticks_service = this.$scope.ticksService;
+            let ticks = ticks_service.getCachedTicks(symbol) || [];
+
+            if (ticks.length < required && typeof ticks_service.requestHistoryFill === 'function') {
+                try {
+                    ticks = (await ticks_service.requestHistoryFill(symbol, required)) || ticks;
+                } catch (e) {
+                    ticks = ticks_service.getCachedTicks(symbol) || ticks;
+                }
+            }
+
+            const refreshed = ticks_service.getCachedTicks(symbol) || ticks || [];
+            const digits = this.getLastDigitsFromListForSymbol(refreshed, symbol);
+            return digits.length > required ? digits.slice(-required) : digits;
+        }
+
+        /**
          * Switch the active trading symbol (options + live tick watch).
          * Updates the Trade Definition market dropdown when Blockly is present.
          *
