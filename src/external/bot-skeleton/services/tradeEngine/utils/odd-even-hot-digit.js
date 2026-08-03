@@ -1,11 +1,11 @@
 /**
- * Hot Odd/Even → Differs coldest digit.
+ * Odd/Even Hot Digit → Differs coldest digit (single active market).
  *
- * On each market's lookback window:
+ * On the selected symbol's lookback window:
  *   - Find the most-appearing odd digit and most-appearing even digit
  *   - Find the least-appearing digit overall (coldest)
  *   - If the last tip digit equals either hot odd or hot even → Digit Differs
- *     on the coldest digit (same market)
+ *     on the coldest digit
  */
 
 import {
@@ -45,7 +45,6 @@ const toInt = (value, fallback, min = null, max = null) => {
 
 export const normalizeHotOddEvenDiffersOptions = (options = {}) => ({
     lookback: toInt(options.lookback, DEFAULT_LOOKBACK, 50, 1000),
-    market_group: toMarketGroup(options.market_group),
     journal_enabled:
         options.journal_enabled === undefined
             ? true
@@ -53,13 +52,6 @@ export const normalizeHotOddEvenDiffersOptions = (options = {}) => ({
               options.journal_enabled === 1 ||
               options.journal_enabled === 'TRUE' ||
               options.journal_enabled === 'true',
-    switch_symbol:
-        options.switch_symbol === undefined
-            ? true
-            : options.switch_symbol === true ||
-              options.switch_symbol === 1 ||
-              options.switch_symbol === 'TRUE' ||
-              options.switch_symbol === 'true',
 });
 
 /**

@@ -95,11 +95,8 @@ import {
     isHotOddEvenDiffersSignalConsumed,
     makeHotOddEvenDiffersSignalKey,
     normalizeHotOddEvenDiffersOptions,
-    orderSymbolsForScan as oeOrderSymbolsForScan,
-    pickBestHotOddEvenDiffersMatch,
     releaseStaleHotOddEvenDiffersCommit,
     resetHotOddEvenDiffersRuntimeState,
-    resolveScanSymbols as oeResolveScanSymbols,
 } from '../utils/odd-even-hot-digit';
 
 const getBotInterface = tradeEngine => {
@@ -924,8 +921,8 @@ const getBotInterface = tradeEngine => {
             return public_result;
         },
         /**
-         * Hot Odd/Even Differs — if tip equals hottest odd or hottest even digit
-         * in lookback, Differ the coldest digit on that market.
+         * Odd/Even Hot Digit Differs — single active market only.
+         * If tip equals hottest odd or hottest even in lookback, Differ coldest digit.
          */
         evaluateOddEvenHotDigitScan: async options => {
             const opts = normalizeHotOddEvenDiffersOptions(options || {});
@@ -959,60 +956,65 @@ const getBotInterface = tradeEngine => {
                     matched: false,
                     reason: 'awaiting_settlement',
                     journal_messages: [],
-                    stake_multiplier: 1,
                 };
                 tradeEngine.oddEvenHotDigitSnapshot = waiting;
                 return waiting;
             }
 
-            const symbols = oeResolveScanSymbols({ market_group: opts.market_group });
-            const active_symbol =
-                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
-            const ordered = oeOrderSymbolsForScan(symbols, active_symbol);
+            const active_symbol = tradeEngine.options?.symbol || tradeEngine.symbol || '';
             const ticks_service = tradeEngine.$scope?.ticksService;
 
-            if (ticks_service?.warmScanStreams) {
-                ticks_service.warmScanStreams(ordered).catch(() => {});
-            }
-            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
-                try {
-                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
-                } catch (e) {
-                    // keep caches
-                }
-            }
-
-            const short = ordered.find(symbol => {
+            if (
+                active_symbol &&
+                typeof tradeEngine.ensureDigitsForSymbol === 'function'
+            ) {
                 const cached = tradeEngine.getCachedDigitsForSymbol
-                    ? tradeEngine.getCachedDigitsForSymbol(symbol, opts.lookback)
+                    ? tradeEngine.getCachedDigitsForSymbol(active_symbol, opts.lookback)
                     : [];
-                return !Array.isArray(cached) || cached.length < opts.lookback;
-            });
-            if (short && typeof tradeEngine.ensureDigitsForSymbol === 'function') {
+                if (!Array.isArray(cached) || cached.length < opts.lookback) {
+                    try {
+                        await tradeEngine.ensureDigitsForSymbol(active_symbol, opts.lookback);
+                    } catch (e) {
+                        // keep prior cache
+                    }
+                }
+            } else if (
+                active_symbol &&
+                tradeEngine.ensureTickHistory &&
+                (!tradeEngine.getCachedLastDigitList ||
+                    (tradeEngine.getCachedLastDigitList(opts.lookback) || []).length < opts.lookback)
+            ) {
                 try {
-                    await tradeEngine.ensureDigitsForSymbol(short, opts.lookback);
+                    await tradeEngine.ensureTickHistory(opts.lookback);
                 } catch (e) {
                     // keep prior
                 }
             }
 
-            const evaluations = ordered.map(symbol => {
-                const digits = tradeEngine.getCachedDigitsForSymbol
-                    ? tradeEngine.getCachedDigitsForSymbol(symbol, opts.lookback)
-                    : [];
-                return evaluateSymbolHotOddEvenDiffers(symbol, digits, opts);
-            });
+            let digits = [];
+            if (active_symbol && tradeEngine.getCachedDigitsForSymbol) {
+                digits = tradeEngine.getCachedDigitsForSymbol(active_symbol, opts.lookback) || [];
+            } else if (tradeEngine.getAvailableLastDigitList) {
+                digits = tradeEngine.getAvailableLastDigitList(opts.lookback) || [];
+            } else if (tradeEngine.getCachedLastDigitList) {
+                digits = tradeEngine.getCachedLastDigitList(opts.lookback) || [];
+            }
 
-            const raw_match = pickBestHotOddEvenDiffersMatch(evaluations);
+            const evaluation = evaluateSymbolHotOddEvenDiffers(active_symbol, digits, opts);
+            const evaluations = [evaluation];
+            const raw_match = evaluation.matched ? evaluation : null;
+
             let tip_epoch = null;
-            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
-                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+            if (active_symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(active_symbol) || [];
                 const tip = ticks[ticks.length - 1];
                 if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
                     tip_epoch = Number(tip.epoch);
                 } else if (tip) {
                     tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
                 }
+            } else if (tradeEngine.getLatestTickTipKey) {
+                tip_epoch = tradeEngine.getLatestTickTipKey();
             }
 
             const skipped_consumed = isHotOddEvenDiffersSignalConsumed(
@@ -1022,64 +1024,24 @@ const getBotInterface = tradeEngine => {
             );
             const match = skipped_consumed ? null : raw_match;
 
-            let switched = false;
-            let switch_failed = false;
-            if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
-                try {
-                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
-                        await tradeEngine.switchTradeSymbol(match.symbol);
-                        const now_symbol =
-                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
-                        if (now_symbol === match.symbol) {
-                            switched = true;
-                        } else {
-                            switch_failed = true;
-                        }
-                    } else {
-                        switch_failed = true;
-                    }
-                } catch (e) {
-                    switch_failed = true;
-                }
-            }
-
-            const tradeable = match?.matched && !switch_failed ? match : null;
-            if (tradeable) {
-                tradeEngine._oeHotConsumedKey = makeHotOddEvenDiffersSignalKey(
-                    tradeable,
-                    tip_epoch
-                );
-                armHotOddEvenDiffersPrediction(runtime, tradeable.barrier);
+            if (match?.matched) {
+                tradeEngine._oeHotConsumedKey = makeHotOddEvenDiffersSignalKey(match, tip_epoch);
+                armHotOddEvenDiffersPrediction(runtime, match.barrier);
             }
 
             const result = buildHotOddEvenDiffersResult({
-                market_group: opts.market_group,
+                market_group: active_symbol || 'ACTIVE',
                 active_symbol,
                 journal_enabled: opts.journal_enabled,
                 evaluations,
-                match: switch_failed ? null : raw_match,
-                switched,
-                skipped_consumed: skipped_consumed || switch_failed,
+                match: raw_match,
+                switched: false,
+                skipped_consumed,
             });
-
-            if (switch_failed && opts.journal_enabled) {
-                result.reason = 'switch_failed';
-                result.matched = false;
-                result.prediction = -1;
-                result.barrier = -1;
-                result.journal_messages = [
-                    {
-                        className: 'error',
-                        message: `Hot O/E Differs: signal on ${match.symbol} but market switch failed — skipping`,
-                    },
-                ];
-            }
 
             const tip_fp = skipped_consumed
                 ? `consumed:${tradeEngine._oeHotConsumedKey}`
-                : switch_failed
-                  ? `switch_failed:${match?.symbol}:${tip_epoch}`
-                  : evaluations.map(e => `${e.symbol}:${e.reason}`).join('|');
+                : `${active_symbol}:${evaluation.reason}:${tip_epoch}`;
             let public_result = result;
             if (
                 !result.matched &&

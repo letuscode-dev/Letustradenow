@@ -17,8 +17,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'odd-even-hot-digit-v1',
         title: 'Odd/Even Hot Digit',
         description:
-            'Digit Differs bot. Scans markets over Lookback (default 1000): if tip = hottest odd or hottest even digit, Differs the coldest digit on that market. Recovery matches Sequential Digit Differs (Total_loss / Payout% / Split_size). Set Market_group and Lookback in Run once at start.',
-        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Even', 'Cold digit', 'Multi-market', 'Recovery'],
+            'Digit Differs on the selected market only. If tip = hottest odd or hottest even over Lookback (default 1000), Differs the coldest digit. Recovery: Total_loss / Payout% / Split_size. Set Lookback in Run once at start; pick the symbol in Trade parameters.',
+        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Even', 'Cold digit', 'Single market', 'Recovery'],
         xml: ODD_EVEN_HOT_DIGIT_XML,
     },
     {
