@@ -42,7 +42,7 @@ describe('pickHottestAmong / pickColdestAmong', () => {
         expect(pickHottestAmong(counts, EVEN_DIGITS).digit).toBe(0);
         expect(pickColdestDigit(counts).digit).toBe(9);
         expect(pickColdestAmong(counts, ODD_DIGITS).digit).toBe(9);
-        expect(pickColdestAmong(counts, EVEN_DIGITS).digit).toBe(8);
+        expect(pickColdestAmong(counts, EVEN_DIGITS).digit).toBe(6); // 6 and 8 both count 1 → lowest
         expect(pickColdestAmong(counts, ODD_DIGITS, 9).digit).toBe(5);
     });
 });

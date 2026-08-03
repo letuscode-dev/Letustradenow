@@ -1,6 +1,6 @@
 /**
  * Odd/Even Hot Digit Differs — single active market.
- * Tip equals hottest odd/even → Differ coldest digit.
+ * Tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd.
  * Hidden from Blocks Menu; free bot wraps it in a custom function.
  */
 import { localize } from '@deriv-com/translations';
