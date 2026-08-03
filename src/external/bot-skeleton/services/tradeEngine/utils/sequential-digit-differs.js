@@ -276,6 +276,34 @@ export const pickFirstMatch = evaluations => {
 };
 
 /**
+ * Stable id for a tradeable tip — one purchase per key until the tip advances.
+ * @param {object|null|undefined} match
+ * @param {number|string|null|undefined} tip_epoch
+ * @returns {string|null}
+ */
+export const makeSignalKey = (match, tip_epoch) => {
+    if (!match || !match.matched || !Array.isArray(match.sequence) || match.sequence.length < 3) {
+        return null;
+    }
+    const epoch =
+        tip_epoch === undefined || tip_epoch === null || tip_epoch === ''
+            ? ''
+            : String(tip_epoch);
+    return `${match.symbol}|${match.sequence.join(',')}→${match.barrier}|e:${epoch}`;
+};
+
+/**
+ * True when this exact tip was already used for a trade.
+ * @param {object|null|undefined} match
+ * @param {number|string|null|undefined} tip_epoch
+ * @param {string|null|undefined} consumed_key
+ */
+export const isSignalAlreadyConsumed = (match, tip_epoch, consumed_key) => {
+    const key = makeSignalKey(match, tip_epoch);
+    return Boolean(key && consumed_key && key === consumed_key);
+};
+
+/**
  * Build the public scan result for BotInterface / Blockly.
  * @param {{
  *   market_group?: string,
@@ -285,6 +313,7 @@ export const pickFirstMatch = evaluations => {
  *   evaluations?: object[],
  *   match?: object|null,
  *   switched?: boolean,
+ *   skipped_consumed?: boolean,
  * }} args
  */
 export const buildSequentialScanResult = ({
@@ -295,10 +324,11 @@ export const buildSequentialScanResult = ({
     evaluations = [],
     match = null,
     switched = false,
+    skipped_consumed = false,
 } = {}) => {
     const group = toMarketGroup(market_group);
     const scanned = Array.isArray(evaluations) ? evaluations : [];
-    const hit = match && match.matched ? match : null;
+    const hit = !skipped_consumed && match && match.matched ? match : null;
     const prediction = hit ? hit.barrier : -1;
     const journal_messages = [];
 
@@ -309,6 +339,11 @@ export const buildSequentialScanResult = ({
                 message: `Seq Differs ${hit.symbol}: [${hit.sequence.join('→')}] ${
                     hit.direction === 'asc' ? 'ascending' : 'descending'
                 } → Differ ${hit.barrier}${switched ? ' (switched market)' : ''}`,
+            });
+        } else if (skipped_consumed && match?.matched) {
+            journal_messages.push({
+                className: 'info',
+                message: `Seq Differs ${match.symbol}: [${match.sequence.join('→')}] already traded this tip — waiting for next tick`,
             });
         } else {
             const sample = scanned
@@ -335,7 +370,8 @@ export const buildSequentialScanResult = ({
         symbols_scanned: scanned.map(e => e.symbol),
         evaluations: scanned,
         switched: Boolean(switched),
-        reason: hit ? hit.reason : 'no_match',
+        skipped_consumed: Boolean(skipped_consumed),
+        reason: hit ? hit.reason : skipped_consumed ? 'signal_consumed' : 'no_match',
         journal_messages,
     };
 };

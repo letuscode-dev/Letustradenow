@@ -2,6 +2,8 @@ import {
     buildSequentialScanResult,
     detectSequentialDigitSignal,
     evaluateSymbolSequentialSignal,
+    isSignalAlreadyConsumed,
+    makeSignalKey,
     orderSymbolsForScan,
     parseSymbolList,
     pickFirstMatch,
@@ -67,6 +69,30 @@ describe('resolveScanSymbols / orderSymbolsForScan', () => {
             '1HZ10V',
             '1HZ100V',
         ]);
+    });
+});
+
+describe('makeSignalKey / isSignalAlreadyConsumed', () => {
+    it('locks one purchase per tip until the tip advances', () => {
+        const match = evaluateSymbolSequentialSignal('1HZ50V', [4, 5, 6]);
+        const key = makeSignalKey(match, 1700000001);
+        expect(key).toContain('1HZ50V|4,5,6→7');
+        expect(isSignalAlreadyConsumed(match, 1700000001, key)).toBe(true);
+        expect(isSignalAlreadyConsumed(match, 1700000002, key)).toBe(false);
+        expect(
+            buildSequentialScanResult({
+                match,
+                skipped_consumed: true,
+                journal_enabled: true,
+            }).prediction
+        ).toBe(-1);
+        expect(
+            buildSequentialScanResult({
+                match,
+                skipped_consumed: true,
+                journal_enabled: true,
+            }).reason
+        ).toBe('signal_consumed');
     });
 });
 

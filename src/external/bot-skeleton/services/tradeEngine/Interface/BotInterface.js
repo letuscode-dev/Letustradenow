@@ -72,6 +72,8 @@ import {
 import {
     buildSequentialScanResult,
     evaluateSymbolSequentialSignal,
+    isSignalAlreadyConsumed,
+    makeSignalKey,
     orderSymbolsForScan,
     pickFirstMatch,
     resolveScanSymbols,
@@ -121,6 +123,7 @@ const getBotInterface = tradeEngine => {
             tradeEngine.patternProbabilityLastWasLoss = false;
             tradeEngine.sequentialDigitDiffersSnapshot = null;
             tradeEngine._seqDiffersLastJournalFp = null;
+            tradeEngine._seqDiffersConsumedKey = null;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -660,7 +663,28 @@ const getBotInterface = tradeEngine => {
                 })
             );
 
-            const match = pickFirstMatch(evaluations);
+            const raw_match = pickFirstMatch(evaluations);
+            let tip_epoch = null;
+            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+                const tip = ticks[ticks.length - 1];
+                if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+                    tip_epoch = Number(tip.epoch);
+                } else if (tip) {
+                    // Fallback tip id when epoch is missing — changes when quote/length moves.
+                    tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
+                }
+            }
+
+            // One purchase per tip — Start()/trade_again must not re-buy the same
+            // [4→5→6]→7 while that tip is still in cache.
+            const skipped_consumed = isSignalAlreadyConsumed(
+                raw_match,
+                tip_epoch,
+                tradeEngine._seqDiffersConsumedKey
+            );
+            const match = skipped_consumed ? null : raw_match;
+
             let switched = false;
             if (match && switch_symbol && match.symbol && match.symbol !== active_symbol) {
                 try {
@@ -673,20 +697,25 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
+            if (match?.matched) {
+                tradeEngine._seqDiffersConsumedKey = makeSignalKey(match, tip_epoch);
+            }
+
             const result = buildSequentialScanResult({
                 market_group,
                 symbols: ordered,
                 active_symbol,
                 journal_enabled: opts.journal_enabled,
                 evaluations,
-                match,
+                match: raw_match,
                 switched,
+                skipped_consumed,
             });
 
-            // Suppress duplicate NO-TRADE spam while Start() retries on the same tip set.
-            const tip_fp = evaluations
-                .map(e => `${e.symbol}:${(e.sequence || []).join(',')}`)
-                .join('|');
+            // Suppress duplicate NO-TRADE / consumed spam while Start() retries.
+            const tip_fp = skipped_consumed
+                ? `consumed:${tradeEngine._seqDiffersConsumedKey}`
+                : evaluations.map(e => `${e.symbol}:${(e.sequence || []).join(',')}`).join('|');
             let public_result = result;
             if (
                 !result.matched &&
