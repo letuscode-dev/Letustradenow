@@ -8,16 +8,8 @@ import { modifyContextMenu } from '../../../utils';
 import {
     DEFAULT_IMMEDIATE_LOSS_RETRY,
     DEFAULT_MARKET_GROUP,
-    MARKET_GROUP_1S,
     MARKET_GROUP_ALL,
-    MARKET_GROUP_STANDARD,
 } from '../../../../services/tradeEngine/utils/sequential-digit-differs';
-
-const MARKET_GROUP_OPTIONS = [
-    [localize('1s Volatility'), MARKET_GROUP_1S],
-    [localize('Standard Volatility'), MARKET_GROUP_STANDARD],
-    [localize('All Volatility'), MARKET_GROUP_ALL],
-];
 
 window.Blockly.Blocks.sequential_digit_differs_prediction = {
     init() {
@@ -27,19 +19,15 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
     definition() {
         return {
             message0: localize(
-                'sequential Differs scan ({{ group }}, loss retry {{ retry }}, journal {{ journal }})',
+                'sequential Differs scan (scan all {{ all }}, loss retry {{ retry }}, journal {{ journal }})',
                 {
-                    group: '%1',
+                    all: '%1',
                     retry: '%2',
                     journal: '%3',
                 }
             ),
             args0: [
-                {
-                    type: 'field_dropdown',
-                    name: 'MARKET_GROUP',
-                    options: MARKET_GROUP_OPTIONS,
-                },
+                { type: 'input_value', name: 'SCAN_ALL', check: 'Boolean' },
                 { type: 'input_value', name: 'IMMEDIATE_LOSS_RETRY', check: 'Boolean' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
@@ -49,7 +37,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scans 1s or standard volatility symbols. Ascending (1→2→3) Differs 4; descending (8→7→6) Differs 5. Optional: after a loss, Differ the same digit once with no analysis, then resume scanning.'
+                'Scans volatility symbols. Ascending (1→2→3) Differs 4; descending (8→7→6) Differs 5. Set scan-all true to cover 1s + standard markets; otherwise scans 1s only. Optional same-digit Differs after a loss.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -58,7 +46,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
         return {
             display_name: localize('Sequential Digit Differs scan'),
             description: localize(
-                'Scans configured volatility markets for consecutive ascending or descending last-3 digit runs. Optional one-shot same-digit Differs after a loss, then back to analysis.'
+                'Scans configured volatility markets for consecutive ascending or descending last-3 digit runs. Toggle scan-all from Run once at start. Optional one-shot same-digit Differs after a loss.'
             ),
             key_words: localize('sequential, ascending, descending, differs, scan, recovery, loss retry'),
         };
@@ -69,7 +57,6 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.sequential_digit_differs_prediction = block => {
-    const market_group = block.getFieldValue('MARKET_GROUP') || DEFAULT_MARKET_GROUP;
     const read = name =>
         window.Blockly.JavaScript.javascriptGenerator.valueToCode(
             block,
@@ -77,13 +64,15 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.sequential_digit_differs_
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
         );
 
+    const scan_all = read('SCAN_ALL') || 'false';
     const journal = read('JOURNAL') || 'true';
     const immediate_loss_retry =
         read('IMMEDIATE_LOSS_RETRY') || (DEFAULT_IMMEDIATE_LOSS_RETRY ? 'true' : 'false');
 
     const code = `(function () {
+        var BinaryBotPrivateScanAll = !!(${scan_all});
         var BinaryBotPrivateSeqResult = Bot.evaluateSequentialDigitDiffersScan({
-            market_group: ${JSON.stringify(market_group)},
+            market_group: BinaryBotPrivateScanAll ? ${JSON.stringify(MARKET_GROUP_ALL)} : ${JSON.stringify(DEFAULT_MARKET_GROUP)},
             journal_enabled: ${journal},
             immediate_loss_retry: ${immediate_loss_retry},
             switch_symbol: true

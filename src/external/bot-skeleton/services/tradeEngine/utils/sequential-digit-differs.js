@@ -21,8 +21,8 @@ export const VOLATILITY_STANDARD_SYMBOLS = ['R_10', 'R_25', 'R_50', 'R_75', 'R_1
 
 export const DEFAULT_MARKET_GROUP = MARKET_GROUP_1S;
 export const MIN_DIGITS_REQUIRED = 3;
-/** Default: after a loss, Differ the same digit once with no analysis. */
-export const DEFAULT_IMMEDIATE_LOSS_RETRY = true;
+/** Default: after a loss, resume scanning (no same-digit retry). */
+export const DEFAULT_IMMEDIATE_LOSS_RETRY = false;
 
 /**
  * Session state for sequential Differs (immediate loss-retry + one-shot arming).
