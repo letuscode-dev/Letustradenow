@@ -53,6 +53,9 @@ export const resetSequentialDiffersRuntimeState = (state = null) => {
 };
 
 const toDigitOrNull = value => {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
     const n = Number(value);
     if (!Number.isInteger(n) || n < 0 || n > 9) {
         return null;
