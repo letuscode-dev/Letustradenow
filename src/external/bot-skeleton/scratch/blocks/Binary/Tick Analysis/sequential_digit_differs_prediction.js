@@ -8,7 +8,6 @@ import { modifyContextMenu } from '../../../utils';
 import {
     DEFAULT_IMMEDIATE_LOSS_RETRY,
     DEFAULT_MARKET_GROUP,
-    MARKET_GROUP_ALL,
 } from '../../../../services/tradeEngine/utils/sequential-digit-differs';
 
 window.Blockly.Blocks.sequential_digit_differs_prediction = {
@@ -19,15 +18,15 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
     definition() {
         return {
             message0: localize(
-                'sequential Differs scan (scan all {{ all }}, loss retry {{ retry }}, journal {{ journal }})',
+                'sequential Differs scan (group {{ group }}, loss retry {{ retry }}, journal {{ journal }})',
                 {
-                    all: '%1',
+                    group: '%1',
                     retry: '%2',
                     journal: '%3',
                 }
             ),
             args0: [
-                { type: 'input_value', name: 'SCAN_ALL', check: 'Boolean' },
+                { type: 'input_value', name: 'MARKET_GROUP', check: ['String', 'Text'] },
                 { type: 'input_value', name: 'IMMEDIATE_LOSS_RETRY', check: 'Boolean' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
@@ -37,7 +36,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scans volatility symbols. Ascending (1→2→3) Differs 4; descending (8→7→6) Differs 5. Set scan-all true to cover 1s + standard markets; otherwise scans 1s only. Optional same-digit Differs after a loss.'
+                'Scans volatility symbols by Market_group: 1S (1-second), STANDARD, or ALL. Ascending (1→2→3) Differs 4; descending (8→7→6) Differs 5. Optional same-digit Differs after a loss.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -46,7 +45,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
         return {
             display_name: localize('Sequential Digit Differs scan'),
             description: localize(
-                'Scans configured volatility markets for consecutive ascending or descending last-3 digit runs. Toggle scan-all from Run once at start. Optional one-shot same-digit Differs after a loss.'
+                'Scans configured volatility markets for consecutive ascending or descending last-3 digit runs. Set Market_group in Run once at start to 1S, STANDARD, or ALL. Optional one-shot same-digit Differs after a loss.'
             ),
             key_words: localize('sequential, ascending, descending, differs, scan, recovery, loss retry'),
         };
@@ -64,15 +63,14 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.sequential_digit_differs_
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
         );
 
-    const scan_all = read('SCAN_ALL') || 'false';
+    const market_group = read('MARKET_GROUP') || JSON.stringify(DEFAULT_MARKET_GROUP);
     const journal = read('JOURNAL') || 'true';
     const immediate_loss_retry =
         read('IMMEDIATE_LOSS_RETRY') || (DEFAULT_IMMEDIATE_LOSS_RETRY ? 'true' : 'false');
 
     const code = `(function () {
-        var BinaryBotPrivateScanAll = !!(${scan_all});
         var BinaryBotPrivateSeqResult = Bot.evaluateSequentialDigitDiffersScan({
-            market_group: BinaryBotPrivateScanAll ? ${JSON.stringify(MARKET_GROUP_ALL)} : ${JSON.stringify(DEFAULT_MARKET_GROUP)},
+            market_group: ${market_group},
             journal_enabled: ${journal},
             immediate_loss_retry: ${immediate_loss_retry},
             switch_symbol: true

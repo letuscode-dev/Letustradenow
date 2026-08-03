@@ -3,8 +3,8 @@
  * for ascending/descending consecutive last-3 digit runs.
  *
  * Configure in Run once at start:
- *   Scan_all_volatilities — FALSE = 1s only; TRUE = 1s + standard
- *   Immediate_loss_retry — FALSE by default (same-digit Differ after a loss)
+ *   Market_group — "1S" | "STANDARD" | "ALL"
+ *   Immediate_loss_retry — FALSE by default
  */
 export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -20,7 +20,7 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
     <variable id="sqd_payout">Payout%</variable>
     <variable id="sqd_duration">Duration</variable>
     <variable id="sqd_lossretry">Immediate_loss_retry</variable>
-    <variable id="sqd_scanall">Scan_all_volatilities</variable>
+    <variable id="sqd_mktgroup">Market_group</variable>
   </variables>
   <block type="trade_definition" id="sqd_trade_def" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -69,9 +69,9 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
                 <field name="VAR" id="sqd_lossretry">Immediate_loss_retry</field>
                 <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
                 <next>
-                  <block type="variables_set" id="sqd_set_scanall">
-                    <field name="VAR" id="sqd_scanall">Scan_all_volatilities</field>
-                    <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+                  <block type="variables_set" id="sqd_set_mktgroup">
+                    <field name="VAR" id="sqd_mktgroup">Market_group</field>
+                    <value name="VALUE"><block type="text"><field name="TEXT">1S</field></block></value>
                     <next>
                       <block type="variables_set" id="sqd_set_maxloss">
                         <field name="VAR" id="sqd_maxloss">Max Cons Loss:</field>
@@ -164,7 +164,7 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
     <field name="NAME">Sequential Differs Barrier</field>
     <value name="RETURN">
       <block type="sequential_digit_differs_prediction" id="sqd_signal">
-        <value name="SCAN_ALL"><block type="variables_get"><field name="VAR" id="sqd_scanall">Scan_all_volatilities</field></block></value>
+        <value name="MARKET_GROUP"><block type="variables_get"><field name="VAR" id="sqd_mktgroup">Market_group</field></block></value>
         <value name="IMMEDIATE_LOSS_RETRY"><block type="variables_get"><field name="VAR" id="sqd_lossretry">Immediate_loss_retry</field></block></value>
         <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
       </block>
