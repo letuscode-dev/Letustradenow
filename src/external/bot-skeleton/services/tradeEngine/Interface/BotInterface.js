@@ -81,6 +81,7 @@ import {
     makeSignalKey,
     orderSymbolsForScan,
     pickFirstMatch,
+    releaseStaleSequentialCommit,
     resetSequentialDiffersRuntimeState,
     resolveScanSymbols,
 } from '../utils/sequential-digit-differs';
@@ -644,13 +645,22 @@ const getBotInterface = tradeEngine => {
                       opts.immediate_loss_retry === 'true';
 
             // Apply settled contract result once (arms one-shot same-digit retry on loss).
-            if (tradeEngine.data?.contract) {
+            // Only treat contracts with both buy + sell prices as settled — createDetails
+            // crashes on incomplete contract stubs.
+            const contract = tradeEngine.data?.contract;
+            if (
+                contract &&
+                contract.buy_price != null &&
+                contract.sell_price != null &&
+                contract.transaction_ids?.buy &&
+                (contract.contract_id || contract.transaction_ids?.buy)
+            ) {
                 try {
-                    const details = createDetails(tradeEngine.data.contract);
+                    const details = createDetails(contract);
                     const outcome = details?.[10];
                     const contract_id =
-                        tradeEngine.data.contract.contract_id ||
-                        tradeEngine.data.contract.id ||
+                        contract.contract_id ||
+                        contract.transaction_ids?.buy ||
                         details?.[0] ||
                         null;
                     if (outcome === 'loss' || outcome === 'win') {
@@ -658,12 +668,19 @@ const getBotInterface = tradeEngine => {
                             is_loss: outcome === 'loss',
                             immediate_loss_retry,
                             contract_id,
+                            // Prefer raw contract barrier — createDetails maps missing → 0.
+                            barrier:
+                                contract.barrier !== undefined && contract.barrier !== null
+                                    ? contract.barrier
+                                    : undefined,
                         });
                     }
                 } catch (e) {
                     // keep prior runtime flags
                 }
             }
+
+            releaseStaleSequentialCommit(runtime, 20000);
 
             const journal_enabled =
                 opts.journal_enabled === undefined
@@ -673,12 +690,13 @@ const getBotInterface = tradeEngine => {
                       opts.journal_enabled === 'TRUE' ||
                       opts.journal_enabled === 'true';
 
-            // Keep returning the armed barrier until the purchase settles (no multi-buy).
-            if (runtime.armed_prediction >= 0 && runtime.armed_prediction <= 9) {
-                const armed = {
-                    prediction: runtime.armed_prediction,
-                    barrier: runtime.armed_prediction,
-                    matched: true,
+            // After issuing a signal, return -1 until settlement — prevents Start()
+            // from re-buying the same Differ while the contract is still open.
+            if (runtime.trade_committed) {
+                const waiting = {
+                    prediction: -1,
+                    barrier: -1,
+                    matched: false,
                     direction: null,
                     sequence: [],
                     symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
@@ -687,13 +705,11 @@ const getBotInterface = tradeEngine => {
                     evaluations: [],
                     switched: false,
                     skipped_consumed: false,
-                    reason: runtime.just_did_immediate_retry
-                        ? 'armed_immediate_loss_retry'
-                        : 'armed_analysis',
+                    reason: 'awaiting_settlement',
                     journal_messages: [],
                 };
-                tradeEngine.sequentialDigitDiffersSnapshot = armed;
-                return armed;
+                tradeEngine.sequentialDigitDiffersSnapshot = waiting;
+                return waiting;
             }
 
             // One-shot: Differ the same losing digit with no scan.
@@ -748,11 +764,11 @@ const getBotInterface = tradeEngine => {
                 ticks_service.warmScanStreams(ordered).catch(() => {});
             }
 
-            // Round-robin refresh any scan symbol whose tip stopped advancing
-            // (failed subscribe left a frozen one-shot cache, e.g. 1HZ100V).
-            if (ticks_service?.refreshStaleScanCaches) {
+            // Refresh at most one stale non-active symbol this cycle (await that
+            // one call only — do not wait on the entire historical queue).
+            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
                 try {
-                    await ticks_service.refreshStaleScanCaches(ordered, active_symbol);
+                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
                 } catch (e) {
                     // keep prior caches
                 }

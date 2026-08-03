@@ -538,14 +538,19 @@ export default class TicksService {
     }
 
     /**
-     * Round-robin force-refresh for scan symbols whose tips stopped advancing.
-     * At most one history call per invoke to stay under Deriv rate limits.
+     * Round-robin force-refresh for ONE stale scan symbol.
+     * Awaits only that single history call (does not wait on a long queue tail),
+     * and skips while another stale refresh is already in flight.
      *
      * @param {string[]} symbols
      * @param {string} [active_symbol]
      * @returns {Promise<void>}
      */
-    refreshStaleScanCaches(symbols, active_symbol = '') {
+    pickAndRefreshStaleScanSymbol(symbols, active_symbol = '') {
+        if (this._stale_refresh_inflight) {
+            return Promise.resolve();
+        }
+
         const list = Array.isArray(symbols) ? [...new Set(symbols.filter(Boolean))] : [];
         if (!list.length) {
             return Promise.resolve();
@@ -586,17 +591,20 @@ export default class TicksService {
         const symbol = stale[this._stale_rr % stale.length];
         this._stale_rr += 1;
 
-        if (!this._stale_refresh_tail) {
-            this._stale_refresh_tail = Promise.resolve();
-        }
-        this._stale_refresh_tail = this._stale_refresh_tail
-            .then(() => this.requestFreshTicks(symbol, 5, 1200, true))
+        this._stale_refresh_inflight = true;
+        return this.requestFreshTicks(symbol, 5, 1200, true)
             .then(() => {
                 this._noteScanTip(symbol);
             })
-            .catch(() => {});
+            .catch(() => {})
+            .finally(() => {
+                this._stale_refresh_inflight = false;
+            });
+    }
 
-        return this._stale_refresh_tail;
+    /** @deprecated Prefer pickAndRefreshStaleScanSymbol — kept for callers. */
+    refreshStaleScanCaches(symbols, active_symbol = '') {
+        return this.pickAndRefreshStaleScanSymbol(symbols, active_symbol);
     }
 
     /**
@@ -620,12 +628,16 @@ export default class TicksService {
         }
 
         list.forEach(symbol => {
-            // Skip only when we have a marked stream AND the tip is still advancing.
-            if (this._scan_stream_keys.has(symbol) && this.isScanTipFresh(symbol, 3000)) {
-                return;
-            }
-            // Dead "warmed" mark — clear so we can re-subscribe / recover.
-            if (this._scan_stream_keys.has(symbol) && !this.isScanTipFresh(symbol, 3000)) {
+            if (this._scan_stream_keys.has(symbol)) {
+                // Prefer history refresh for stale tips — aggressive unsubscribe /
+                // re-subscribe storms Deriv rate limits and freezes other symbols.
+                if (this.isScanTipFresh(symbol, 3000)) {
+                    return;
+                }
+                const seen_at = this._scan_tip_seen_at?.get(symbol) || 0;
+                if (!seen_at || Date.now() - seen_at < 60000) {
+                    return;
+                }
                 const dead_key = this._scan_stream_keys.get(symbol);
                 if (dead_key && this.tickListeners.hasIn([symbol, dead_key])) {
                     this.tickListeners = this.tickListeners.deleteIn([symbol, dead_key]);

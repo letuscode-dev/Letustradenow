@@ -39,6 +39,8 @@ export const createSequentialDiffersRuntimeState = () => ({
     last_barrier: null,
     just_did_immediate_retry: false,
     armed_prediction: -1,
+    trade_committed: false,
+    signal_issued_at: 0,
     last_handled_contract_id: null,
 });
 
@@ -48,6 +50,8 @@ export const resetSequentialDiffersRuntimeState = (state = null) => {
     tracker.last_barrier = null;
     tracker.just_did_immediate_retry = false;
     tracker.armed_prediction = -1;
+    tracker.trade_committed = false;
+    tracker.signal_issued_at = 0;
     tracker.last_handled_contract_id = null;
     return tracker;
 };
@@ -82,8 +86,16 @@ export const applySequentialDiffersTradeResult = (state, args = {}) => {
     }
 
     tracker.armed_prediction = -1;
+    tracker.trade_committed = false;
+    tracker.signal_issued_at = 0;
     const enabled = toBool(args.immediate_loss_retry, DEFAULT_IMMEDIATE_LOSS_RETRY);
     const is_loss = args.is_loss === true || args.is_loss === 1;
+
+    // Prefer barrier from the settled contract when present (source of truth).
+    const contract_barrier = toDigitOrNull(args.barrier);
+    if (contract_barrier !== null) {
+        tracker.last_barrier = contract_barrier;
+    }
 
     if (!is_loss) {
         tracker.pending_retry_digit = null;
@@ -121,6 +133,8 @@ export const consumeImmediateLossRetry = state => {
     tracker.just_did_immediate_retry = true;
     tracker.last_barrier = digit;
     tracker.armed_prediction = digit;
+    tracker.trade_committed = true;
+    tracker.signal_issued_at = Date.now();
     return digit;
 };
 
@@ -138,10 +152,27 @@ export const armSequentialDiffersPrediction = (state, barrier, opts = {}) => {
     }
     tracker.last_barrier = digit;
     tracker.armed_prediction = digit;
+    tracker.trade_committed = true;
+    tracker.signal_issued_at = Date.now();
     if (!opts.from_immediate_retry) {
         tracker.just_did_immediate_retry = false;
     }
     return tracker;
+};
+
+/** Release a stuck commit if settlement never arrived (proposal/purchase failure). */
+export const releaseStaleSequentialCommit = (state, max_age_ms = 20000) => {
+    const tracker = state || createSequentialDiffersRuntimeState();
+    if (!tracker.trade_committed) {
+        return false;
+    }
+    const issued = Number(tracker.signal_issued_at) || 0;
+    if (!issued || Date.now() - issued < max_age_ms) {
+        return false;
+    }
+    tracker.trade_committed = false;
+    tracker.armed_prediction = -1;
+    return true;
 };
 
 const toDigit = value => {

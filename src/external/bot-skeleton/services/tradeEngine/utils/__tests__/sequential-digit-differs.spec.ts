@@ -11,6 +11,7 @@ import {
     orderSymbolsForScan,
     parseSymbolList,
     pickFirstMatch,
+    releaseStaleSequentialCommit,
     resolveScanSymbols,
     toMarketGroup,
     VOLATILITY_1S_SYMBOLS,
@@ -104,25 +105,31 @@ describe('immediate loss retry', () => {
     it('queues the same losing digit once, then returns to analysis', () => {
         const state = createSequentialDiffersRuntimeState();
         armSequentialDiffersPrediction(state, 7);
+        expect(state.trade_committed).toBe(true);
         applySequentialDiffersTradeResult(state, {
             is_loss: true,
             immediate_loss_retry: true,
             contract_id: 'c1',
+            barrier: 7,
         });
+        expect(state.trade_committed).toBe(false);
         expect(state.pending_retry_digit).toBe(7);
 
         expect(consumeImmediateLossRetry(state)).toBe(7);
         expect(state.pending_retry_digit).toBeNull();
         expect(state.just_did_immediate_retry).toBe(true);
         expect(state.armed_prediction).toBe(7);
+        expect(state.trade_committed).toBe(true);
 
         // Losing the immediate retry must NOT queue another no-analysis trade.
         applySequentialDiffersTradeResult(state, {
             is_loss: true,
             immediate_loss_retry: true,
             contract_id: 'c2',
+            barrier: 7,
         });
         expect(state.pending_retry_digit).toBeNull();
+        expect(state.trade_committed).toBe(false);
         expect(consumeImmediateLossRetry(state)).toBeNull();
     });
 
@@ -135,6 +142,30 @@ describe('immediate loss retry', () => {
             contract_id: 'c3',
         });
         expect(state.pending_retry_digit).toBeNull();
+    });
+
+    it('releases a stuck trade commit after timeout', () => {
+        const state = createSequentialDiffersRuntimeState();
+        armSequentialDiffersPrediction(state, 5);
+        expect(state.trade_committed).toBe(true);
+        expect(releaseStaleSequentialCommit(state, 20000)).toBe(false);
+
+        state.signal_issued_at = Date.now() - 25000;
+        expect(releaseStaleSequentialCommit(state, 20000)).toBe(true);
+        expect(state.trade_committed).toBe(false);
+        expect(state.armed_prediction).toBe(-1);
+    });
+
+    it('prefers settled contract barrier for loss retry', () => {
+        const state = createSequentialDiffersRuntimeState();
+        armSequentialDiffersPrediction(state, 3);
+        applySequentialDiffersTradeResult(state, {
+            is_loss: true,
+            immediate_loss_retry: true,
+            contract_id: 'c4',
+            barrier: 8,
+        });
+        expect(state.pending_retry_digit).toBe(8);
     });
 });
 
