@@ -4,8 +4,8 @@
  * Even: tip = hottest even → Differ coldest even
  * Odd:  tip = hottest odd  → Differ coldest odd
  *
- * Configure in Run once at start: Lookback, Split_size, Max Cons Loss, Profit Threshold.
- * Recovery: Total_loss over Split_size wins (Splits_left).
+ * Configure in Run once at start: Lookback, Multiplier (default 10.5), Max Cons Loss, Profit Threshold.
+ * Recovery: classic martingale — on loss Initial_stake × Multiplier; on win reset to Stake.
  * Stops on Max Cons Loss or Profit Threshold (no trade_again).
  */
 
@@ -27,15 +27,12 @@ const buildHotDigitDiffersXml = (parity: HotDigitParity): string => {
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="${prefix}_stake">Stake</variable>
-    <variable id="${prefix}_split">Split_size</variable>
-    <variable id="${prefix}_splitsleft">Splits_left</variable>
+    <variable id="${prefix}_multiplier">Multiplier</variable>
     <variable id="${prefix}_inarow">InArow</variable>
     <variable id="${prefix}_maxloss">Max Cons Loss:</variable>
-    <variable id="${prefix}_totalloss">Total_loss</variable>
     <variable id="${prefix}_prediction">Prediction:</variable>
     <variable id="${prefix}_profit">Profit Threshold:</variable>
     <variable id="${prefix}_initstake">Initial_stake</variable>
-    <variable id="${prefix}_payout">Payout%</variable>
     <variable id="${prefix}_duration">Duration</variable>
     <variable id="${prefix}_lookback">Lookback</variable>
   </variables>
@@ -94,40 +91,22 @@ const buildHotDigitDiffersXml = (parity: HotDigitParity): string => {
                         <field name="VAR" id="${prefix}_profit">Profit Threshold:</field>
                         <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
                         <next>
-                              <block type="variables_set" id="${prefix}_set_split">
-                                <field name="VAR" id="${prefix}_split">Split_size</field>
-                                <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+                          <block type="variables_set" id="${prefix}_set_mult">
+                            <field name="VAR" id="${prefix}_multiplier">Multiplier</field>
+                            <value name="VALUE"><block type="math_number"><field name="NUM">10.5</field></block></value>
+                            <next>
+                              <block type="variables_set" id="${prefix}_set_init">
+                                <field name="VAR" id="${prefix}_initstake">Initial_stake</field>
+                                <value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value>
                                 <next>
-                                  <block type="variables_set" id="${prefix}_set_splitsleft">
-                                    <field name="VAR" id="${prefix}_splitsleft">Splits_left</field>
-                                    <value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_split">Split_size</field></block></value>
-                                    <next>
-                                      <block type="variables_set" id="${prefix}_set_init">
-                                        <field name="VAR" id="${prefix}_initstake">Initial_stake</field>
-                                        <value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value>
-                                        <next>
-                                          <block type="variables_set" id="${prefix}_set_payout">
-                                            <field name="VAR" id="${prefix}_payout">Payout%</field>
-                                            <value name="VALUE"><block type="math_number"><field name="NUM">9.6</field></block></value>
-                                            <next>
-                                              <block type="variables_set" id="${prefix}_set_inarow">
-                                                <field name="VAR" id="${prefix}_inarow">InArow</field>
-                                                <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
-                                                <next>
-                                                  <block type="variables_set" id="${prefix}_set_totalloss">
-                                                    <field name="VAR" id="${prefix}_totalloss">Total_loss</field>
-                                                    <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
-                                                  </block>
-                                                </next>
-                                              </block>
-                                            </next>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </next>
+                                  <block type="variables_set" id="${prefix}_set_inarow">
+                                    <field name="VAR" id="${prefix}_inarow">InArow</field>
+                                    <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
                                   </block>
                                 </next>
                               </block>
+                            </next>
+                          </block>
                         </next>
                       </block>
                     </next>
@@ -189,10 +168,14 @@ const buildHotDigitDiffersXml = (parity: HotDigitParity): string => {
         <statement name="DO0">
           <block type="math_change"><field name="VAR" id="${prefix}_inarow">InArow</field><value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
             <next>
-              <block type="math_change"><field name="VAR" id="${prefix}_totalloss">Total_loss</field><value name="DELTA"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
-                <next>
-                  <block type="variables_set"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_split">Split_size</field></block></value></block>
-                </next>
+              <block type="variables_set" id="${prefix}_set_martingale">
+                <field name="VAR" id="${prefix}_initstake">Initial_stake</field>
+                <value name="VALUE">
+                  <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
+                    <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
+                    <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_multiplier">Multiplier</field></block></value>
+                  </block>
+                </value>
               </block>
             </next>
           </block>
@@ -200,103 +183,31 @@ const buildHotDigitDiffersXml = (parity: HotDigitParity): string => {
         <statement name="ELSE">
           <block type="variables_set"><field name="VAR" id="${prefix}_inarow">InArow</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
             <next>
-              <block type="math_change"><field name="VAR" id="${prefix}_totalloss">Total_loss</field>
-                <value name="DELTA">
-                  <block type="math_single"><field name="OP">NEG</field>
-                    <value name="NUM"><block type="read_details"><field name="DETAIL_INDEX">4</field></block></value>
-                  </block>
-                </value>
-                <next>
-                  <block type="controls_if">
-                    <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
-                      <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
-                      <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
-                    </block></value>
-                    <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
-                    <next>
-                      <block type="controls_if">
-                        <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
-                          <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
-                          <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
-                        </block></value>
-                        <statement name="DO0">
-                          <block type="controls_if">
-                            <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
-                              <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field></block></value>
-                              <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
-                            </block></value>
-                            <statement name="DO0">
-                              <block type="math_change"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field><value name="DELTA"><shadow type="math_number"><field name="NUM">-1</field></shadow><block type="math_number"><field name="NUM">-1</field></block></value></block>
-                            </statement>
-                          </block>
-                        </statement>
-                      </block>
-                    </next>
-                  </block>
-                </next>
-              </block>
+              <block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value></block>
             </next>
           </block>
         </statement>
         <next>
           <block type="controls_if">
-            <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
-            <value name="IF0"><block type="logic_compare"><field name="OP">GT</field>
-              <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
-              <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+            <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
+              <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
+              <value name="B"><block type="math_number"><field name="NUM">0.35</field></block></value>
             </block></value>
-            <statement name="DO0">
-              <block type="controls_if">
-                <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
-                  <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field></block></value>
-                  <value name="B"><block type="math_number"><field name="NUM">1</field></block></value>
-                </block></value>
-                <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value></block></statement>
-                <next>
-                  <block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field>
-                    <value name="VALUE">
-                      <block type="math_arithmetic"><field name="OP">DIVIDE</field>
-                        <value name="A"><block type="math_arithmetic"><field name="OP">MULTIPLY</field>
-                          <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
-                          <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_payout">Payout%</field></block></value>
-                        </block></value>
-                        <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field></block></value>
-                      </block>
-                    </value>
-                  </block>
-                </next>
-              </block>
-            </statement>
-            <statement name="ELSE">
-              <block type="variables_set"><field name="VAR" id="${prefix}_splitsleft">Splits_left</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_split">Split_size</field></block></value>
-                <next>
-                  <block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value></block>
-                </next>
-              </block>
-            </statement>
+            <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value></block></statement>
             <next>
               <block type="controls_if">
-                <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
-                  <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
-                  <value name="B"><block type="math_number"><field name="NUM">0.35</field></block></value>
+                <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+                <value name="IF0"><block type="logic_compare"><field name="OP">GTE</field>
+                  <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_inarow">InArow</field></block></value>
+                  <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_maxloss">Max Cons Loss:</field></block></value>
                 </block></value>
-                <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value></block></statement>
-                <next>
-                  <block type="controls_if">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-                    <value name="IF0"><block type="logic_compare"><field name="OP">GTE</field>
-                      <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_inarow">InArow</field></block></value>
-                      <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_maxloss">Max Cons Loss:</field></block></value>
-                    </block></value>
-                    <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">${stop_max}</field></block></value></block></statement>
-                    <value name="IF1"><block type="logic_compare"><field name="OP">GTE</field>
-                      <value name="A"><block type="total_profit"></block></value>
-                      <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_profit">Profit Threshold:</field></block></value>
-                    </block></value>
-                    <statement name="DO1"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">${stop_tp}</field></block></value></block></statement>
-                    <statement name="ELSE"><block type="trade_again"></block></statement>
-                  </block>
-                </next>
+                <statement name="DO0"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">${stop_max}</field></block></value></block></statement>
+                <value name="IF1"><block type="logic_compare"><field name="OP">GTE</field>
+                  <value name="A"><block type="total_profit"></block></value>
+                  <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_profit">Profit Threshold:</field></block></value>
+                </block></value>
+                <statement name="DO1"><block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">abc</field></shadow><block type="text"><field name="TEXT">${stop_tp}</field></block></value></block></statement>
+                <statement name="ELSE"><block type="trade_again"></block></statement>
               </block>
             </next>
           </block>
