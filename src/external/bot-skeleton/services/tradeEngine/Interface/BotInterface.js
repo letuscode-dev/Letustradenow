@@ -921,8 +921,8 @@ const getBotInterface = tradeEngine => {
             return public_result;
         },
         /**
-         * Odd/Even Hot Digit Differs — single active market only.
-         * If tip equals hottest odd or hottest even in lookback, Differ coldest digit.
+         * Hot Digit Differs — single active market, parity-scoped (even / odd / both).
+         * Tip equals hottest digit in that parity → Differ coldest same-parity digit.
          */
         evaluateOddEvenHotDigitScan: async options => {
             const opts = normalizeHotOddEvenDiffersOptions(options || {});
@@ -1033,6 +1033,7 @@ const getBotInterface = tradeEngine => {
                 market_group: active_symbol || 'ACTIVE',
                 active_symbol,
                 journal_enabled: opts.journal_enabled,
+                parity: opts.parity,
                 evaluations,
                 match: raw_match,
                 switched: false,

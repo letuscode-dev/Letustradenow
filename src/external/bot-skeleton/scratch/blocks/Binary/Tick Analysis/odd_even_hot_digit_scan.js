@@ -1,7 +1,8 @@
 /**
- * Odd/Even Hot Digit Differs — single active market.
- * Tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd.
- * Hidden from Blocks Menu; free bot wraps it in a custom function.
+ * Hot Digit Differs — single active market, parity-scoped.
+ * parity even: tip = hottest even → Differ coldest even
+ * parity odd:  tip = hottest odd  → Differ coldest odd
+ * Hidden from Blocks Menu; free bots wrap it in a custom function.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -14,11 +15,24 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
     },
     definition() {
         return {
-            message0: localize('odd/even hot Differs (lookback {{ lb }}, journal {{ journal }})', {
-                lb: '%1',
-                journal: '%2',
-            }),
+            message0: localize(
+                'hot Differs (parity {{ parity }}, lookback {{ lb }}, journal {{ journal }})',
+                {
+                    parity: '%1',
+                    lb: '%2',
+                    journal: '%3',
+                }
+            ),
             args0: [
+                {
+                    type: 'field_dropdown',
+                    name: 'PARITY',
+                    options: [
+                        [localize('even'), 'even'],
+                        [localize('odd'), 'odd'],
+                        [localize('both'), 'both'],
+                    ],
+                },
                 { type: 'input_value', name: 'LOOKBACK', check: 'Number' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
@@ -28,16 +42,16 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'On the selected market: tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd. Otherwise -1.'
+                'On the selected market: even = tip hottest even → Differ coldest even; odd = tip hottest odd → Differ coldest odd. Otherwise -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
     },
     meta() {
         return {
-            display_name: localize('Odd/Even Hot Digit Differs'),
+            display_name: localize('Hot Digit Differs'),
             description: localize(
-                'Single-market Differs: tip matches hottest odd → Differ coldest odd; hottest even → Differ coldest even.'
+                'Single-market Differs scoped by parity: even-only, odd-only, or both.'
             ),
             key_words: localize('odd, even, hot, cold, differs'),
         };
@@ -55,12 +69,14 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.odd_even_hot_digit_scan =
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
         );
 
+    const parity = block.getFieldValue('PARITY') || 'both';
     const lookback = read('LOOKBACK') || String(DEFAULT_LOOKBACK);
     const journal = read('JOURNAL') || 'true';
 
     const code = `(function () {
         var BinaryBotPrivateOeResult = Bot.evaluateOddEvenHotDigitScan({
             lookback: ${lookback},
+            parity: ${JSON.stringify(parity)},
             journal_enabled: ${journal},
             switch_symbol: false
         });

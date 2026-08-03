@@ -1,10 +1,11 @@
 /**
- * Odd/Even Hot Digit → Differs coldest same-parity digit (single active market).
+ * Hot Digit Differs → Differs coldest same-parity digit (single active market).
  *
  * On the selected symbol's lookback window:
  *   - Find the most-appearing odd digit and most-appearing even digit
- *   - If tip = hottest even → Differ the coldest even digit
- *   - If tip = hottest odd  → Differ the coldest odd digit
+ *   - parity 'even': tip = hottest even → Differ coldest even
+ *   - parity 'odd':  tip = hottest odd  → Differ coldest odd
+ *   - parity 'both': either of the above
  */
 
 import {
@@ -42,8 +43,19 @@ const toInt = (value, fallback, min = null, max = null) => {
     return n;
 };
 
+export const toParityMode = value => {
+    const raw = String(value || '')
+        .trim()
+        .toLowerCase();
+    if (raw === 'even' || raw === 'odd') {
+        return raw;
+    }
+    return 'both';
+};
+
 export const normalizeHotOddEvenDiffersOptions = (options = {}) => ({
     lookback: toInt(options.lookback, DEFAULT_LOOKBACK, 50, 1000),
+    parity: toParityMode(options.parity),
     journal_enabled:
         options.journal_enabled === undefined
             ? true
@@ -142,8 +154,16 @@ export const pickColdestDigit = counts => pickColdestAmong(counts, [0, 1, 2, 3, 
 
 /**
  * Detect signal: tip is hot odd → Differ coldest odd; tip is hot even → Differ coldest even.
+ * @param {Array} digits
+ * @param {number} lookback
+ * @param {'even'|'odd'|'both'} [parity='both']
  */
-export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBACK) => {
+export const detectHotOddEvenDiffersSignal = (
+    digits,
+    lookback = DEFAULT_LOOKBACK,
+    parity = 'both'
+) => {
+    const parity_mode = toParityMode(parity);
     const stats = computeDigitCounts(digits, lookback);
     const hot_odd = pickHottestAmong(stats.counts, ODD_DIGITS);
     const hot_even = pickHottestAmong(stats.counts, EVEN_DIGITS);
@@ -164,6 +184,7 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
         counts: stats.counts,
         total: stats.total,
         lookback,
+        parity: parity_mode,
         barrier: -1,
         matched: false,
         trigger: null,
@@ -184,17 +205,37 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
 
     const is_hot_odd = last === hot_odd.digit;
     const is_hot_even = last === hot_even.digit;
-    if (!is_hot_odd && !is_hot_even) {
+    const allow_odd = parity_mode === 'both' || parity_mode === 'odd';
+    const allow_even = parity_mode === 'both' || parity_mode === 'even';
+
+    if (is_hot_odd && !allow_odd) {
         return {
             ...base,
-            reason: `tip_${last}_not_hot_odd${hot_odd.digit}_even${hot_even.digit}`,
+            reason: `tip_${last}_hot_odd_skipped_parity_${parity_mode}`,
+        };
+    }
+    if (is_hot_even && !allow_even) {
+        return {
+            ...base,
+            reason: `tip_${last}_hot_even_skipped_parity_${parity_mode}`,
+        };
+    }
+    if ((!is_hot_odd || !allow_odd) && (!is_hot_even || !allow_even)) {
+        const wanted =
+            parity_mode === 'odd'
+                ? `hot_odd${hot_odd.digit}`
+                : parity_mode === 'even'
+                  ? `hot_even${hot_even.digit}`
+                  : `hot_odd${hot_odd.digit}_even${hot_even.digit}`;
+        return {
+            ...base,
+            reason: `tip_${last}_not_${wanted}`,
         };
     }
 
-    // Same parity "market": hot even tip → coldest even; hot odd tip → coldest odd.
-    // Exclude the tip so Differ barrier is never the digit that just appeared.
-    const trigger = is_hot_odd ? 'odd' : 'even';
-    const parity_digits = is_hot_odd ? ODD_DIGITS : EVEN_DIGITS;
+    // Prefer the parity mode when both tip matches somehow (shouldn't happen for one tip digit).
+    const trigger = is_hot_odd && allow_odd ? 'odd' : 'even';
+    const parity_digits = trigger === 'odd' ? ODD_DIGITS : EVEN_DIGITS;
     const cold = pickColdestAmong(stats.counts, parity_digits, last);
     if (cold.digit === null) {
         return {
@@ -203,7 +244,7 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
         };
     }
 
-    const hot_count = is_hot_odd ? hot_odd.count : hot_even.count;
+    const hot_count = trigger === 'odd' ? hot_odd.count : hot_even.count;
     const score = hot_count - cold.count;
 
     return {
@@ -220,7 +261,7 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
 
 export const evaluateSymbolHotOddEvenDiffers = (symbol, digits, options = {}) => {
     const opts = normalizeHotOddEvenDiffersOptions(options);
-    const signal = detectHotOddEvenDiffersSignal(digits, opts.lookback);
+    const signal = detectHotOddEvenDiffersSignal(digits, opts.lookback, opts.parity);
     return {
         symbol: String(symbol || ''),
         ...signal,
@@ -314,6 +355,7 @@ export const buildHotOddEvenDiffersResult = ({
     market_group = DEFAULT_MARKET_GROUP,
     active_symbol = '',
     journal_enabled = true,
+    parity = 'both',
     evaluations = [],
     match = null,
     switched = false,
@@ -322,19 +364,26 @@ export const buildHotOddEvenDiffersResult = ({
     const hit = !skipped_consumed && match?.matched ? match : null;
     const prediction = hit ? hit.barrier : -1;
     const journal_messages = [];
+    const parity_mode = toParityMode(parity || hit?.parity || 'both');
+    const label =
+        parity_mode === 'even'
+            ? 'Even Hot Differs'
+            : parity_mode === 'odd'
+              ? 'Odd Hot Differs'
+              : 'Hot O/E Differs';
 
     if (journal_enabled) {
         if (hit) {
             journal_messages.push({
                 className: 'success',
-                message: `Hot O/E Differs ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ cold ${hit.trigger} ${hit.barrier}${
+                message: `${label} ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ cold ${hit.trigger} ${hit.barrier}${
                     switched ? ' (switched market)' : ''
                 }`,
             });
         } else if (skipped_consumed && match?.matched) {
             journal_messages.push({
                 className: 'info',
-                message: `Hot O/E Differs ${match.symbol}: already traded this tip — waiting`,
+                message: `${label} ${match.symbol}: already traded this tip — waiting`,
             });
         } else {
             const sample = (evaluations || [])
@@ -343,7 +392,7 @@ export const buildHotOddEvenDiffersResult = ({
                 .join(' | ');
             journal_messages.push({
                 className: 'info',
-                message: `Hot O/E Differs: no tip-hot signal on ${
+                message: `${label}: no tip-hot signal on ${
                     Array.isArray(evaluations) ? evaluations.length : 0
                 } symbol(s) [${toMarketGroup(market_group)}]${sample ? ` — ${sample}` : ''}`,
             });
@@ -359,6 +408,7 @@ export const buildHotOddEvenDiffersResult = ({
         hot_even: hit ? hit.hot_even : null,
         cold_digit: hit ? hit.cold_digit : null,
         trigger: hit ? hit.trigger : null,
+        parity: parity_mode,
         symbol: hit ? hit.symbol : active_symbol || '',
         market_group: toMarketGroup(market_group),
         symbols_scanned: (evaluations || []).map(e => e.symbol),

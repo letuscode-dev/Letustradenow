@@ -71,6 +71,38 @@ describe('detectHotOddEvenDiffersSignal', () => {
         expect(result.barrier).not.toBe(0);
     });
 
+    it('even parity ignores hot-odd tips', () => {
+        const digits = buildWindow();
+        const result = detectHotOddEvenDiffersSignal(digits, 100, 'even');
+        expect(result.matched).toBe(false);
+        expect(result.reason).toContain('skipped_parity_even');
+    });
+
+    it('odd parity ignores hot-even tips', () => {
+        const digits = buildWindow();
+        digits[digits.length - 1] = 0;
+        const result = detectHotOddEvenDiffersSignal(digits, 100, 'odd');
+        expect(result.matched).toBe(false);
+        expect(result.reason).toContain('skipped_parity_odd');
+    });
+
+    it('even parity matches hot-even tips', () => {
+        const digits = buildWindow();
+        digits[digits.length - 1] = 0;
+        const result = detectHotOddEvenDiffersSignal(digits, 100, 'even');
+        expect(result.matched).toBe(true);
+        expect(result.trigger).toBe('even');
+        expect(EVEN_DIGITS).toContain(result.barrier);
+    });
+
+    it('odd parity matches hot-odd tips', () => {
+        const digits = buildWindow();
+        const result = detectHotOddEvenDiffersSignal(digits, 100, 'odd');
+        expect(result.matched).toBe(true);
+        expect(result.trigger).toBe('odd');
+        expect(ODD_DIGITS).toContain(result.barrier);
+    });
+
     it('rejects when tip is not hot odd or hot even', () => {
         const digits = buildWindow();
         digits[digits.length - 1] = 7; // not the hottest odd/even

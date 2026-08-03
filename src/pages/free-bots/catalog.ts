@@ -4,7 +4,7 @@ import {
     PATTERN_PROBABILITY_UNDER_XML,
 } from './bots/pattern-probability-ou';
 import { SEQUENTIAL_DIGIT_DIFFERS_XML } from './bots/sequential-digit-differs';
-import { ODD_EVEN_HOT_DIGIT_XML } from './bots/odd-even-hot-digit';
+import { EVEN_HOT_DIGIT_XML, ODD_HOT_DIGIT_XML } from './bots/odd-even-hot-digit';
 
 /**
  * Free Bots catalog.
@@ -14,12 +14,20 @@ import { ODD_EVEN_HOT_DIGIT_XML } from './bots/odd-even-hot-digit';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'odd-even-hot-digit-v1',
-        title: 'Odd/Even Hot Digit',
+        id: 'even-hot-digit-v1',
+        title: 'Even Hot Digit',
         description:
-            'Digit Differs on the selected market only. Tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd. Recovery uses Split_size via Splits_left (recalculates stake each recovery trade). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Split_size in Run once at start.',
-        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Even', 'Cold digit', 'Single market', 'Recovery'],
-        xml: ODD_EVEN_HOT_DIGIT_XML,
+            'Digit Differs on the selected market — even analysis only. Tip = hottest even → Differ coldest even. Recovery uses Split_size via Splits_left. Stops on Max Cons Loss or Profit Threshold. Set Lookback / Split_size in Run once at start.',
+        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Even', 'Cold digit', 'Single market', 'Recovery'],
+        xml: EVEN_HOT_DIGIT_XML,
+    },
+    {
+        id: 'odd-hot-digit-v1',
+        title: 'Odd Hot Digit',
+        description:
+            'Digit Differs on the selected market — odd analysis only. Tip = hottest odd → Differ coldest odd. Recovery uses Split_size via Splits_left. Stops on Max Cons Loss or Profit Threshold. Set Lookback / Split_size in Run once at start.',
+        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Cold digit', 'Single market', 'Recovery'],
+        xml: ODD_HOT_DIGIT_XML,
     },
     {
         id: 'sequential-digit-differs-v1',
