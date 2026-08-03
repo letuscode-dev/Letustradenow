@@ -630,19 +630,28 @@ const getBotInterface = tradeEngine => {
                       opts.switch_symbol === 'TRUE' ||
                       opts.switch_symbol === 'true';
 
-            const evaluations = [];
-            for (let i = 0; i < ordered.length; i++) {
-                const symbol = ordered[i];
-                let digits = [];
-                try {
-                    digits = tradeEngine.getDigitsForSymbol
-                        ? await tradeEngine.getDigitsForSymbol(symbol, 5)
-                        : [];
-                } catch (e) {
-                    digits = [];
-                }
-                evaluations.push(evaluateSymbolSequentialSignal(symbol, digits));
+            // Warm live streams for the whole group so non-active markets keep updating.
+            if (tradeEngine.$scope?.ticksService?.ensureTickSubscription) {
+                await Promise.all(
+                    ordered.map(symbol =>
+                        tradeEngine.$scope.ticksService.ensureTickSubscription(symbol).catch(() => [])
+                    )
+                );
             }
+
+            const evaluations = await Promise.all(
+                ordered.map(async symbol => {
+                    let digits = [];
+                    try {
+                        digits = tradeEngine.getDigitsForSymbol
+                            ? await tradeEngine.getDigitsForSymbol(symbol, 5)
+                            : [];
+                    } catch (e) {
+                        digits = [];
+                    }
+                    return evaluateSymbolSequentialSignal(symbol, digits);
+                })
+            );
 
             const match = pickFirstMatch(evaluations);
             let switched = false;

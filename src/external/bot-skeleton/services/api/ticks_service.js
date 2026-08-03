@@ -405,6 +405,82 @@ export default class TicksService {
     }
 
     /**
+     * Always fetch the newest `count` ticks for a symbol (no subscribe).
+     * Used by multi-symbol scanners so non-active markets do not stay frozen
+     * on a one-shot history snapshot. Throttled + in-flight shared per symbol.
+     *
+     * @param {string} symbol
+     * @param {number} [count=5]
+     * @param {number} [min_interval_ms=750]
+     * @returns {Promise<Array<{epoch:number, quote:number}>>}
+     */
+    requestFreshTicks(symbol, count = 5, min_interval_ms = 750) {
+        const required = Math.max(1, Math.min(50, Math.floor(Number(count)) || 5));
+        const cached = this.getCachedTicks(symbol) || [];
+
+        // Live stream already updating this cache — no need to re-hit history.
+        if (this.hasTickSubscription(symbol) && cached.length >= required) {
+            return Promise.resolve(cached);
+        }
+
+        if (!this._fresh_tick_promises) {
+            this._fresh_tick_promises = new Map();
+        }
+        if (!this._fresh_tick_at) {
+            this._fresh_tick_at = new Map();
+        }
+
+        const in_flight = this._fresh_tick_promises.get(symbol);
+        if (in_flight) {
+            return in_flight;
+        }
+
+        const last_at = this._fresh_tick_at.get(symbol) || 0;
+        const interval = Math.max(250, Math.floor(Number(min_interval_ms)) || 750);
+        if (Date.now() - last_at < interval && cached.length >= required) {
+            return Promise.resolve(cached);
+        }
+
+        if (!api_base.api) {
+            return Promise.resolve(cached);
+        }
+
+        this._fresh_tick_at.set(symbol, Date.now());
+
+        const request_object = {
+            ticks_history: symbol === 'na' ? 'R_100' : symbol,
+            end: 'latest',
+            count: required,
+            style: 'ticks',
+        };
+
+        const fresh_promise = api_base.api
+            .send(request_object)
+            .then(r => {
+                const history = historyToTicks(r.history);
+                if (!Array.isArray(history) || history.length === 0) {
+                    return this.getCachedTicks(symbol) || [];
+                }
+
+                const existing = this.getCachedTicks(symbol) || [];
+                const last_history_epoch = Number(history[history.length - 1]?.epoch);
+                const newer_live = Array.isArray(existing)
+                    ? existing.filter(tick => Number(tick?.epoch) > last_history_epoch)
+                    : [];
+                const merged = [...history, ...newer_live].slice(-1000);
+                this.updateTicksAndCallListeners(symbol, merged);
+                return merged;
+            })
+            .catch(() => this.getCachedTicks(symbol) || [])
+            .finally(() => {
+                this._fresh_tick_promises.delete(symbol);
+            });
+
+        this._fresh_tick_promises.set(symbol, fresh_promise);
+        return fresh_promise;
+    }
+
+    /**
      * True when we already track a live tick subscription id for this symbol,
      * or when the bot/chart already registered tick listeners (stream is owned elsewhere).
      * @param {string} symbol

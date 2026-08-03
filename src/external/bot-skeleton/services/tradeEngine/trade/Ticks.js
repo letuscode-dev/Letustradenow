@@ -270,8 +270,9 @@ export default Engine =>
         }
 
         /**
-         * Ensure at least `count` digits are available for `symbol` (one-shot fill).
-         * Does not switch the bot's active trading symbol.
+         * Digits for an arbitrary symbol. Active symbol uses the live cache;
+         * other scan symbols subscribe (so ticks keep flowing) and pull a fresh
+         * tip when they are not yet on a live stream.
          *
          * @param {string} symbol
          * @param {number} [count=5]
@@ -282,20 +283,61 @@ export default Engine =>
                 return [];
             }
             const required = Math.max(1, Math.min(1000, Math.floor(Number(count)) || 5));
-            let ticks = this.$scope.ticksService.getCachedTicks(symbol);
+            const ticks_service = this.$scope.ticksService;
+            const is_active = symbol === this.symbol;
 
-            if (!ticks?.length || ticks.length < required) {
-                if (typeof this.$scope.ticksService.requestHistoryFill === 'function') {
-                    ticks = await this.$scope.ticksService.requestHistoryFill(symbol, required);
+            let ticks;
+            if (is_active) {
+                ticks = ticks_service.getCachedTicks(symbol);
+                if ((!ticks?.length || ticks.length < required) && ticks_service.requestHistoryFill) {
+                    ticks = await ticks_service.requestHistoryFill(symbol, required);
+                }
+            } else {
+                // Keep a live stream open so digits change every tick like the active market.
+                if (
+                    typeof ticks_service.ensureTickSubscription === 'function' &&
+                    !ticks_service.hasTickSubscription(symbol)
+                ) {
+                    try {
+                        await ticks_service.ensureTickSubscription(symbol);
+                    } catch (e) {
+                        // Fall through to fresh history.
+                    }
+                }
+
+                if (ticks_service.hasTickSubscription(symbol)) {
+                    ticks = ticks_service.getCachedTicks(symbol);
+                    // Stream claimed but tip not advancing (e.g. AlreadySubscribed with dead cache)
+                    // — force a fresh history tip.
+                    if (typeof ticks_service.requestFreshTicks === 'function') {
+                        const tip = Number(ticks?.[ticks.length - 1]?.epoch);
+                        const prev = ticks_service._scan_tip_epoch?.get(symbol);
+                        if (!ticks?.length || ticks.length < required || (prev != null && prev === tip)) {
+                            ticks = await ticks_service.requestFreshTicks(symbol, required, 500);
+                        }
+                    }
+                } else if (typeof ticks_service.requestFreshTicks === 'function') {
+                    ticks = await ticks_service.requestFreshTicks(symbol, required);
+                } else if (typeof ticks_service.requestHistoryFill === 'function') {
+                    ticks = await ticks_service.requestHistoryFill(symbol, required);
                 } else {
-                    ticks = await this.$scope.ticksService.requestTicks({
-                        symbol,
-                        style: 'ticks',
-                    });
+                    ticks = await ticks_service.requestTicks({ symbol, style: 'ticks' });
+                }
+
+                if (!ticks_service._scan_tip_epoch) {
+                    ticks_service._scan_tip_epoch = new Map();
+                }
+                const new_tip = Number(
+                    (ticks_service.getCachedTicks(symbol) || ticks)?.[
+                        (ticks_service.getCachedTicks(symbol) || ticks)?.length - 1
+                    ]?.epoch
+                );
+                if (Number.isFinite(new_tip)) {
+                    ticks_service._scan_tip_epoch.set(symbol, new_tip);
                 }
             }
 
-            const refreshed = this.$scope.ticksService.getCachedTicks(symbol) || ticks || [];
+            const refreshed = ticks_service.getCachedTicks(symbol) || ticks || [];
             const digits = this.getLastDigitsFromListForSymbol(refreshed, symbol);
             return digits.length > required ? digits.slice(-required) : digits;
         }

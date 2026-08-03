@@ -312,7 +312,7 @@ export const buildSequentialScanResult = ({
             });
         } else {
             const sample = scanned
-                .slice(0, 3)
+                .slice(0, 5)
                 .map(e => `${e.symbol}:${(e.sequence || []).join(',') || '-'}`)
                 .join(' | ');
             journal_messages.push({
