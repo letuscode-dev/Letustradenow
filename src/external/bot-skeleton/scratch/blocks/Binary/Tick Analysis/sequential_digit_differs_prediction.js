@@ -36,7 +36,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scans volatility symbols by Market_group: 1S (1-second), STANDARD, or ALL. Ascending (1→2→3) Differs 4; descending (8→7→6) Differs 5. Optional same-digit Differs after a loss.'
+                'Scans volatility symbols by Market_group: 1S (1-second), STANDARD, or ALL. On ascending (1→2→3) or descending (8→7→6) runs, Differs previous_digit_2 (1 or 8). Optional same-digit Differs after a loss.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };

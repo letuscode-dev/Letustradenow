@@ -16,7 +16,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'sequential-digit-differs-v1',
         title: 'Sequential Digit Differs',
         description:
-            'Scans volatility for ascending (1→2→3) / descending (8→7→6) runs → Differs next. In Run once at start set Market_group to 1S, STANDARD, or ALL; Immediate_loss_retry is off by default.',
+            'Scans volatility for ascending (1→2→3) / descending (8→7→6) runs → Differs previous_digit_2 (1 / 8). In Run once at start set Market_group to 1S, STANDARD, or ALL; Immediate_loss_retry is off by default.',
         tags: ['Differs', 'Sequential', 'Ascending', 'Descending', 'Multi-market', 'Loss retry'],
         xml: SEQUENTIAL_DIGIT_DIFFERS_XML,
     },

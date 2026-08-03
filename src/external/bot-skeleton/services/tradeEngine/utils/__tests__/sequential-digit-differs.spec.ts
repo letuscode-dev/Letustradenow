@@ -19,35 +19,38 @@ import {
 } from '../sequential-digit-differs';
 
 describe('detectSequentialDigitSignal', () => {
-    it('detects ascending 1→2→3 → Differ 4', () => {
+    it('detects ascending 1→2→3 → Differ previous_digit_2 (1)', () => {
         const result = detectSequentialDigitSignal([1, 2, 3]);
         expect(result.matched).toBe(true);
         expect(result.direction).toBe('asc');
-        expect(result.barrier).toBe(4);
+        expect(result.barrier).toBe(1);
         expect(result.previous_digit_2).toBe(1);
         expect(result.previous_digit_1).toBe(2);
         expect(result.current_digit).toBe(3);
     });
 
-    it('detects descending 8→7→6 → Differ 5', () => {
+    it('detects descending 8→7→6 → Differ previous_digit_2 (8)', () => {
         const result = detectSequentialDigitSignal([8, 7, 6]);
         expect(result.matched).toBe(true);
         expect(result.direction).toBe('desc');
-        expect(result.barrier).toBe(5);
+        expect(result.barrier).toBe(8);
         expect(result.sequence).toEqual([8, 7, 6]);
     });
 
     it('uses only the newest three digits', () => {
-        expect(detectSequentialDigitSignal([9, 9, 1, 2, 3]).barrier).toBe(4);
-        expect(detectSequentialDigitSignal([0, 8, 7, 6]).barrier).toBe(5);
+        expect(detectSequentialDigitSignal([9, 9, 1, 2, 3]).barrier).toBe(1);
+        expect(detectSequentialDigitSignal([0, 8, 7, 6]).barrier).toBe(8);
     });
 
-    it('rejects non-consecutive and out-of-range barriers', () => {
+    it('accepts edge sequences that previously had no next digit', () => {
+        expect(detectSequentialDigitSignal([7, 8, 9]).matched).toBe(true);
+        expect(detectSequentialDigitSignal([7, 8, 9]).barrier).toBe(7);
+        expect(detectSequentialDigitSignal([2, 1, 0]).matched).toBe(true);
+        expect(detectSequentialDigitSignal([2, 1, 0]).barrier).toBe(2);
+    });
+
+    it('rejects non-consecutive and short windows', () => {
         expect(detectSequentialDigitSignal([1, 2, 4]).matched).toBe(false);
-        expect(detectSequentialDigitSignal([7, 8, 9]).matched).toBe(false);
-        expect(detectSequentialDigitSignal([7, 8, 9]).reason).toBe('asc_barrier_out_of_range');
-        expect(detectSequentialDigitSignal([2, 1, 0]).matched).toBe(false);
-        expect(detectSequentialDigitSignal([2, 1, 0]).reason).toBe('desc_barrier_out_of_range');
         expect(detectSequentialDigitSignal([1, 2]).reason).toBe('insufficient_digits');
     });
 });
@@ -81,7 +84,7 @@ describe('makeSignalKey / isSignalAlreadyConsumed', () => {
     it('locks one purchase per tip until the tip advances', () => {
         const match = evaluateSymbolSequentialSignal('1HZ50V', [4, 5, 6]);
         const key = makeSignalKey(match, 1700000001);
-        expect(key).toContain('1HZ50V|4,5,6→7');
+        expect(key).toContain('1HZ50V|4,5,6→4');
         expect(isSignalAlreadyConsumed(match, 1700000001, key)).toBe(true);
         expect(isSignalAlreadyConsumed(match, 1700000002, key)).toBe(false);
         expect(
@@ -178,7 +181,7 @@ describe('pickFirstMatch / buildSequentialScanResult', () => {
         ];
         const match = pickFirstMatch(evaluations);
         expect(match.symbol).toBe('1HZ75V');
-        expect(match.barrier).toBe(4);
+        expect(match.barrier).toBe(1);
 
         const result = buildSequentialScanResult({
             market_group: '1S',
@@ -186,7 +189,7 @@ describe('pickFirstMatch / buildSequentialScanResult', () => {
             match,
             journal_enabled: true,
         });
-        expect(result.prediction).toBe(4);
+        expect(result.prediction).toBe(1);
         expect(result.matched).toBe(true);
         expect(result.journal_messages[0].className).toBe('success');
     });

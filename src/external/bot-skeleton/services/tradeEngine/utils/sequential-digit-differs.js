@@ -2,11 +2,10 @@
  * Sequential Digit Differs — multi-symbol scanner.
  *
  * When the last 3 digits form a consecutive run:
- *   Ascending  (e.g. 1 → 2 → 3) → Digit Differs barrier = next up (4)
- *   Descending (e.g. 8 → 7 → 6) → Digit Differs barrier = next down (5)
+ *   Ascending  (e.g. 1 → 2 → 3) → Digit Differs barrier = previous_digit_2 (1)
+ *   Descending (e.g. 8 → 7 → 6) → Digit Differs barrier = previous_digit_2 (8)
  *
- * Barrier must stay in 0–9 (no wrap). Scans a configured volatility group
- * (1s / standard / all) or an explicit symbol list.
+ * Scans a configured volatility group (1s / standard / all) or an explicit symbol list.
  */
 
 export const MARKET_GROUP_1S = '1S';
@@ -321,21 +320,9 @@ export const detectSequentialDigitSignal = digits => {
     const current_digit = cleaned[cleaned.length - 1];
     const sequence = [previous_digit_2, previous_digit_1, current_digit];
 
-    // Ascending: …, n, n+1, n+2 → Differ n+3
+    // Ascending: …, n, n+1, n+2 → Differ n (previous_digit_2)
     if (previous_digit_1 === previous_digit_2 + 1 && current_digit === previous_digit_1 + 1) {
-        const barrier = current_digit + 1;
-        if (barrier > 9) {
-            return {
-                matched: false,
-                direction: 'asc',
-                barrier: -1,
-                sequence,
-                previous_digit_2,
-                previous_digit_1,
-                current_digit,
-                reason: 'asc_barrier_out_of_range',
-            };
-        }
+        const barrier = previous_digit_2;
         return {
             matched: true,
             direction: 'asc',
@@ -348,21 +335,9 @@ export const detectSequentialDigitSignal = digits => {
         };
     }
 
-    // Descending: …, n, n-1, n-2 → Differ n-3
+    // Descending: …, n, n-1, n-2 → Differ n (previous_digit_2)
     if (previous_digit_1 === previous_digit_2 - 1 && current_digit === previous_digit_1 - 1) {
-        const barrier = current_digit - 1;
-        if (barrier < 0) {
-            return {
-                matched: false,
-                direction: 'desc',
-                barrier: -1,
-                sequence,
-                previous_digit_2,
-                previous_digit_1,
-                current_digit,
-                reason: 'desc_barrier_out_of_range',
-            };
-        }
+        const barrier = previous_digit_2;
         return {
             matched: true,
             direction: 'desc',
