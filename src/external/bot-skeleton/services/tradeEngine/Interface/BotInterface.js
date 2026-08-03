@@ -748,10 +748,23 @@ const getBotInterface = tradeEngine => {
                 ticks_service.warmScanStreams(ordered).catch(() => {});
             }
 
+            // Round-robin refresh any scan symbol whose tip stopped advancing
+            // (failed subscribe left a frozen one-shot cache, e.g. 1HZ100V).
+            if (ticks_service?.refreshStaleScanCaches) {
+                try {
+                    await ticks_service.refreshStaleScanCaches(ordered, active_symbol);
+                } catch (e) {
+                    // keep prior caches
+                }
+            }
+
             // Prefer sync cache reads. Only fill empties (throttled) so Start()
             // retries within the same second do not re-hit the API.
             const evaluations = await Promise.all(
                 ordered.map(async symbol => {
+                    if (ticks_service?._noteScanTip) {
+                        ticks_service._noteScanTip(symbol);
+                    }
                     let digits = tradeEngine.getCachedDigitsForSymbol
                         ? tradeEngine.getCachedDigitsForSymbol(symbol, 5)
                         : [];

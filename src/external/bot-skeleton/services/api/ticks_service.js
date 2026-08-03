@@ -406,20 +406,21 @@ export default class TicksService {
 
     /**
      * Always fetch the newest `count` ticks for a symbol (no subscribe).
-     * Used sparingly when a scan symbol has an empty cache. Throttled hard to
-     * avoid RateLimit / RequestFailed storms from multi-symbol scanners.
+     * Used when a scan symbol cache is empty or its tip has gone stale.
+     * Throttled to avoid RateLimit / RequestFailed storms.
      *
      * @param {string} symbol
      * @param {number} [count=5]
      * @param {number} [min_interval_ms=5000]
+     * @param {boolean} [force=false] — refresh even if we think a live stream exists
      * @returns {Promise<Array<{epoch:number, quote:number}>>}
      */
-    requestFreshTicks(symbol, count = 5, min_interval_ms = 5000) {
+    requestFreshTicks(symbol, count = 5, min_interval_ms = 5000, force = false) {
         const required = Math.max(1, Math.min(50, Math.floor(Number(count)) || 5));
         const cached = this.getCachedTicks(symbol) || [];
 
-        // Live stream already updating this cache — no need to re-hit history.
-        if (this.hasTickSubscription(symbol) && cached.length >= required) {
+        // Live stream updating this cache — skip history unless forced (stale tip).
+        if (!force && this.hasTickSubscription(symbol) && cached.length >= required) {
             return Promise.resolve(cached);
         }
 
@@ -436,8 +437,7 @@ export default class TicksService {
         }
 
         const last_at = this._fresh_tick_at.get(symbol) || 0;
-        const interval = Math.max(2000, Math.floor(Number(min_interval_ms)) || 5000);
-        // Prefer cache whenever we recently tried — never stampede ticks_history.
+        const interval = Math.max(force ? 1200 : 2000, Math.floor(Number(min_interval_ms)) || 5000);
         if (Date.now() - last_at < interval) {
             return Promise.resolve(cached);
         }
@@ -470,6 +470,7 @@ export default class TicksService {
                     : [];
                 const merged = [...history, ...newer_live].slice(-1000);
                 this.updateTicksAndCallListeners(symbol, merged);
+                this._noteScanTip(symbol);
                 return merged;
             })
             .catch(() => this.getCachedTicks(symbol) || [])
@@ -479,6 +480,123 @@ export default class TicksService {
 
         this._fresh_tick_promises.set(symbol, fresh_promise);
         return fresh_promise;
+    }
+
+    _getTipEpoch(symbol) {
+        const ticks = this.getCachedTicks(symbol);
+        if (!ticks?.length) {
+            return null;
+        }
+        const tip = ticks[ticks.length - 1];
+        if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+            return Number(tip.epoch);
+        }
+        return tip ? `q:${tip.quote}` : null;
+    }
+
+    _noteScanTip(symbol) {
+        if (!this._scan_tip_epoch) {
+            this._scan_tip_epoch = new Map();
+        }
+        if (!this._scan_tip_seen_at) {
+            this._scan_tip_seen_at = new Map();
+        }
+        const tip = this._getTipEpoch(symbol);
+        if (tip == null) {
+            return;
+        }
+        const prev = this._scan_tip_epoch.get(symbol);
+        if (prev !== tip) {
+            this._scan_tip_epoch.set(symbol, tip);
+            this._scan_tip_seen_at.set(symbol, Date.now());
+        } else if (!this._scan_tip_seen_at.has(symbol)) {
+            this._scan_tip_seen_at.set(symbol, Date.now());
+        }
+    }
+
+    /**
+     * True when this symbol's tip advanced recently (live stream healthy).
+     * @param {string} symbol
+     * @param {number} [max_age_ms=2500]
+     */
+    isScanTipFresh(symbol, max_age_ms = 2500) {
+        const tip = this._getTipEpoch(symbol);
+        if (tip == null) {
+            return false;
+        }
+        const prev = this._scan_tip_epoch?.get(symbol);
+        if (prev !== tip) {
+            this._noteScanTip(symbol);
+            return true;
+        }
+        const seen_at = this._scan_tip_seen_at?.get(symbol);
+        if (!seen_at) {
+            this._noteScanTip(symbol);
+            return false;
+        }
+        return Date.now() - seen_at < Math.max(1000, max_age_ms);
+    }
+
+    /**
+     * Round-robin force-refresh for scan symbols whose tips stopped advancing.
+     * At most one history call per invoke to stay under Deriv rate limits.
+     *
+     * @param {string[]} symbols
+     * @param {string} [active_symbol]
+     * @returns {Promise<void>}
+     */
+    refreshStaleScanCaches(symbols, active_symbol = '') {
+        const list = Array.isArray(symbols) ? [...new Set(symbols.filter(Boolean))] : [];
+        if (!list.length) {
+            return Promise.resolve();
+        }
+
+        const now = Date.now();
+        const stale = [];
+        list.forEach(symbol => {
+            if (symbol === active_symbol) {
+                this._noteScanTip(symbol);
+                return;
+            }
+            const ticks = this.getCachedTicks(symbol);
+            if (!ticks?.length) {
+                stale.push(symbol);
+                return;
+            }
+            const tip = this._getTipEpoch(symbol);
+            const prev = this._scan_tip_epoch?.get(symbol);
+            if (tip != null && tip !== prev) {
+                this._noteScanTip(symbol);
+                return;
+            }
+            const seen_at = this._scan_tip_seen_at?.get(symbol) || 0;
+            // 1s markets should move every ~1s; allow 2s before treating as stale.
+            if (!seen_at || now - seen_at > 2000) {
+                stale.push(symbol);
+            }
+        });
+
+        if (!stale.length) {
+            return Promise.resolve();
+        }
+
+        if (this._stale_rr == null) {
+            this._stale_rr = 0;
+        }
+        const symbol = stale[this._stale_rr % stale.length];
+        this._stale_rr += 1;
+
+        if (!this._stale_refresh_tail) {
+            this._stale_refresh_tail = Promise.resolve();
+        }
+        this._stale_refresh_tail = this._stale_refresh_tail
+            .then(() => this.requestFreshTicks(symbol, 5, 1200, true))
+            .then(() => {
+                this._noteScanTip(symbol);
+            })
+            .catch(() => {});
+
+        return this._stale_refresh_tail;
     }
 
     /**
@@ -502,8 +620,17 @@ export default class TicksService {
         }
 
         list.forEach(symbol => {
-            if (this._scan_stream_keys.has(symbol) || this.hasTickSubscription(symbol)) {
+            // Skip only when we have a marked stream AND the tip is still advancing.
+            if (this._scan_stream_keys.has(symbol) && this.isScanTipFresh(symbol, 3000)) {
                 return;
+            }
+            // Dead "warmed" mark — clear so we can re-subscribe / recover.
+            if (this._scan_stream_keys.has(symbol) && !this.isScanTipFresh(symbol, 3000)) {
+                const dead_key = this._scan_stream_keys.get(symbol);
+                if (dead_key && this.tickListeners.hasIn([symbol, dead_key])) {
+                    this.tickListeners = this.tickListeners.deleteIn([symbol, dead_key]);
+                }
+                this._scan_stream_keys.delete(symbol);
             }
             this._scan_warm_tail = this._scan_warm_tail
                 .then(() => this._warmOneScanStream(symbol))
@@ -518,12 +645,15 @@ export default class TicksService {
      * @returns {Promise<Array<{epoch:number, quote:number}>>}
      */
     async _warmOneScanStream(symbol) {
-        if (!symbol || this._scan_stream_keys?.has(symbol) || this.hasTickSubscription(symbol)) {
+        if (!symbol) {
+            return [];
+        }
+        if (this._scan_stream_keys?.has(symbol) && this.isScanTipFresh(symbol, 3000)) {
             return this.getCachedTicks(symbol) || [];
         }
 
         // Stagger subscriptions — Deriv rate-limits parallel ticks_history.
-        await new Promise(resolve => setTimeout(resolve, 350));
+        await new Promise(resolve => setTimeout(resolve, 400));
 
         if (!api_base.api) {
             return this.getCachedTicks(symbol) || [];
@@ -537,6 +667,7 @@ export default class TicksService {
             style: 'ticks',
         };
 
+        let subscribed = false;
         try {
             const response = await api_base.api.send(request_object);
             const history = historyToTicks(response?.history);
@@ -545,22 +676,39 @@ export default class TicksService {
             }
             if (response?.subscription?.id) {
                 this.subscriptions = this.subscriptions.setIn(['tick', symbol], response.subscription.id);
+                subscribed = true;
             }
         } catch (e) {
-            // AlreadySubscribed / RateLimit — keep whatever cache we have; do not retry-loop here.
+            // AlreadySubscribed / RateLimit — do not pretend we own a live stream.
             const code = e?.error?.code || e?.code;
-            if (code === 'AlreadySubscribed' && this.ticks.has(symbol)) {
-                // ok
+            if (code === 'AlreadySubscribed' && this.subscriptions.getIn(['tick', symbol])) {
+                subscribed = true;
             }
         }
 
-        // Noop listener keeps the stream marked as owned for hasTickSubscription.
+        // Seed cache with a one-shot if subscribe did not populate ticks.
+        if (!(this.getCachedTicks(symbol)?.length)) {
+            try {
+                await this.requestFreshTicks(symbol, 5, 0, true);
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        const has_cache = Boolean(this.getCachedTicks(symbol)?.length);
+        // Only mark warmed when we truly subscribed or at least seeded a cache.
+        // Failed marks caused permanent frozen tips (e.g. 1HZ100V stuck).
+        if (!subscribed && !has_cache) {
+            return [];
+        }
+
         const key = getUUID();
         this.tickListeners = this.tickListeners.setIn([symbol, key], () => {});
         if (!this._scan_stream_keys) {
             this._scan_stream_keys = new Map();
         }
         this._scan_stream_keys.set(symbol, key);
+        this._noteScanTip(symbol);
 
         return this.getCachedTicks(symbol) || [];
     }
