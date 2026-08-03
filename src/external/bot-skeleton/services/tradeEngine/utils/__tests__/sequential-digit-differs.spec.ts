@@ -1,5 +1,9 @@
 import {
+    armSequentialDiffersPrediction,
+    applySequentialDiffersTradeResult,
     buildSequentialScanResult,
+    consumeImmediateLossRetry,
+    createSequentialDiffersRuntimeState,
     detectSequentialDigitSignal,
     evaluateSymbolSequentialSignal,
     isSignalAlreadyConsumed,
@@ -93,6 +97,44 @@ describe('makeSignalKey / isSignalAlreadyConsumed', () => {
                 journal_enabled: true,
             }).reason
         ).toBe('signal_consumed');
+    });
+});
+
+describe('immediate loss retry', () => {
+    it('queues the same losing digit once, then returns to analysis', () => {
+        const state = createSequentialDiffersRuntimeState();
+        armSequentialDiffersPrediction(state, 7);
+        applySequentialDiffersTradeResult(state, {
+            is_loss: true,
+            immediate_loss_retry: true,
+            contract_id: 'c1',
+        });
+        expect(state.pending_retry_digit).toBe(7);
+
+        expect(consumeImmediateLossRetry(state)).toBe(7);
+        expect(state.pending_retry_digit).toBeNull();
+        expect(state.just_did_immediate_retry).toBe(true);
+        expect(state.armed_prediction).toBe(7);
+
+        // Losing the immediate retry must NOT queue another no-analysis trade.
+        applySequentialDiffersTradeResult(state, {
+            is_loss: true,
+            immediate_loss_retry: true,
+            contract_id: 'c2',
+        });
+        expect(state.pending_retry_digit).toBeNull();
+        expect(consumeImmediateLossRetry(state)).toBeNull();
+    });
+
+    it('can be disabled', () => {
+        const state = createSequentialDiffersRuntimeState();
+        armSequentialDiffersPrediction(state, 4);
+        applySequentialDiffersTradeResult(state, {
+            is_loss: true,
+            immediate_loss_retry: false,
+            contract_id: 'c3',
+        });
+        expect(state.pending_retry_digit).toBeNull();
     });
 });
 

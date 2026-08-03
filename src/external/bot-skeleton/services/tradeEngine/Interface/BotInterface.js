@@ -70,12 +70,18 @@ import {
     resetRangeMomentumState,
 } from '../utils/range-momentum';
 import {
+    armSequentialDiffersPrediction,
+    applySequentialDiffersTradeResult,
     buildSequentialScanResult,
+    consumeImmediateLossRetry,
+    createSequentialDiffersRuntimeState,
+    DEFAULT_IMMEDIATE_LOSS_RETRY,
     evaluateSymbolSequentialSignal,
     isSignalAlreadyConsumed,
     makeSignalKey,
     orderSymbolsForScan,
     pickFirstMatch,
+    resetSequentialDiffersRuntimeState,
     resolveScanSymbols,
 } from '../utils/sequential-digit-differs';
 
@@ -124,6 +130,10 @@ const getBotInterface = tradeEngine => {
             tradeEngine.sequentialDigitDiffersSnapshot = null;
             tradeEngine._seqDiffersLastJournalFp = null;
             tradeEngine._seqDiffersConsumedKey = null;
+            if (tradeEngine.sequentialDigitDiffersState) {
+                resetSequentialDiffersRuntimeState(tradeEngine.sequentialDigitDiffersState);
+                tradeEngine.sequentialDigitDiffersState = null;
+            }
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -621,6 +631,102 @@ const getBotInterface = tradeEngine => {
          */
         evaluateSequentialDigitDiffersScan: async options => {
             const opts = options || {};
+            if (!tradeEngine.sequentialDigitDiffersState) {
+                tradeEngine.sequentialDigitDiffersState = createSequentialDiffersRuntimeState();
+            }
+            const runtime = tradeEngine.sequentialDigitDiffersState;
+            const immediate_loss_retry =
+                opts.immediate_loss_retry === undefined
+                    ? DEFAULT_IMMEDIATE_LOSS_RETRY
+                    : opts.immediate_loss_retry === true ||
+                      opts.immediate_loss_retry === 1 ||
+                      opts.immediate_loss_retry === 'TRUE' ||
+                      opts.immediate_loss_retry === 'true';
+
+            // Apply settled contract result once (arms one-shot same-digit retry on loss).
+            if (tradeEngine.data?.contract) {
+                try {
+                    const details = createDetails(tradeEngine.data.contract);
+                    const outcome = details?.[10];
+                    const contract_id =
+                        tradeEngine.data.contract.contract_id ||
+                        tradeEngine.data.contract.id ||
+                        details?.[0] ||
+                        null;
+                    if (outcome === 'loss' || outcome === 'win') {
+                        applySequentialDiffersTradeResult(runtime, {
+                            is_loss: outcome === 'loss',
+                            immediate_loss_retry,
+                            contract_id,
+                        });
+                    }
+                } catch (e) {
+                    // keep prior runtime flags
+                }
+            }
+
+            const journal_enabled =
+                opts.journal_enabled === undefined
+                    ? true
+                    : opts.journal_enabled === true ||
+                      opts.journal_enabled === 1 ||
+                      opts.journal_enabled === 'TRUE' ||
+                      opts.journal_enabled === 'true';
+
+            // Keep returning the armed barrier until the purchase settles (no multi-buy).
+            if (runtime.armed_prediction >= 0 && runtime.armed_prediction <= 9) {
+                const armed = {
+                    prediction: runtime.armed_prediction,
+                    barrier: runtime.armed_prediction,
+                    matched: true,
+                    direction: null,
+                    sequence: [],
+                    symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
+                    market_group: opts.market_group,
+                    symbols_scanned: [],
+                    evaluations: [],
+                    switched: false,
+                    skipped_consumed: false,
+                    reason: runtime.just_did_immediate_retry
+                        ? 'armed_immediate_loss_retry'
+                        : 'armed_analysis',
+                    journal_messages: [],
+                };
+                tradeEngine.sequentialDigitDiffersSnapshot = armed;
+                return armed;
+            }
+
+            // One-shot: Differ the same losing digit with no scan.
+            const retry_digit = consumeImmediateLossRetry(runtime);
+            if (retry_digit !== null) {
+                const retry_result = {
+                    prediction: retry_digit,
+                    barrier: retry_digit,
+                    matched: true,
+                    direction: null,
+                    sequence: [],
+                    symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
+                    market_group: opts.market_group,
+                    symbols_scanned: [],
+                    evaluations: [],
+                    switched: false,
+                    skipped_consumed: false,
+                    immediate_loss_retry: true,
+                    reason: `immediate_loss_retry_${retry_digit}`,
+                    journal_messages: journal_enabled
+                        ? [
+                              {
+                                  className: 'success',
+                                  message: `Seq Differs: immediate loss retry → Differ ${retry_digit} (no analysis)`,
+                              },
+                          ]
+                        : [],
+                };
+                tradeEngine.sequentialDigitDiffersSnapshot = retry_result;
+                tradeEngine._seqDiffersLastJournalFp = `immretry:${retry_digit}:${runtime.last_handled_contract_id}`;
+                return retry_result;
+            }
+
             const market_group = opts.market_group;
             const symbols = resolveScanSymbols(opts);
             const active_symbol =
@@ -699,13 +805,14 @@ const getBotInterface = tradeEngine => {
 
             if (match?.matched) {
                 tradeEngine._seqDiffersConsumedKey = makeSignalKey(match, tip_epoch);
+                armSequentialDiffersPrediction(runtime, match.barrier, { from_immediate_retry: false });
             }
 
             const result = buildSequentialScanResult({
                 market_group,
                 symbols: ordered,
                 active_symbol,
-                journal_enabled: opts.journal_enabled,
+                journal_enabled,
                 evaluations,
                 match: raw_match,
                 switched,
@@ -729,6 +836,19 @@ const getBotInterface = tradeEngine => {
 
             tradeEngine.sequentialDigitDiffersSnapshot = public_result;
             return public_result;
+        },
+        setSequentialDigitDiffersLastResult: (is_loss, immediate_loss_retry) => {
+            if (!tradeEngine.sequentialDigitDiffersState) {
+                tradeEngine.sequentialDigitDiffersState = createSequentialDiffersRuntimeState();
+            }
+            applySequentialDiffersTradeResult(tradeEngine.sequentialDigitDiffersState, {
+                is_loss: !!is_loss,
+                immediate_loss_retry:
+                    immediate_loss_retry === undefined
+                        ? DEFAULT_IMMEDIATE_LOSS_RETRY
+                        : immediate_loss_retry,
+                contract_id: `manual:${Date.now()}`,
+            });
         },
         switchTradeSymbol: symbol =>
             tradeEngine.switchTradeSymbol

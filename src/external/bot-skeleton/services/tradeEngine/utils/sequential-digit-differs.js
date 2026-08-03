@@ -21,6 +21,125 @@ export const VOLATILITY_STANDARD_SYMBOLS = ['R_10', 'R_25', 'R_50', 'R_75', 'R_1
 
 export const DEFAULT_MARKET_GROUP = MARKET_GROUP_1S;
 export const MIN_DIGITS_REQUIRED = 3;
+/** Default: after a loss, Differ the same digit once with no analysis. */
+export const DEFAULT_IMMEDIATE_LOSS_RETRY = true;
+
+/**
+ * Session state for sequential Differs (immediate loss-retry + one-shot arming).
+ * @returns {{
+ *   pending_retry_digit: number|null,
+ *   last_barrier: number|null,
+ *   just_did_immediate_retry: boolean,
+ *   armed_prediction: number,
+ *   last_handled_contract_id: string|null,
+ * }}
+ */
+export const createSequentialDiffersRuntimeState = () => ({
+    pending_retry_digit: null,
+    last_barrier: null,
+    just_did_immediate_retry: false,
+    armed_prediction: -1,
+    last_handled_contract_id: null,
+});
+
+export const resetSequentialDiffersRuntimeState = (state = null) => {
+    const tracker = state || createSequentialDiffersRuntimeState();
+    tracker.pending_retry_digit = null;
+    tracker.last_barrier = null;
+    tracker.just_did_immediate_retry = false;
+    tracker.armed_prediction = -1;
+    tracker.last_handled_contract_id = null;
+    return tracker;
+};
+
+const toDigitOrNull = value => {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 0 || n > 9) {
+        return null;
+    }
+    return n;
+};
+
+/**
+ * Record win/loss. On loss (and option on), queue one Differ of the same barrier
+ * with no analysis — but not if that loss was already the immediate retry itself.
+ *
+ * @param {ReturnType<typeof createSequentialDiffersRuntimeState>} state
+ * @param {{ is_loss: boolean, immediate_loss_retry?: boolean, contract_id?: string|null }} args
+ */
+export const applySequentialDiffersTradeResult = (state, args = {}) => {
+    const tracker = state || createSequentialDiffersRuntimeState();
+    const contract_id =
+        args.contract_id === undefined || args.contract_id === null ? null : String(args.contract_id);
+    if (contract_id && tracker.last_handled_contract_id === contract_id) {
+        return tracker;
+    }
+    if (contract_id) {
+        tracker.last_handled_contract_id = contract_id;
+    }
+
+    tracker.armed_prediction = -1;
+    const enabled = toBool(args.immediate_loss_retry, DEFAULT_IMMEDIATE_LOSS_RETRY);
+    const is_loss = args.is_loss === true || args.is_loss === 1;
+
+    if (!is_loss) {
+        tracker.pending_retry_digit = null;
+        tracker.just_did_immediate_retry = false;
+        return tracker;
+    }
+
+    if (
+        enabled &&
+        !tracker.just_did_immediate_retry &&
+        toDigitOrNull(tracker.last_barrier) !== null
+    ) {
+        tracker.pending_retry_digit = tracker.last_barrier;
+        tracker.just_did_immediate_retry = false;
+    } else {
+        // Loss was the one-shot retry (or option off) — resume analysis next.
+        tracker.pending_retry_digit = null;
+        tracker.just_did_immediate_retry = false;
+    }
+    return tracker;
+};
+
+/**
+ * If a one-shot loss retry is pending, consume it and arm that digit.
+ * @param {ReturnType<typeof createSequentialDiffersRuntimeState>} state
+ * @returns {number|null}
+ */
+export const consumeImmediateLossRetry = state => {
+    const tracker = state || createSequentialDiffersRuntimeState();
+    const digit = toDigitOrNull(tracker.pending_retry_digit);
+    if (digit === null) {
+        return null;
+    }
+    tracker.pending_retry_digit = null;
+    tracker.just_did_immediate_retry = true;
+    tracker.last_barrier = digit;
+    tracker.armed_prediction = digit;
+    return digit;
+};
+
+/**
+ * Remember an analysis (or retry) barrier that is about to be purchased.
+ * @param {ReturnType<typeof createSequentialDiffersRuntimeState>} state
+ * @param {number} barrier
+ * @param {{ from_immediate_retry?: boolean }} [opts]
+ */
+export const armSequentialDiffersPrediction = (state, barrier, opts = {}) => {
+    const tracker = state || createSequentialDiffersRuntimeState();
+    const digit = toDigitOrNull(barrier);
+    if (digit === null) {
+        return tracker;
+    }
+    tracker.last_barrier = digit;
+    tracker.armed_prediction = digit;
+    if (!opts.from_immediate_retry) {
+        tracker.just_did_immediate_retry = false;
+    }
+    return tracker;
+};
 
 const toDigit = value => {
     const n = Number(value);

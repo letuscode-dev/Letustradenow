@@ -17,6 +17,7 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
     <variable id="sqd_initstake">Initial_stake</variable>
     <variable id="sqd_payout">Payout%</variable>
     <variable id="sqd_duration">Duration</variable>
+    <variable id="sqd_lossretry">Immediate_loss_retry</variable>
   </variables>
   <block type="trade_definition" id="sqd_trade_def" deletable="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -61,37 +62,43 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
             <field name="VAR" id="sqd_duration">Duration</field>
             <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
             <next>
-              <block type="variables_set" id="sqd_set_maxloss">
-                <field name="VAR" id="sqd_maxloss">Max Cons Loss:</field>
-                <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
+              <block type="variables_set" id="sqd_set_lossretry">
+                <field name="VAR" id="sqd_lossretry">Immediate_loss_retry</field>
+                <value name="VALUE"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
                 <next>
-                  <block type="variables_set" id="sqd_set_profit">
-                    <field name="VAR" id="sqd_profit">Profit Threshold:</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
+                  <block type="variables_set" id="sqd_set_maxloss">
+                    <field name="VAR" id="sqd_maxloss">Max Cons Loss:</field>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
                     <next>
-                      <block type="variables_set" id="sqd_set_split">
-                        <field name="VAR" id="sqd_split">Split_size</field>
-                        <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+                      <block type="variables_set" id="sqd_set_profit">
+                        <field name="VAR" id="sqd_profit">Profit Threshold:</field>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">7</field></block></value>
                         <next>
-                          <block type="variables_set" id="sqd_set_init">
-                            <field name="VAR" id="sqd_initstake">Initial_stake</field>
-                            <value name="VALUE"><block type="variables_get"><field name="VAR" id="sqd_stake">Stake</field></block></value>
+                          <block type="variables_set" id="sqd_set_split">
+                            <field name="VAR" id="sqd_split">Split_size</field>
+                            <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
                             <next>
-                              <block type="variables_set" id="sqd_set_payout">
-                                <field name="VAR" id="sqd_payout">Payout%</field>
-                                <value name="VALUE"><block type="math_number"><field name="NUM">9.6</field></block></value>
+                              <block type="variables_set" id="sqd_set_init">
+                                <field name="VAR" id="sqd_initstake">Initial_stake</field>
+                                <value name="VALUE"><block type="variables_get"><field name="VAR" id="sqd_stake">Stake</field></block></value>
                                 <next>
-                                  <block type="variables_set" id="sqd_set_inarow">
-                                    <field name="VAR" id="sqd_inarow">InArow</field>
-                                    <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                  <block type="variables_set" id="sqd_set_payout">
+                                    <field name="VAR" id="sqd_payout">Payout%</field>
+                                    <value name="VALUE"><block type="math_number"><field name="NUM">9.6</field></block></value>
                                     <next>
-                                      <block type="variables_set" id="sqd_set_losscount">
-                                        <field name="VAR" id="sqd_losscount">Loss_count</field>
+                                      <block type="variables_set" id="sqd_set_inarow">
+                                        <field name="VAR" id="sqd_inarow">InArow</field>
                                         <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
                                         <next>
-                                          <block type="variables_set" id="sqd_set_totalloss">
-                                            <field name="VAR" id="sqd_totalloss">Total_loss</field>
+                                          <block type="variables_set" id="sqd_set_losscount">
+                                            <field name="VAR" id="sqd_losscount">Loss_count</field>
                                             <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                            <next>
+                                              <block type="variables_set" id="sqd_set_totalloss">
+                                                <field name="VAR" id="sqd_totalloss">Total_loss</field>
+                                                <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                              </block>
+                                            </next>
                                           </block>
                                         </next>
                                       </block>
@@ -149,6 +156,7 @@ export const SEQUENTIAL_DIGIT_DIFFERS_XML = `<xml xmlns="https://developers.goog
     <value name="RETURN">
       <block type="sequential_digit_differs_prediction" id="sqd_signal">
         <field name="MARKET_GROUP">1S</field>
+        <value name="IMMEDIATE_LOSS_RETRY"><block type="variables_get"><field name="VAR" id="sqd_lossretry">Immediate_loss_retry</field></block></value>
         <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
       </block>
     </value>
