@@ -1,11 +1,10 @@
 /**
- * Odd/Even Hot Digit → Differs coldest digit (single active market).
+ * Odd/Even Hot Digit → Differs coldest same-parity digit (single active market).
  *
  * On the selected symbol's lookback window:
  *   - Find the most-appearing odd digit and most-appearing even digit
- *   - Find the least-appearing digit overall (coldest)
- *   - If the last tip digit equals either hot odd or hot even → Digit Differs
- *     on the coldest digit
+ *   - If tip = hottest even → Differ the coldest even digit
+ *   - If tip = hottest odd  → Differ the coldest odd digit
  */
 
 import {
@@ -104,31 +103,52 @@ export const pickHottestAmong = (counts, candidates) => {
 };
 
 /**
- * Least-appearing digit 0–9. Ties → lowest digit.
+ * Least-appearing digit among `candidates` (optionally excluding one digit).
+ * Ties → lowest digit.
  * @param {number[]} counts
+ * @param {number[]} candidates
+ * @param {number|null} [exclude]
  */
-export const pickColdestDigit = counts => {
+export const pickColdestAmong = (counts, candidates, exclude = null) => {
+    const list = Array.isArray(candidates) ? candidates : [];
     const c = Array.isArray(counts) ? counts : [];
-    let best = 0;
-    let best_count = Number.isFinite(Number(c[0])) ? Number(c[0]) : 0;
-    for (let d = 1; d <= 9; d++) {
+    let best = null;
+    let best_count = Infinity;
+    for (let i = 0; i < list.length; i++) {
+        const d = list[i];
+        if (exclude !== null && exclude !== undefined && d === exclude) {
+            continue;
+        }
         const n = Number.isFinite(Number(c[d])) ? Number(c[d]) : 0;
-        if (n < best_count) {
+        if (n < best_count || (n === best_count && best !== null && d < best)) {
+            best = d;
+            best_count = n;
+        } else if (best === null) {
             best = d;
             best_count = n;
         }
     }
-    return { digit: best, count: best_count };
+    return {
+        digit: best,
+        count: best === null || !Number.isFinite(best_count) ? 0 : best_count,
+    };
 };
 
 /**
- * Detect signal: tip is hot odd or hot even → Differ coldest digit.
+ * Least-appearing digit 0–9. Ties → lowest digit.
+ * @param {number[]} counts
+ */
+export const pickColdestDigit = counts => pickColdestAmong(counts, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+/**
+ * Detect signal: tip is hot odd → Differ coldest odd; tip is hot even → Differ coldest even.
  */
 export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBACK) => {
     const stats = computeDigitCounts(digits, lookback);
     const hot_odd = pickHottestAmong(stats.counts, ODD_DIGITS);
     const hot_even = pickHottestAmong(stats.counts, EVEN_DIGITS);
-    const cold = pickColdestDigit(stats.counts);
+    const cold_odd = pickColdestAmong(stats.counts, ODD_DIGITS);
+    const cold_even = pickColdestAmong(stats.counts, EVEN_DIGITS);
     const last = stats.last_digit;
 
     const base = {
@@ -137,8 +157,10 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
         hot_odd_count: hot_odd.count,
         hot_even: hot_even.digit,
         hot_even_count: hot_even.count,
-        cold_digit: cold.digit,
-        cold_count: cold.count,
+        cold_odd: cold_odd.digit,
+        cold_even: cold_even.digit,
+        cold_digit: null,
+        cold_count: 0,
         counts: stats.counts,
         total: stats.total,
         lookback,
@@ -156,16 +178,8 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
         };
     }
 
-    if (last === null || cold.digit === null) {
+    if (last === null) {
         return { ...base, reason: 'invalid_digits' };
-    }
-
-    // Differs barrier must not equal the tip we just observed as "hot".
-    if (cold.digit === last) {
-        return {
-            ...base,
-            reason: `cold_equals_tip_${last}`,
-        };
     }
 
     const is_hot_odd = last === hot_odd.digit;
@@ -177,18 +191,30 @@ export const detectHotOddEvenDiffersSignal = (digits, lookback = DEFAULT_LOOKBAC
         };
     }
 
+    // Same parity "market": hot even tip → coldest even; hot odd tip → coldest odd.
+    // Exclude the tip so Differ barrier is never the digit that just appeared.
     const trigger = is_hot_odd ? 'odd' : 'even';
+    const parity_digits = is_hot_odd ? ODD_DIGITS : EVEN_DIGITS;
+    const cold = pickColdestAmong(stats.counts, parity_digits, last);
+    if (cold.digit === null) {
+        return {
+            ...base,
+            reason: `no_cold_${trigger}_excluding_${last}`,
+        };
+    }
+
     const hot_count = is_hot_odd ? hot_odd.count : hot_even.count;
-    // Prefer larger separation between hot tip frequency and cold target.
     const score = hot_count - cold.count;
 
     return {
         ...base,
         matched: true,
         barrier: cold.digit,
+        cold_digit: cold.digit,
+        cold_count: cold.count,
         trigger,
         score,
-        reason: `tip_${last}_hot_${trigger}_differ_${cold.digit}`,
+        reason: `tip_${last}_hot_${trigger}_differ_cold_${trigger}_${cold.digit}`,
     };
 };
 
@@ -301,7 +327,7 @@ export const buildHotOddEvenDiffersResult = ({
         if (hit) {
             journal_messages.push({
                 className: 'success',
-                message: `Hot O/E Differs ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ ${hit.barrier} (cold)${
+                message: `Hot O/E Differs ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ cold ${hit.trigger} ${hit.barrier}${
                     switched ? ' (switched market)' : ''
                 }`,
             });

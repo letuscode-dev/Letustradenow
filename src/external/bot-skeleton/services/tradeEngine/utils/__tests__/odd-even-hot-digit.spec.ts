@@ -4,6 +4,7 @@ import {
     evaluateSymbolHotOddEvenDiffers,
     pickBestHotOddEvenDiffersMatch,
     pickHottestAmong,
+    pickColdestAmong,
     pickColdestDigit,
     makeHotOddEvenDiffersSignalKey,
     isHotOddEvenDiffersSignalConsumed,
@@ -34,24 +35,40 @@ const buildWindow = () => {
     return digits.slice(-100);
 };
 
-describe('pickHottestAmong / pickColdestDigit', () => {
-    it('picks hottest odd/even and coldest overall', () => {
+describe('pickHottestAmong / pickColdestAmong', () => {
+    it('picks hottest and coldest within odd/even groups', () => {
         const counts = [5, 9, 4, 3, 2, 1, 1, 1, 1, 0];
         expect(pickHottestAmong(counts, ODD_DIGITS).digit).toBe(1);
         expect(pickHottestAmong(counts, EVEN_DIGITS).digit).toBe(0);
         expect(pickColdestDigit(counts).digit).toBe(9);
+        expect(pickColdestAmong(counts, ODD_DIGITS).digit).toBe(9);
+        expect(pickColdestAmong(counts, EVEN_DIGITS).digit).toBe(8);
+        expect(pickColdestAmong(counts, ODD_DIGITS, 9).digit).toBe(5);
     });
 });
 
 describe('detectHotOddEvenDiffersSignal', () => {
-    it('Differs coldest when tip is hottest odd', () => {
+    it('Differs coldest odd when tip is hottest odd', () => {
         const digits = buildWindow();
         const result = detectHotOddEvenDiffersSignal(digits, 100);
         expect(result.matched).toBe(true);
         expect(result.last_digit).toBe(1);
         expect(result.hot_odd).toBe(1);
+        expect(result.trigger).toBe('odd');
         expect(result.barrier).toBe(result.cold_digit);
+        expect(ODD_DIGITS).toContain(result.barrier);
         expect(result.barrier).not.toBe(1);
+    });
+
+    it('Differs coldest even when tip is hottest even', () => {
+        const digits = buildWindow();
+        digits[digits.length - 1] = 0;
+        const result = detectHotOddEvenDiffersSignal(digits, 100);
+        expect(result.matched).toBe(true);
+        expect(result.last_digit).toBe(0);
+        expect(result.trigger).toBe('even');
+        expect(EVEN_DIGITS).toContain(result.barrier);
+        expect(result.barrier).not.toBe(0);
     });
 
     it('rejects when tip is not hot odd or hot even', () => {

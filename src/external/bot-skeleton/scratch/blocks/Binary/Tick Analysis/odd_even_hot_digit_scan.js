@@ -28,7 +28,7 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'On the selected market only: if tip is hottest odd or hottest even in lookback, returns coldest digit to Differ. Otherwise -1.'
+                'On the selected market: tip = hottest even → Differ coldest even; tip = hottest odd → Differ coldest odd. Otherwise -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -37,7 +37,7 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
         return {
             display_name: localize('Odd/Even Hot Digit Differs'),
             description: localize(
-                'Single-market Differs: tip matches hottest odd or even → Differ least-appearing digit.'
+                'Single-market Differs: tip matches hottest odd → Differ coldest odd; hottest even → Differ coldest even.'
             ),
             key_words: localize('odd, even, hot, cold, differs'),
         };

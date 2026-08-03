@@ -5,7 +5,7 @@
  *   Lookback — tick history (default 1000)
  * Choose the market in Trade parameters (single symbol).
  *
- * If tip = hottest odd or hottest even in lookback → Differ coldest digit.
+ * If tip = hottest even → Differ coldest even; if tip = hottest odd → Differ coldest odd.
  * Recovery matches Sequential Digit Differs: Total_loss / Payout% / Split_size.
  */
 export const ODD_EVEN_HOT_DIGIT_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
