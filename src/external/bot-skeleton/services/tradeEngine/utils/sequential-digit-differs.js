@@ -191,7 +191,7 @@ const toBool = (value, default_value = true) => {
 
 /**
  * @param {unknown} value
- * @returns {'1S'|'STANDARD'|'ALL'|string}
+ * @returns {'1S'|'STANDARD'|'ALL'}
  */
 export const toMarketGroup = value => {
     const normalized = String(value || DEFAULT_MARKET_GROUP)
@@ -203,7 +203,8 @@ export const toMarketGroup = value => {
         normalized === '1S_VOLATILITY' ||
         normalized === 'VOLATILITY_1S' ||
         normalized === 'ONE_SECOND' ||
-        normalized === '1_SECOND'
+        normalized === '1_SECOND' ||
+        normalized === '1'
     ) {
         return MARKET_GROUP_1S;
     }
@@ -218,7 +219,8 @@ export const toMarketGroup = value => {
     if (normalized === 'ALL' || normalized === 'ALL_VOLATILITY' || normalized === 'BOTH') {
         return MARKET_GROUP_ALL;
     }
-    return normalized;
+    // Typos / unknown labels → safe default (do not invent a phantom group).
+    return DEFAULT_MARKET_GROUP;
 };
 
 /**

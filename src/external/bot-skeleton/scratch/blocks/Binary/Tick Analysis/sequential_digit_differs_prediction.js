@@ -26,7 +26,7 @@ window.Blockly.Blocks.sequential_digit_differs_prediction = {
                 }
             ),
             args0: [
-                { type: 'input_value', name: 'MARKET_GROUP', check: ['String', 'Text'] },
+                { type: 'input_value', name: 'MARKET_GROUP', check: 'String' },
                 { type: 'input_value', name: 'IMMEDIATE_LOSS_RETRY', check: 'Boolean' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],

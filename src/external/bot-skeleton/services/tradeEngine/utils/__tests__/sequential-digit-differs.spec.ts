@@ -69,6 +69,7 @@ describe('resolveScanSymbols / orderSymbolsForScan', () => {
         expect(resolveScanSymbols({ symbols: '1HZ75V, R_50' })).toEqual(['1HZ75V', 'R_50']);
         expect(parseSymbolList(['1HZ10V', '1HZ10V', ''])).toEqual(['1HZ10V']);
         expect(toMarketGroup('standard volatility')).toBe('STANDARD');
+        expect(toMarketGroup('typo-group')).toBe('1S');
     });
 
     it('scans the active symbol first', () => {

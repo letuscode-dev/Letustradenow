@@ -84,6 +84,7 @@ import {
     releaseStaleSequentialCommit,
     resetSequentialDiffersRuntimeState,
     resolveScanSymbols,
+    toMarketGroup,
 } from '../utils/sequential-digit-differs';
 
 const getBotInterface = tradeEngine => {
@@ -648,6 +649,9 @@ const getBotInterface = tradeEngine => {
             // Only treat contracts with both buy + sell prices as settled — createDetails
             // crashes on incomplete contract stubs.
             const contract = tradeEngine.data?.contract;
+            const has_open_contract = Boolean(
+                contract && contract.buy_price != null && contract.sell_price == null
+            );
             if (
                 contract &&
                 contract.buy_price != null &&
@@ -680,7 +684,11 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
-            releaseStaleSequentialCommit(runtime, 20000);
+            // If purchase never happened, unlock after timeout and allow the same tip again.
+            // Never timeout while a bought contract is still open (avoids double-buy).
+            if (!has_open_contract && releaseStaleSequentialCommit(runtime, 20000)) {
+                tradeEngine._seqDiffersConsumedKey = null;
+            }
 
             const journal_enabled =
                 opts.journal_enabled === undefined
@@ -692,7 +700,7 @@ const getBotInterface = tradeEngine => {
 
             // After issuing a signal, return -1 until settlement — prevents Start()
             // from re-buying the same Differ while the contract is still open.
-            if (runtime.trade_committed) {
+            if (runtime.trade_committed || has_open_contract) {
                 const waiting = {
                     prediction: -1,
                     barrier: -1,
@@ -743,8 +751,8 @@ const getBotInterface = tradeEngine => {
                 return retry_result;
             }
 
-            const market_group = opts.market_group;
-            const symbols = resolveScanSymbols(opts);
+            const market_group = toMarketGroup(opts.market_group);
+            const symbols = resolveScanSymbols({ ...opts, market_group });
             const active_symbol =
                 tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
             const ordered = orderSymbolsForScan(symbols, active_symbol);
@@ -774,8 +782,8 @@ const getBotInterface = tradeEngine => {
                 }
             }
 
-            // Prefer sync cache reads. Only fill empties (throttled) so Start()
-            // retries within the same second do not re-hit the API.
+            // Prefer sync cache reads. Only fill the active symbol via API when
+            // short — parallel empty-fills across the whole scan group rate-limit.
             const evaluations = await Promise.all(
                 ordered.map(async symbol => {
                     if (ticks_service?._noteScanTip) {
@@ -785,6 +793,7 @@ const getBotInterface = tradeEngine => {
                         ? tradeEngine.getCachedDigitsForSymbol(symbol, 5)
                         : [];
                     if (
+                        symbol === active_symbol &&
                         (!Array.isArray(digits) || digits.length < 3) &&
                         typeof tradeEngine.getDigitsForSymbol === 'function'
                     ) {
@@ -812,7 +821,7 @@ const getBotInterface = tradeEngine => {
             }
 
             // One purchase per tip — Start()/trade_again must not re-buy the same
-            // [4→5→6]→7 while that tip is still in cache.
+            // consecutive run while that tip is still in cache.
             const skipped_consumed = isSignalAlreadyConsumed(
                 raw_match,
                 tip_epoch,
@@ -821,20 +830,34 @@ const getBotInterface = tradeEngine => {
             const match = skipped_consumed ? null : raw_match;
 
             let switched = false;
+            let switch_failed = false;
             if (match && switch_symbol && match.symbol && match.symbol !== active_symbol) {
                 try {
                     if (typeof tradeEngine.switchTradeSymbol === 'function') {
                         await tradeEngine.switchTradeSymbol(match.symbol);
-                        switched = true;
+                        const now_symbol =
+                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                        if (now_symbol === match.symbol) {
+                            switched = true;
+                        } else {
+                            switch_failed = true;
+                        }
+                    } else {
+                        switch_failed = true;
                     }
                 } catch (e) {
-                    switched = false;
+                    switch_failed = true;
                 }
             }
 
-            if (match?.matched) {
-                tradeEngine._seqDiffersConsumedKey = makeSignalKey(match, tip_epoch);
-                armSequentialDiffersPrediction(runtime, match.barrier, { from_immediate_retry: false });
+            // Never arm a Differs barrier from market A while still on market B.
+            const tradeable = match?.matched && !switch_failed ? match : null;
+
+            if (tradeable) {
+                tradeEngine._seqDiffersConsumedKey = makeSignalKey(tradeable, tip_epoch);
+                armSequentialDiffersPrediction(runtime, tradeable.barrier, {
+                    from_immediate_retry: false,
+                });
             }
 
             const result = buildSequentialScanResult({
@@ -843,15 +866,27 @@ const getBotInterface = tradeEngine => {
                 active_symbol,
                 journal_enabled,
                 evaluations,
-                match: raw_match,
+                match: switch_failed ? null : raw_match,
                 switched,
-                skipped_consumed,
+                skipped_consumed: skipped_consumed || switch_failed,
             });
+
+            if (switch_failed && journal_enabled) {
+                result.reason = 'switch_failed';
+                result.journal_messages = [
+                    {
+                        className: 'error',
+                        message: `Seq Differs: signal on ${match.symbol} but market switch failed — skipping trade`,
+                    },
+                ];
+            }
 
             // Suppress duplicate NO-TRADE / consumed spam while Start() retries.
             const tip_fp = skipped_consumed
                 ? `consumed:${tradeEngine._seqDiffersConsumedKey}`
-                : evaluations.map(e => `${e.symbol}:${(e.sequence || []).join(',')}`).join('|');
+                : switch_failed
+                  ? `switch_failed:${match?.symbol}:${tip_epoch}`
+                  : evaluations.map(e => `${e.symbol}:${(e.sequence || []).join(',')}`).join('|');
             let public_result = result;
             if (
                 !result.matched &&
