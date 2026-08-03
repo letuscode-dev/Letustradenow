@@ -120,6 +120,7 @@ const getBotInterface = tradeEngine => {
             tradeEngine._patternOuLastJournalKey = null;
             tradeEngine.patternProbabilityLastWasLoss = false;
             tradeEngine.sequentialDigitDiffersSnapshot = null;
+            tradeEngine._seqDiffersLastJournalFp = null;
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
@@ -630,24 +631,30 @@ const getBotInterface = tradeEngine => {
                       opts.switch_symbol === 'TRUE' ||
                       opts.switch_symbol === 'true';
 
-            // Warm live streams for the whole group so non-active markets keep updating.
-            if (tradeEngine.$scope?.ticksService?.ensureTickSubscription) {
-                await Promise.all(
-                    ordered.map(symbol =>
-                        tradeEngine.$scope.ticksService.ensureTickSubscription(symbol).catch(() => [])
-                    )
-                );
+            const ticks_service = tradeEngine.$scope?.ticksService;
+
+            // Warm live streams serially in the background — never Promise.all
+            // ticks_history (that causes RateLimit / RequestFailed storms).
+            if (ticks_service?.warmScanStreams) {
+                ticks_service.warmScanStreams(ordered).catch(() => {});
             }
 
+            // Prefer sync cache reads. Only fill empties (throttled) so Start()
+            // retries within the same second do not re-hit the API.
             const evaluations = await Promise.all(
                 ordered.map(async symbol => {
-                    let digits = [];
-                    try {
-                        digits = tradeEngine.getDigitsForSymbol
-                            ? await tradeEngine.getDigitsForSymbol(symbol, 5)
-                            : [];
-                    } catch (e) {
-                        digits = [];
+                    let digits = tradeEngine.getCachedDigitsForSymbol
+                        ? tradeEngine.getCachedDigitsForSymbol(symbol, 5)
+                        : [];
+                    if (
+                        (!Array.isArray(digits) || digits.length < 3) &&
+                        typeof tradeEngine.getDigitsForSymbol === 'function'
+                    ) {
+                        try {
+                            digits = await tradeEngine.getDigitsForSymbol(symbol, 5);
+                        } catch (e) {
+                            digits = Array.isArray(digits) ? digits : [];
+                        }
                     }
                     return evaluateSymbolSequentialSignal(symbol, digits);
                 })
@@ -676,8 +683,23 @@ const getBotInterface = tradeEngine => {
                 switched,
             });
 
-            tradeEngine.sequentialDigitDiffersSnapshot = result;
-            return result;
+            // Suppress duplicate NO-TRADE spam while Start() retries on the same tip set.
+            const tip_fp = evaluations
+                .map(e => `${e.symbol}:${(e.sequence || []).join(',')}`)
+                .join('|');
+            let public_result = result;
+            if (
+                !result.matched &&
+                tradeEngine._seqDiffersLastJournalFp === tip_fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                public_result = { ...result, journal_messages: [] };
+            } else {
+                tradeEngine._seqDiffersLastJournalFp = tip_fp;
+            }
+
+            tradeEngine.sequentialDigitDiffersSnapshot = public_result;
+            return public_result;
         },
         switchTradeSymbol: symbol =>
             tradeEngine.switchTradeSymbol

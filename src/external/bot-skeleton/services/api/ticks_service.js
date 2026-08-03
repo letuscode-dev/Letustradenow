@@ -406,15 +406,15 @@ export default class TicksService {
 
     /**
      * Always fetch the newest `count` ticks for a symbol (no subscribe).
-     * Used by multi-symbol scanners so non-active markets do not stay frozen
-     * on a one-shot history snapshot. Throttled + in-flight shared per symbol.
+     * Used sparingly when a scan symbol has an empty cache. Throttled hard to
+     * avoid RateLimit / RequestFailed storms from multi-symbol scanners.
      *
      * @param {string} symbol
      * @param {number} [count=5]
-     * @param {number} [min_interval_ms=750]
+     * @param {number} [min_interval_ms=5000]
      * @returns {Promise<Array<{epoch:number, quote:number}>>}
      */
-    requestFreshTicks(symbol, count = 5, min_interval_ms = 750) {
+    requestFreshTicks(symbol, count = 5, min_interval_ms = 5000) {
         const required = Math.max(1, Math.min(50, Math.floor(Number(count)) || 5));
         const cached = this.getCachedTicks(symbol) || [];
 
@@ -436,8 +436,9 @@ export default class TicksService {
         }
 
         const last_at = this._fresh_tick_at.get(symbol) || 0;
-        const interval = Math.max(250, Math.floor(Number(min_interval_ms)) || 750);
-        if (Date.now() - last_at < interval && cached.length >= required) {
+        const interval = Math.max(2000, Math.floor(Number(min_interval_ms)) || 5000);
+        // Prefer cache whenever we recently tried — never stampede ticks_history.
+        if (Date.now() - last_at < interval) {
             return Promise.resolve(cached);
         }
 
@@ -481,12 +482,99 @@ export default class TicksService {
     }
 
     /**
+     * Serially subscribe scan symbols so their tick caches keep updating without
+     * firing a parallel ticks_history burst (which triggers RateLimit/RequestFailed).
+     *
+     * @param {string[]} symbols
+     * @returns {Promise<void>}
+     */
+    warmScanStreams(symbols) {
+        const list = Array.isArray(symbols) ? [...new Set(symbols.filter(Boolean))] : [];
+        if (!list.length) {
+            return Promise.resolve();
+        }
+
+        if (!this._scan_stream_keys) {
+            this._scan_stream_keys = new Map();
+        }
+        if (!this._scan_warm_tail) {
+            this._scan_warm_tail = Promise.resolve();
+        }
+
+        list.forEach(symbol => {
+            if (this._scan_stream_keys.has(symbol) || this.hasTickSubscription(symbol)) {
+                return;
+            }
+            this._scan_warm_tail = this._scan_warm_tail
+                .then(() => this._warmOneScanStream(symbol))
+                .catch(() => {});
+        });
+
+        return this._scan_warm_tail;
+    }
+
+    /**
+     * @param {string} symbol
+     * @returns {Promise<Array<{epoch:number, quote:number}>>}
+     */
+    async _warmOneScanStream(symbol) {
+        if (!symbol || this._scan_stream_keys?.has(symbol) || this.hasTickSubscription(symbol)) {
+            return this.getCachedTicks(symbol) || [];
+        }
+
+        // Stagger subscriptions — Deriv rate-limits parallel ticks_history.
+        await new Promise(resolve => setTimeout(resolve, 350));
+
+        if (!api_base.api) {
+            return this.getCachedTicks(symbol) || [];
+        }
+
+        const request_object = {
+            ticks_history: symbol === 'na' ? 'R_100' : symbol,
+            subscribe: 1,
+            end: 'latest',
+            count: 25,
+            style: 'ticks',
+        };
+
+        try {
+            const response = await api_base.api.send(request_object);
+            const history = historyToTicks(response?.history);
+            if (Array.isArray(history) && history.length) {
+                this.updateTicksAndCallListeners(symbol, history);
+            }
+            if (response?.subscription?.id) {
+                this.subscriptions = this.subscriptions.setIn(['tick', symbol], response.subscription.id);
+            }
+        } catch (e) {
+            // AlreadySubscribed / RateLimit — keep whatever cache we have; do not retry-loop here.
+            const code = e?.error?.code || e?.code;
+            if (code === 'AlreadySubscribed' && this.ticks.has(symbol)) {
+                // ok
+            }
+        }
+
+        // Noop listener keeps the stream marked as owned for hasTickSubscription.
+        const key = getUUID();
+        this.tickListeners = this.tickListeners.setIn([symbol, key], () => {});
+        if (!this._scan_stream_keys) {
+            this._scan_stream_keys = new Map();
+        }
+        this._scan_stream_keys.set(symbol, key);
+
+        return this.getCachedTicks(symbol) || [];
+    }
+
+    /**
      * True when we already track a live tick subscription id for this symbol,
      * or when the bot/chart already registered tick listeners (stream is owned elsewhere).
      * @param {string} symbol
      * @returns {boolean}
      */
     hasTickSubscription(symbol) {
+        if (this._scan_stream_keys?.has(symbol)) {
+            return true;
+        }
         if (this.subscriptions.getIn(['tick', symbol])) {
             return true;
         }
