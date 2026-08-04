@@ -1,7 +1,7 @@
 /**
  * Hot Digit Differs — single active market, parity-scoped.
- * parity even: tip = hottest even → Differ coldest even
- * parity odd:  tip = hottest odd  → Differ coldest odd
+ * parity even: tip = hottest even → Differ coldest odd
+ * parity odd:  tip = hottest odd  → Differ coldest even
  * Hidden from Blocks Menu; free bots wrap it in a custom function.
  */
 import { localize } from '@deriv-com/translations';
@@ -42,7 +42,7 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'On the selected market: even = tip hottest even → Differ coldest even; odd = tip hottest odd → Differ coldest odd. Otherwise -1.'
+                'On the selected market: even = tip hottest even → Differ coldest odd; odd = tip hottest odd → Differ coldest even. Otherwise -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -51,7 +51,7 @@ window.Blockly.Blocks.odd_even_hot_digit_scan = {
         return {
             display_name: localize('Hot Digit Differs'),
             description: localize(
-                'Single-market Differs scoped by parity: even-only, odd-only, or both.'
+                'Single-market Differs scoped by parity: even tip → cold odd; odd tip → cold even.'
             ),
             key_words: localize('odd, even, hot, cold, differs'),
         };

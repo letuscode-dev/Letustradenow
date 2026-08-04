@@ -1,8 +1,8 @@
 /**
  * Hot Digit Differs free bots — Digit Differs on the selected market only.
  *
- * Even: tip = hottest even → Differ coldest even
- * Odd:  tip = hottest odd  → Differ coldest odd
+ * Even: tip = hottest even → Differ coldest odd
+ * Odd:  tip = hottest odd  → Differ coldest even
  *
  * Configure in Run once at start: Lookback, Multiplier (default 10.5), Max Cons Loss, Profit Threshold.
  * Recovery: classic martingale — on loss Initial_stake × Multiplier; on win reset to Stake.

@@ -1,11 +1,11 @@
 /**
- * Hot Digit Differs → Differs coldest same-parity digit (single active market).
+ * Hot Digit Differs → Differs coldest opposite-parity digit (single active market).
  *
  * On the selected symbol's lookback window:
  *   - Find the most-appearing odd digit and most-appearing even digit
- *   - parity 'even': tip = hottest even → Differ coldest even
- *   - parity 'odd':  tip = hottest odd  → Differ coldest odd
- *   - parity 'both': either of the above
+ *   - parity 'even': tip = hottest even → Differ coldest odd
+ *   - parity 'odd':  tip = hottest odd  → Differ coldest even
+ *   - parity 'both': either of the above (cross-parity)
  */
 
 import {
@@ -153,7 +153,8 @@ export const pickColdestAmong = (counts, candidates, exclude = null) => {
 export const pickColdestDigit = counts => pickColdestAmong(counts, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
 /**
- * Detect signal: tip is hot odd → Differ coldest odd; tip is hot even → Differ coldest even.
+ * Detect signal (cross-parity Differs):
+ *   tip hot even → Differ coldest odd; tip hot odd → Differ coldest even.
  * @param {Array} digits
  * @param {number} lookback
  * @param {'even'|'odd'|'both'} [parity='both']
@@ -188,6 +189,7 @@ export const detectHotOddEvenDiffersSignal = (
         barrier: -1,
         matched: false,
         trigger: null,
+        target_parity: null,
         score: 0,
         reason: 'no_signal',
     };
@@ -233,14 +235,15 @@ export const detectHotOddEvenDiffersSignal = (
         };
     }
 
-    // Prefer the parity mode when both tip matches somehow (shouldn't happen for one tip digit).
+    // Trigger parity from tip; Differ the opposite (cold) parity.
     const trigger = is_hot_odd && allow_odd ? 'odd' : 'even';
-    const parity_digits = trigger === 'odd' ? ODD_DIGITS : EVEN_DIGITS;
-    const cold = pickColdestAmong(stats.counts, parity_digits, last);
+    const target_parity = trigger === 'odd' ? 'even' : 'odd';
+    const target_digits = target_parity === 'odd' ? ODD_DIGITS : EVEN_DIGITS;
+    const cold = pickColdestAmong(stats.counts, target_digits);
     if (cold.digit === null) {
         return {
             ...base,
-            reason: `no_cold_${trigger}_excluding_${last}`,
+            reason: `no_cold_${target_parity}`,
         };
     }
 
@@ -254,8 +257,9 @@ export const detectHotOddEvenDiffersSignal = (
         cold_digit: cold.digit,
         cold_count: cold.count,
         trigger,
+        target_parity,
         score,
-        reason: `tip_${last}_hot_${trigger}_differ_cold_${trigger}_${cold.digit}`,
+        reason: `tip_${last}_hot_${trigger}_differ_cold_${target_parity}_${cold.digit}`,
     };
 };
 
@@ -376,7 +380,7 @@ export const buildHotOddEvenDiffersResult = ({
         if (hit) {
             journal_messages.push({
                 className: 'success',
-                message: `${label} ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ cold ${hit.trigger} ${hit.barrier}${
+                message: `${label} ${hit.symbol}: tip ${hit.last_digit} = hot ${hit.trigger} → Differ cold ${hit.target_parity || (hit.trigger === 'odd' ? 'even' : 'odd')} ${hit.barrier}${
                     switched ? ' (switched market)' : ''
                 }`,
             });

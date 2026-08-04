@@ -17,16 +17,16 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'even-hot-digit-v1',
         title: 'Even Hot Digit',
         description:
-            'Digit Differs on the selected market — even analysis only. Tip = hottest even → Differ coldest even. Recovery: martingale × Multiplier (default 10.5). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Multiplier in Run once at start.',
-        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Even', 'Cold digit', 'Single market', 'Martingale'],
+            'Digit Differs on the selected market — even analysis only. Tip = hottest even → Differ coldest odd. Recovery: martingale × Multiplier (default 10.5). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Multiplier in Run once at start.',
+        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Even', 'Cold odd', 'Single market', 'Martingale'],
         xml: EVEN_HOT_DIGIT_XML,
     },
     {
         id: 'odd-hot-digit-v1',
         title: 'Odd Hot Digit',
         description:
-            'Digit Differs on the selected market — odd analysis only. Tip = hottest odd → Differ coldest odd. Recovery: martingale × Multiplier (default 10.5). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Multiplier in Run once at start.',
-        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Cold digit', 'Single market', 'Martingale'],
+            'Digit Differs on the selected market — odd analysis only. Tip = hottest odd → Differ coldest even. Recovery: martingale × Multiplier (default 10.5). Stops on Max Cons Loss or Profit Threshold. Set Lookback / Multiplier in Run once at start.',
+        tags: ['Differs', 'Digit Differs', 'Hot digit', 'Odd', 'Cold even', 'Single market', 'Martingale'],
         xml: ODD_HOT_DIGIT_XML,
     },
     {

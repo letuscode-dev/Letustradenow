@@ -922,7 +922,7 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Hot Digit Differs — single active market, parity-scoped (even / odd / both).
-         * Tip equals hottest digit in that parity → Differ coldest same-parity digit.
+         * Tip equals hottest digit in that parity → Differ coldest opposite-parity digit.
          */
         evaluateOddEvenHotDigitScan: async options => {
             const opts = normalizeHotOddEvenDiffersOptions(options || {});
