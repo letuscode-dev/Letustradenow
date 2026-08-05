@@ -181,7 +181,7 @@ const buildEvenOddPairXml = (side: PairSide): string => {
             <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
           </block>
         </value>
-        <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value>
+        <value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
       </block>
     </value>
   </block>

@@ -147,4 +147,16 @@ describe('runtime commit / settlement', () => {
         expect(state.trade_committed).toBe(false);
         expect(state.last_handled_contract_id).toBe('c2');
     });
+
+    it('keeps armed barrier available until settlement or stale release', () => {
+        const state = createEvenOddPairRuntimeState();
+        armEvenOddPairPrediction(state, 2);
+        expect(state.trade_committed).toBe(true);
+        expect(state.armed_prediction).toBe(2);
+        // Mimic pending purchase: still committed, barrier retained for retry.
+        expect(state.armed_prediction).toBe(ENTRY_OVER_BARRIER);
+        applyEvenOddPairSettlement(state, 'buy-1');
+        expect(state.trade_committed).toBe(false);
+        expect(state.armed_prediction).toBe(-1);
+    });
 });

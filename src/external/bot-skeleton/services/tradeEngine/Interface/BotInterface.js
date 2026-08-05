@@ -459,7 +459,8 @@ const getBotInterface = tradeEngine => {
                 tradeEngine._evenOddPairLastEntryTip = null;
             }
 
-            if (runtime.trade_committed || has_open_contract) {
+            // While a contract is open, never re-signal.
+            if (has_open_contract) {
                 const waiting = {
                     prediction: -1,
                     barrier: -1,
@@ -470,6 +471,24 @@ const getBotInterface = tradeEngine => {
                 };
                 tradeEngine.evenOddPairSnapshot = waiting;
                 return waiting;
+            }
+
+            // Armed but buy not open yet: keep returning the armed barrier so
+            // before_purchase can retry purchase on the next tip/proposal ready
+            // instead of going dark (-1) and missing the trade.
+            if (runtime.trade_committed && runtime.armed_prediction >= 0) {
+                const armed = {
+                    prediction: runtime.armed_prediction,
+                    barrier: runtime.armed_prediction,
+                    matched: true,
+                    side,
+                    contract_type: side === 'UNDER' ? 'DIGITUNDER' : 'DIGITOVER',
+                    recovering,
+                    reason: 'armed_pending_purchase',
+                    journal_messages: [],
+                };
+                tradeEngine.evenOddPairSnapshot = armed;
+                return armed;
             }
 
             const digits = tradeEngine.getAvailableLastDigitList
@@ -486,8 +505,8 @@ const getBotInterface = tradeEngine => {
             const signal = detectEvenOddPairSignal(digits, {
                 side,
                 threshold: opts.threshold,
-                even_max: opts.even_max,
-                odd_min: opts.odd_min,
+                odd_max: opts.odd_max !== undefined ? opts.odd_max : opts.threshold,
+                even_min: opts.even_min !== undefined ? opts.even_min : opts.threshold,
                 recovering,
                 journal_enabled: opts.journal_enabled,
             });
