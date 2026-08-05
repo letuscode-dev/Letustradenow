@@ -1,11 +1,14 @@
 /**
- * Free bots — Odd-pair Over 2 and Even-pair Under 7.
+ * Free bots — Odd-pair Over 2 and Even-pair Under 7 (tick-fast).
  *
  * Over: last 2 digits odd and <= Odd_max (default 5) → DIGITOVER 2.
- *       On loss: stake = Total_loss * 100 / Payout% (default 60), barrier 3 until recovered.
- *
  * Under: last 2 digits even and > Even_min (default 4) → DIGITUNDER 7.
- *        On loss: stake = Total_loss * 100 / Payout% (default 60), barrier 6 until recovered.
+ *
+ * Speed: always arms trade options with the standby barrier (entry or recovery),
+ * then re-evaluates the pair scan on every before-tick so no incoming tip is missed
+ * by the 1s Start() sleep path.
+ *
+ * Recovery: stake = Total_loss * 100 / Payout% (default 60); Over 3 / Under 6 until flat.
  */
 
 type PairSide = 'OVER' | 'UNDER';
@@ -19,6 +22,8 @@ const buildEvenOddPairXml = (side: PairSide): string => {
     const threshold_var = is_over ? 'Odd_max' : 'Even_min';
     const threshold_id = `${prefix}_threshold`;
     const threshold_default = is_over ? '5' : '4';
+    const entry_barrier = is_over ? '2' : '7';
+    const recovery_barrier = is_over ? '3' : '6';
     const fn_name = is_over ? 'Odd Pair Over Barrier' : 'Even Pair Under Barrier';
     const stop_max = is_over
         ? 'Max consecutive losses reached. Stopping (Odd-pair Over).'
@@ -34,6 +39,7 @@ const buildEvenOddPairXml = (side: PairSide): string => {
     <variable id="${prefix}_maxloss">Max Cons Loss:</variable>
     <variable id="${prefix}_totalloss">Total_loss</variable>
     <variable id="${prefix}_prediction">Prediction:</variable>
+    <variable id="${prefix}_signal">Signal:</variable>
     <variable id="${prefix}_profit">Profit Threshold:</variable>
     <variable id="${prefix}_initstake">Initial_stake</variable>
     <variable id="${prefix}_payout">Payout%</variable>
@@ -129,32 +135,34 @@ const buildEvenOddPairXml = (side: PairSide): string => {
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="variables_set" id="${prefix}_set_pred">
-        <field name="VAR" id="${prefix}_prediction">Prediction:</field>
-        <value name="VALUE">
-          <block type="procedures_callreturn" id="${prefix}_call_barrier">
-            <mutation name="${fn_name}"></mutation>
-            <data>${prefix}_fn_barrier</data>
+      <block type="controls_if" id="${prefix}_standby_barrier">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
+        <value name="IF0">
+          <block type="logic_compare">
+            <field name="OP">GT</field>
+            <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
+            <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
           </block>
         </value>
+        <statement name="DO0">
+          <block type="variables_set" id="${prefix}_set_pred_rec">
+            <field name="VAR" id="${prefix}_prediction">Prediction:</field>
+            <value name="VALUE"><block type="math_number"><field name="NUM">${recovery_barrier}</field></block></value>
+          </block>
+        </statement>
+        <statement name="ELSE">
+          <block type="variables_set" id="${prefix}_set_pred_entry">
+            <field name="VAR" id="${prefix}_prediction">Prediction:</field>
+            <value name="VALUE"><block type="math_number"><field name="NUM">${entry_barrier}</field></block></value>
+          </block>
+        </statement>
         <next>
-          <block type="controls_if" id="${prefix}_if_signal">
-            <value name="IF0">
-              <block type="logic_compare">
-                <field name="OP">GTE</field>
-                <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_prediction">Prediction:</field></block></value>
-                <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
-              </block>
-            </value>
-            <statement name="DO0">
-              <block type="trade_definition_tradeoptions" id="${prefix}_tradeopts">
-                <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
-                <field name="DURATIONTYPE_LIST">t</field>
-                <value name="DURATION"><block type="variables_get"><field name="VAR" id="${prefix}_duration">Duration</field></block></value>
-                <value name="AMOUNT"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
-                <value name="PREDICTION"><block type="variables_get"><field name="VAR" id="${prefix}_prediction">Prediction:</field></block></value>
-              </block>
-            </statement>
+          <block type="trade_definition_tradeoptions" id="${prefix}_tradeopts">
+            <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+            <field name="DURATIONTYPE_LIST">t</field>
+            <value name="DURATION"><block type="variables_get"><field name="VAR" id="${prefix}_duration">Duration</field></block></value>
+            <value name="AMOUNT"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
+            <value name="PREDICTION"><block type="variables_get"><field name="VAR" id="${prefix}_prediction">Prediction:</field></block></value>
           </block>
         </next>
       </block>
@@ -163,7 +171,7 @@ const buildEvenOddPairXml = (side: PairSide): string => {
   <block type="procedures_defreturn" id="${prefix}_fn_barrier" collapsed="true" x="0" y="900">
     <field name="NAME">${fn_name}</field>
     <value name="RETURN">
-      <block type="even_odd_pair_over_under" id="${prefix}_signal">
+      <block type="even_odd_pair_over_under" id="${prefix}_signal_block">
         <field name="MARKET_SIDE">${market_side}</field>
         <value name="THRESHOLD"><block type="variables_get"><field name="VAR" id="${threshold_id}">${threshold_var}</field></block></value>
         <value name="RECOVERING">
@@ -284,17 +292,40 @@ const buildEvenOddPairXml = (side: PairSide): string => {
   </block>
   <block type="before_purchase" id="${prefix}_before" collapsed="true" deletable="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="${prefix}_bp_if">
-        <value name="IF0">
-          <block type="logic_compare">
-            <field name="OP">GTE</field>
-            <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_prediction">Prediction:</field></block></value>
-            <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+      <block type="variables_set" id="${prefix}_bp_set_signal">
+        <field name="VAR" id="${prefix}_signal">Signal:</field>
+        <value name="VALUE">
+          <block type="procedures_callreturn" id="${prefix}_bp_scan">
+            <mutation name="${fn_name}"></mutation>
+            <data>${prefix}_fn_barrier</data>
           </block>
         </value>
-        <statement name="DO0">
-          <block type="purchase" id="${prefix}_buy"><field name="PURCHASE_LIST">${purchase}</field></block>
-        </statement>
+        <next>
+          <block type="controls_if" id="${prefix}_bp_if">
+            <value name="IF0">
+              <block type="logic_operation">
+                <field name="OP">AND</field>
+                <value name="A">
+                  <block type="logic_compare">
+                    <field name="OP">GTE</field>
+                    <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_signal">Signal:</field></block></value>
+                    <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="logic_compare">
+                    <field name="OP">EQ</field>
+                    <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_signal">Signal:</field></block></value>
+                    <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_prediction">Prediction:</field></block></value>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="purchase" id="${prefix}_buy"><field name="PURCHASE_LIST">${purchase}</field></block>
+            </statement>
+          </block>
+        </next>
       </block>
     </statement>
   </block>
