@@ -10,12 +10,11 @@ import {
 import {
     detectEvenOddPairSignal,
     buildEvenOddPairResult,
-    makeEvenOddPairSignalKey,
-    isEvenOddPairSignalConsumed,
+    makeEvenOddPairTipKey,
     toMarketSide,
     createEvenOddPairRuntimeState,
     armEvenOddPairPrediction,
-    clearEvenOddPairCommit,
+    applyEvenOddPairSettlement,
     releaseStaleEvenOddPairCommit,
     resetEvenOddPairRuntimeState,
 } from '../utils/even-odd-pair-over-under';
@@ -442,16 +441,17 @@ const getBotInterface = tradeEngine => {
                 contract && contract.buy_price != null && contract.sell_price == null
             );
 
-            // Clear commit after settlement so the next Start() can arm again.
+            // Clear commit once per settled contract id (ignore stale previous stubs).
             if (
                 contract &&
                 contract.buy_price != null &&
                 contract.sell_price != null &&
-                contract.transaction_ids?.buy
+                contract.transaction_ids?.buy &&
+                (contract.contract_id || contract.transaction_ids?.buy)
             ) {
-                if (runtime.trade_committed) {
-                    clearEvenOddPairCommit(runtime);
-                }
+                const contract_id =
+                    contract.contract_id || contract.transaction_ids?.buy || null;
+                applyEvenOddPairSettlement(runtime, contract_id);
             }
 
             if (!has_open_contract && releaseStaleEvenOddPairCommit(runtime, 20000)) {
@@ -478,9 +478,10 @@ const getBotInterface = tradeEngine => {
                   ? tradeEngine.getCachedLastDigitList(2)
                   : [];
 
-            const tip_epoch = tradeEngine.getLatestTickTipKey
+            const tip_base = tradeEngine.getLatestTickTipKey
                 ? tradeEngine.getLatestTickTipKey()
-                : `pair:${Array.isArray(digits) ? digits.slice(-2).join(',') : ''}`;
+                : '';
+            const tip_epoch = makeEvenOddPairTipKey(tip_base, digits);
 
             const signal = detectEvenOddPairSignal(digits, {
                 side,
@@ -504,7 +505,6 @@ const getBotInterface = tradeEngine => {
 
             if (match?.matched) {
                 tradeEngine._evenOddPairLastEntryTip = tip_epoch;
-                tradeEngine._evenOddPairConsumedKey = makeEvenOddPairSignalKey(match, tip_epoch);
                 armEvenOddPairPrediction(runtime, match.barrier);
             }
 

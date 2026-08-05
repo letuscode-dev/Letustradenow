@@ -205,6 +205,15 @@ const buildEvenOddPairXml = (side: PairSide): string => {
                       <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
                     </block></value>
                     <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
+                    <next>
+                      <block type="controls_if">
+                        <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
+                          <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
+                          <value name="B"><block type="math_number"><field name="NUM">0.01</field></block></value>
+                        </block></value>
+                        <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
@@ -219,16 +228,25 @@ const buildEvenOddPairXml = (side: PairSide): string => {
               <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
             </block></value>
             <statement name="DO0">
-              <block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field>
-                <value name="VALUE">
-                  <block type="math_arithmetic"><field name="OP">DIVIDE</field>
-                    <value name="A"><block type="math_arithmetic"><field name="OP">MULTIPLY</field>
-                      <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
-                      <value name="B"><block type="math_number"><field name="NUM">100</field></block></value>
-                    </block></value>
-                    <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_payout">Payout%</field></block></value>
+              <block type="controls_if">
+                <value name="IF0"><block type="logic_compare"><field name="OP">LTE</field>
+                  <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_payout">Payout%</field></block></value>
+                  <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+                </block></value>
+                <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_payout">Payout%</field><value name="VALUE"><block type="math_number"><field name="NUM">60</field></block></value></block></statement>
+                <next>
+                  <block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field>
+                    <value name="VALUE">
+                      <block type="math_arithmetic"><field name="OP">DIVIDE</field>
+                        <value name="A"><block type="math_arithmetic"><field name="OP">MULTIPLY</field>
+                          <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_totalloss">Total_loss</field></block></value>
+                          <value name="B"><block type="math_number"><field name="NUM">100</field></block></value>
+                        </block></value>
+                        <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_payout">Payout%</field></block></value>
+                      </block>
+                    </value>
                   </block>
-                </value>
+                </next>
               </block>
             </statement>
             <statement name="ELSE">

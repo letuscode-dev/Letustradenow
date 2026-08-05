@@ -279,6 +279,7 @@ export const createEvenOddPairRuntimeState = () => ({
     signal_issued_at: 0,
     last_barrier: null,
     armed_prediction: -1,
+    last_handled_contract_id: null,
 });
 
 export const resetEvenOddPairRuntimeState = (state = null) => {
@@ -287,6 +288,7 @@ export const resetEvenOddPairRuntimeState = (state = null) => {
     tracker.signal_issued_at = 0;
     tracker.last_barrier = null;
     tracker.armed_prediction = -1;
+    tracker.last_handled_contract_id = null;
     return tracker;
 };
 
@@ -311,6 +313,27 @@ export const clearEvenOddPairCommit = state => {
     return tracker;
 };
 
+/**
+ * Clear commit once per settled contract. Ignores the previous settled stub so a
+ * fresh arm is not unlocked before its own purchase completes.
+ * @returns {boolean} true when this settlement was newly applied
+ */
+export const applyEvenOddPairSettlement = (state, contract_id) => {
+    const tracker = state || createEvenOddPairRuntimeState();
+    const id =
+        contract_id === undefined || contract_id === null || contract_id === ''
+            ? null
+            : String(contract_id);
+    if (id && tracker.last_handled_contract_id === id) {
+        return false;
+    }
+    if (id) {
+        tracker.last_handled_contract_id = id;
+    }
+    clearEvenOddPairCommit(tracker);
+    return true;
+};
+
 export const releaseStaleEvenOddPairCommit = (state, max_age_ms = 20000) => {
     const tracker = state || createEvenOddPairRuntimeState();
     if (!tracker.trade_committed) {
@@ -322,4 +345,15 @@ export const releaseStaleEvenOddPairCommit = (state, max_age_ms = 20000) => {
     }
     clearEvenOddPairCommit(tracker);
     return true;
+};
+
+/** Build a stable tip id from epoch + last-2 digits. */
+export const makeEvenOddPairTipKey = (tip_epoch, digits) => {
+    const epoch =
+        tip_epoch === undefined || tip_epoch === null || tip_epoch === ''
+            ? 'empty'
+            : String(tip_epoch);
+    const { previous_digit, current_digit, ready } = getLastTwoDigits(digits);
+    const pair = ready ? `${previous_digit},${current_digit}` : 'na';
+    return `${epoch}|d:${pair}`;
 };
