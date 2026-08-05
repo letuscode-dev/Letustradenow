@@ -25,6 +25,7 @@ import './range_momentum_over_one';
 import './sequential_digit_differs_prediction';
 import './odd_even_hot_digit_scan';
 import './even_odd_pair_over_under';
+import './hybrid_multi_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

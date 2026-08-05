@@ -109,6 +109,17 @@ import {
     releaseStaleHotOddEvenDiffersCommit,
     resetHotOddEvenDiffersRuntimeState,
 } from '../utils/odd-even-hot-digit';
+import {
+    CONTRACT_CODE,
+    applyHybridMultiScanSettlement,
+    armHybridMultiScanPrediction,
+    createHybridMultiScanRuntimeState,
+    evaluateHybridMultiScan as runHybridMultiScan,
+    makeHybridMultiScanTipKey,
+    normalizeHybridMultiScanOptions,
+    releaseStaleHybridMultiScanCommit,
+    resetHybridMultiScanRuntimeState,
+} from '../utils/hybrid-multi-scan';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -173,6 +184,13 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.evenOddPairState) {
                 resetEvenOddPairRuntimeState(tradeEngine.evenOddPairState);
                 tradeEngine.evenOddPairState = null;
+            }
+            tradeEngine.hybridMultiScanSnapshot = null;
+            tradeEngine._hybridMultiScanLastJournalFp = null;
+            tradeEngine._hybridMultiScanLastTipKey = null;
+            if (tradeEngine.hybridMultiScanState) {
+                resetHybridMultiScanRuntimeState(tradeEngine.hybridMultiScanState);
+                tradeEngine.hybridMultiScanState = null;
             }
             return tradeEngine.stop(...args);
         },
@@ -549,6 +567,140 @@ const getBotInterface = tradeEngine => {
 
             tradeEngine.evenOddPairSnapshot = public_result;
             return public_result;
+        },
+        /**
+         * Hybrid multi-scan — Odd Pair Over, Even Pair Under, Pattern OU,
+         * Sequential Differs, Hot Digit on the active market.
+         */
+        evaluateHybridMultiScan: options => {
+            const opts = normalizeHybridMultiScanOptions(options || {});
+
+            if (!tradeEngine.hybridMultiScanState) {
+                tradeEngine.hybridMultiScanState = createHybridMultiScanRuntimeState();
+            }
+            const runtime = tradeEngine.hybridMultiScanState;
+
+            const contract = tradeEngine.data?.contract;
+            const has_open_contract = Boolean(
+                contract && contract.buy_price != null && contract.sell_price == null
+            );
+
+            if (
+                contract &&
+                contract.buy_price != null &&
+                contract.sell_price != null &&
+                contract.transaction_ids?.buy &&
+                (contract.contract_id || contract.transaction_ids?.buy)
+            ) {
+                const contract_id =
+                    contract.contract_id || contract.transaction_ids?.buy || null;
+                applyHybridMultiScanSettlement(runtime, contract_id);
+            }
+
+            if (!has_open_contract && releaseStaleHybridMultiScanCommit(runtime, 20000)) {
+                tradeEngine._hybridMultiScanLastTipKey = null;
+            }
+
+            if (has_open_contract) {
+                const waiting = {
+                    matched: false,
+                    prediction: -1,
+                    barrier: -1,
+                    contract_type: null,
+                    contract_code: CONTRACT_CODE.NONE,
+                    lane: null,
+                    reason: 'awaiting_settlement',
+                    journal_messages: [],
+                };
+                tradeEngine.hybridMultiScanSnapshot = waiting;
+                return waiting;
+            }
+
+            if (runtime.trade_committed && runtime.armed_prediction >= 0) {
+                const armed = {
+                    matched: true,
+                    prediction: runtime.armed_prediction,
+                    barrier: runtime.armed_prediction,
+                    contract_type: runtime.armed_contract_type,
+                    contract_code: runtime.armed_contract_code,
+                    lane: runtime.last_lane,
+                    reason: 'armed_pending_purchase',
+                    journal_messages: [],
+                };
+                tradeEngine.hybridMultiScanSnapshot = armed;
+                return armed;
+            }
+
+            const lookback = Math.max(opts.pattern_lookback, opts.hot_lookback, 20);
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(lookback)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(lookback)
+                  : [];
+
+            const tip_base = tradeEngine.getLatestTickTipKey
+                ? tradeEngine.getLatestTickTipKey()
+                : '';
+
+            const recovering = opts.recovering;
+
+            const result = runHybridMultiScan(digits, {
+                ...opts,
+                recovering,
+                last_lane: runtime.last_lane,
+                last_contract_type: runtime.last_contract_type,
+                last_was_loss: recovering || Boolean(tradeEngine.patternProbabilityLastWasLoss),
+            });
+
+            const tip_key = makeHybridMultiScanTipKey(tip_base, result);
+            const tip_already_traded =
+                !recovering &&
+                tip_key &&
+                tradeEngine._hybridMultiScanLastTipKey != null &&
+                String(tradeEngine._hybridMultiScanLastTipKey) === String(tip_key);
+
+            let public_result = result;
+            if (tip_already_traded && result.matched) {
+                public_result = {
+                    ...result,
+                    matched: false,
+                    prediction: -1,
+                    barrier: -1,
+                    contract_type: null,
+                    contract_code: CONTRACT_CODE.NONE,
+                    reason: 'tip_consumed',
+                    journal_messages: [
+                        {
+                            className: 'journal__text',
+                            message: 'Hybrid: tip already traded',
+                        },
+                    ],
+                };
+            } else if (result.matched) {
+                tradeEngine._hybridMultiScanLastTipKey = tip_key;
+                armHybridMultiScanPrediction(runtime, result);
+            }
+
+            const tip_fp = `${public_result.reason}:${tip_key || tip_base}`;
+            if (
+                !public_result.matched &&
+                tradeEngine._hybridMultiScanLastJournalFp === tip_fp &&
+                Array.isArray(public_result.journal_messages)
+            ) {
+                public_result = { ...public_result, journal_messages: [] };
+            } else {
+                tradeEngine._hybridMultiScanLastJournalFp = tip_fp;
+            }
+
+            tradeEngine.hybridMultiScanSnapshot = public_result;
+            return public_result;
+        },
+        getHybridMultiScanContractCode: () => {
+            const snap = tradeEngine.hybridMultiScanSnapshot;
+            if (!snap || !snap.matched) {
+                return CONTRACT_CODE.NONE;
+            }
+            return snap.contract_code != null ? snap.contract_code : CONTRACT_CODE.NONE;
         },
         /**
          * Pattern-probability Over/Under — sync, tip-snapshotted.
