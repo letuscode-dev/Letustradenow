@@ -46,12 +46,13 @@ describe('getLastTwoDigits / pair checks', () => {
         expect(isOddPairAtMostThreshold(3, 3, 1)).toBe(false); // 3 > 1
     });
 
-    it('detects even pair above threshold', () => {
+    it('detects even pair at/above threshold', () => {
         expect(isEvenPairAboveThreshold(6, 8, 4)).toBe(true);
-        expect(isEvenPairAboveThreshold(8, 8, 4)).toBe(true);
-        expect(isEvenPairAboveThreshold(2, 6, 4)).toBe(false); // 2 not > 4
+        expect(isEvenPairAboveThreshold(4, 6, 4)).toBe(true); // >= 4
+        expect(isEvenPairAboveThreshold(4, 4, 4)).toBe(true); // >= 4
+        expect(isEvenPairAboveThreshold(2, 6, 4)).toBe(false); // 2 < 4
         expect(isEvenPairAboveThreshold(5, 7, 4)).toBe(false); // odd
-        expect(isEvenPairAboveThreshold(6, 6, 6)).toBe(false); // not > 6
+        expect(isEvenPairAboveThreshold(6, 6, 8)).toBe(false); // 6 < 8
     });
 });
 
@@ -75,11 +76,17 @@ describe('detectEvenOddPairSignal', () => {
         expect(result.reason).toContain('recovery');
     });
 
-    it('Under: even pair > 4 → barrier 7', () => {
-        const result = detectEvenOddPairSignal([1, 6, 8], { side: 'UNDER', even_min: 4 });
+    it('Under: even pair >= 4 → barrier 7', () => {
+        const result = detectEvenOddPairSignal([1, 4, 6], { side: 'UNDER', even_min: 4 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_UNDER_BARRIER);
         expect(result.contract_type).toBe('DIGITUNDER');
+    });
+
+    it('Under accepts exactly even_min', () => {
+        const result = detectEvenOddPairSignal([0, 4, 4], { side: 'UNDER', even_min: 4 });
+        expect(result.matched).toBe(true);
+        expect(result.barrier).toBe(ENTRY_UNDER_BARRIER);
     });
 
     it('Under recovery → barrier 6 immediately', () => {

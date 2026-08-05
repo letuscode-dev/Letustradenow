@@ -2,7 +2,7 @@
  * Free bots — Odd-pair Over 2 and Even-pair Under 7 (tick-fast).
  *
  * Over: last 2 digits odd and <= Odd_max (default 5) → DIGITOVER 2.
- * Under: last 2 digits even and > Even_min (default 4) → DIGITUNDER 7.
+ * Under: last 2 digits even and >= Even_min (default 4) → DIGITUNDER 7.
  *
  * Speed: always arms trade options with the standby barrier (entry or recovery),
  * then re-evaluates the pair scan on every before-tick so no incoming tip is missed

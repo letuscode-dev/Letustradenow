@@ -44,7 +44,7 @@ window.Blockly.Blocks.even_odd_pair_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Over: last 2 digits odd and ≤ threshold → Over 2 (recovery Over 3). Under: last 2 digits even and > threshold → Under 7 (recovery Under 6).'
+                'Over: last 2 digits odd and ≤ threshold → Over 2 (recovery Over 3). Under: last 2 digits even and ≥ threshold → Under 7 (recovery Under 6).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };

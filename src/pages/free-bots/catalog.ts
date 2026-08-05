@@ -20,7 +20,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'even-pair-under-7-v1',
         title: 'Even Pair Under 7',
         description:
-            'Tick-fast scan: last 2 digits even and > Even_min (default 4) → Under 7 on the same tip (no 1s Start sleep). On loss, sizes stake via Payout% (default 60) and trades Under 6 until recovered. Configure Even_min / Payout% in Run once at start.',
+            'Tick-fast scan: last 2 digits even and ≥ Even_min (default 4) → Under 7 on the same tip (no 1s Start sleep). On loss, sizes stake via Payout% (default 60) and trades Under 6 until recovered. Configure Even_min / Payout% in Run once at start.',
         tags: ['Under 7', 'Even', 'Pair', 'Recovery', 'Under 6', 'Tick-fast'],
         xml: EVEN_PAIR_UNDER_XML,
     },

@@ -4,7 +4,7 @@
  * Over (odd pair): previous + current both odd and both <= odd_max (default 5)
  *   → DIGITOVER barrier 2; while recovering → barrier 3
  *
- * Under (even pair): previous + current both even and both > even_min (default 4)
+ * Under (even pair): previous + current both even and both >= even_min (default 4)
  *   → DIGITUNDER barrier 7; while recovering → barrier 6
  */
 
@@ -102,7 +102,7 @@ export const normalizeEvenOddPairOptions = (options = {}) => {
             1,
             9
         ),
-        // Under: even digits > even_min (default 4)
+        // Under: even digits >= even_min (default 4)
         even_min: toInt(
             options.even_min !== undefined
                 ? options.even_min
@@ -147,7 +147,7 @@ export const isOddPairAtMostThreshold = (previous_digit, current_digit, odd_max 
     );
 };
 
-/** Under entry: both even and > even_min. */
+/** Under entry: both even and >= even_min. */
 export const isEvenPairAboveThreshold = (
     previous_digit,
     current_digit,
@@ -157,8 +157,8 @@ export const isEvenPairAboveThreshold = (
     return (
         isEvenDigit(previous_digit) &&
         isEvenDigit(current_digit) &&
-        previous_digit > min &&
-        current_digit > min
+        previous_digit >= min &&
+        current_digit >= min
     );
 };
 
@@ -227,7 +227,7 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
     if (!isEvenPairAboveThreshold(previous_digit, current_digit, opts.even_min)) {
         return {
             ...base,
-            reason: `no_even_pair_gt_${opts.even_min}_${previous_digit},${current_digit}`,
+            reason: `no_even_pair_gte_${opts.even_min}_${previous_digit},${current_digit}`,
         };
     }
     return {
