@@ -15,6 +15,7 @@ export const PARITY_RUN_DIFFERS_XML = `<xml xmlns="https://developers.google.com
     <variable id="prd_maxloss">Max Cons Loss:</variable>
     <variable id="prd_totalloss">Total_loss</variable>
     <variable id="prd_prediction">Prediction:</variable>
+    <variable id="prd_signal">Signal:</variable>
     <variable id="prd_profit">Profit Threshold:</variable>
     <variable id="prd_initstake">Initial_stake</variable>
     <variable id="prd_payout">Payout%</variable>
@@ -183,9 +184,18 @@ export const PARITY_RUN_DIFFERS_XML = `<xml xmlns="https://developers.google.com
                   <block type="controls_if">
                     <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
                       <value name="A"><block type="variables_get"><field name="VAR" id="prd_totalloss">Total_loss</field></block></value>
-                      <value name="B"><block type="math_number"><field name="NUM">0.01</field></block></value>
+                      <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
                     </block></value>
                     <statement name="DO0"><block type="variables_set"><field name="VAR" id="prd_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
+                    <next>
+                      <block type="controls_if">
+                        <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
+                          <value name="A"><block type="variables_get"><field name="VAR" id="prd_totalloss">Total_loss</field></block></value>
+                          <value name="B"><block type="math_number"><field name="NUM">0.01</field></block></value>
+                        </block></value>
+                        <statement name="DO0"><block type="variables_set"><field name="VAR" id="prd_totalloss">Total_loss</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value></block></statement>
+                      </block>
+                    </next>
                   </block>
                 </next>
               </block>
@@ -256,17 +266,40 @@ export const PARITY_RUN_DIFFERS_XML = `<xml xmlns="https://developers.google.com
   </block>
   <block type="before_purchase" id="prd_before" collapsed="true" deletable="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="controls_if" id="prd_bp_if">
-        <value name="IF0">
-          <block type="logic_compare">
-            <field name="OP">GTE</field>
-            <value name="A"><block type="variables_get"><field name="VAR" id="prd_prediction">Prediction:</field></block></value>
-            <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+      <block type="variables_set" id="prd_bp_set_signal">
+        <field name="VAR" id="prd_signal">Signal:</field>
+        <value name="VALUE">
+          <block type="procedures_callreturn" id="prd_bp_scan">
+            <mutation name="Parity Run Differs Barrier"></mutation>
+            <data>prd_fn_barrier</data>
           </block>
         </value>
-        <statement name="DO0">
-          <block type="purchase" id="prd_buy"><field name="PURCHASE_LIST">DIGITDIFF</field></block>
-        </statement>
+        <next>
+          <block type="controls_if" id="prd_bp_if">
+            <value name="IF0">
+              <block type="logic_operation">
+                <field name="OP">AND</field>
+                <value name="A">
+                  <block type="logic_compare">
+                    <field name="OP">GTE</field>
+                    <value name="A"><block type="variables_get"><field name="VAR" id="prd_signal">Signal:</field></block></value>
+                    <value name="B"><block type="math_number"><field name="NUM">0</field></block></value>
+                  </block>
+                </value>
+                <value name="B">
+                  <block type="logic_compare">
+                    <field name="OP">EQ</field>
+                    <value name="A"><block type="variables_get"><field name="VAR" id="prd_signal">Signal:</field></block></value>
+                    <value name="B"><block type="variables_get"><field name="VAR" id="prd_prediction">Prediction:</field></block></value>
+                  </block>
+                </value>
+              </block>
+            </value>
+            <statement name="DO0">
+              <block type="purchase" id="prd_buy"><field name="PURCHASE_LIST">DIGITDIFF</field></block>
+            </statement>
+          </block>
+        </next>
       </block>
     </statement>
   </block>

@@ -14,7 +14,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'parity-run-differs-v1',
         title: 'Parity-run Differs',
         description:
-            'Scans 1s + standard volatilities (Market_group ALL). If the last Run_length digits (default 6) are all even or all odd → Differs the oldest of those digits (the 6th back). Switches to the signaling market. Recovery via Payout% (default 9.6). Set Market_group to 1S, STANDARD, or ALL in Run once at start.',
+        description:
+            'Scans 1s + standard volatilities (Market_group ALL). If the last Run_length digits (default 6) are all even or all odd → Differs the oldest of those digits (the 6th back). Switches to the signaling market; re-confirms the tip before purchase. Recovery via Payout% (default 9.6). Set Market_group to 1S, STANDARD, or ALL in Run once at start.',
         tags: ['Differs', 'Even', 'Odd', 'Parity', 'Multi-market', '1s', 'Standard', 'Recovery'],
         xml: PARITY_RUN_DIFFERS_XML,
     },

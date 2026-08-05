@@ -71,6 +71,8 @@ const toBool = (value, fallback = false) => {
 export const normalizeParityRunOptions = (options = {}) => ({
     run_length: toInt(options.run_length, DEFAULT_RUN_LENGTH, MIN_RUN_LENGTH, MAX_RUN_LENGTH),
     market_group: toMarketGroup(options.market_group),
+    // Keep explicit symbol lists for resolveScanSymbols.
+    symbols: options.symbols,
     journal_enabled: toBool(options.journal_enabled, true),
     switch_symbol: toBool(options.switch_symbol, true),
 });
@@ -262,14 +264,14 @@ export const buildParityRunScanResult = ({
     if (journal_enabled) {
         if (hit) {
             journal_messages.push({
-                className: 'success',
+                className: 'journal__text--success',
                 message: `Parity-run ${hit.parity} on ${hit.symbol}: [${(hit.sequence || []).join(',')}] → Differ ${hit.barrier}${
                     switched ? ' (switched)' : ''
                 }`,
             });
         } else if (skipped_consumed && match?.matched) {
             journal_messages.push({
-                className: 'info',
+                className: 'journal__text',
                 message: `Parity-run: already traded this tip on ${match.symbol} — waiting`,
             });
         } else {
@@ -278,7 +280,7 @@ export const buildParityRunScanResult = ({
                 .slice(0, 4)
                 .join(' | ');
             journal_messages.push({
-                className: 'info',
+                className: 'journal__text',
                 message: `Parity-run: no ${run_length}-digit even/odd run (${scanned || 'empty'})`,
             });
         }

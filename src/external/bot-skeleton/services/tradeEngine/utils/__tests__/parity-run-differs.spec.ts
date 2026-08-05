@@ -9,6 +9,7 @@ import {
     applyParityRunSettlement,
     createParityRunRuntimeState,
     releaseStaleParityRunCommit,
+    normalizeParityRunOptions,
 } from '../parity-run-differs';
 
 describe('detectParityRunSignal', () => {
@@ -73,5 +74,27 @@ describe('runtime commit', () => {
         state.signal_issued_at = Date.now() - 25000;
         expect(releaseStaleParityRunCommit(state, 20000)).toBe(true);
         expect(state.trade_committed).toBe(false);
+    });
+
+    it('keeps armed barrier available until settlement or stale release', () => {
+        const state = createParityRunRuntimeState();
+        armParityRunPrediction(state, 2);
+        expect(state.trade_committed).toBe(true);
+        expect(state.armed_prediction).toBe(2);
+        applyParityRunSettlement(state, 'buy-1');
+        expect(state.trade_committed).toBe(false);
+        expect(state.armed_prediction).toBe(-1);
+    });
+});
+
+describe('normalizeParityRunOptions', () => {
+    it('preserves explicit symbol lists for multi-market overrides', () => {
+        const opts = normalizeParityRunOptions({
+            market_group: '1S',
+            symbols: ['1HZ75V', 'R_75'],
+            run_length: 6,
+        });
+        expect(opts.symbols).toEqual(['1HZ75V', 'R_75']);
+        expect(opts.run_length).toBe(6);
     });
 });

@@ -1428,7 +1428,8 @@ const getBotInterface = tradeEngine => {
                 tradeEngine._parityRunConsumedKey = null;
             }
 
-            if (runtime.trade_committed || has_open_contract) {
+            // Open contract: never re-signal.
+            if (has_open_contract) {
                 const waiting = {
                     prediction: -1,
                     barrier: -1,
@@ -1449,6 +1450,29 @@ const getBotInterface = tradeEngine => {
                 return waiting;
             }
 
+            // Armed but buy not open yet: keep returning the armed barrier so
+            // before_purchase / Start retries can still purchase instead of going dark (-1).
+            if (runtime.trade_committed && runtime.armed_prediction >= 0) {
+                const armed = {
+                    prediction: runtime.armed_prediction,
+                    barrier: runtime.armed_prediction,
+                    matched: true,
+                    parity: null,
+                    sequence: [],
+                    symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
+                    market_group: opts.market_group,
+                    symbols_scanned: [],
+                    evaluations: [],
+                    switched: false,
+                    skipped_consumed: false,
+                    run_length: opts.run_length,
+                    reason: 'armed_pending_purchase',
+                    journal_messages: [],
+                };
+                tradeEngine.parityRunDiffersSnapshot = armed;
+                return armed;
+            }
+
             const symbols = resolveParityRunSymbols(opts);
             const active_symbol =
                 tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
@@ -1464,6 +1488,23 @@ const getBotInterface = tradeEngine => {
                     await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
                 } catch (e) {
                     // keep prior caches
+                }
+            }
+
+            // Prefill active-symbol history when the sliding window is still short.
+            if (
+                active_symbol &&
+                typeof tradeEngine.ensureDigitsForSymbol === 'function'
+            ) {
+                const cached = tradeEngine.getCachedDigitsForSymbol
+                    ? tradeEngine.getCachedDigitsForSymbol(active_symbol, need)
+                    : [];
+                if (!Array.isArray(cached) || cached.length < opts.run_length) {
+                    try {
+                        await tradeEngine.ensureDigitsForSymbol(active_symbol, need);
+                    } catch (e) {
+                        // keep prior cache
+                    }
                 }
             }
 
@@ -1552,7 +1593,7 @@ const getBotInterface = tradeEngine => {
                 result.reason = 'switch_failed';
                 result.journal_messages = [
                     {
-                        className: 'error',
+                        className: 'journal__text--error',
                         message: `Parity-run: signal on ${match.symbol} but market switch failed — skipping trade`,
                     },
                 ];
