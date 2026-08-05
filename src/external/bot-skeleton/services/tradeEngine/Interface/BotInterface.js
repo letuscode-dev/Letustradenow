@@ -508,7 +508,7 @@ const getBotInterface = tradeEngine => {
                 odd_max: opts.odd_max !== undefined ? opts.odd_max : opts.threshold,
                 even_min: opts.even_min !== undefined ? opts.even_min : opts.threshold,
                 recovering,
-                journal_enabled: opts.journal_enabled,
+                journal_enabled: true,
             });
 
             // Entry: never re-buy the same tip. Recovery: may re-arm after settlement.
@@ -529,13 +529,7 @@ const getBotInterface = tradeEngine => {
 
             const result = buildEvenOddPairResult({
                 signal,
-                journal_enabled:
-                    opts.journal_enabled === undefined
-                        ? true
-                        : opts.journal_enabled === true ||
-                          opts.journal_enabled === 1 ||
-                          opts.journal_enabled === 'TRUE' ||
-                          opts.journal_enabled === 'true',
+                journal_enabled: true,
                 skipped_consumed,
             });
 

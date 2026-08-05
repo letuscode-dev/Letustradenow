@@ -114,8 +114,8 @@ export const normalizeEvenOddPairOptions = (options = {}) => {
             8
         ),
         recovering: toBool(options.recovering),
-        journal_enabled:
-            options.journal_enabled === undefined ? true : toBool(options.journal_enabled),
+        // Always on — free bots and block input cannot disable journal.
+        journal_enabled: true,
     };
 };
 

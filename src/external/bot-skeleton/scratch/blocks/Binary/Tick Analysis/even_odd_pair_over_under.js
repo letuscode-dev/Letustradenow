@@ -75,14 +75,12 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.even_odd_pair_over_under 
     const default_th = side === 'UNDER' ? DEFAULT_EVEN_MIN : DEFAULT_ODD_MAX;
     const threshold = read('THRESHOLD') || String(default_th);
     const recovering = read('RECOVERING') || 'false';
-    const journal = read('JOURNAL') || 'true';
-
     const code = `(function () {
         var BinaryBotPrivatePairResult = Bot.evaluateEvenOddPairOverUnder({
             side: ${JSON.stringify(side)},
             threshold: ${threshold},
             recovering: ${recovering},
-            journal_enabled: ${journal}
+            journal_enabled: true
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivatePairResult && BinaryBotPrivatePairResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
