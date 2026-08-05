@@ -6,6 +6,10 @@ import {
     isOddPairAboveThreshold,
     makeEvenOddPairSignalKey,
     isEvenOddPairSignalConsumed,
+    armEvenOddPairPrediction,
+    clearEvenOddPairCommit,
+    createEvenOddPairRuntimeState,
+    releaseStaleEvenOddPairCommit,
     ENTRY_OVER_BARRIER,
     RECOVERY_OVER_BARRIER,
     ENTRY_UNDER_BARRIER,
@@ -23,6 +27,11 @@ describe('getLastTwoDigits / pair checks', () => {
             previous_digit: null,
             current_digit: null,
             ready: false,
+        });
+        expect(getLastTwoDigits(['0', '2.0'])).toEqual({
+            previous_digit: 0,
+            current_digit: 2,
+            ready: true,
         });
     });
 
@@ -96,5 +105,21 @@ describe('recovery stake + consume key', () => {
         const key = makeEvenOddPairSignalKey(signal, 42);
         expect(isEvenOddPairSignalConsumed(signal, 42, key)).toBe(true);
         expect(isEvenOddPairSignalConsumed(signal, 43, key)).toBe(false);
+    });
+});
+
+describe('runtime commit', () => {
+    it('arms and releases stale commits', () => {
+        const state = createEvenOddPairRuntimeState();
+        armEvenOddPairPrediction(state, 3);
+        expect(state.trade_committed).toBe(true);
+        expect(state.armed_prediction).toBe(3);
+        clearEvenOddPairCommit(state);
+        expect(state.trade_committed).toBe(false);
+
+        armEvenOddPairPrediction(state, 6);
+        state.signal_issued_at = Date.now() - 25000;
+        expect(releaseStaleEvenOddPairCommit(state, 20000)).toBe(true);
+        expect(state.trade_committed).toBe(false);
     });
 });

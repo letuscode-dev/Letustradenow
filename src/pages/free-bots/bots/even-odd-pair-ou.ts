@@ -238,9 +238,9 @@ const buildEvenOddPairXml = (side: PairSide): string => {
               <block type="controls_if">
                 <value name="IF0"><block type="logic_compare"><field name="OP">LT</field>
                   <value name="A"><block type="variables_get"><field name="VAR" id="${prefix}_initstake">Initial_stake</field></block></value>
-                  <value name="B"><block type="math_number"><field name="NUM">0.35</field></block></value>
+                  <value name="B"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value>
                 </block></value>
-                <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value></block></statement>
+                <statement name="DO0"><block type="variables_set"><field name="VAR" id="${prefix}_initstake">Initial_stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="${prefix}_stake">Stake</field></block></value></block></statement>
                 <next>
                   <block type="controls_if">
                     <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>

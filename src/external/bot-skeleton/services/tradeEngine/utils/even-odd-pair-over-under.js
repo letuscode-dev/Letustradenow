@@ -18,10 +18,15 @@ export const DEFAULT_PAYOUT_PERCENT = 60;
 
 const toDigit = value => {
     const n = Number(value);
-    if (!Number.isInteger(n) || n < 0 || n > 9) {
+    if (!Number.isFinite(n)) {
         return null;
     }
-    return n;
+    // Accept ints and near-ints from tick pipelines (e.g. 2, "2", 2.0).
+    const rounded = Math.round(n);
+    if (Math.abs(n - rounded) > 1e-9 || rounded < 0 || rounded > 9) {
+        return null;
+    }
+    return rounded;
 };
 
 const toInt = (value, fallback, min = null, max = null) => {
@@ -267,4 +272,54 @@ export const makeEvenOddPairSignalKey = (signal, tip_epoch) => {
 export const isEvenOddPairSignalConsumed = (signal, tip_epoch, consumed_key) => {
     const key = makeEvenOddPairSignalKey(signal, tip_epoch);
     return Boolean(key && consumed_key && key === consumed_key);
+};
+
+export const createEvenOddPairRuntimeState = () => ({
+    trade_committed: false,
+    signal_issued_at: 0,
+    last_barrier: null,
+    armed_prediction: -1,
+});
+
+export const resetEvenOddPairRuntimeState = (state = null) => {
+    const tracker = state || createEvenOddPairRuntimeState();
+    tracker.trade_committed = false;
+    tracker.signal_issued_at = 0;
+    tracker.last_barrier = null;
+    tracker.armed_prediction = -1;
+    return tracker;
+};
+
+export const armEvenOddPairPrediction = (state, barrier) => {
+    const tracker = state || createEvenOddPairRuntimeState();
+    const digit = toDigit(barrier);
+    if (digit === null) {
+        return tracker;
+    }
+    tracker.last_barrier = digit;
+    tracker.armed_prediction = digit;
+    tracker.trade_committed = true;
+    tracker.signal_issued_at = Date.now();
+    return tracker;
+};
+
+export const clearEvenOddPairCommit = state => {
+    const tracker = state || createEvenOddPairRuntimeState();
+    tracker.trade_committed = false;
+    tracker.signal_issued_at = 0;
+    tracker.armed_prediction = -1;
+    return tracker;
+};
+
+export const releaseStaleEvenOddPairCommit = (state, max_age_ms = 20000) => {
+    const tracker = state || createEvenOddPairRuntimeState();
+    if (!tracker.trade_committed) {
+        return false;
+    }
+    const issued = Number(tracker.signal_issued_at) || 0;
+    if (!issued || Date.now() - issued < max_age_ms) {
+        return false;
+    }
+    clearEvenOddPairCommit(tracker);
+    return true;
 };

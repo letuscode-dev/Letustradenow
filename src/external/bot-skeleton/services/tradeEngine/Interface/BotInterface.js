@@ -13,6 +13,11 @@ import {
     makeEvenOddPairSignalKey,
     isEvenOddPairSignalConsumed,
     toMarketSide,
+    createEvenOddPairRuntimeState,
+    armEvenOddPairPrediction,
+    clearEvenOddPairCommit,
+    releaseStaleEvenOddPairCommit,
+    resetEvenOddPairRuntimeState,
 } from '../utils/even-odd-pair-over-under';
 import {
     DEFAULT_LOOKBACK as PATTERN_OU_DEFAULT_LOOKBACK,
@@ -161,6 +166,14 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.oddEvenHotDigitState) {
                 resetHotOddEvenDiffersRuntimeState(tradeEngine.oddEvenHotDigitState);
                 tradeEngine.oddEvenHotDigitState = null;
+            }
+            tradeEngine.evenOddPairSnapshot = null;
+            tradeEngine._evenOddPairLastJournalFp = null;
+            tradeEngine._evenOddPairConsumedKey = null;
+            tradeEngine._evenOddPairLastEntryTip = null;
+            if (tradeEngine.evenOddPairState) {
+                resetEvenOddPairRuntimeState(tradeEngine.evenOddPairState);
+                tradeEngine.evenOddPairState = null;
             }
             return tradeEngine.stop(...args);
         },
@@ -408,10 +421,57 @@ const getBotInterface = tradeEngine => {
          * Even-pair Over / Odd-pair Under — sync last-2 digit scan.
          * Over: both even & < threshold → Over 2; recovering → Over 3.
          * Under: both odd & > threshold → Under 7; recovering → Under 6.
+         * Arms one purchase at a time; entry is one-shot per tip, recovery may re-arm after settle.
          */
         evaluateEvenOddPairOverUnder: options => {
             const opts = options || {};
             const side = toMarketSide(opts.side || opts.market_side);
+            const recovering =
+                opts.recovering === true ||
+                opts.recovering === 1 ||
+                opts.recovering === 'TRUE' ||
+                opts.recovering === 'true';
+
+            if (!tradeEngine.evenOddPairState) {
+                tradeEngine.evenOddPairState = createEvenOddPairRuntimeState();
+            }
+            const runtime = tradeEngine.evenOddPairState;
+
+            const contract = tradeEngine.data?.contract;
+            const has_open_contract = Boolean(
+                contract && contract.buy_price != null && contract.sell_price == null
+            );
+
+            // Clear commit after settlement so the next Start() can arm again.
+            if (
+                contract &&
+                contract.buy_price != null &&
+                contract.sell_price != null &&
+                contract.transaction_ids?.buy
+            ) {
+                if (runtime.trade_committed) {
+                    clearEvenOddPairCommit(runtime);
+                }
+            }
+
+            if (!has_open_contract && releaseStaleEvenOddPairCommit(runtime, 20000)) {
+                // Stale arm (purchase never completed) — allow this tip again.
+                tradeEngine._evenOddPairLastEntryTip = null;
+            }
+
+            if (runtime.trade_committed || has_open_contract) {
+                const waiting = {
+                    prediction: -1,
+                    barrier: -1,
+                    matched: false,
+                    side,
+                    reason: 'awaiting_settlement',
+                    journal_messages: [],
+                };
+                tradeEngine.evenOddPairSnapshot = waiting;
+                return waiting;
+            }
+
             const digits = tradeEngine.getAvailableLastDigitList
                 ? tradeEngine.getAvailableLastDigitList(2)
                 : tradeEngine.getCachedLastDigitList
@@ -427,17 +487,25 @@ const getBotInterface = tradeEngine => {
                 threshold: opts.threshold,
                 even_max: opts.even_max,
                 odd_min: opts.odd_min,
-                recovering: opts.recovering,
+                recovering,
                 journal_enabled: opts.journal_enabled,
             });
 
-            const skipped_consumed = isEvenOddPairSignalConsumed(
-                signal,
-                tip_epoch,
-                tradeEngine._evenOddPairConsumedKey
-            );
-            if (signal.matched && !skipped_consumed) {
-                tradeEngine._evenOddPairConsumedKey = makeEvenOddPairSignalKey(signal, tip_epoch);
+            // Entry: never re-buy the same tip. Recovery: may re-arm after settlement.
+            const tip_already_traded =
+                !recovering &&
+                tip_epoch != null &&
+                tip_epoch !== '' &&
+                tradeEngine._evenOddPairLastEntryTip != null &&
+                String(tradeEngine._evenOddPairLastEntryTip) === String(tip_epoch);
+
+            const skipped_consumed = tip_already_traded && signal.matched;
+            const match = skipped_consumed ? null : signal.matched ? signal : null;
+
+            if (match?.matched) {
+                tradeEngine._evenOddPairLastEntryTip = tip_epoch;
+                tradeEngine._evenOddPairConsumedKey = makeEvenOddPairSignalKey(match, tip_epoch);
+                armEvenOddPairPrediction(runtime, match.barrier);
             }
 
             const result = buildEvenOddPairResult({
@@ -453,7 +521,7 @@ const getBotInterface = tradeEngine => {
             });
 
             const tip_fp = skipped_consumed
-                ? `consumed:${tradeEngine._evenOddPairConsumedKey}`
+                ? `consumed:${tip_epoch}`
                 : `${side}:${signal.reason}:${tip_epoch}`;
             let public_result = result;
             if (
