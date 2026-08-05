@@ -5,7 +5,7 @@
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
 import {
-    DEFAULT_ODD_MAX,
+    DEFAULT_DIGIT_MIN,
     DEFAULT_DIGIT_MAX,
 } from '../../../../services/tradeEngine/utils/even-odd-pair-over-under';
 
@@ -44,7 +44,7 @@ window.Blockly.Blocks.even_odd_pair_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Over: last 2 digits odd and ≤ threshold → Over 2 (recovery Over 3). Under: last 2 even and last 3 ≤ threshold → Under 7 (recovery Under 6).'
+                'Over: last 2 odd and last 3 ≥ threshold → Over 2 (recovery Over 3). Under: last 2 even and last 3 ≤ threshold → Under 7 (recovery Under 6).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -53,7 +53,7 @@ window.Blockly.Blocks.even_odd_pair_over_under = {
         return {
             display_name: localize('Even/Odd Pair Over Under'),
             description: localize(
-                'Over: odd-pair last-2. Under: even last-2 plus last-3 ≤ Digit_max, with recovery barriers.'
+                'Over: odd last-2 plus last-3 ≥ Digit_min. Under: even last-2 plus last-3 ≤ Digit_max, with recovery barriers.'
             ),
             key_words: localize('even, odd, pair, over, under, recovery'),
         };
@@ -72,7 +72,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.even_odd_pair_over_under 
         );
 
     const side = block.getFieldValue('MARKET_SIDE') || 'OVER';
-    const default_th = side === 'UNDER' ? DEFAULT_DIGIT_MAX : DEFAULT_ODD_MAX;
+    const default_th = side === 'UNDER' ? DEFAULT_DIGIT_MAX : DEFAULT_DIGIT_MIN;
     const threshold = read('THRESHOLD') || String(default_th);
     const recovering = read('RECOVERING') || 'false';
     const code = `(function () {

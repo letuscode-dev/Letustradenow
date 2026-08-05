@@ -21,7 +21,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'odd-pair-over-2-v1',
         title: 'Odd Pair Over 2',
         description:
-            'Tick-fast scan: last 2 digits odd and ≤ Odd_max (default 5) → Over 2 on the same tip (no 1s Start sleep). On loss, sizes stake via Payout% (default 60) and trades Over 3 until recovered. Configure Odd_max / Payout% in Run once at start.',
+            'Tick-fast scan: last 2 digits odd and last 3 digits ≥ Digit_min (default 5) → Over 2 on the same tip (no 1s Start sleep). On loss, sizes stake via Payout% (default 60) and trades Over 3 until recovered. Configure Digit_min / Payout% in Run once at start.',
         tags: ['Over 2', 'Odd', 'Pair', 'Recovery', 'Over 3', 'Tick-fast'],
         xml: ODD_PAIR_OVER_XML,
     },

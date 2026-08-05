@@ -22,7 +22,7 @@ export const HYBRID_MULTI_SCAN_XML = `<xml xmlns="https://developers.google.com/
     <variable id="hyb_payout_ou">Payout_OU%</variable>
     <variable id="hyb_payout_diff">Payout_Differs%</variable>
     <variable id="hyb_duration">Duration</variable>
-    <variable id="hyb_oddmax">Odd_max</variable>
+    <variable id="hyb_oddmax">Digit_min</variable>
     <variable id="hyb_evenmin">Digit_max</variable>
     <variable id="hyb_plb">Pattern_lookback</variable>
     <variable id="hyb_hlb">Hot_lookback</variable>
@@ -71,7 +71,7 @@ export const HYBRID_MULTI_SCAN_XML = `<xml xmlns="https://developers.google.com/
             <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
             <next>
               <block type="variables_set" id="hyb_set_odd">
-                <field name="VAR" id="hyb_oddmax">Odd_max</field>
+                <field name="VAR" id="hyb_oddmax">Digit_min</field>
                 <value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
                 <next>
                   <block type="variables_set" id="hyb_set_even">
@@ -192,7 +192,7 @@ export const HYBRID_MULTI_SCAN_XML = `<xml xmlns="https://developers.google.com/
     <field name="NAME">Hybrid Multi Scan Barrier</field>
     <value name="RETURN">
       <block type="hybrid_multi_scan" id="hyb_signal_block">
-        <value name="ODD_MAX"><block type="variables_get"><field name="VAR" id="hyb_oddmax">Odd_max</field></block></value>
+        <value name="ODD_MAX"><block type="variables_get"><field name="VAR" id="hyb_oddmax">Digit_min</field></block></value>
         <value name="EVEN_MIN"><block type="variables_get"><field name="VAR" id="hyb_evenmin">Digit_max</field></block></value>
         <value name="PATTERN_LOOKBACK"><block type="variables_get"><field name="VAR" id="hyb_plb">Pattern_lookback</field></block></value>
         <value name="HOT_LOOKBACK"><block type="variables_get"><field name="VAR" id="hyb_hlb">Hot_lookback</field></block></value>

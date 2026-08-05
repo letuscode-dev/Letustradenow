@@ -1,6 +1,6 @@
 /**
  * Hybrid multi-scan — combines free-bot scan families on the active market:
- *   1. Odd Pair → DIGITOVER 2 (recovery 3)
+ *   1. Odd Pair → last 2 odd + last 3 ≥ digit_min → DIGITOVER 2 (recovery 3)
  *   2. Even Pair → last 2 even + last 3 ≤ digit_max → DIGITUNDER 7 (recovery 6)
  *   3. Pattern Probability Over/Under
  *   4. Sequential Digit Differs
@@ -11,8 +11,8 @@
  */
 
 import {
-    DEFAULT_EVEN_MIN,
-    DEFAULT_ODD_MAX,
+    DEFAULT_DIGIT_MIN,
+    DEFAULT_DIGIT_MAX,
     detectEvenOddPairSignal,
 } from './even-odd-pair-over-under';
 import {
@@ -86,12 +86,32 @@ export const normalizeHybridMultiScanOptions = (options = {}) => ({
     last_lane: options.last_lane || null,
     last_contract_type: options.last_contract_type || null,
     last_was_loss: toBool(options.last_was_loss) || toBool(options.recovering),
-    odd_max: toInt(options.odd_max !== undefined ? options.odd_max : options.threshold, DEFAULT_ODD_MAX, 1, 9),
+    odd_max: toInt(options.odd_max !== undefined ? options.odd_max : options.threshold, DEFAULT_DIGIT_MIN, 0, 9),
+    digit_min: toInt(
+        options.digit_min !== undefined
+            ? options.digit_min
+            : options.odd_max !== undefined
+              ? options.odd_max
+              : options.threshold,
+        DEFAULT_DIGIT_MIN,
+        0,
+        9
+    ),
     even_min: toInt(
         options.even_min !== undefined ? options.even_min : options.threshold,
-        DEFAULT_EVEN_MIN,
+        DEFAULT_DIGIT_MAX,
         0,
-        8
+        9
+    ),
+    digit_max: toInt(
+        options.digit_max !== undefined
+            ? options.digit_max
+            : options.even_min !== undefined
+              ? options.even_min
+              : options.threshold,
+        DEFAULT_DIGIT_MAX,
+        0,
+        9
     ),
     pattern_lookback: toInt(options.pattern_lookback, DEFAULT_PATTERN_LOOKBACK, 10, 1000),
     pattern_length: toInt(options.pattern_length, DEFAULT_PATTERN_LENGTH, 1, 5),
@@ -133,6 +153,7 @@ const toCandidate = ({ lane, contract_type, barrier, reason, detail }) => {
 const scanOddPair = (digits, opts) => {
     const signal = detectEvenOddPairSignal(digits, {
         side: 'OVER',
+        digit_min: opts.digit_min,
         odd_max: opts.odd_max,
         recovering: opts.recovering && opts.last_lane === HYBRID_LANES.ODD_PAIR,
     });
@@ -154,6 +175,7 @@ const scanOddPair = (digits, opts) => {
 const scanEvenPair = (digits, opts) => {
     const signal = detectEvenOddPairSignal(digits, {
         side: 'UNDER',
+        digit_max: opts.digit_max,
         even_min: opts.even_min,
         recovering: opts.recovering && opts.last_lane === HYBRID_LANES.EVEN_PAIR,
     });

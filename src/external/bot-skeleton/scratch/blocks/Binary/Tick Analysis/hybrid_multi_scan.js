@@ -5,8 +5,8 @@
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
 import {
-    DEFAULT_EVEN_MIN,
-    DEFAULT_ODD_MAX,
+    DEFAULT_DIGIT_MIN,
+    DEFAULT_DIGIT_MAX,
 } from '../../../../services/tradeEngine/utils/even-odd-pair-over-under';
 import {
     DEFAULT_HOT_LOOKBACK,
@@ -28,7 +28,7 @@ window.Blockly.Blocks.hybrid_multi_scan = {
     definition() {
         return {
             message0: localize(
-                'hybrid multi-scan (odd_max {{ odd }}, even_min {{ even }}, pattern {{ plb }}, hot {{ hlb }}, recovering {{ rec }})',
+                'hybrid multi-scan (digit_min {{ odd }}, digit_max {{ even }}, pattern {{ plb }}, hot {{ hlb }}, recovering {{ rec }})',
                 {
                     odd: '%1',
                     even: '%2',
@@ -70,15 +70,17 @@ window.Blockly.Blocks.hybrid_multi_scan = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.hybrid_multi_scan = block => {
-    const odd_max = read(block, 'ODD_MAX') || String(DEFAULT_ODD_MAX);
-    const even_min = read(block, 'EVEN_MIN') || String(DEFAULT_EVEN_MIN);
+    const odd_max = read(block, 'ODD_MAX') || String(DEFAULT_DIGIT_MIN);
+    const even_min = read(block, 'EVEN_MIN') || String(DEFAULT_DIGIT_MAX);
     const pattern_lookback = read(block, 'PATTERN_LOOKBACK') || String(DEFAULT_PATTERN_LOOKBACK);
     const hot_lookback = read(block, 'HOT_LOOKBACK') || String(DEFAULT_HOT_LOOKBACK);
     const recovering = read(block, 'RECOVERING') || 'false';
 
     const code = `(function () {
         var BinaryBotPrivateHybrid = Bot.evaluateHybridMultiScan({
+            digit_min: ${odd_max},
             odd_max: ${odd_max},
+            digit_max: ${even_min},
             even_min: ${even_min},
             pattern_lookback: ${pattern_lookback},
             hot_lookback: ${hot_lookback},

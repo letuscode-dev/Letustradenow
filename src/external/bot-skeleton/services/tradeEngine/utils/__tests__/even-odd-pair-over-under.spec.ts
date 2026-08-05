@@ -3,9 +3,11 @@ import {
     detectEvenOddPairSignal,
     getLastTwoDigits,
     getLastThreeDigits,
-    isOddPairAtMostThreshold,
+    isOddPairOverEntry,
     isEvenPairUnderEntry,
+    isOddLastTwoDigits,
     isEvenLastTwoDigits,
+    areLastThreeAtLeast,
     areLastThreeAtMost,
     makeEvenOddPairSignalKey,
     isEvenOddPairSignalConsumed,
@@ -52,13 +54,16 @@ describe('getLastTwoDigits / pair checks', () => {
         expect(getLastThreeDigits([1, 2]).ready).toBe(false);
     });
 
-    it('detects odd pair at most threshold', () => {
-        expect(isOddPairAtMostThreshold(1, 3, 5)).toBe(true);
-        expect(isOddPairAtMostThreshold(1, 5, 5)).toBe(true); // <= 5
-        expect(isOddPairAtMostThreshold(5, 7, 5)).toBe(false); // 7 > 5
-        expect(isOddPairAtMostThreshold(0, 2, 5)).toBe(false); // even
-        expect(isOddPairAtMostThreshold(1, 1, 1)).toBe(true);
-        expect(isOddPairAtMostThreshold(3, 3, 1)).toBe(false); // 3 > 1
+    it('detects odd last-2 + last-3 >= digit_min', () => {
+        expect(isOddLastTwoDigits(5, 7)).toBe(true);
+        expect(isOddLastTwoDigits(4, 7)).toBe(false);
+        expect(areLastThreeAtLeast(5, 5, 7, 5)).toBe(true);
+        expect(areLastThreeAtLeast(4, 5, 7, 5)).toBe(false); // 4 < 5
+        expect(isOddPairOverEntry([5, 5, 7], undefined, undefined, 5)).toBe(true);
+        expect(isOddPairOverEntry([4, 5, 7], undefined, undefined, 5)).toBe(false);
+        expect(isOddPairOverEntry([5, 4, 6], undefined, undefined, 5)).toBe(false); // even last2
+        expect(isOddPairOverEntry([5, 7], undefined, undefined, 5)).toBe(false); // need 3
+        expect(isOddPairOverEntry(5, 5, 7, 5)).toBe(true);
     });
 
     it('detects even last-2 + last-3 <= digit_max', () => {
@@ -75,13 +80,35 @@ describe('getLastTwoDigits / pair checks', () => {
 });
 
 describe('detectEvenOddPairSignal', () => {
-    it('Over: odd pair <= 5 → barrier 2', () => {
-        const result = detectEvenOddPairSignal([8, 1, 5], { side: 'OVER', odd_max: 5 });
+    it('Over: odd last-2 and last-3 >= 5 → barrier 2', () => {
+        const result = detectEvenOddPairSignal([1, 5, 5, 7], { side: 'OVER', digit_min: 5 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_OVER_BARRIER);
-        expect(result.previous_digit).toBe(1);
-        expect(result.current_digit).toBe(5);
         expect(result.contract_type).toBe('DIGITOVER');
+        expect(result.digit_a).toBe(5);
+        expect(result.digit_b).toBe(5);
+        expect(result.digit_c).toBe(7);
+    });
+
+    it('Over accepts last-3 exactly at digit_min', () => {
+        const result = detectEvenOddPairSignal([5, 5, 5], { side: 'OVER', digit_min: 5 });
+        expect(result.matched).toBe(true);
+        expect(result.barrier).toBe(ENTRY_OVER_BARRIER);
+    });
+
+    it('Over rejects when a last-3 digit is below digit_min', () => {
+        expect(detectEvenOddPairSignal([4, 5, 7], { side: 'OVER', digit_min: 5 }).matched).toBe(
+            false
+        );
+        expect(detectEvenOddPairSignal([5, 5, 3], { side: 'OVER', digit_min: 5 }).matched).toBe(
+            false
+        );
+    });
+
+    it('Over rejects even last-2 even if last-3 >= 5', () => {
+        expect(detectEvenOddPairSignal([5, 6, 8], { side: 'OVER', digit_min: 5 }).matched).toBe(
+            false
+        );
     });
 
     it('Over recovery → barrier 3 immediately', () => {
@@ -147,7 +174,7 @@ describe('recovery stake + tip key', () => {
     });
 
     it('locks one purchase per tip key', () => {
-        const signal = detectEvenOddPairSignal([1, 5], { side: 'OVER' });
+        const signal = detectEvenOddPairSignal([5, 5, 7], { side: 'OVER' });
         const key = makeEvenOddPairSignalKey(signal, 42);
         expect(isEvenOddPairSignalConsumed(signal, 42, key)).toBe(true);
         expect(isEvenOddPairSignalConsumed(signal, 43, key)).toBe(false);

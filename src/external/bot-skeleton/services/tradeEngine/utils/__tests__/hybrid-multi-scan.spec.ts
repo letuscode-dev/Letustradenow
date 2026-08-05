@@ -17,8 +17,8 @@ describe('evaluateHybridMultiScan', () => {
         expect(contractTypeToCode(null)).toBe(CONTRACT_CODE.NONE);
     });
 
-    it('prefers odd pair Over when last 2 are odd <= 5', () => {
-        const result = evaluateHybridMultiScan([1, 3], {
+    it('prefers odd pair Over when last 2 odd and last 3 >= 5', () => {
+        const result = evaluateHybridMultiScan([5, 5, 7], {
             odd_max: 5,
             even_min: 4,
             pattern_lookback: 20,
