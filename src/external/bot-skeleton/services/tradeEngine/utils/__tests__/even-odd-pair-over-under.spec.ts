@@ -2,8 +2,8 @@ import {
     calculatePayoutRecoveryStake,
     detectEvenOddPairSignal,
     getLastTwoDigits,
-    isEvenPairBelowThreshold,
-    isOddPairAboveThreshold,
+    isOddPairAtMostThreshold,
+    isEvenPairAboveThreshold,
     makeEvenOddPairSignalKey,
     isEvenOddPairSignalConsumed,
     makeEvenOddPairTipKey,
@@ -37,35 +37,36 @@ describe('getLastTwoDigits / pair checks', () => {
         });
     });
 
-    it('detects even pair below threshold', () => {
-        expect(isEvenPairBelowThreshold(0, 2, 5)).toBe(true);
-        expect(isEvenPairBelowThreshold(0, 4, 5)).toBe(true);
-        expect(isEvenPairBelowThreshold(2, 6, 5)).toBe(false);
-        expect(isEvenPairBelowThreshold(1, 2, 5)).toBe(false);
-        expect(isEvenPairBelowThreshold(4, 4, 4)).toBe(false);
+    it('detects odd pair at most threshold', () => {
+        expect(isOddPairAtMostThreshold(1, 3, 5)).toBe(true);
+        expect(isOddPairAtMostThreshold(1, 5, 5)).toBe(true); // <= 5
+        expect(isOddPairAtMostThreshold(5, 7, 5)).toBe(false); // 7 > 5
+        expect(isOddPairAtMostThreshold(0, 2, 5)).toBe(false); // even
+        expect(isOddPairAtMostThreshold(1, 1, 1)).toBe(true);
+        expect(isOddPairAtMostThreshold(3, 3, 1)).toBe(false); // 3 > 1
     });
 
-    it('detects odd pair above threshold', () => {
-        expect(isOddPairAboveThreshold(5, 7, 4)).toBe(true);
-        expect(isOddPairAboveThreshold(9, 9, 4)).toBe(true);
-        expect(isOddPairAboveThreshold(3, 5, 4)).toBe(false);
-        expect(isOddPairAboveThreshold(6, 7, 4)).toBe(false);
-        expect(isOddPairAboveThreshold(5, 5, 5)).toBe(false);
+    it('detects even pair above threshold', () => {
+        expect(isEvenPairAboveThreshold(6, 8, 4)).toBe(true);
+        expect(isEvenPairAboveThreshold(8, 8, 4)).toBe(true);
+        expect(isEvenPairAboveThreshold(2, 6, 4)).toBe(false); // 2 not > 4
+        expect(isEvenPairAboveThreshold(5, 7, 4)).toBe(false); // odd
+        expect(isEvenPairAboveThreshold(6, 6, 6)).toBe(false); // not > 6
     });
 });
 
 describe('detectEvenOddPairSignal', () => {
-    it('Over: even pair < 5 → barrier 2', () => {
-        const result = detectEvenOddPairSignal([9, 0, 2], { side: 'OVER', even_max: 5 });
+    it('Over: odd pair <= 5 → barrier 2', () => {
+        const result = detectEvenOddPairSignal([8, 1, 5], { side: 'OVER', odd_max: 5 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_OVER_BARRIER);
-        expect(result.previous_digit).toBe(0);
-        expect(result.current_digit).toBe(2);
+        expect(result.previous_digit).toBe(1);
+        expect(result.current_digit).toBe(5);
         expect(result.contract_type).toBe('DIGITOVER');
     });
 
     it('Over recovery → barrier 3 immediately', () => {
-        const result = detectEvenOddPairSignal([1, 3], {
+        const result = detectEvenOddPairSignal([0, 2], {
             side: 'OVER',
             recovering: true,
         });
@@ -74,15 +75,15 @@ describe('detectEvenOddPairSignal', () => {
         expect(result.reason).toContain('recovery');
     });
 
-    it('Under: odd pair > 4 → barrier 7', () => {
-        const result = detectEvenOddPairSignal([2, 5, 9], { side: 'UNDER', odd_min: 4 });
+    it('Under: even pair > 4 → barrier 7', () => {
+        const result = detectEvenOddPairSignal([1, 6, 8], { side: 'UNDER', even_min: 4 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_UNDER_BARRIER);
         expect(result.contract_type).toBe('DIGITUNDER');
     });
 
     it('Under recovery → barrier 6 immediately', () => {
-        const result = detectEvenOddPairSignal([0, 2], {
+        const result = detectEvenOddPairSignal([1, 3], {
             side: 'UNDER',
             recovering: true,
         });
@@ -91,8 +92,8 @@ describe('detectEvenOddPairSignal', () => {
     });
 
     it('rejects non-matching pairs', () => {
-        expect(detectEvenOddPairSignal([1, 3], { side: 'OVER' }).matched).toBe(false);
-        expect(detectEvenOddPairSignal([0, 2], { side: 'UNDER' }).matched).toBe(false);
+        expect(detectEvenOddPairSignal([0, 2], { side: 'OVER' }).matched).toBe(false);
+        expect(detectEvenOddPairSignal([1, 3], { side: 'UNDER' }).matched).toBe(false);
     });
 });
 
@@ -103,7 +104,7 @@ describe('recovery stake + tip key', () => {
     });
 
     it('locks one purchase per tip key', () => {
-        const signal = detectEvenOddPairSignal([0, 2], { side: 'OVER' });
+        const signal = detectEvenOddPairSignal([1, 5], { side: 'OVER' });
         const key = makeEvenOddPairSignalKey(signal, 42);
         expect(isEvenOddPairSignalConsumed(signal, 42, key)).toBe(true);
         expect(isEvenOddPairSignalConsumed(signal, 43, key)).toBe(false);
@@ -137,13 +138,11 @@ describe('runtime commit / settlement', () => {
         expect(state.trade_committed).toBe(false);
         expect(state.last_handled_contract_id).toBe('c1');
 
-        // Re-arm for next trade while previous settled stub is still present.
         armEvenOddPairPrediction(state, 3);
         expect(state.trade_committed).toBe(true);
         expect(applyEvenOddPairSettlement(state, 'c1')).toBe(false);
         expect(state.trade_committed).toBe(true);
 
-        // Real new settlement unlocks.
         expect(applyEvenOddPairSettlement(state, 'c2')).toBe(true);
         expect(state.trade_committed).toBe(false);
         expect(state.last_handled_contract_id).toBe('c2');

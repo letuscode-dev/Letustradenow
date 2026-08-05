@@ -1,12 +1,12 @@
 /**
- * Even-pair Over / Odd-pair Under — last-2 digit scanner.
+ * Odd-pair Over / Even-pair Under — last-2 digit scanner.
  * Hidden from Blocks Menu; free bots wrap it in a custom function.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
 import {
-    DEFAULT_EVEN_MAX,
-    DEFAULT_ODD_MIN,
+    DEFAULT_ODD_MAX,
+    DEFAULT_EVEN_MIN,
 } from '../../../../services/tradeEngine/utils/even-odd-pair-over-under';
 
 window.Blockly.Blocks.even_odd_pair_over_under = {
@@ -44,7 +44,7 @@ window.Blockly.Blocks.even_odd_pair_over_under = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Over: last 2 digits even and < threshold → Over 2 (recovery Over 3). Under: last 2 digits odd and > threshold → Under 7 (recovery Under 6).'
+                'Over: last 2 digits odd and ≤ threshold → Over 2 (recovery Over 3). Under: last 2 digits even and > threshold → Under 7 (recovery Under 6).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -53,7 +53,7 @@ window.Blockly.Blocks.even_odd_pair_over_under = {
         return {
             display_name: localize('Even/Odd Pair Over Under'),
             description: localize(
-                'Scans the last two digits for even-pair Over or odd-pair Under entries, with recovery barriers.'
+                'Scans the last two digits for odd-pair Over or even-pair Under entries, with recovery barriers.'
             ),
             key_words: localize('even, odd, pair, over, under, recovery'),
         };
@@ -72,7 +72,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.even_odd_pair_over_under 
         );
 
     const side = block.getFieldValue('MARKET_SIDE') || 'OVER';
-    const default_th = side === 'UNDER' ? DEFAULT_ODD_MIN : DEFAULT_EVEN_MAX;
+    const default_th = side === 'UNDER' ? DEFAULT_EVEN_MIN : DEFAULT_ODD_MAX;
     const threshold = read('THRESHOLD') || String(default_th);
     const recovering = read('RECOVERING') || 'false';
     const journal = read('JOURNAL') || 'true';

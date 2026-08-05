@@ -1,10 +1,10 @@
 /**
- * Free bots — Even-pair Over 2 and Odd-pair Under 7.
+ * Free bots — Odd-pair Over 2 and Even-pair Under 7.
  *
- * Over: last 2 digits even and < Even_max (default 5) → DIGITOVER 2.
+ * Over: last 2 digits odd and <= Odd_max (default 5) → DIGITOVER 2.
  *       On loss: stake = Total_loss * 100 / Payout% (default 60), barrier 3 until recovered.
  *
- * Under: last 2 digits odd and > Odd_min (default 4) → DIGITUNDER 7.
+ * Under: last 2 digits even and > Even_min (default 4) → DIGITUNDER 7.
  *        On loss: stake = Total_loss * 100 / Payout% (default 60), barrier 6 until recovered.
  */
 
@@ -12,20 +12,20 @@ type PairSide = 'OVER' | 'UNDER';
 
 const buildEvenOddPairXml = (side: PairSide): string => {
     const is_over = side === 'OVER';
-    const prefix = is_over ? 'epo' : 'opu';
+    const prefix = is_over ? 'opo' : 'epu';
     const type_list = is_over ? 'DIGITOVER' : 'DIGITUNDER';
     const purchase = is_over ? 'DIGITOVER' : 'DIGITUNDER';
     const market_side = is_over ? 'OVER' : 'UNDER';
-    const threshold_var = is_over ? 'Even_max' : 'Odd_min';
+    const threshold_var = is_over ? 'Odd_max' : 'Even_min';
     const threshold_id = `${prefix}_threshold`;
     const threshold_default = is_over ? '5' : '4';
-    const fn_name = is_over ? 'Even Pair Over Barrier' : 'Odd Pair Under Barrier';
+    const fn_name = is_over ? 'Odd Pair Over Barrier' : 'Even Pair Under Barrier';
     const stop_max = is_over
-        ? 'Max consecutive losses reached. Stopping (Even-pair Over).'
-        : 'Max consecutive losses reached. Stopping (Odd-pair Under).';
+        ? 'Max consecutive losses reached. Stopping (Odd-pair Over).'
+        : 'Max consecutive losses reached. Stopping (Even-pair Under).';
     const stop_tp = is_over
-        ? 'Profit threshold reached. Stopping (Even-pair Over).'
-        : 'Profit threshold reached. Stopping (Odd-pair Under).';
+        ? 'Profit threshold reached. Stopping (Odd-pair Over).'
+        : 'Profit threshold reached. Stopping (Even-pair Under).';
 
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -301,5 +301,9 @@ const buildEvenOddPairXml = (side: PairSide): string => {
 </xml>`;
 };
 
-export const EVEN_PAIR_OVER_XML = buildEvenOddPairXml('OVER');
-export const ODD_PAIR_UNDER_XML = buildEvenOddPairXml('UNDER');
+export const ODD_PAIR_OVER_XML = buildEvenOddPairXml('OVER');
+export const EVEN_PAIR_UNDER_XML = buildEvenOddPairXml('UNDER');
+/** @deprecated use ODD_PAIR_OVER_XML */
+export const EVEN_PAIR_OVER_XML = ODD_PAIR_OVER_XML;
+/** @deprecated use EVEN_PAIR_UNDER_XML */
+export const ODD_PAIR_UNDER_XML = EVEN_PAIR_UNDER_XML;

@@ -1,15 +1,19 @@
 /**
- * Even-pair Over / Odd-pair Under — last-2 digit scanners.
+ * Odd-pair Over / Even-pair Under — last-2 digit scanners.
  *
- * Over (even pair): previous + current both even and both < threshold (default 5)
+ * Over (odd pair): previous + current both odd and both <= odd_max (default 5)
  *   → DIGITOVER barrier 2; while recovering → barrier 3
  *
- * Under (odd pair): previous + current both odd and both > threshold (default 4)
+ * Under (even pair): previous + current both even and both > even_min (default 4)
  *   → DIGITUNDER barrier 7; while recovering → barrier 6
  */
 
-export const DEFAULT_EVEN_MAX = 5;
-export const DEFAULT_ODD_MIN = 4;
+export const DEFAULT_ODD_MAX = 5;
+export const DEFAULT_EVEN_MIN = 4;
+/** @deprecated use DEFAULT_ODD_MAX */
+export const DEFAULT_EVEN_MAX = DEFAULT_ODD_MAX;
+/** @deprecated use DEFAULT_EVEN_MIN */
+export const DEFAULT_ODD_MIN = DEFAULT_EVEN_MIN;
 export const ENTRY_OVER_BARRIER = 2;
 export const RECOVERY_OVER_BARRIER = 3;
 export const ENTRY_UNDER_BARRIER = 7;
@@ -60,7 +64,7 @@ export const toMarketSide = value => {
     const raw = String(value || '')
         .trim()
         .toUpperCase();
-    if (raw === 'UNDER' || raw === 'DIGITUNDER' || raw === 'ODD') {
+    if (raw === 'UNDER' || raw === 'DIGITUNDER' || raw === 'EVEN') {
         return 'UNDER';
     }
     return 'OVER';
@@ -84,17 +88,28 @@ export const calculatePayoutRecoveryStake = (total_loss, payout_percent = DEFAUL
 
 export const normalizeEvenOddPairOptions = (options = {}) => {
     const side = toMarketSide(options.side || options.market_side);
+    const threshold = options.threshold;
     return {
         side,
-        even_max: toInt(
-            options.even_max !== undefined ? options.even_max : options.threshold,
-            DEFAULT_EVEN_MAX,
+        // Over: odd digits <= odd_max (default 5)
+        odd_max: toInt(
+            options.odd_max !== undefined
+                ? options.odd_max
+                : options.even_max !== undefined
+                  ? options.even_max
+                  : threshold,
+            DEFAULT_ODD_MAX,
             1,
             9
         ),
-        odd_min: toInt(
-            options.odd_min !== undefined ? options.odd_min : options.threshold,
-            DEFAULT_ODD_MIN,
+        // Under: even digits > even_min (default 4)
+        even_min: toInt(
+            options.even_min !== undefined
+                ? options.even_min
+                : options.odd_min !== undefined
+                  ? options.odd_min
+                  : threshold,
+            DEFAULT_EVEN_MIN,
             0,
             8
         ),
@@ -121,25 +136,36 @@ export const getLastTwoDigits = digits => {
     };
 };
 
-export const isEvenPairBelowThreshold = (previous_digit, current_digit, even_max = DEFAULT_EVEN_MAX) => {
-    const max = toInt(even_max, DEFAULT_EVEN_MAX, 1, 9);
-    return (
-        isEvenDigit(previous_digit) &&
-        isEvenDigit(current_digit) &&
-        previous_digit < max &&
-        current_digit < max
-    );
-};
-
-export const isOddPairAboveThreshold = (previous_digit, current_digit, odd_min = DEFAULT_ODD_MIN) => {
-    const min = toInt(odd_min, DEFAULT_ODD_MIN, 0, 8);
+/** Over entry: both odd and <= odd_max. */
+export const isOddPairAtMostThreshold = (previous_digit, current_digit, odd_max = DEFAULT_ODD_MAX) => {
+    const max = toInt(odd_max, DEFAULT_ODD_MAX, 1, 9);
     return (
         isOddDigit(previous_digit) &&
         isOddDigit(current_digit) &&
+        previous_digit <= max &&
+        current_digit <= max
+    );
+};
+
+/** Under entry: both even and > even_min. */
+export const isEvenPairAboveThreshold = (
+    previous_digit,
+    current_digit,
+    even_min = DEFAULT_EVEN_MIN
+) => {
+    const min = toInt(even_min, DEFAULT_EVEN_MIN, 0, 8);
+    return (
+        isEvenDigit(previous_digit) &&
+        isEvenDigit(current_digit) &&
         previous_digit > min &&
         current_digit > min
     );
 };
+
+/** @deprecated use isOddPairAtMostThreshold */
+export const isEvenPairBelowThreshold = isOddPairAtMostThreshold;
+/** @deprecated use isEvenPairAboveThreshold */
+export const isOddPairAboveThreshold = isEvenPairAboveThreshold;
 
 /**
  * @returns {{ matched: boolean, barrier: number, side: string, reason: string, previous_digit: number|null, current_digit: number|null, recovering: boolean, entry_barrier: number, recovery_barrier: number }}
@@ -162,8 +188,8 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
         recovering: opts.recovering,
         entry_barrier,
         recovery_barrier,
-        even_max: opts.even_max,
-        odd_min: opts.odd_min,
+        odd_max: opts.odd_max,
+        even_min: opts.even_min,
         reason: 'no_signal',
     };
 
@@ -183,10 +209,10 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
     }
 
     if (opts.side === 'OVER') {
-        if (!isEvenPairBelowThreshold(previous_digit, current_digit, opts.even_max)) {
+        if (!isOddPairAtMostThreshold(previous_digit, current_digit, opts.odd_max)) {
             return {
                 ...base,
-                reason: `no_even_pair_lt_${opts.even_max}_${previous_digit},${current_digit}`,
+                reason: `no_odd_pair_lte_${opts.odd_max}_${previous_digit},${current_digit}`,
             };
         }
         return {
@@ -194,14 +220,14 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
             matched: true,
             barrier: entry_barrier,
             prediction: entry_barrier,
-            reason: `even_pair_${previous_digit},${current_digit}_over_${entry_barrier}`,
+            reason: `odd_pair_${previous_digit},${current_digit}_over_${entry_barrier}`,
         };
     }
 
-    if (!isOddPairAboveThreshold(previous_digit, current_digit, opts.odd_min)) {
+    if (!isEvenPairAboveThreshold(previous_digit, current_digit, opts.even_min)) {
         return {
             ...base,
-            reason: `no_odd_pair_gt_${opts.odd_min}_${previous_digit},${current_digit}`,
+            reason: `no_even_pair_gt_${opts.even_min}_${previous_digit},${current_digit}`,
         };
     }
     return {
@@ -209,7 +235,7 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
         matched: true,
         barrier: entry_barrier,
         prediction: entry_barrier,
-        reason: `odd_pair_${previous_digit},${current_digit}_under_${entry_barrier}`,
+        reason: `even_pair_${previous_digit},${current_digit}_under_${entry_barrier}`,
     };
 };
 
@@ -224,7 +250,7 @@ export const buildEvenOddPairResult = ({
 
     if (journal_enabled) {
         if (hit) {
-            const label = hit.side === 'UNDER' ? 'Odd-pair Under' : 'Even-pair Over';
+            const label = hit.side === 'UNDER' ? 'Even-pair Under' : 'Odd-pair Over';
             const mode = hit.recovering ? 'recovery' : 'entry';
             journal_messages.push({
                 className: 'success',
@@ -265,7 +291,6 @@ export const makeEvenOddPairSignalKey = (signal, tip_epoch) => {
         tip_epoch === undefined || tip_epoch === null || tip_epoch === ''
             ? ''
             : String(tip_epoch);
-    // Recovery trades re-arm after each settlement; key by barrier+epoch only.
     return `${signal.side}|b:${signal.barrier}|rec:${signal.recovering ? 1 : 0}|e:${epoch}`;
 };
 

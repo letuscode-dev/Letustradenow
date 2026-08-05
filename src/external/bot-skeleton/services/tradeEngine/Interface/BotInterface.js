@@ -417,9 +417,9 @@ const getBotInterface = tradeEngine => {
             return percentage;
         },
         /**
-         * Even-pair Over / Odd-pair Under — sync last-2 digit scan.
-         * Over: both even & < threshold → Over 2; recovering → Over 3.
-         * Under: both odd & > threshold → Under 7; recovering → Under 6.
+         * Odd-pair Over / Even-pair Under — sync last-2 digit scan.
+         * Over: both odd & <= threshold → Over 2; recovering → Over 3.
+         * Under: both even & > threshold → Under 7; recovering → Under 6.
          * Arms one purchase at a time; entry is one-shot per tip, recovery may re-arm after settle.
          */
         evaluateEvenOddPairOverUnder: options => {
