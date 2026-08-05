@@ -110,6 +110,21 @@ import {
     resetHotOddEvenDiffersRuntimeState,
 } from '../utils/odd-even-hot-digit';
 import {
+    applyParityRunSettlement,
+    armParityRunPrediction,
+    buildParityRunScanResult,
+    createParityRunRuntimeState,
+    evaluateSymbolParityRunSignal,
+    isParityRunSignalConsumed,
+    makeParityRunSignalKey,
+    normalizeParityRunOptions,
+    orderSymbolsForScan as orderParityRunSymbols,
+    pickFirstParityRunMatch,
+    releaseStaleParityRunCommit,
+    resetParityRunRuntimeState,
+    resolveScanSymbols as resolveParityRunSymbols,
+} from '../utils/parity-run-differs';
+import {
     CONTRACT_CODE,
     applyHybridMultiScanSettlement,
     armHybridMultiScanPrediction,
@@ -191,6 +206,13 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.hybridMultiScanState) {
                 resetHybridMultiScanRuntimeState(tradeEngine.hybridMultiScanState);
                 tradeEngine.hybridMultiScanState = null;
+            }
+            tradeEngine.parityRunDiffersSnapshot = null;
+            tradeEngine._parityRunLastJournalFp = null;
+            tradeEngine._parityRunConsumedKey = null;
+            if (tradeEngine.parityRunDiffersState) {
+                resetParityRunRuntimeState(tradeEngine.parityRunDiffersState);
+                tradeEngine.parityRunDiffersState = null;
             }
             return tradeEngine.stop(...args);
         },
@@ -1372,6 +1394,187 @@ const getBotInterface = tradeEngine => {
             }
 
             tradeEngine.oddEvenHotDigitSnapshot = public_result;
+            return public_result;
+        },
+        /**
+         * Parity-run Differs — last N all-even or all-odd → Differ oldest of those N.
+         * Multi-market scan across 1S / STANDARD / ALL with optional symbol switch.
+         */
+        evaluateParityRunDiffersScan: async options => {
+            const opts = normalizeParityRunOptions(options || {});
+            if (!tradeEngine.parityRunDiffersState) {
+                tradeEngine.parityRunDiffersState = createParityRunRuntimeState();
+            }
+            const runtime = tradeEngine.parityRunDiffersState;
+
+            const contract = tradeEngine.data?.contract;
+            const has_open_contract = Boolean(
+                contract && contract.buy_price != null && contract.sell_price == null
+            );
+
+            if (
+                contract &&
+                contract.buy_price != null &&
+                contract.sell_price != null &&
+                contract.transaction_ids?.buy &&
+                (contract.contract_id || contract.transaction_ids?.buy)
+            ) {
+                const contract_id =
+                    contract.contract_id || contract.transaction_ids?.buy || null;
+                applyParityRunSettlement(runtime, contract_id);
+            }
+
+            if (!has_open_contract && releaseStaleParityRunCommit(runtime, 20000)) {
+                tradeEngine._parityRunConsumedKey = null;
+            }
+
+            if (runtime.trade_committed || has_open_contract) {
+                const waiting = {
+                    prediction: -1,
+                    barrier: -1,
+                    matched: false,
+                    parity: null,
+                    sequence: [],
+                    symbol: tradeEngine.options?.symbol || tradeEngine.symbol || '',
+                    market_group: opts.market_group,
+                    symbols_scanned: [],
+                    evaluations: [],
+                    switched: false,
+                    skipped_consumed: false,
+                    run_length: opts.run_length,
+                    reason: 'awaiting_settlement',
+                    journal_messages: [],
+                };
+                tradeEngine.parityRunDiffersSnapshot = waiting;
+                return waiting;
+            }
+
+            const symbols = resolveParityRunSymbols(opts);
+            const active_symbol =
+                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
+            const ordered = orderParityRunSymbols(symbols, active_symbol);
+            const ticks_service = tradeEngine.$scope?.ticksService;
+            const need = Math.max(opts.run_length, 6);
+
+            if (ticks_service?.warmScanStreams) {
+                ticks_service.warmScanStreams(ordered).catch(() => {});
+            }
+            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
+                try {
+                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
+                } catch (e) {
+                    // keep prior caches
+                }
+            }
+
+            const evaluations = await Promise.all(
+                ordered.map(async symbol => {
+                    if (ticks_service?._noteScanTip) {
+                        ticks_service._noteScanTip(symbol);
+                    }
+                    let digits = tradeEngine.getCachedDigitsForSymbol
+                        ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
+                        : [];
+                    if (
+                        symbol === active_symbol &&
+                        (!Array.isArray(digits) || digits.length < opts.run_length) &&
+                        typeof tradeEngine.getDigitsForSymbol === 'function'
+                    ) {
+                        try {
+                            digits = await tradeEngine.getDigitsForSymbol(symbol, need);
+                        } catch (e) {
+                            digits = Array.isArray(digits) ? digits : [];
+                        }
+                    }
+                    return evaluateSymbolParityRunSignal(symbol, digits, opts.run_length);
+                })
+            );
+
+            const raw_match = pickFirstParityRunMatch(evaluations);
+            let tip_epoch = null;
+            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+                const tip = ticks[ticks.length - 1];
+                if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+                    tip_epoch = Number(tip.epoch);
+                } else if (tip) {
+                    tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
+                }
+            }
+
+            const skipped_consumed = isParityRunSignalConsumed(
+                raw_match,
+                tip_epoch,
+                tradeEngine._parityRunConsumedKey
+            );
+            const match = skipped_consumed ? null : raw_match;
+
+            let switched = false;
+            let switch_failed = false;
+            if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
+                try {
+                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                        await tradeEngine.switchTradeSymbol(match.symbol);
+                        const now_symbol =
+                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                        if (now_symbol === match.symbol) {
+                            switched = true;
+                        } else {
+                            switch_failed = true;
+                        }
+                    } else {
+                        switch_failed = true;
+                    }
+                } catch (e) {
+                    switch_failed = true;
+                }
+            }
+
+            const tradeable = match?.matched && !switch_failed ? match : null;
+            if (tradeable) {
+                tradeEngine._parityRunConsumedKey = makeParityRunSignalKey(tradeable, tip_epoch);
+                armParityRunPrediction(runtime, tradeable.barrier);
+            }
+
+            const result = buildParityRunScanResult({
+                market_group: opts.market_group,
+                symbols: ordered,
+                active_symbol,
+                journal_enabled: opts.journal_enabled,
+                evaluations,
+                match: switch_failed ? null : raw_match,
+                switched,
+                skipped_consumed: skipped_consumed || switch_failed,
+                run_length: opts.run_length,
+            });
+
+            if (switch_failed && opts.journal_enabled) {
+                result.reason = 'switch_failed';
+                result.journal_messages = [
+                    {
+                        className: 'error',
+                        message: `Parity-run: signal on ${match.symbol} but market switch failed — skipping trade`,
+                    },
+                ];
+            }
+
+            const tip_fp = skipped_consumed
+                ? `consumed:${tradeEngine._parityRunConsumedKey}`
+                : switch_failed
+                  ? `switch_failed:${match?.symbol}:${tip_epoch}`
+                  : evaluations.map(e => `${e.symbol}:${(e.sequence || []).join(',')}`).join('|');
+            let public_result = result;
+            if (
+                !result.matched &&
+                tradeEngine._parityRunLastJournalFp === tip_fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                public_result = { ...result, journal_messages: [] };
+            } else {
+                tradeEngine._parityRunLastJournalFp = tip_fp;
+            }
+
+            tradeEngine.parityRunDiffersSnapshot = public_result;
             return public_result;
         },
         setSequentialDigitDiffersLastResult: (is_loss, immediate_loss_retry) => {

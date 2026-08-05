@@ -1,6 +1,7 @@
 import type { FreeBot } from './types';
 import { ODD_PAIR_OVER_XML, EVEN_PAIR_UNDER_XML } from './bots/even-odd-pair-ou';
 import { HYBRID_MULTI_SCAN_XML } from './bots/hybrid-multi-scan';
+import { PARITY_RUN_DIFFERS_XML } from './bots/parity-run-differs';
 
 /**
  * Free Bots catalog.
@@ -9,6 +10,14 @@ import { HYBRID_MULTI_SCAN_XML } from './bots/hybrid-multi-scan';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'parity-run-differs-v1',
+        title: 'Parity-run Differs',
+        description:
+            'Scans 1s + standard volatilities (Market_group ALL). If the last Run_length digits (default 6) are all even or all odd → Differs the oldest of those digits (the 6th back). Switches to the signaling market. Recovery via Payout% (default 9.6). Set Market_group to 1S, STANDARD, or ALL in Run once at start.',
+        tags: ['Differs', 'Even', 'Odd', 'Parity', 'Multi-market', '1s', 'Standard', 'Recovery'],
+        xml: PARITY_RUN_DIFFERS_XML,
+    },
     {
         id: 'hybrid-multi-scan-v1',
         title: 'Hybrid Multi-Scan',

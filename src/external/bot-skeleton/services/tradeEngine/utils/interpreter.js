@@ -194,6 +194,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateOddEvenHotDigitScan)
             );
         }
+        if (typeof bot_interface.evaluateParityRunDiffersScan === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateParityRunDiffersScan',
+                createAsync(js_interpreter, bot_interface.evaluateParityRunDiffersScan)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
