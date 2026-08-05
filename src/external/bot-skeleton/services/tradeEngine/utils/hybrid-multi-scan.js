@@ -1,7 +1,7 @@
 /**
  * Hybrid multi-scan — combines free-bot scan families on the active market:
  *   1. Odd Pair → DIGITOVER 2 (recovery 3)
- *   2. Even Pair → DIGITUNDER 7 (recovery 6)
+ *   2. Even Pair → last 2 even + last 3 ≤ digit_max → DIGITUNDER 7 (recovery 6)
  *   3. Pattern Probability Over/Under
  *   4. Sequential Digit Differs
  *   5. Hot Digit Differs (both parities)

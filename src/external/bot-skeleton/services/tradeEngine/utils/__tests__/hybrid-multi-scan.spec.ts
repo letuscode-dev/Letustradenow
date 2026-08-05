@@ -31,9 +31,8 @@ describe('evaluateHybridMultiScan', () => {
         expect(result.contract_code).toBe(CONTRACT_CODE.DIGITOVER);
     });
 
-    it('prefers even pair Under when last 2 are even >= 4', () => {
-        // Avoid odd pair: use even digits
-        const result = evaluateHybridMultiScan([4, 6], {
+    it('prefers even pair Under when last 2 even and last 3 <= 4', () => {
+        const result = evaluateHybridMultiScan([2, 0, 4], {
             odd_max: 5,
             even_min: 4,
             pattern_lookback: 20,

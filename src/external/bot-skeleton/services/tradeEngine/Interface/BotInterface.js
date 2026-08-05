@@ -437,7 +437,7 @@ const getBotInterface = tradeEngine => {
         /**
          * Odd-pair Over / Even-pair Under — sync last-2 digit scan.
          * Over: both odd & <= threshold → Over 2; recovering → Over 3.
-         * Under: both even & >= threshold → Under 7; recovering → Under 6.
+         * Under: last 2 even & last 3 <= digit_max → Under 7; recovering → Under 6.
          * Arms one purchase at a time; entry is one-shot per tip, recovery may re-arm after settle.
          */
         evaluateEvenOddPairOverUnder: options => {
@@ -510,9 +510,9 @@ const getBotInterface = tradeEngine => {
             }
 
             const digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(2)
+                ? tradeEngine.getAvailableLastDigitList(3)
                 : tradeEngine.getCachedLastDigitList
-                  ? tradeEngine.getCachedLastDigitList(2)
+                  ? tradeEngine.getCachedLastDigitList(3)
                   : [];
 
             const tip_base = tradeEngine.getLatestTickTipKey
@@ -524,6 +524,12 @@ const getBotInterface = tradeEngine => {
                 side,
                 threshold: opts.threshold,
                 odd_max: opts.odd_max !== undefined ? opts.odd_max : opts.threshold,
+                digit_max:
+                    opts.digit_max !== undefined
+                        ? opts.digit_max
+                        : opts.even_min !== undefined
+                          ? opts.even_min
+                          : opts.threshold,
                 even_min: opts.even_min !== undefined ? opts.even_min : opts.threshold,
                 recovering,
                 journal_enabled: true,

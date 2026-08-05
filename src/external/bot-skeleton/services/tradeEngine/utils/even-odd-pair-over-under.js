@@ -1,19 +1,22 @@
 /**
- * Odd-pair Over / Even-pair Under — last-2 digit scanners.
+ * Odd-pair Over / Even-pair Under scanners.
  *
  * Over (odd pair): previous + current both odd and both <= odd_max (default 5)
  *   → DIGITOVER barrier 2; while recovering → barrier 3
  *
- * Under (even pair): previous + current both even and both >= even_min (default 4)
+ * Under (even pair): last 2 digits even AND last 3 digits all <= digit_max (default 4)
  *   → DIGITUNDER barrier 7; while recovering → barrier 6
  */
 
 export const DEFAULT_ODD_MAX = 5;
-export const DEFAULT_EVEN_MIN = 4;
+/** Under: last-3 digits must be <= this (default 4). */
+export const DEFAULT_DIGIT_MAX = 4;
+/** @deprecated use DEFAULT_DIGIT_MAX */
+export const DEFAULT_EVEN_MIN = DEFAULT_DIGIT_MAX;
 /** @deprecated use DEFAULT_ODD_MAX */
 export const DEFAULT_EVEN_MAX = DEFAULT_ODD_MAX;
-/** @deprecated use DEFAULT_EVEN_MIN */
-export const DEFAULT_ODD_MIN = DEFAULT_EVEN_MIN;
+/** @deprecated use DEFAULT_DIGIT_MAX */
+export const DEFAULT_ODD_MIN = DEFAULT_DIGIT_MAX;
 export const ENTRY_OVER_BARRIER = 2;
 export const RECOVERY_OVER_BARRIER = 3;
 export const ENTRY_UNDER_BARRIER = 7;
@@ -102,16 +105,18 @@ export const normalizeEvenOddPairOptions = (options = {}) => {
             1,
             9
         ),
-        // Under: even digits >= even_min (default 4)
-        even_min: toInt(
-            options.even_min !== undefined
-                ? options.even_min
-                : options.odd_min !== undefined
-                  ? options.odd_min
-                  : threshold,
-            DEFAULT_EVEN_MIN,
+        // Under: last 3 digits <= digit_max (default 4); even_min kept as alias
+        digit_max: toInt(
+            options.digit_max !== undefined
+                ? options.digit_max
+                : options.even_min !== undefined
+                  ? options.even_min
+                  : options.odd_min !== undefined
+                    ? options.odd_min
+                    : threshold,
+            DEFAULT_DIGIT_MAX,
             0,
-            8
+            9
         ),
         recovering: toBool(options.recovering),
         // Always on — free bots and block input cannot disable journal.
@@ -136,6 +141,34 @@ export const getLastTwoDigits = digits => {
     };
 };
 
+/**
+ * Read last three digits (oldest → newest among the three).
+ */
+export const getLastThreeDigits = digits => {
+    const list = Array.isArray(digits) ? digits : [];
+    if (list.length < 3) {
+        return {
+            digit_a: null,
+            digit_b: null,
+            digit_c: null,
+            previous_digit: null,
+            current_digit: null,
+            ready: false,
+        };
+    }
+    const digit_a = toDigit(list[list.length - 3]);
+    const digit_b = toDigit(list[list.length - 2]);
+    const digit_c = toDigit(list[list.length - 1]);
+    return {
+        digit_a,
+        digit_b,
+        digit_c,
+        previous_digit: digit_b,
+        current_digit: digit_c,
+        ready: digit_a !== null && digit_b !== null && digit_c !== null,
+    };
+};
+
 /** Over entry: both odd and <= odd_max. */
 export const isOddPairAtMostThreshold = (previous_digit, current_digit, odd_max = DEFAULT_ODD_MAX) => {
     const max = toInt(odd_max, DEFAULT_ODD_MAX, 1, 9);
@@ -147,24 +180,58 @@ export const isOddPairAtMostThreshold = (previous_digit, current_digit, odd_max 
     );
 };
 
-/** Under entry: both even and >= even_min. */
+/** Last two digits are both even. */
+export const isEvenLastTwoDigits = (previous_digit, current_digit) =>
+    isEvenDigit(previous_digit) && isEvenDigit(current_digit);
+
+/** Last three digits are each <= digit_max. */
+export const areLastThreeAtMost = (digit_a, digit_b, digit_c, digit_max = DEFAULT_DIGIT_MAX) => {
+    const max = toInt(digit_max, DEFAULT_DIGIT_MAX, 0, 9);
+    const a = toDigit(digit_a);
+    const b = toDigit(digit_b);
+    const c = toDigit(digit_c);
+    return a !== null && b !== null && c !== null && a <= max && b <= max && c <= max;
+};
+
+/**
+ * Under entry: last 2 even AND last 3 all <= digit_max.
+ * Accepts either a digits array or explicit last-3 values.
+ */
+export const isEvenPairUnderEntry = (digitsOrA, digit_b, digit_c, digit_max = DEFAULT_DIGIT_MAX) => {
+    if (Array.isArray(digitsOrA)) {
+        const { digit_a, digit_b: b, digit_c: c, ready } = getLastThreeDigits(digitsOrA);
+        if (!ready) {
+            return false;
+        }
+        return isEvenLastTwoDigits(b, c) && areLastThreeAtMost(digit_a, b, c, digit_max);
+    }
+    return (
+        isEvenLastTwoDigits(digit_b, digit_c) &&
+        areLastThreeAtMost(digitsOrA, digit_b, digit_c, digit_max)
+    );
+};
+
+/**
+ * @deprecated Under no longer uses >= on last-2. Kept for older callers —
+ * now means last-2 even and both <= digit_max (partial check without 3rd digit).
+ */
 export const isEvenPairAboveThreshold = (
     previous_digit,
     current_digit,
-    even_min = DEFAULT_EVEN_MIN
+    digit_max = DEFAULT_DIGIT_MAX
 ) => {
-    const min = toInt(even_min, DEFAULT_EVEN_MIN, 0, 8);
+    const max = toInt(digit_max, DEFAULT_DIGIT_MAX, 0, 9);
     return (
         isEvenDigit(previous_digit) &&
         isEvenDigit(current_digit) &&
-        previous_digit >= min &&
-        current_digit >= min
+        previous_digit <= max &&
+        current_digit <= max
     );
 };
 
 /** @deprecated use isOddPairAtMostThreshold */
 export const isEvenPairBelowThreshold = isOddPairAtMostThreshold;
-/** @deprecated use isEvenPairAboveThreshold */
+/** @deprecated use isEvenPairUnderEntry */
 export const isOddPairAboveThreshold = isEvenPairAboveThreshold;
 
 /**
@@ -172,24 +239,84 @@ export const isOddPairAboveThreshold = isEvenPairAboveThreshold;
  */
 export const detectEvenOddPairSignal = (digits, options = {}) => {
     const opts = normalizeEvenOddPairOptions(options);
-    const { previous_digit, current_digit, ready } = getLastTwoDigits(digits);
-
     const entry_barrier = opts.side === 'UNDER' ? ENTRY_UNDER_BARRIER : ENTRY_OVER_BARRIER;
     const recovery_barrier = opts.side === 'UNDER' ? RECOVERY_UNDER_BARRIER : RECOVERY_OVER_BARRIER;
+
+    if (opts.side === 'UNDER') {
+        const three = getLastThreeDigits(digits);
+        const base = {
+            matched: false,
+            barrier: -1,
+            prediction: -1,
+            side: opts.side,
+            contract_type: 'DIGITUNDER',
+            previous_digit: three.previous_digit,
+            current_digit: three.current_digit,
+            digit_a: three.digit_a,
+            digit_b: three.digit_b,
+            digit_c: three.digit_c,
+            recovering: opts.recovering,
+            entry_barrier,
+            recovery_barrier,
+            odd_max: opts.odd_max,
+            digit_max: opts.digit_max,
+            even_min: opts.digit_max,
+            reason: 'no_signal',
+        };
+
+        if (opts.recovering) {
+            return {
+                ...base,
+                matched: true,
+                barrier: recovery_barrier,
+                prediction: recovery_barrier,
+                reason: `recovery_under_${recovery_barrier}`,
+            };
+        }
+
+        if (!three.ready) {
+            return { ...base, reason: 'insufficient_digits' };
+        }
+
+        if (!isEvenLastTwoDigits(three.digit_b, three.digit_c)) {
+            return {
+                ...base,
+                reason: `no_even_last2_${three.digit_b},${three.digit_c}`,
+            };
+        }
+
+        if (!areLastThreeAtMost(three.digit_a, three.digit_b, three.digit_c, opts.digit_max)) {
+            return {
+                ...base,
+                reason: `no_last3_lte_${opts.digit_max}_${three.digit_a},${three.digit_b},${three.digit_c}`,
+            };
+        }
+
+        return {
+            ...base,
+            matched: true,
+            barrier: entry_barrier,
+            prediction: entry_barrier,
+            reason: `even_last2_last3_lte_${opts.digit_max}_${three.digit_a},${three.digit_b},${three.digit_c}_under_${entry_barrier}`,
+        };
+    }
+
+    const { previous_digit, current_digit, ready } = getLastTwoDigits(digits);
 
     const base = {
         matched: false,
         barrier: -1,
         prediction: -1,
         side: opts.side,
-        contract_type: opts.side === 'UNDER' ? 'DIGITUNDER' : 'DIGITOVER',
+        contract_type: 'DIGITOVER',
         previous_digit,
         current_digit,
         recovering: opts.recovering,
         entry_barrier,
         recovery_barrier,
         odd_max: opts.odd_max,
-        even_min: opts.even_min,
+        digit_max: opts.digit_max,
+        even_min: opts.digit_max,
         reason: 'no_signal',
     };
 
@@ -204,30 +331,14 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
             matched: true,
             barrier: recovery_barrier,
             prediction: recovery_barrier,
-            reason: `recovery_${opts.side.toLowerCase()}_${recovery_barrier}`,
+            reason: `recovery_over_${recovery_barrier}`,
         };
     }
 
-    if (opts.side === 'OVER') {
-        if (!isOddPairAtMostThreshold(previous_digit, current_digit, opts.odd_max)) {
-            return {
-                ...base,
-                reason: `no_odd_pair_lte_${opts.odd_max}_${previous_digit},${current_digit}`,
-            };
-        }
+    if (!isOddPairAtMostThreshold(previous_digit, current_digit, opts.odd_max)) {
         return {
             ...base,
-            matched: true,
-            barrier: entry_barrier,
-            prediction: entry_barrier,
-            reason: `odd_pair_${previous_digit},${current_digit}_over_${entry_barrier}`,
-        };
-    }
-
-    if (!isEvenPairAboveThreshold(previous_digit, current_digit, opts.even_min)) {
-        return {
-            ...base,
-            reason: `no_even_pair_gte_${opts.even_min}_${previous_digit},${current_digit}`,
+            reason: `no_odd_pair_lte_${opts.odd_max}_${previous_digit},${current_digit}`,
         };
     }
     return {
@@ -235,7 +346,7 @@ export const detectEvenOddPairSignal = (digits, options = {}) => {
         matched: true,
         barrier: entry_barrier,
         prediction: entry_barrier,
-        reason: `even_pair_${previous_digit},${current_digit}_under_${entry_barrier}`,
+        reason: `odd_pair_${previous_digit},${current_digit}_over_${entry_barrier}`,
     };
 };
 
@@ -254,7 +365,10 @@ export const buildEvenOddPairResult = ({
             const mode = hit.recovering ? 'recovery' : 'entry';
             journal_messages.push({
                 className: 'success',
-                message: `${label} ${mode}: last2=${hit.previous_digit},${hit.current_digit} → ${hit.contract_type} ${hit.barrier}`,
+                message:
+                    hit.side === 'UNDER'
+                        ? `${label} ${mode}: last3=${hit.digit_a},${hit.digit_b},${hit.digit_c} (even last2) → ${hit.contract_type} ${hit.barrier}`
+                        : `${label} ${mode}: last2=${hit.previous_digit},${hit.current_digit} → ${hit.contract_type} ${hit.barrier}`,
             });
         } else if (skipped_consumed && signal?.matched) {
             journal_messages.push({
@@ -372,12 +486,16 @@ export const releaseStaleEvenOddPairCommit = (state, max_age_ms = 20000) => {
     return true;
 };
 
-/** Build a stable tip id from epoch + last-2 digits. */
+/** Build a stable tip id from epoch + last digits (3 for Under-ready lists). */
 export const makeEvenOddPairTipKey = (tip_epoch, digits) => {
     const epoch =
         tip_epoch === undefined || tip_epoch === null || tip_epoch === ''
             ? 'empty'
             : String(tip_epoch);
+    const three = getLastThreeDigits(digits);
+    if (three.ready) {
+        return `${epoch}|d:${three.digit_a},${three.digit_b},${three.digit_c}`;
+    }
     const { previous_digit, current_digit, ready } = getLastTwoDigits(digits);
     const pair = ready ? `${previous_digit},${current_digit}` : 'na';
     return `${epoch}|d:${pair}`;

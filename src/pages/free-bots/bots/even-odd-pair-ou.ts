@@ -2,7 +2,7 @@
  * Free bots — Odd-pair Over 2 and Even-pair Under 7 (tick-fast).
  *
  * Over: last 2 digits odd and <= Odd_max (default 5) → DIGITOVER 2.
- * Under: last 2 digits even and >= Even_min (default 4) → DIGITUNDER 7.
+ * Under: last 2 digits even AND last 3 digits <= Digit_max (default 4) → DIGITUNDER 7.
  *
  * Speed: always arms trade options with the standby barrier (entry or recovery),
  * then re-evaluates the pair scan on every before-tick so no incoming tip is missed
@@ -19,7 +19,7 @@ const buildEvenOddPairXml = (side: PairSide): string => {
     const type_list = is_over ? 'DIGITOVER' : 'DIGITUNDER';
     const purchase = is_over ? 'DIGITOVER' : 'DIGITUNDER';
     const market_side = is_over ? 'OVER' : 'UNDER';
-    const threshold_var = is_over ? 'Odd_max' : 'Even_min';
+    const threshold_var = is_over ? 'Odd_max' : 'Digit_max';
     const threshold_id = `${prefix}_threshold`;
     const threshold_default = is_over ? '5' : '4';
     const entry_barrier = is_over ? '2' : '7';

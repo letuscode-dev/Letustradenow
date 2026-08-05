@@ -2,8 +2,11 @@ import {
     calculatePayoutRecoveryStake,
     detectEvenOddPairSignal,
     getLastTwoDigits,
+    getLastThreeDigits,
     isOddPairAtMostThreshold,
-    isEvenPairAboveThreshold,
+    isEvenPairUnderEntry,
+    isEvenLastTwoDigits,
+    areLastThreeAtMost,
     makeEvenOddPairSignalKey,
     isEvenOddPairSignalConsumed,
     makeEvenOddPairTipKey,
@@ -37,6 +40,18 @@ describe('getLastTwoDigits / pair checks', () => {
         });
     });
 
+    it('reads last three digits', () => {
+        expect(getLastThreeDigits([9, 2, 0, 4])).toEqual({
+            digit_a: 2,
+            digit_b: 0,
+            digit_c: 4,
+            previous_digit: 0,
+            current_digit: 4,
+            ready: true,
+        });
+        expect(getLastThreeDigits([1, 2]).ready).toBe(false);
+    });
+
     it('detects odd pair at most threshold', () => {
         expect(isOddPairAtMostThreshold(1, 3, 5)).toBe(true);
         expect(isOddPairAtMostThreshold(1, 5, 5)).toBe(true); // <= 5
@@ -46,13 +61,16 @@ describe('getLastTwoDigits / pair checks', () => {
         expect(isOddPairAtMostThreshold(3, 3, 1)).toBe(false); // 3 > 1
     });
 
-    it('detects even pair at/above threshold', () => {
-        expect(isEvenPairAboveThreshold(6, 8, 4)).toBe(true);
-        expect(isEvenPairAboveThreshold(4, 6, 4)).toBe(true); // >= 4
-        expect(isEvenPairAboveThreshold(4, 4, 4)).toBe(true); // >= 4
-        expect(isEvenPairAboveThreshold(2, 6, 4)).toBe(false); // 2 < 4
-        expect(isEvenPairAboveThreshold(5, 7, 4)).toBe(false); // odd
-        expect(isEvenPairAboveThreshold(6, 6, 8)).toBe(false); // 6 < 8
+    it('detects even last-2 + last-3 <= digit_max', () => {
+        expect(isEvenLastTwoDigits(0, 4)).toBe(true);
+        expect(isEvenLastTwoDigits(1, 4)).toBe(false);
+        expect(areLastThreeAtMost(2, 0, 4, 4)).toBe(true);
+        expect(areLastThreeAtMost(5, 0, 4, 4)).toBe(false); // 5 > 4
+        expect(isEvenPairUnderEntry([2, 0, 4], undefined, undefined, 4)).toBe(true);
+        expect(isEvenPairUnderEntry([5, 0, 4], undefined, undefined, 4)).toBe(false);
+        expect(isEvenPairUnderEntry([2, 1, 3], undefined, undefined, 4)).toBe(false); // odd last2
+        expect(isEvenPairUnderEntry([4, 6], undefined, undefined, 4)).toBe(false); // need 3
+        expect(isEvenPairUnderEntry(2, 0, 4, 4)).toBe(true);
     });
 });
 
@@ -76,17 +94,35 @@ describe('detectEvenOddPairSignal', () => {
         expect(result.reason).toContain('recovery');
     });
 
-    it('Under: even pair >= 4 → barrier 7', () => {
-        const result = detectEvenOddPairSignal([1, 4, 6], { side: 'UNDER', even_min: 4 });
+    it('Under: even last-2 and last-3 <= 4 → barrier 7', () => {
+        const result = detectEvenOddPairSignal([9, 2, 0, 4], { side: 'UNDER', digit_max: 4 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_UNDER_BARRIER);
         expect(result.contract_type).toBe('DIGITUNDER');
+        expect(result.digit_a).toBe(2);
+        expect(result.digit_b).toBe(0);
+        expect(result.digit_c).toBe(4);
     });
 
-    it('Under accepts exactly even_min', () => {
-        const result = detectEvenOddPairSignal([0, 4, 4], { side: 'UNDER', even_min: 4 });
+    it('Under accepts last-3 exactly at digit_max', () => {
+        const result = detectEvenOddPairSignal([4, 4, 4], { side: 'UNDER', digit_max: 4 });
         expect(result.matched).toBe(true);
         expect(result.barrier).toBe(ENTRY_UNDER_BARRIER);
+    });
+
+    it('Under rejects when a last-3 digit is above digit_max', () => {
+        expect(detectEvenOddPairSignal([5, 0, 2], { side: 'UNDER', digit_max: 4 }).matched).toBe(
+            false
+        );
+        expect(detectEvenOddPairSignal([2, 0, 6], { side: 'UNDER', digit_max: 4 }).matched).toBe(
+            false
+        );
+    });
+
+    it('Under rejects odd last-2 even if last-3 <= 4', () => {
+        expect(detectEvenOddPairSignal([2, 1, 3], { side: 'UNDER', digit_max: 4 }).matched).toBe(
+            false
+        );
     });
 
     it('Under recovery → barrier 6 immediately', () => {
@@ -117,8 +153,8 @@ describe('recovery stake + tip key', () => {
         expect(isEvenOddPairSignalConsumed(signal, 43, key)).toBe(false);
     });
 
-    it('builds tip key from epoch + last-2 digits', () => {
-        expect(makeEvenOddPairTipKey('100', [1, 0, 2])).toBe('100|d:0,2');
+    it('builds tip key from epoch + last digits', () => {
+        expect(makeEvenOddPairTipKey('100', [1, 0, 2])).toBe('100|d:1,0,2');
         expect(makeEvenOddPairTipKey('', [7])).toBe('empty|d:na');
     });
 });
@@ -160,7 +196,6 @@ describe('runtime commit / settlement', () => {
         armEvenOddPairPrediction(state, 2);
         expect(state.trade_committed).toBe(true);
         expect(state.armed_prediction).toBe(2);
-        // Mimic pending purchase: still committed, barrier retained for retry.
         expect(state.armed_prediction).toBe(ENTRY_OVER_BARRIER);
         applyEvenOddPairSettlement(state, 'buy-1');
         expect(state.trade_committed).toBe(false);
