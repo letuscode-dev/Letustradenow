@@ -8,6 +8,13 @@ import {
     getSlidingDigitWindow,
 } from '../utils/digit-percentage-condition';
 import {
+    detectEvenOddPairSignal,
+    buildEvenOddPairResult,
+    makeEvenOddPairSignalKey,
+    isEvenOddPairSignalConsumed,
+    toMarketSide,
+} from '../utils/even-odd-pair-over-under';
+import {
     DEFAULT_LOOKBACK as PATTERN_OU_DEFAULT_LOOKBACK,
     evaluatePatternProbabilityOverUnder as runPatternProbabilityOverUnder,
     MAX_LOOKBACK as PATTERN_OU_MAX_LOOKBACK,
@@ -396,6 +403,71 @@ const getBotInterface = tradeEngine => {
                 results,
             };
             return percentage;
+        },
+        /**
+         * Even-pair Over / Odd-pair Under — sync last-2 digit scan.
+         * Over: both even & < threshold → Over 2; recovering → Over 3.
+         * Under: both odd & > threshold → Under 7; recovering → Under 6.
+         */
+        evaluateEvenOddPairOverUnder: options => {
+            const opts = options || {};
+            const side = toMarketSide(opts.side || opts.market_side);
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(2)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(2)
+                  : [];
+
+            const tip_epoch = tradeEngine.getLatestTickTipKey
+                ? tradeEngine.getLatestTickTipKey()
+                : `pair:${Array.isArray(digits) ? digits.slice(-2).join(',') : ''}`;
+
+            const signal = detectEvenOddPairSignal(digits, {
+                side,
+                threshold: opts.threshold,
+                even_max: opts.even_max,
+                odd_min: opts.odd_min,
+                recovering: opts.recovering,
+                journal_enabled: opts.journal_enabled,
+            });
+
+            const skipped_consumed = isEvenOddPairSignalConsumed(
+                signal,
+                tip_epoch,
+                tradeEngine._evenOddPairConsumedKey
+            );
+            if (signal.matched && !skipped_consumed) {
+                tradeEngine._evenOddPairConsumedKey = makeEvenOddPairSignalKey(signal, tip_epoch);
+            }
+
+            const result = buildEvenOddPairResult({
+                signal,
+                journal_enabled:
+                    opts.journal_enabled === undefined
+                        ? true
+                        : opts.journal_enabled === true ||
+                          opts.journal_enabled === 1 ||
+                          opts.journal_enabled === 'TRUE' ||
+                          opts.journal_enabled === 'true',
+                skipped_consumed,
+            });
+
+            const tip_fp = skipped_consumed
+                ? `consumed:${tradeEngine._evenOddPairConsumedKey}`
+                : `${side}:${signal.reason}:${tip_epoch}`;
+            let public_result = result;
+            if (
+                !result.matched &&
+                tradeEngine._evenOddPairLastJournalFp === tip_fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                public_result = { ...result, journal_messages: [] };
+            } else {
+                tradeEngine._evenOddPairLastJournalFp = tip_fp;
+            }
+
+            tradeEngine.evenOddPairSnapshot = public_result;
+            return public_result;
         },
         /**
          * Pattern-probability Over/Under — sync, tip-snapshotted.
