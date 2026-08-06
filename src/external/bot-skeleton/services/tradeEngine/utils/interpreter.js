@@ -173,6 +173,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateWindowIndexDiffers)
             );
         }
+        if (typeof bot_interface.evaluateRepeatReappearDiffers === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateRepeatReappearDiffers',
+                createAsync(js_interpreter, bot_interface.evaluateRepeatReappearDiffers)
+            );
+        }
         if (typeof bot_interface.evaluateStrategyVoting === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

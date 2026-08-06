@@ -2,6 +2,7 @@ import type { FreeBot } from './types';
 import { ODD_PAIR_OVER_XML, EVEN_PAIR_UNDER_XML } from './bots/even-odd-pair-ou';
 import { HYBRID_MULTI_SCAN_XML } from './bots/hybrid-multi-scan';
 import { PARITY_RUN_DIFFERS_XML } from './bots/parity-run-differs';
+import { REPEAT_REAPPEAR_DIFFERS_XML } from './bots/repeat-reappear-differs';
 
 /**
  * Free Bots catalog.
@@ -10,6 +11,14 @@ import { PARITY_RUN_DIFFERS_XML } from './bots/parity-run-differs';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'repeat-reappear-differs-v1',
+        title: 'Repeat-reappear Differs',
+        description:
+            'On the selected market: when a digit repeats (previous === current), wait for the streak to break, then Differ that digit when it reappears. After a streak of 3 or 4, skips the next tip before waiting for reappear. Recovery via Payout% (default 9.6).',
+        tags: ['Differs', 'Repeat', 'Reappear', 'Streak', 'Single-market', 'Recovery'],
+        xml: REPEAT_REAPPEAR_DIFFERS_XML,
+    },
     {
         id: 'parity-run-differs-v1',
         title: 'Parity-run Differs',

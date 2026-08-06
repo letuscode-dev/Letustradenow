@@ -64,6 +64,13 @@ import {
     resetWindowIndexDiffersState,
 } from '../utils/window-index-differs';
 import {
+    applyRepeatReappearSettlement,
+    createRepeatReappearState,
+    evaluateRepeatReappearDiffers,
+    releaseStaleRepeatReappearCommit,
+    resetRepeatReappearState,
+} from '../utils/repeat-reappear-differs';
+import {
     createStrategyVotingState,
     evaluateStrategyVoting,
     resetStrategyVotingState,
@@ -163,6 +170,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.windowIndexDiffersState) {
                 resetWindowIndexDiffersState(tradeEngine.windowIndexDiffersState);
                 tradeEngine.windowIndexDiffersState = null;
+            }
+            if (tradeEngine.repeatReappearDiffersState) {
+                resetRepeatReappearState(tradeEngine.repeatReappearDiffersState);
+                tradeEngine.repeatReappearDiffersState = null;
             }
             if (tradeEngine.strategyVotingState) {
                 resetStrategyVotingState(tradeEngine.strategyVotingState);
@@ -270,6 +281,12 @@ const getBotInterface = tradeEngine => {
                 }
                 applyWindowIndexDiffersResult(tradeEngine.windowIndexDiffersState, last);
             }
+            if (tradeEngine.repeatReappearDiffersState) {
+                const contract = tradeEngine.data?.contract;
+                const contract_id =
+                    contract?.contract_id || contract?.transaction_ids?.buy || null;
+                applyRepeatReappearSettlement(tradeEngine.repeatReappearDiffersState, contract_id);
+            }
         },
         isRecovering: () => {
             const state = tradeEngine.recoveryState;
@@ -320,6 +337,51 @@ const getBotInterface = tradeEngine => {
                 digit_ticks = Array.isArray(digits) ? digits : [];
             }
             return evaluateWindowIndexDiffers(digit_ticks, opts, state);
+        },
+        /**
+         * Repeat-Reappear Differs — on previous===current, wait for streak break,
+         * then Differ when that digit reappears. After a 3–4 streak, skip one tip
+         * before accepting reappearance.
+         */
+        evaluateRepeatReappearDiffers: async options => {
+            const opts = options || {};
+            if (!tradeEngine.repeatReappearDiffersState) {
+                tradeEngine.repeatReappearDiffersState = createRepeatReappearState();
+            }
+            const state = tradeEngine.repeatReappearDiffersState;
+
+            const contract = tradeEngine.data?.contract;
+            const has_open_contract = Boolean(
+                contract && contract.buy_price != null && contract.sell_price == null
+            );
+            if (
+                state.trade_committed &&
+                contract &&
+                contract.sell_price != null &&
+                (contract.contract_id || contract.transaction_ids?.buy)
+            ) {
+                const contract_id =
+                    contract.contract_id || contract.transaction_ids?.buy || null;
+                applyRepeatReappearSettlement(state, contract_id);
+            }
+            if (!has_open_contract && releaseStaleRepeatReappearCommit(state, 20000)) {
+                // Stale arm — allow watching again.
+            }
+
+            if (state.phase === 'armed' && state.lastPrediction >= 0 && state.lastPrediction <= 9) {
+                return evaluateRepeatReappearDiffers([], opts, state);
+            }
+
+            let digit_ticks = tradeEngine.getCachedDigitTicks
+                ? tradeEngine.getCachedDigitTicks()
+                : null;
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
+                const digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(10)
+                    : tradeEngine.getCachedLastDigitList(10);
+                digit_ticks = Array.isArray(digits) ? digits : [];
+            }
+            return evaluateRepeatReappearDiffers(digit_ticks, opts, state);
         },
         /**
          * Strategy Voting Engine — weighted Digit Differs votes across modular strategies.
