@@ -175,6 +175,7 @@ const getBotInterface = tradeEngine => {
                 resetRepeatReappearState(tradeEngine.repeatReappearDiffersState);
                 tradeEngine.repeatReappearDiffersState = null;
             }
+            tradeEngine._repeatReappearLastJournalFp = null;
             if (tradeEngine.strategyVotingState) {
                 resetStrategyVotingState(tradeEngine.strategyVotingState);
                 tradeEngine.strategyVotingState = null;
@@ -369,19 +370,49 @@ const getBotInterface = tradeEngine => {
             }
 
             if (state.phase === 'armed' && state.lastPrediction >= 0 && state.lastPrediction <= 9) {
-                return evaluateRepeatReappearDiffers([], opts, state);
+                const armed = evaluateRepeatReappearDiffers([], opts, state);
+                const armed_fp = `armed:${armed.prediction}`;
+                if (tradeEngine._repeatReappearLastJournalFp === armed_fp) {
+                    return { ...armed, journal_messages: [] };
+                }
+                tradeEngine._repeatReappearLastJournalFp = armed_fp;
+                return armed;
             }
 
+            // Prefer epoch-tagged ticks so a full sliding cache still advances.
             let digit_ticks = tradeEngine.getCachedDigitTicks
                 ? tradeEngine.getCachedDigitTicks()
                 : null;
-            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
-                const digits = tradeEngine.ensureTickHistory
-                    ? await tradeEngine.ensureTickHistory(10)
-                    : tradeEngine.getCachedLastDigitList(10);
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 1) {
+                if (typeof tradeEngine.ensureTickHistory === 'function') {
+                    await tradeEngine.ensureTickHistory(20);
+                }
+                digit_ticks = tradeEngine.getCachedDigitTicks
+                    ? tradeEngine.getCachedDigitTicks()
+                    : null;
+            }
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 1) {
+                const digits = tradeEngine.getCachedLastDigitList
+                    ? tradeEngine.getCachedLastDigitList(20)
+                    : [];
                 digit_ticks = Array.isArray(digits) ? digits : [];
             }
-            return evaluateRepeatReappearDiffers(digit_ticks, opts, state);
+
+            const result = evaluateRepeatReappearDiffers(digit_ticks, opts, state);
+            const tip_key =
+                result.tip_epoch != null
+                    ? String(result.tip_epoch)
+                    : `${result.phase}:${result.tip_digit}:${result.streak}`;
+            const fp = `${result.phase}:${result.target_digit}:${result.skip_next}:${tip_key}:${result.reason}`;
+            if (
+                !result.matched &&
+                tradeEngine._repeatReappearLastJournalFp === fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._repeatReappearLastJournalFp = fp;
+            return result;
         },
         /**
          * Strategy Voting Engine — weighted Digit Differs votes across modular strategies.

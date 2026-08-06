@@ -5,6 +5,9 @@
  *   wait for the streak to break, then Differ that digit when it reappears.
  * After a streak of 3 or 4, skip the next tip before accepting reappearance.
  *
+ * A tick_analysis block advances the scan on every tip (live journal).
+ * Trade options arm only when a Differs barrier is ready.
+ *
  * Recovery: stake = Total_loss * 100 / Payout% (default 9.6).
  */
 
@@ -285,6 +288,19 @@ export const REPEAT_REAPPEAR_DIFFERS_XML = `<xml xmlns="https://developers.googl
             </statement>
           </block>
         </next>
+      </block>
+    </statement>
+  </block>
+  <block type="tick_analysis" id="rrd_tick_analysis" collapsed="false" x="0" y="1280">
+    <statement name="TICKANALYSIS_STACK">
+      <block type="variables_set" id="rrd_ta_scan">
+        <field name="VAR" id="rrd_prediction">Prediction:</field>
+        <value name="VALUE">
+          <block type="procedures_callreturn" id="rrd_ta_call">
+            <mutation name="Repeat Reappear Differs Barrier"></mutation>
+            <data>rrd_fn_barrier</data>
+          </block>
+        </value>
       </block>
     </statement>
   </block>

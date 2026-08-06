@@ -199,4 +199,26 @@ describe('helpers', () => {
         expect(state.targetDigit).toBe(2);
         expect(msgs.length).toBeGreaterThan(0);
     });
+
+    it('journals a watching heartbeat after anchor', () => {
+        const state = createRepeatReappearState();
+        const first = evaluateRepeatReappearDiffers(
+            [{ digit: 4, epoch: 10 }],
+            { journal_enabled: true },
+            state
+        );
+        expect(first.reason).toBe('anchored');
+        expect(first.journal_messages.length).toBeGreaterThan(0);
+
+        const second = evaluateRepeatReappearDiffers(
+            [
+                { digit: 4, epoch: 10 },
+                { digit: 8, epoch: 11 },
+            ],
+            { journal_enabled: true },
+            state
+        );
+        expect(second.matched).toBe(false);
+        expect(second.journal_messages.some(m => /watching|tip/i.test(m.message))).toBe(true);
+    });
 });

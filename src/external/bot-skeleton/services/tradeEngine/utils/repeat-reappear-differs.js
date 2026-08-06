@@ -21,18 +21,6 @@ const toBool = (value, default_value = false) => {
     return value === true || value === 1 || value === 'TRUE' || value === 'true' || value === '1';
 };
 
-const toDigit = value => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) {
-        return null;
-    }
-    const rounded = Math.round(n);
-    if (Math.abs(n - rounded) > 1e-9 || rounded < 0 || rounded > 9) {
-        return null;
-    }
-    return rounded;
-};
-
 export const normalizeRepeatReappearOptions = (options = {}) => ({
     enabled: toBool(options.enabled, true),
     journal_enabled: toBool(options.journal_enabled, true),
@@ -131,6 +119,28 @@ const armPrediction = (tracker, journal_messages, options, reason) => {
             message: `${reason} → DIFFERS ${tracker.targetDigit}`,
         });
     }
+};
+
+const pushStatus = (tracker, tip_digit, options, journal_messages) => {
+    if (!options.journal_enabled) {
+        return;
+    }
+    let message;
+    if (tracker.phase === 'waiting_break') {
+        message = `Repeat-reappear: tip ${tip_digit} — waiting for ${tracker.targetDigit} streak to break (x${tracker.streak})`;
+    } else if (tracker.phase === 'waiting_reappear') {
+        message = tracker.skipNext
+            ? `Repeat-reappear: tip ${tip_digit} — skip this tip, then wait for ${tracker.targetDigit}`
+            : `Repeat-reappear: tip ${tip_digit} — waiting for ${tracker.targetDigit} to reappear`;
+    } else if (tracker.phase === 'armed') {
+        message = `Repeat-reappear: ARMED Differs ${tracker.lastPrediction} (tip ${tip_digit})`;
+    } else {
+        message = `Repeat-reappear: watching tip ${tip_digit} (prev ${tracker.previousDigit})`;
+    }
+    journal_messages.push({
+        className: 'journal__text',
+        message,
+    });
 };
 
 /**
@@ -239,22 +249,32 @@ export const evaluateRepeatReappearDiffers = (digit_ticks, raw_options = {}, sta
     const journal_messages = [];
     const tracker = state || createRepeatReappearState();
 
+    const resultBase = (extra = {}) => ({
+        prediction: -1,
+        barrier: -1,
+        matched: false,
+        phase: tracker.phase,
+        target_digit: tracker.targetDigit,
+        streak: tracker.streak,
+        skip_next: tracker.skipNext,
+        tip_digit: tracker.previousDigit,
+        tip_epoch: tracker.lastProcessedEpoch,
+        journal_messages,
+        ...extra,
+    });
+
     if (!options.enabled) {
-        return {
-            prediction: -1,
-            barrier: -1,
-            matched: false,
-            phase: tracker.phase,
-            target_digit: tracker.targetDigit,
-            streak: tracker.streak,
-            skip_next: tracker.skipNext,
-            reason: 'disabled',
-            journal_messages,
-        };
+        return resultBase({ reason: 'disabled' });
     }
 
     // Keep armed barrier available for purchase retry.
     if (tracker.phase === 'armed' && tracker.lastPrediction >= 0) {
+        if (options.journal_enabled) {
+            journal_messages.push({
+                className: 'journal__text--success',
+                message: `Repeat-reappear: ARMED Differs ${tracker.lastPrediction} — awaiting purchase`,
+            });
+        }
         return {
             prediction: tracker.lastPrediction,
             barrier: tracker.lastPrediction,
@@ -263,65 +283,119 @@ export const evaluateRepeatReappearDiffers = (digit_ticks, raw_options = {}, sta
             target_digit: tracker.targetDigit,
             streak: tracker.streak,
             skip_next: tracker.skipNext,
+            tip_digit: tracker.previousDigit,
+            tip_epoch: tracker.lastProcessedEpoch,
             reason: 'armed_pending_purchase',
-            journal_messages: [],
+            journal_messages,
         };
     }
 
     const ticks = normalizeDigitTicks(digit_ticks);
     if (!ticks.length) {
-        return {
-            prediction: -1,
-            barrier: -1,
-            matched: false,
-            phase: tracker.phase,
-            target_digit: tracker.targetDigit,
-            streak: tracker.streak,
-            skip_next: tracker.skipNext,
-            reason: 'no_ticks',
-            journal_messages,
-        };
+        if (options.journal_enabled) {
+            journal_messages.push({
+                className: 'journal__text',
+                message: 'Repeat-reappear: waiting for ticks…',
+            });
+        }
+        return resultBase({ reason: 'no_ticks' });
     }
 
-    // First live call: anchor on newest tip so historical cache repeats are ignored.
-    if (tracker.tickIndex < 0) {
-        const tip = ticks[ticks.length - 1];
-        tracker.previousDigit = tip.digit;
-        tracker.streak = 1;
-        tracker.tickIndex = 0;
-        tracker.lastProcessedEpoch = tip.epoch;
-        return {
-            prediction: -1,
-            barrier: -1,
-            matched: false,
-            phase: tracker.phase,
-            target_digit: tracker.targetDigit,
-            streak: tracker.streak,
-            skip_next: tracker.skipNext,
-            reason: 'anchored',
-            journal_messages,
-        };
-    }
+    const has_epochs = ticks.some(tick => tick.epoch !== null);
+    let processed_new = false;
 
-    let start = 0;
-    if (tracker.lastProcessedEpoch != null) {
-        const idx = ticks.findIndex(t => t.epoch != null && t.epoch > tracker.lastProcessedEpoch);
-        start = idx >= 0 ? idx : ticks.length;
+    if (has_epochs) {
+        // First live call: anchor on newest tip so historical cache repeats are ignored.
+        if (tracker.lastProcessedEpoch === null || tracker.tickIndex < 0) {
+            const newest = ticks[ticks.length - 1];
+            tracker.previousDigit = newest.digit;
+            tracker.streak = 1;
+            tracker.tickIndex = Math.max(0, tracker.tickIndex);
+            if (tracker.tickIndex < 0) {
+                tracker.tickIndex = 0;
+            }
+            if (newest.epoch !== null) {
+                tracker.lastProcessedEpoch = newest.epoch;
+            }
+            if (options.journal_enabled) {
+                journal_messages.push({
+                    className: 'journal__text--success',
+                    message: `Repeat-reappear: live — watching from tip ${newest.digit}`,
+                });
+            }
+            return resultBase({
+                reason: 'anchored',
+                tip_digit: newest.digit,
+                tip_epoch: newest.epoch,
+            });
+        }
+
+        for (let i = 0; i < ticks.length; i++) {
+            const { digit, epoch } = ticks[i];
+            if (epoch !== null && epoch === tracker.lastProcessedEpoch) {
+                continue;
+            }
+            if (
+                epoch !== null &&
+                tracker.lastProcessedEpoch !== null &&
+                epoch < tracker.lastProcessedEpoch
+            ) {
+                continue;
+            }
+            if (epoch !== null) {
+                tracker.lastProcessedEpoch = epoch;
+            }
+            processRepeatReappearTick(tracker, digit, options, journal_messages);
+            processed_new = true;
+            if (tracker.phase === 'armed') {
+                break;
+            }
+        }
     } else {
-        // Plain digit arrays (tests): process only newly appended tips.
-        const already = tracker.tickIndex + 1;
-        start = Math.min(already, ticks.length);
-    }
-
-    for (let i = start; i < ticks.length; i++) {
-        const tip = ticks[i];
-        processRepeatReappearTick(tracker, tip.digit, options, journal_messages);
-        if (tip.epoch != null) {
+        // Unit tests / plain digit lists: treat list growth as new ticks.
+        if (tracker.tickIndex < 0) {
+            const tip = ticks[ticks.length - 1];
+            tracker.previousDigit = tip.digit;
+            tracker.streak = 1;
+            tracker.tickIndex = 0;
             tracker.lastProcessedEpoch = tip.epoch;
+            if (options.journal_enabled) {
+                journal_messages.push({
+                    className: 'journal__text--success',
+                    message: `Repeat-reappear: live — watching from tip ${tip.digit}`,
+                });
+            }
+            return resultBase({
+                reason: 'anchored',
+                tip_digit: tip.digit,
+                tip_epoch: tip.epoch,
+            });
+        }
+
+        const start_index = Math.max(0, tracker.tickIndex + 1);
+        for (let i = start_index; i < ticks.length; i++) {
+            processRepeatReappearTick(tracker, ticks[i].digit, options, journal_messages);
+            processed_new = true;
+            if (tracker.phase === 'armed') {
+                break;
+            }
         }
     }
 
+    const tip = ticks[ticks.length - 1];
     const matched = tracker.phase === 'armed' && tracker.lastPrediction >= 0;
+
+    // Heartbeat when nothing else was logged this evaluate (so the journal isn't silent).
+    if (
+        options.journal_enabled &&
+        journal_messages.length === 0 &&
+        (processed_new || tracker.phase !== 'watching')
+    ) {
+        pushStatus(tracker, tip.digit, options, journal_messages);
+    } else if (options.journal_enabled && journal_messages.length === 0) {
+        pushStatus(tracker, tip.digit, options, journal_messages);
+    }
+
     return {
         prediction: matched ? tracker.lastPrediction : -1,
         barrier: matched ? tracker.lastPrediction : -1,
@@ -330,6 +404,8 @@ export const evaluateRepeatReappearDiffers = (digit_ticks, raw_options = {}, sta
         target_digit: tracker.targetDigit,
         streak: tracker.streak,
         skip_next: tracker.skipNext,
+        tip_digit: tip.digit,
+        tip_epoch: tip.epoch,
         reason: matched
             ? 'reappear_differs'
             : tracker.phase === 'waiting_break'
