@@ -28,6 +28,7 @@ import './odd_even_hot_digit_scan';
 import './even_odd_pair_over_under';
 import './hybrid_multi_scan';
 import './parity_run_differs_scan';
+import './pattern_switch_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

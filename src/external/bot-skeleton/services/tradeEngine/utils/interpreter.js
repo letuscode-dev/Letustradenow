@@ -208,6 +208,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateParityRunDiffersScan)
             );
         }
+        if (typeof bot_interface.evaluatePatternSwitch === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluatePatternSwitch',
+                createAsync(js_interpreter, bot_interface.evaluatePatternSwitch)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

@@ -142,6 +142,7 @@ import {
     releaseStaleHybridMultiScanCommit,
     resetHybridMultiScanRuntimeState,
 } from '../utils/hybrid-multi-scan';
+import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -176,6 +177,7 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.repeatReappearDiffersState = null;
             }
             tradeEngine._repeatReappearLastJournalFp = null;
+            tradeEngine._patternSwitchLastJournalFp = null;
             if (tradeEngine.strategyVotingState) {
                 resetStrategyVotingState(tradeEngine.strategyVotingState);
                 tradeEngine.strategyVotingState = null;
@@ -423,6 +425,33 @@ const getBotInterface = tradeEngine => {
                 return { ...result, journal_messages: [] };
             }
             tradeEngine._repeatReappearLastJournalFp = fp;
+            return result;
+        },
+        /**
+         * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
+         */
+        evaluatePatternSwitch: async options => {
+            const opts = options || {};
+            const need = 4;
+            let digits = tradeEngine.getCachedLastDigitList
+                ? tradeEngine.getCachedLastDigitList(need)
+                : [];
+            if (!Array.isArray(digits) || digits.length < need) {
+                digits = tradeEngine.ensureTickHistory
+                    ? await tradeEngine.ensureTickHistory(Math.max(need, 10))
+                    : digits;
+            }
+            const window_digits = Array.isArray(digits) ? digits.slice(-Math.max(need, digits.length)) : [];
+            const result = runPatternSwitch(window_digits, opts);
+            const tip_fp = `${result.reason}:${(result.sequence || []).join(',')}`;
+            if (
+                !result.matched &&
+                tradeEngine._patternSwitchLastJournalFp === tip_fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._patternSwitchLastJournalFp = tip_fp;
             return result;
         },
         /**
