@@ -15,7 +15,11 @@ import { evaluateExpression } from './evaluate-expression';
 
 export { evaluateExpression };
 
-const PURCHASE_SUBSTITUTE_BLOCK_TYPES = ['purchase', 'override_contract_type_purchase'];
+const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
+    'purchase',
+    'override_contract_type_purchase',
+    'apollo_purchase2',
+];
 
 const isPurchaseSubstituteBlock = block => PURCHASE_SUBSTITUTE_BLOCK_TYPES.includes(block?.type);
 

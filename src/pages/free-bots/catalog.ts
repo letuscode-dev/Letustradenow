@@ -2,6 +2,7 @@ import type { FreeBot } from './types';
 import { ODD_PAIR_OVER_XML, EVEN_PAIR_UNDER_XML } from './bots/even-odd-pair-ou';
 import { HYBRID_MULTI_SCAN_XML } from './bots/hybrid-multi-scan';
 import { PARITY_RUN_DIFFERS_XML } from './bots/parity-run-differs';
+import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 import { REPEAT_REAPPEAR_DIFFERS_XML } from './bots/repeat-reappear-differs';
 
 /**
@@ -11,6 +12,14 @@ import { REPEAT_REAPPEAR_DIFFERS_XML } from './bots/repeat-reappear-differs';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'pattern-switch-v1',
+        title: 'Pattern Switch',
+        description:
+            'Scans last digits every second until a pattern hits: last 4 all odd → Even; last 4 all even → Odd; last 3 all ≤ 3 → Over 4; last 3 all ≥ 6 → Under 5. Martingale on loss (default ×2). After Re Analyse After wins (default 3), clears the signal and re-scans. Stops at Take Profit / Stop Loss.',
+        tags: ['Even', 'Odd', 'Over 4', 'Under 5', 'Pattern', 'Martingale', 'Single-market'],
+        xml: PATTERN_SWITCH_XML,
+    },
     {
         id: 'repeat-reappear-differs-v1',
         title: 'Repeat-reappear Differs',

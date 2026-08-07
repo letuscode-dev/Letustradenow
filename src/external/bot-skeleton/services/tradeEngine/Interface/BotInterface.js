@@ -229,7 +229,18 @@ const getBotInterface = tradeEngine => {
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
-        purchaseOverrideContractType: contract_type => tradeEngine.purchaseOverrideContractType(contract_type),
+        purchaseOverrideContractType: (contract_type, prediction) => {
+            if (prediction !== undefined && prediction !== null && prediction !== '') {
+                const n = Number(prediction);
+                if (Number.isFinite(n)) {
+                    tradeEngine.tradeOptions = {
+                        ...(tradeEngine.tradeOptions || {}),
+                        prediction: n,
+                    };
+                }
+            }
+            return tradeEngine.purchaseOverrideContractType(contract_type);
+        },
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getCachedLastDigitList: tick_count => tradeEngine.getCachedLastDigitList(tick_count),

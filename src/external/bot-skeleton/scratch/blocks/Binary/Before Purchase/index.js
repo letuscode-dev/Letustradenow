@@ -1,7 +1,9 @@
 import './before_purchase';
 import './last_digits_condition';
 import './last_digits_odd_even_condition';
+import './last_digits_window_condition';
 import './override_contract_type_purchase';
+import './apollo_purchase2';
 import './purchase';
 import './ask_price';
 import './payout';

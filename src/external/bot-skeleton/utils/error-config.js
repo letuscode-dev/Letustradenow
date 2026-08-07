@@ -25,6 +25,7 @@ export const error_message_map = () => ({
     purchase_conditions: generateErrorMessage('Purchase conditions'),
     purchase: generateErrorMessage('Purchase or Override contract type', 'purchase conditions'),
     override_contract_type_purchase: generateErrorMessage('Override contract type', 'purchase conditions'),
+    apollo_purchase2: generateErrorMessage('Buy (with prediction)', 'purchase conditions'),
     trade_definition_tradeoptions: generateErrorMessage('Trade options', 'trade parameters'),
     trade_definition_multiplier: generateErrorMessage('Trade options multipliers', 'trade parameters'),
     trade_definition_accumulator: generateErrorMessage('Trade options accumulators', 'trade parameters'),
