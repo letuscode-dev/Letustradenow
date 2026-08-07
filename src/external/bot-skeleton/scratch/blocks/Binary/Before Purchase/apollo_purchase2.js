@@ -1,27 +1,18 @@
 /**
- * Apollo-style purchase with optional digit prediction (Over/Under barrier).
- * Acts as a purchase substitute inside before_purchase.
+ * Purchase with optional digit prediction (Over/Under barrier).
+ * Matches Deriv "Purchase Even/Odd/Over/Under" look used in Pattern Switch.
  */
 import { localize } from '@deriv-com/translations';
-import { config } from '../../../../constants/config';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
 
-const getPurchaseOptions = () => {
-    const contract_types = new Set();
-    const options = [];
-
-    Object.values(config().opposites).forEach(contract_group => {
-        contract_group.forEach(contract_type_config => {
-            const [contract_type, label] = Object.entries(contract_type_config)[0];
-            if (!contract_types.has(contract_type)) {
-                contract_types.add(contract_type);
-                options.push([localize(label), contract_type]);
-            }
-        });
-    });
-
-    return options;
-};
+const PURCHASE_OPTIONS = [
+    [localize('Even'), 'DIGITEVEN'],
+    [localize('Odd'), 'DIGITODD'],
+    [localize('Over'), 'DIGITOVER'],
+    [localize('Under'), 'DIGITUNDER'],
+    [localize('Matches'), 'DIGITMATCH'],
+    [localize('Differs'), 'DIGITDIFF'],
+];
 
 const NEEDS_PREDICTION = new Set(['DIGITOVER', 'DIGITUNDER', 'DIGITDIFF', 'DIGITMATCH']);
 
@@ -33,37 +24,38 @@ window.Blockly.Blocks.apollo_purchase2 = {
     },
     definition() {
         return {
-            message0: localize('Buy {{ contract_type }} {{ prediction }}', {
-                contract_type: '%1',
-                prediction: '%2',
-            }),
+            message0: localize('Purchase {{ contract_type }}', { contract_type: '%1' }),
+            message1: localize('Prediction: {{ prediction }}', { prediction: '%1' }),
             args0: [
                 {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
-                    options: getPurchaseOptions(),
+                    options: PURCHASE_OPTIONS,
                 },
+            ],
+            args1: [
                 {
                     type: 'input_value',
                     name: 'PREDICTION',
                     check: 'Number',
                 },
             ],
+            inputsInline: true,
             previousStatement: null,
             colour: window.Blockly.Colours.Special1.colour,
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             tooltip: localize(
-                'Purchases the selected contract type. For Over/Under/Differs/Matches, provide a digit prediction.'
+                'Purchases Even, Odd, Over, or Under. Over/Under/Matches/Differs need a digit prediction.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
     },
     meta() {
         return {
-            display_name: localize('Buy (with prediction)'),
+            display_name: localize('Purchase (with prediction)'),
             description: localize(
-                'Purchase substitute that can buy Even/Odd/Over/Under/etc. Optional digit prediction for barrier contracts.'
+                'Purchase substitute for Even/Odd/Over/Under. Optional digit prediction for barrier contracts.'
             ),
             key_words: localize('purchase, buy, over, under, even, odd, prediction'),
         };
@@ -79,14 +71,21 @@ window.Blockly.Blocks.apollo_purchase2 = {
         ) {
             this.updateShape_();
         }
+        if (event.type === window.Blockly.Events.BLOCK_CREATE && event.ids?.includes(this.id)) {
+            this.updateShape_();
+        }
     },
     updateShape_() {
         const contract_type = this.getFieldValue('PURCHASE_LIST');
+        const needs_prediction = NEEDS_PREDICTION.has(contract_type);
         const prediction_input = this.getInput('PREDICTION');
-        if (!prediction_input) {
-            return;
+        if (prediction_input) {
+            prediction_input.setVisible(needs_prediction);
         }
-        prediction_input.setVisible(NEEDS_PREDICTION.has(contract_type));
+        // Keep inline layout readable after show/hide.
+        if (typeof this.render === 'function') {
+            this.render();
+        }
     },
     customContextMenu(menu) {
         const menu_items = [localize('Enable Block'), localize('Disable Block')];
