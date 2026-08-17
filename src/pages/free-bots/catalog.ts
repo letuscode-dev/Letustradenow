@@ -1,6 +1,7 @@
 import type { FreeBot } from './types';
 import { LEAST_FREQUENT_DIFFERS_XML } from './bots/least-frequent-differs';
 import { MASTER_AUTO_VOLT_PRO_XML } from './bots/master-auto-volt-pro';
+import { MOST_FREQUENT_DIFFERS_XML } from './bots/most-frequent-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 
 /**
@@ -33,5 +34,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Differs on Volatility 10: analyses the last Digits Analyse ticks (default 25), Differs the least frequent digit, then martingales on loss. Stops at Target Profit / Max Loss.',
         tags: ['Differs', 'Least frequent', 'Cold digit', 'Martingale', 'Volatility 10'],
         xml: LEAST_FREQUENT_DIFFERS_XML,
+    },
+    {
+        id: 'most-frequent-differs-v1',
+        title: 'Most Frequent Differs',
+        description:
+            'Differs on Volatility 10: analyses the last Digits Analyse ticks (default 25), Differs the most frequent digit, then martingales on loss. Stops at Target Profit / Max Loss.',
+        tags: ['Differs', 'Most frequent', 'Hot digit', 'Martingale', 'Volatility 10'],
+        xml: MOST_FREQUENT_DIFFERS_XML,
     },
 ];
