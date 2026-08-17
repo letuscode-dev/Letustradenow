@@ -8,6 +8,7 @@ import './check_direction';
 import './tick_analysis';
 import './last_digit';
 import './lastDigitList';
+import './digit_frequency_analysis';
 import './digit_transition_prediction';
 import './adaptive_digit_gap_prediction';
 import './increasing_digit_gap_prediction';

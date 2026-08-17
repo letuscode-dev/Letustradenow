@@ -24,6 +24,7 @@ import {
     MAX_LOOKBACK as PATTERN_OU_MAX_LOOKBACK,
 } from '../utils/pattern-probability-over-under';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
+import { analyzeDigitFrequency } from '../utils/digit-frequency-analysis';
 import {
     createRecoveryState,
     calculateRecoveryStake,
@@ -509,6 +510,60 @@ const getBotInterface = tradeEngine => {
                 threshold,
                 journal_enabled,
             });
+        },
+        /**
+         * Digit frequency analysis — least/most frequent digit in last N ticks.
+         * Sync + tip cache: Least Frequent Differs compares the same value up to
+         * 10 times per loop iteration.
+         */
+        getDigitFrequencyAnalysis: (analysis_type, sample_size) => {
+            const window_size = clampDigitPercentageWindow(sample_size);
+            const tip_key = tradeEngine.getLatestTickTipKey
+                ? tradeEngine.getLatestTickTipKey()
+                : `len:${window_size}`;
+            const type_key = String(analysis_type || 'LEAST_FREQUENT').toUpperCase();
+            const cache = tradeEngine.digitFrequencySnapshot;
+
+            if (
+                cache &&
+                cache.tip_key === tip_key &&
+                cache.window_size === window_size &&
+                cache.results &&
+                Object.prototype.hasOwnProperty.call(cache.results, type_key)
+            ) {
+                return cache.results[type_key];
+            }
+
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+
+            if (
+                (!digits || digits.length < window_size) &&
+                tradeEngine.ensureTickHistory &&
+                !tradeEngine._digitFreqFillPending
+            ) {
+                tradeEngine._digitFreqFillPending = true;
+                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                    .catch(() => {})
+                    .finally(() => {
+                        tradeEngine._digitFreqFillPending = false;
+                        tradeEngine.digitFrequencySnapshot = null;
+                    });
+            }
+
+            const digit = analyzeDigitFrequency(digits || [], window_size, type_key);
+            const results =
+                cache && cache.tip_key === tip_key && cache.window_size === window_size && cache.results
+                    ? cache.results
+                    : {};
+            results[type_key] = digit;
+            tradeEngine.digitFrequencySnapshot = {
+                tip_key,
+                window_size,
+                results,
+            };
+            return digit;
         },
         /**
          * Over / Under % of last N digits — returns a finite number 0–100.
