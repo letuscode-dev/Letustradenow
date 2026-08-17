@@ -3,6 +3,7 @@ import './barrier_offset';
 import './block_holder';
 import './loader';
 import './notify';
+import './apollo_notify';
 import './notify_telegram';
 import './recovery_stake';
 import './total_profit';

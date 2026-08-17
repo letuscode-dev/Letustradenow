@@ -1,4 +1,5 @@
 import type { FreeBot } from './types';
+import { MASTER_AUTO_VOLT_PRO_XML } from './bots/master-auto-volt-pro';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 
 /**
@@ -15,5 +16,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Scans last digits every second until a pattern hits: last 4 all odd → Purchase Even; last 4 all even → Purchase Odd; last 3 all ≤ 3 → Over 4; last 3 all ≥ 6 → Under 5. Martingale on loss (default ×2). After Re Analyse After wins (default 3), clears the signal and re-scans. Stops at Take Profit / Stop Loss.',
         tags: ['Even', 'Odd', 'Over 4', 'Under 5', 'Pattern', 'Martingale', 'Single-market'],
         xml: PATTERN_SWITCH_XML,
+    },
+    {
+        id: 'master-auto-volt-pro-v1',
+        title: 'Master Auto Volt Pro',
+        description:
+            'Digit Over on Volatility 75 (1s): analyses the last 15 digits’ frequency, picks a cold-digit Over barrier, then trades. Supports stake, target profit, stop loss, max consecutive losses, max runs, and martingale-style recovery after losses.',
+        tags: ['Digit Over', 'Cold digit', 'Martingale', 'Volatility 75', '1s'],
+        xml: MASTER_AUTO_VOLT_PRO_XML,
     },
 ];

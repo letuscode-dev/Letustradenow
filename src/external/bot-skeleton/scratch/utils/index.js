@@ -18,6 +18,7 @@ export { evaluateExpression };
 const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'purchase',
     'override_contract_type_purchase',
+    'apollo_purchase',
     'apollo_purchase2',
 ];
 
