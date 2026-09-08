@@ -21,6 +21,7 @@ const createDigitState = () => ({
 
 export const createDoubleDigitReturnState = () => ({
     digits: Array.from({ length: 10 }, createDigitState),
+    bootstrapped: false,
     last_processed_epoch: null,
     tick_index: -1,
     previous_digit: -1,
@@ -34,7 +35,7 @@ const statusLine = state =>
         .map((item, digit) => `${digit}: ${item.target_digit >= 0 ? item.target_digit : '-'} ${item.status}`)
         .join(' | ');
 
-const processPattern = (state, trigger, target, epoch, journal_messages) => {
+const processPattern = (state, trigger, target, epoch, journal_messages, suppress_signal = false) => {
     const item = state.digits[trigger];
     item.last_pattern = `${trigger} → ${trigger} → ${target}`;
 
@@ -60,6 +61,13 @@ const processPattern = (state, trigger, target, epoch, journal_messages) => {
             className: 'journal__text',
             message: `Digit ${trigger}: target updated to ${target} (${item.last_pattern}).`,
         });
+        return -1;
+    }
+
+    if (suppress_signal) {
+        item.status = 'WAITING';
+        item.trade_status = 'IDLE';
+        item.first_pattern_epoch = epoch;
         return -1;
     }
 
@@ -89,16 +97,10 @@ export const evaluateDoubleDigitReturnDiffers = (
     const journal_enabled = options.journal_enabled !== false;
     const journal_messages = [];
     const ticks = normalizeTicks(raw_ticks).slice(-tick_window);
-    const has_epochs = ticks.some(tick => tick.epoch !== null);
     let prediction = -1;
 
-    if (has_epochs && state.last_processed_epoch === null && ticks.length) {
-        // Establish the live baseline without trading on stale cached ticks.
-        const newest = ticks[ticks.length - 1];
-        state.last_processed_epoch = newest.epoch;
-        state.previous_digit = newest.digit;
-        state.previous_previous_digit = -1;
-    } else {
+    if (ticks.length) {
+        const bootstrapping = !state.bootstrapped;
         ticks.forEach(tick => {
             if (tick.epoch !== null && tick.epoch === state.last_processed_epoch) return;
             if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) return;
@@ -110,7 +112,8 @@ export const evaluateDoubleDigitReturnDiffers = (
                     state.previous_digit,
                     tick.digit,
                     tick.epoch ?? state.tick_index,
-                    journal_messages
+                    journal_messages,
+                    bootstrapping
                 );
                 if (prediction < 0 && result >= 0) prediction = result;
             }
@@ -118,6 +121,7 @@ export const evaluateDoubleDigitReturnDiffers = (
             state.previous_digit = tick.digit;
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
         });
+        state.bootstrapped = true;
     }
 
     if (!journal_enabled) journal_messages.length = 0;

@@ -39,4 +39,21 @@ describe('double digit return differs', () => {
         expect(result.tick_window).toBe(120);
         expect(result.states).toHaveLength(10);
     });
+
+    it('bootstraps targets from an epoch-tagged rolling window without stale trades', () => {
+        const state = createDoubleDigitReturnState();
+        const history = [2, 2, 7, 4, 4, 1].map((digit, index) => ({ digit, epoch: index + 1 }));
+
+        const first = evaluateDoubleDigitReturnDiffers(history, {}, state);
+        expect(first.prediction).toBe(-1);
+        expect(first.states[2].target_digit).toBe(7);
+        expect(first.states[4].target_digit).toBe(1);
+
+        const confirmation = evaluateDoubleDigitReturnDiffers(
+            [...history, { digit: 2, epoch: 7 }, { digit: 2, epoch: 8 }, { digit: 7, epoch: 9 }],
+            {},
+            state
+        );
+        expect(confirmation.prediction).toBe(7);
+    });
 });

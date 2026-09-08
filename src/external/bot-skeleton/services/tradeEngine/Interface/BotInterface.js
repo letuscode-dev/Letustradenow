@@ -1,52 +1,12 @@
 import { observer as globalObserver } from '../../../utils/observer';
-import { createDetails } from '../utils/helpers';
-import { getDigitTransitionPrediction } from '../utils/digit-transition';
-import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import {
-    clampDigitPercentageWindow,
-    getDigitPercentageValue,
-    getSlidingDigitWindow,
-} from '../utils/digit-percentage-condition';
-import {
-    detectEvenOddPairSignal,
-    buildEvenOddPairResult,
-    makeEvenOddPairTipKey,
-    toMarketSide,
-    createEvenOddPairRuntimeState,
-    armEvenOddPairPrediction,
-    applyEvenOddPairSettlement,
-    releaseStaleEvenOddPairCommit,
-    resetEvenOddPairRuntimeState,
-} from '../utils/even-odd-pair-over-under';
-import {
-    DEFAULT_LOOKBACK as PATTERN_OU_DEFAULT_LOOKBACK,
-    evaluatePatternProbabilityOverUnder as runPatternProbabilityOverUnder,
-    MAX_LOOKBACK as PATTERN_OU_MAX_LOOKBACK,
-} from '../utils/pattern-probability-over-under';
-import { evaluatePercentageFilter } from '../utils/percentage-filter';
-import { analyzeDigitFrequency } from '../utils/digit-frequency-analysis';
-import {
-    createRecoveryState,
-    calculateRecoveryStake,
-    configureRecoveryState,
-    applyRecoveryResult,
-} from '../utils/recovery-stake';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
-    createTrackerState as createIncreasingGapTrackerState,
-    evaluateIncreasingDigitGap,
-    releaseIncreasingDigitGapActiveTrade,
-} from '../utils/increasing-digit-gap';
-import {
-    createTrackerState as createSignalScoreTrackerState,
-    evaluateSignalScoreDiffers,
-    releaseSignalScoreDiffersActiveTrade,
-} from '../utils/signal-score-differs';
-import {
-    createTrackerState as createLongAbsenceReturnTrackerState,
-    evaluateLongAbsenceReturnDiffers,
-    releaseLongAbsenceReturnActiveTrade,
-} from '../utils/long-absence-return-differs';
+    consumeColdDigitSignal,
+    createColdDigitState,
+    evaluateColdDigit,
+    resetColdDigitState,
+} from '../utils/cold-digit';
+import { evaluateComplementDigit } from '../utils/complement-digit';
 import {
     createTrackerState as createConditionalEvenOddTrackerState,
     evaluateConditionalEvenOddDiffers,
@@ -58,53 +18,52 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
+import { analyzeDigitFrequency } from '../utils/digit-frequency-analysis';
 import {
-    applyWindowIndexDiffersResult,
-    createWindowIndexDiffersState,
-    evaluateWindowIndexDiffers,
-    resetWindowIndexDiffersState,
-} from '../utils/window-index-differs';
+    clampDigitPercentageWindow,
+    getDigitPercentageValue,
+    getSlidingDigitWindow,
+} from '../utils/digit-percentage-condition';
+import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import {
-    applyRepeatReappearSettlement,
-    createRepeatReappearState,
-    evaluateRepeatReappearDiffers,
-    releaseStaleRepeatReappearCommit,
-    resetRepeatReappearState,
-} from '../utils/repeat-reappear-differs';
+    createDoubleDigitReturnState,
+    evaluateDoubleDigitReturnDiffers,
+    resetDoubleDigitReturnState,
+} from '../utils/double-digit-return-differs';
 import {
-    createStrategyVotingState,
-    evaluateStrategyVoting,
-    resetStrategyVotingState,
-} from '../utils/strategy-voting-engine';
-import { evaluateComplementDigit } from '../utils/complement-digit';
+    applyEvenOddPairSettlement,
+    armEvenOddPairPrediction,
+    buildEvenOddPairResult,
+    createEvenOddPairRuntimeState,
+    detectEvenOddPairSignal,
+    makeEvenOddPairTipKey,
+    releaseStaleEvenOddPairCommit,
+    resetEvenOddPairRuntimeState,
+    toMarketSide,
+} from '../utils/even-odd-pair-over-under';
+import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
+import { createDetails } from '../utils/helpers';
 import {
-    consumeColdDigitSignal,
-    createColdDigitState,
-    evaluateColdDigit,
-    resetColdDigitState,
-} from '../utils/cold-digit';
+    applyHybridMultiScanSettlement,
+    armHybridMultiScanPrediction,
+    CONTRACT_CODE,
+    createHybridMultiScanRuntimeState,
+    evaluateHybridMultiScan as runHybridMultiScan,
+    makeHybridMultiScanTipKey,
+    normalizeHybridMultiScanOptions,
+    releaseStaleHybridMultiScanCommit,
+    resetHybridMultiScanRuntimeState,
+} from '../utils/hybrid-multi-scan';
 import {
-    createRangeMomentumState,
-    evaluateRangeMomentumOverOne,
-    resetRangeMomentumState,
-} from '../utils/range-momentum';
+    createTrackerState as createIncreasingGapTrackerState,
+    evaluateIncreasingDigitGap,
+    releaseIncreasingDigitGapActiveTrade,
+} from '../utils/increasing-digit-gap';
 import {
-    armSequentialDiffersPrediction,
-    applySequentialDiffersTradeResult,
-    buildSequentialScanResult,
-    consumeImmediateLossRetry,
-    createSequentialDiffersRuntimeState,
-    DEFAULT_IMMEDIATE_LOSS_RETRY,
-    evaluateSymbolSequentialSignal,
-    isSignalAlreadyConsumed,
-    makeSignalKey,
-    orderSymbolsForScan,
-    pickFirstMatch,
-    releaseStaleSequentialCommit,
-    resetSequentialDiffersRuntimeState,
-    resolveScanSymbols,
-    toMarketGroup,
-} from '../utils/sequential-digit-differs';
+    createTrackerState as createLongAbsenceReturnTrackerState,
+    evaluateLongAbsenceReturnDiffers,
+    releaseLongAbsenceReturnActiveTrade,
+} from '../utils/long-absence-return-differs';
 import {
     armHotOddEvenDiffersPrediction,
     buildHotOddEvenDiffersResult,
@@ -133,22 +92,63 @@ import {
     resolveScanSymbols as resolveParityRunSymbols,
 } from '../utils/parity-run-differs';
 import {
-    CONTRACT_CODE,
-    applyHybridMultiScanSettlement,
-    armHybridMultiScanPrediction,
-    createHybridMultiScanRuntimeState,
-    evaluateHybridMultiScan as runHybridMultiScan,
-    makeHybridMultiScanTipKey,
-    normalizeHybridMultiScanOptions,
-    releaseStaleHybridMultiScanCommit,
-    resetHybridMultiScanRuntimeState,
-} from '../utils/hybrid-multi-scan';
+    DEFAULT_LOOKBACK as PATTERN_OU_DEFAULT_LOOKBACK,
+    evaluatePatternProbabilityOverUnder as runPatternProbabilityOverUnder,
+    MAX_LOOKBACK as PATTERN_OU_MAX_LOOKBACK,
+} from '../utils/pattern-probability-over-under';
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
+import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
-    createDoubleDigitReturnState,
-    evaluateDoubleDigitReturnDiffers,
-    resetDoubleDigitReturnState,
-} from '../utils/double-digit-return-differs';
+    createRangeMomentumState,
+    evaluateRangeMomentumOverOne,
+    resetRangeMomentumState,
+} from '../utils/range-momentum';
+import {
+    applyRecoveryResult,
+    calculateRecoveryStake,
+    configureRecoveryState,
+    createRecoveryState,
+} from '../utils/recovery-stake';
+import {
+    applyRepeatReappearSettlement,
+    createRepeatReappearState,
+    evaluateRepeatReappearDiffers,
+    releaseStaleRepeatReappearCommit,
+    resetRepeatReappearState,
+} from '../utils/repeat-reappear-differs';
+import {
+    applySequentialDiffersTradeResult,
+    armSequentialDiffersPrediction,
+    buildSequentialScanResult,
+    consumeImmediateLossRetry,
+    createSequentialDiffersRuntimeState,
+    DEFAULT_IMMEDIATE_LOSS_RETRY,
+    evaluateSymbolSequentialSignal,
+    isSignalAlreadyConsumed,
+    makeSignalKey,
+    orderSymbolsForScan,
+    pickFirstMatch,
+    releaseStaleSequentialCommit,
+    resetSequentialDiffersRuntimeState,
+    resolveScanSymbols,
+    toMarketGroup,
+} from '../utils/sequential-digit-differs';
+import {
+    createTrackerState as createSignalScoreTrackerState,
+    evaluateSignalScoreDiffers,
+    releaseSignalScoreDiffersActiveTrade,
+} from '../utils/signal-score-differs';
+import {
+    createStrategyVotingState,
+    evaluateStrategyVoting,
+    resetStrategyVotingState,
+} from '../utils/strategy-voting-engine';
+import {
+    applyWindowIndexDiffersResult,
+    createWindowIndexDiffersState,
+    evaluateWindowIndexDiffers,
+    resetWindowIndexDiffersState,
+} from '../utils/window-index-differs';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
