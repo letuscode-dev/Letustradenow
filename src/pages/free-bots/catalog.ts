@@ -3,6 +3,7 @@ import { LEAST_FREQUENT_DIFFERS_XML } from './bots/least-frequent-differs';
 import { MASTER_AUTO_VOLT_PRO_XML } from './bots/master-auto-volt-pro';
 import { MOST_FREQUENT_DIFFERS_XML } from './bots/most-frequent-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
+import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 
 /**
  * Free Bots catalog.
@@ -11,6 +12,14 @@ import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'double-digit-return-differs-v1',
+        title: 'Double Digit → Return Differs Strategy',
+        description:
+            'Tracks all ten digits independently. Stores Y after X → X → Y, then places Digit Differs Y only when the same pattern returns. Includes a 120-tick minimum analysis window, stake, duration, trade limit, cooldown, simultaneous-trade limit, auto-trading switch, and live state journal.',
+        tags: ['Differs', 'Double digit', 'Return pattern', '10-state tracking', 'Configurable window'],
+        xml: DOUBLE_DIGIT_RETURN_DIFFERS_XML,
+    },
     {
         id: 'pattern-switch-v1',
         title: 'Pattern Switch',

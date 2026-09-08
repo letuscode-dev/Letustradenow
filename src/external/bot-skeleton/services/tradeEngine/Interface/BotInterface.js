@@ -144,6 +144,11 @@ import {
     resetHybridMultiScanRuntimeState,
 } from '../utils/hybrid-multi-scan';
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
+import {
+    createDoubleDigitReturnState,
+    evaluateDoubleDigitReturnDiffers,
+    resetDoubleDigitReturnState,
+} from '../utils/double-digit-return-differs';
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -221,6 +226,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.hybridMultiScanState) {
                 resetHybridMultiScanRuntimeState(tradeEngine.hybridMultiScanState);
                 tradeEngine.hybridMultiScanState = null;
+            }
+            if (tradeEngine.doubleDigitReturnState) {
+                resetDoubleDigitReturnState(tradeEngine.doubleDigitReturnState);
+                tradeEngine.doubleDigitReturnState = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -427,6 +436,35 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine._repeatReappearLastJournalFp = fp;
             return result;
+        },
+        /**
+         * Double Digit → Return Differs — independently tracks X → X → Y
+         * relationships for every trigger digit from 0 through 9.
+         */
+        evaluateDoubleDigitReturnDiffers: async options => {
+            const opts = options || {};
+            if (!tradeEngine.doubleDigitReturnState) {
+                tradeEngine.doubleDigitReturnState = createDoubleDigitReturnState();
+            }
+            const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
+            let digit_ticks = tradeEngine.getCachedDigitTicks
+                ? tradeEngine.getCachedDigitTicks()
+                : null;
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
+                if (typeof tradeEngine.ensureTickHistory === 'function') {
+                    await tradeEngine.ensureTickHistory(tick_window);
+                }
+                digit_ticks = tradeEngine.getCachedDigitTicks
+                    ? tradeEngine.getCachedDigitTicks()
+                    : null;
+            }
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
+                const digits = tradeEngine.getCachedLastDigitList
+                    ? tradeEngine.getCachedLastDigitList(tick_window)
+                    : [];
+                digit_ticks = Array.isArray(digits) ? digits : [];
+            }
+            return evaluateDoubleDigitReturnDiffers(digit_ticks, opts, tradeEngine.doubleDigitReturnState);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
