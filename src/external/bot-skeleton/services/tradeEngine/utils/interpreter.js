@@ -215,6 +215,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluatePatternSwitch)
             );
         }
+        if (typeof bot_interface.evaluateDoubleDigitReturnDiffers === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateDoubleDigitReturnDiffers',
+                createAsync(js_interpreter, bot_interface.evaluateDoubleDigitReturnDiffers)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
