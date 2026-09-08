@@ -44,7 +44,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
     <statement name="INITIALIZATION">
       <block type="variables_set" id="dd_init_window"><field name="VAR" id="dd_window">Analysis Window</field><value name="VALUE"><block type="math_number"><field name="NUM">120</field></block></value>
         <next><block type="variables_set" id="dd_init_stake"><field name="VAR" id="dd_stake">Stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value>
-          <next><block type="variables_set" id="dd_init_base_stake"><field name="VAR" id="dd_base_stake">Base Stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value>
+          <next><block type="variables_set" id="dd_init_base_stake"><field name="VAR" id="dd_base_stake">Base Stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="dd_stake">Stake</field></block></value>
             <next><block type="variables_set" id="dd_init_duration"><field name="VAR" id="dd_duration">Trade Duration</field><value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
               <next><block type="variables_set" id="dd_init_max"><field name="VAR" id="dd_max_trades">Maximum Trades</field><value name="VALUE"><block type="math_number"><field name="NUM">100</field></block></value>
                 <next><block type="variables_set" id="dd_init_cooldown"><field name="VAR" id="dd_cooldown">Cooldown</field><value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
