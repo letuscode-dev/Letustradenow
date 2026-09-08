@@ -17,14 +17,14 @@ window.Blockly.Blocks.double_digit_return_differs_prediction = {
             colour: window.Blockly.Colours.Base.colour,
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
-            tooltip: localize('Tracks X → X → Y independently for all ten digits and returns Y only on confirmation.'),
+            tooltip: localize('Tracks X → X → Y independently for all ten digits, then returns the stored Y on the next X → X.'),
             category: window.Blockly.Categories.Tick_Analysis,
         });
     },
     meta() {
         return {
             display_name: localize('Double Digit → Return Differs'),
-            description: localize('Stores a target after X → X → Y, then signals Digit Differs Y only when the same pattern returns.'),
+            description: localize('Stores a target after X → X → Y, then signals Digit Differs Y on the next X → X for that trigger digit.'),
             key_words: localize('double digit, return, differs, digit, confirmation'),
         };
     },

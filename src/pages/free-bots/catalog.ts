@@ -16,7 +16,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'double-digit-return-differs-v1',
         title: 'Double Digit → Return Differs Strategy',
         description:
-            'Tracks all ten digits independently. Stores Y after X → X → Y, then places Digit Differs Y only when the same pattern returns. Includes a 120-tick minimum analysis window, stake, duration, trade limit, cooldown, simultaneous-trade limit, auto-trading switch, and live state journal.',
+            'Tracks all ten digits independently. Stores Y after X → X → Y, then places Digit Differs Y on the next X → X. Includes a 120-tick minimum analysis window, stake, duration, trade limit, cooldown, simultaneous-trade limit, auto-trading switch, and live state journal.',
         tags: ['Differs', 'Double digit', 'Return pattern', '10-state tracking', 'Configurable window'],
         xml: DOUBLE_DIGIT_RETURN_DIFFERS_XML,
     },

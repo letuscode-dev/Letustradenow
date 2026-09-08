@@ -12,6 +12,7 @@ const normalizeTicks = ticks => (Array.isArray(ticks) ? ticks : []).flatMap(item
 
 const createDigitState = () => ({
     target_digit: -1,
+    awaiting_target: false,
     status: 'WATCHING',
     confirmations: 0,
     first_pattern_epoch: null,
@@ -25,7 +26,6 @@ export const createDoubleDigitReturnState = () => ({
     last_processed_epoch: null,
     tick_index: -1,
     previous_digit: -1,
-    previous_previous_digit: -1,
 });
 
 export const resetDoubleDigitReturnState = () => createDoubleDigitReturnState();
@@ -35,53 +35,38 @@ const statusLine = state =>
         .map((item, digit) => `${digit}: ${item.target_digit >= 0 ? item.target_digit : '-'} ${item.status}`)
         .join(' | ');
 
-const processPattern = (state, trigger, target, epoch, journal_messages, suppress_signal = false) => {
+const storeTarget = (state, trigger, target, epoch, journal_messages) => {
     const item = state.digits[trigger];
+    item.target_digit = target;
+    item.awaiting_target = false;
+    item.status = 'WAITING';
+    item.trade_status = 'IDLE';
+    item.first_pattern_epoch = epoch;
     item.last_pattern = `${trigger} → ${trigger} → ${target}`;
+    journal_messages.push({
+        className: 'journal__text',
+        message: `Digit ${trigger}: stored target ${target} (${item.last_pattern}).`,
+    });
+};
 
+const handleRepeatedDigit = (state, trigger, journal_messages, suppress_signal) => {
+    const item = state.digits[trigger];
     if (item.target_digit < 0) {
-        item.target_digit = target;
-        item.status = 'WAITING';
-        item.trade_status = 'IDLE';
-        item.first_pattern_epoch = epoch;
-        journal_messages.push({
-            className: 'journal__text',
-            message: `Digit ${trigger}: stored target ${target} (${item.last_pattern}).`,
-        });
+        item.awaiting_target = true;
         return -1;
     }
+    if (suppress_signal) return -1;
 
-    if (item.target_digit !== target) {
-        item.target_digit = target;
-        item.status = 'WAITING';
-        item.trade_status = 'IDLE';
-        item.confirmations = 0;
-        item.first_pattern_epoch = epoch;
-        journal_messages.push({
-            className: 'journal__text',
-            message: `Digit ${trigger}: target updated to ${target} (${item.last_pattern}).`,
-        });
-        return -1;
-    }
-
-    if (suppress_signal) {
-        item.status = 'WAITING';
-        item.trade_status = 'IDLE';
-        item.first_pattern_epoch = epoch;
-        return -1;
-    }
-
+    const target = item.target_digit;
     item.confirmations += 1;
     item.status = 'CONFIRMED';
     item.trade_status = 'SIGNAL';
     journal_messages.push({
         className: 'journal__text--success',
-        message: `Digit ${trigger}: confirmed ${item.last_pattern} → DIFFER ${target}.`,
+        message: `Digit ${trigger}: return repeat confirmed → DIFFER ${target}.`,
     });
-
-    // The trigger is reset as soon as its signal is emitted, so it cannot
-    // submit duplicate contracts while the current contract is open.
     item.target_digit = -1;
+    item.awaiting_target = false;
     item.status = 'WATCHING';
     item.trade_status = 'IDLE';
     item.first_pattern_epoch = null;
@@ -106,18 +91,16 @@ export const evaluateDoubleDigitReturnDiffers = (
             if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) return;
 
             state.tick_index += 1;
-            if (state.previous_previous_digit >= 0 && state.previous_digit === state.previous_previous_digit) {
-                const result = processPattern(
-                    state,
-                    state.previous_digit,
-                    tick.digit,
-                    tick.epoch ?? state.tick_index,
-                    journal_messages,
-                    bootstrapping
-                );
+            state.digits.forEach((item, trigger) => {
+                if (item.awaiting_target && tick.digit !== trigger) {
+                    storeTarget(state, trigger, tick.digit, tick.epoch ?? state.tick_index, journal_messages);
+                }
+            });
+
+            if (state.previous_digit >= 0 && state.previous_digit === tick.digit) {
+                const result = handleRepeatedDigit(state, tick.digit, journal_messages, bootstrapping);
                 if (prediction < 0 && result >= 0) prediction = result;
             }
-            state.previous_previous_digit = state.previous_digit;
             state.previous_digit = tick.digit;
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
         });
