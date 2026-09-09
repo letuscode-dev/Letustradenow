@@ -191,6 +191,20 @@ export const save = (filename = '@deriv/bot', collection = false, xmlDom) => {
 
 const delayExecution = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const ensureFreeBotBlocksRegistered = async block_string => {
+    const imports = [];
+
+    if (block_string.includes('double_repeat_relationship_scanner_prediction')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/double_repeat_relationship_scanner_prediction'));
+    }
+
+    if (block_string.includes('double_repeat_relationship_risk_management')) {
+        imports.push(import('../blocks/Binary/After Purchase/double_repeat_relationship_risk_management'));
+    }
+
+    await Promise.all(imports);
+};
+
 export const load = async ({
     block_string,
     drop_event,
@@ -235,6 +249,11 @@ export const load = async ({
     // Check if XML can be parsed into a strategy.
     try {
         xml = window.Blockly.utils.xml.textToDom(block_string);
+    } catch (e) {
+        return showInvalidStrategyError();
+    }
+    try {
+        await ensureFreeBotBlocksRegistered(block_string);
     } catch (e) {
         return showInvalidStrategyError();
     }
