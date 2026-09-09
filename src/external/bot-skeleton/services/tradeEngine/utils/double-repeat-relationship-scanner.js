@@ -110,15 +110,20 @@ export const evaluateDoubleRepeatRelationshipScanner = (
         .map(item => ({ ...item, score: scoreRelationship(item, current_index) }))
         .sort((left, right) => right.score - left.score);
     const latest_pattern = patterns[patterns.length - 1];
-    const signal_key = latest_pattern ? `${latest_pattern.epoch}:${latest_pattern.trigger}->${latest_pattern.target}` : '';
-    const latest_relationship = latest_pattern ? summaries.find(item => item.trigger === latest_pattern.trigger && item.target === latest_pattern.target) : null;
+    const window_fingerprint = ticks.map(tick => tick.digit).join('');
+    const signal_key = latest_pattern
+        ? `${latest_pattern.epoch}:${latest_pattern.trigger}->${latest_pattern.target}:${window_fingerprint}`
+        : '';
+    const latest_relationship = latest_pattern && latest_pattern.index === current_index
+        ? summaries.find(item => item.trigger === latest_pattern.trigger && item.target === latest_pattern.target)
+        : null;
     const latest_eligible = latest_relationship && eligible.find(item => item.trigger === latest_relationship.trigger && item.target === latest_relationship.target);
     const selected = latest_eligible && signal_key !== state.last_signal_key
         ? signal_mode === 'TOP_3' ? eligible.slice(0, 3) : signal_mode === 'ALL' ? eligible : [latest_eligible]
         : [];
     const selected_relationship = selected.find(item => item.trigger === latest_pattern?.trigger && item.target === latest_pattern?.target) || selected[0];
     state.last_signal_key = selected_relationship ? signal_key : state.last_signal_key;
-    state.last_window_key = ticks.length ? `${ticks[0].epoch}:${ticks[ticks.length - 1].epoch}` : '';
+    state.last_window_key = window_fingerprint;
 
     return {
         prediction: selected_relationship ? selected_relationship.target : -1,

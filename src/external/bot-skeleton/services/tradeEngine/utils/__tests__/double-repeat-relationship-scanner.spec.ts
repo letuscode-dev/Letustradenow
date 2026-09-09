@@ -33,4 +33,12 @@ describe('double repeat relationship scanner', () => {
         expect(first.prediction).toBe(7);
         expect(second.prediction).toBe(-1);
     });
+
+    it('allows a new rolling-window event when epochs are unavailable', () => {
+        const state = createDoubleRepeatRelationshipState();
+        const first = evaluateDoubleRepeatRelationshipScanner([2, 2, 7, 2, 2, 7], { minimum_confirmations: 1 }, state);
+        const second = evaluateDoubleRepeatRelationshipScanner([2, 2, 7, 2, 2, 7, 2, 2, 7], { minimum_confirmations: 1 }, state);
+        expect(first.prediction).toBe(7);
+        expect(second.prediction).toBe(7);
+    });
 });
