@@ -43,35 +43,33 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.double_digit_risk_managem
     const signal = variable('dd_signal');
 
     return `
-    (function () {
-        var BinaryBotPrivateDdrWon = Bot.isResult('win');
-        if (BinaryBotPrivateDdrWon) {
+    var BinaryBotPrivateDdrWon = Bot.isResult('win');
+    if (BinaryBotPrivateDdrWon) {
+        ${stake} = Number(${base_stake});
+        ${losses} = 0;
+        ${recovery_pending} = false;
+    } else {
+        ${losses} = Number(${losses}) + 1;
+        if (${recovery_pending}) {
             ${stake} = Number(${base_stake});
-            ${losses} = 0;
             ${recovery_pending} = false;
         } else {
-            ${losses} = Number(${losses}) + 1;
-            if (${recovery_pending}) {
-                ${stake} = Number(${base_stake});
-                ${recovery_pending} = false;
-            } else {
-                ${stake} = Number(${base_stake}) * Number(${recovery_multiplier});
-                ${recovery_pending} = true;
-            }
+            ${stake} = Number(${base_stake}) * Number(${recovery_multiplier});
+            ${recovery_pending} = true;
         }
-        ${trades} = Number(${trades}) + 1;
-        var BinaryBotPrivateDdrTakeProfit = Number(${take_profit});
-        var BinaryBotPrivateDdrStopLoss = Number(${stop_loss});
-        var BinaryBotPrivateDdrProfit = Number(Bot.getTotalProfit(false));
-        if ((BinaryBotPrivateDdrTakeProfit > 0 && BinaryBotPrivateDdrProfit >= BinaryBotPrivateDdrTakeProfit) ||
-            (BinaryBotPrivateDdrStopLoss > 0 && Number(${losses}) >= BinaryBotPrivateDdrStopLoss) ||
-            Number(${trades}) >= Number(${max_trades})) {
-            ${stop} = true;
-            return true;
-        }
+    }
+    ${trades} = Number(${trades}) + 1;
+    var BinaryBotPrivateDdrTakeProfit = Number(${take_profit});
+    var BinaryBotPrivateDdrStopLoss = Number(${stop_loss});
+    var BinaryBotPrivateDdrProfit = Number(Bot.getTotalProfit(false));
+    if ((BinaryBotPrivateDdrTakeProfit > 0 && BinaryBotPrivateDdrProfit >= BinaryBotPrivateDdrTakeProfit) ||
+        (BinaryBotPrivateDdrStopLoss > 0 && Number(${losses}) >= BinaryBotPrivateDdrStopLoss) ||
+        Number(${trades}) >= Number(${max_trades})) {
+        ${stop} = true;
+    } else {
         ${signal} = false;
         Bot.isTradeAgain(true);
         return true;
-    })();
+    }
 `;
 };
