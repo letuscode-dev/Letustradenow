@@ -4,7 +4,7 @@ import { modifyContextMenu } from '../../../utils';
 window.Blockly.Blocks.double_repeat_relationship_scanner_prediction = {
     init() {
         this.jsonInit({
-            message0: localize('Double-Repeat Relationship Scanner (window {{ window }}, confirmations {{ confirmations }}, reliability {{ reliability }}%, mode {{ mode }}, auto {{ auto }}, secondary {{ secondary }})'),
+            message0: localize('Double-Repeat Relationship Scanner (window %1, confirmations %2, reliability %3%, mode %4, auto %5, secondary %6)'),
             args0: [
                 { type: 'input_value', name: 'WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'CONFIRMATIONS', check: 'Number' },
