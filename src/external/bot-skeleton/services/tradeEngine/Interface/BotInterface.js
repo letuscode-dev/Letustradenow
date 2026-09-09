@@ -31,6 +31,10 @@ import {
     resetDoubleDigitReturnState,
 } from '../utils/double-digit-return-differs';
 import {
+    createDoubleRepeatRelationshipState,
+    evaluateDoubleRepeatRelationshipScanner,
+} from '../utils/double-repeat-relationship-scanner';
+import {
     applyEvenOddPairSettlement,
     armEvenOddPairPrediction,
     buildEvenOddPairResult,
@@ -465,6 +469,23 @@ const getBotInterface = tradeEngine => {
                 digit_ticks = Array.isArray(digits) ? digits : [];
             }
             return evaluateDoubleDigitReturnDiffers(digit_ticks, opts, tradeEngine.doubleDigitReturnState);
+        },
+        evaluateDoubleRepeatRelationshipScanner: async options => {
+            const opts = options || {};
+            if (!tradeEngine.doubleRepeatRelationshipState) {
+                tradeEngine.doubleRepeatRelationshipState = createDoubleRepeatRelationshipState();
+            }
+            const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
+            let digit_ticks = tradeEngine.getCachedDigitTicks
+                ? tradeEngine.getCachedDigitTicks()
+                : [];
+            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
+                if (typeof tradeEngine.ensureTickHistory === 'function') {
+                    await tradeEngine.ensureTickHistory(tick_window);
+                }
+                digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            }
+            return evaluateDoubleRepeatRelationshipScanner(digit_ticks, opts, tradeEngine.doubleRepeatRelationshipState);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
