@@ -6,8 +6,7 @@ window.Blockly.Blocks.double_repeat_relationship_risk_management = {
         this.jsonInit({
             message0: localize('Double-Repeat risk management'),
             args0: [],
-            previousStatement: 'TradeAgain',
-            nextStatement: 'TradeAgain',
+            previousStatement: null,
             colour: window.Blockly.Colours.Base.colour,
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
