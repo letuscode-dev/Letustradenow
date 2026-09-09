@@ -90,6 +90,12 @@ export default Engine =>
                 : +accountStat.totalProfit;
         }
 
+        getSessionProfit(toString, currency) {
+            return toString && this.sessionProfit !== 0
+                ? getRoundedNumber(+this.sessionProfit, currency)
+                : +this.sessionProfit;
+        }
+
         /* eslint-enable */
         checkLimits(tradeOption) {
             if (!tradeOption.limitations) {
