@@ -9,7 +9,7 @@ window.Blockly.Blocks.double_repeat_relationship_scanner_prediction = {
                 { type: 'input_value', name: 'WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'CONFIRMATIONS', check: 'Number' },
                 { type: 'input_value', name: 'RELIABILITY', check: 'Number' },
-                { type: 'input_value', name: 'MODE', check: 'String' },
+                { type: 'input_value', name: 'MODE' },
                 { type: 'input_value', name: 'AUTO', check: 'Boolean' },
                 { type: 'input_value', name: 'SECONDARY', check: 'Boolean' },
             ],

@@ -6,8 +6,8 @@ window.Blockly.Blocks.double_repeat_relationship_risk_management = {
         this.jsonInit({
             message0: localize('Double-Repeat risk management'),
             args0: [],
-            previousStatement: null,
-            nextStatement: null,
+            previousStatement: 'TradeAgain',
+            nextStatement: 'TradeAgain',
             colour: window.Blockly.Colours.Base.colour,
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
@@ -23,6 +23,7 @@ window.Blockly.Blocks.double_repeat_relationship_risk_management = {
         };
     },
     customContextMenu(menu) { modifyContextMenu(menu); },
+    restricted_parents: ['after_purchase'],
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.double_repeat_relationship_risk_management = () => {
