@@ -1,6 +1,5 @@
 /**
  * Digit frequency analysis — least/most frequent last digit in a sliding window.
- * Used by Apollo-imported strategies (e.g. Least Frequent Differs).
  */
 
 import { getSlidingDigitWindow, clampDigitPercentageWindow } from './digit-percentage-condition';

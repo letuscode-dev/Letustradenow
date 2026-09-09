@@ -551,8 +551,7 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Digit frequency analysis — least/most frequent digit in last N ticks.
-         * Sync + tip cache: Least Frequent Differs compares the same value up to
-         * 10 times per loop iteration.
+         * Sync + tip cache avoids repeating the same calculation in one loop.
          */
         getDigitFrequencyAnalysis: (analysis_type, sample_size) => {
             const window_size = clampDigitPercentageWindow(sample_size);

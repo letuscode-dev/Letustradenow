@@ -1,5 +1,5 @@
 /**
- * Apollo purchase — purchase substitute used by Master Auto Volt Pro XML.
+ * Apollo purchase — purchase substitute for prediction-based contracts.
  * Prediction comes from trade options set in SUBMARKET.
  */
 import { localize } from '@deriv-com/translations';
