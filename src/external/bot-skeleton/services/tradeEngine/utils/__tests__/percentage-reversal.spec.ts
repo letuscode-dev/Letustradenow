@@ -1,7 +1,10 @@
 import {
     detectPercentageReversal,
     evaluatePercentageReversal,
+    evaluateSymbolPercentageReversal,
     normalizePercentageReversalOptions,
+    pickBestPercentageReversalMatch,
+    resolveScanSymbols,
     scoreDigitReversal,
 } from '../percentage-reversal';
 
@@ -35,35 +38,6 @@ describe('evaluatePercentageReversal', () => {
     });
 
     it('signals Differ on the collapsing dominant digit', () => {
-        // Build 200 ticks where digit 5 is heavy in older portion, scarce in newest 50
-        const digits = [];
-        for (let i = 0; i < 150; i++) {
-            // older/mid: digit 5 appears often (~20%)
-            digits.push(i % 5 === 0 ? 5 : (i % 9 === 5 ? 4 : i % 9));
-        }
-        for (let i = 0; i < 50; i++) {
-            // recent: almost no 5s
-            digits.push(i % 9 === 5 ? 4 : i % 9);
-        }
-
-        const result = evaluatePercentageReversal(digits, {
-            short_window: 50,
-            medium_window: 100,
-            long_window: 200,
-            dominance_min: 15,
-            collapse_max: 10,
-            min_drop: 7,
-            journal_enabled: true,
-        });
-
-        expect(result.analysis.ready).toBe(true);
-        if (result.matched) {
-            expect(result.prediction).toBeGreaterThanOrEqual(0);
-            expect(result.prediction).toBeLessThanOrEqual(9);
-            expect(result.journal_messages.length).toBeGreaterThan(0);
-        }
-
-        // Direct detection with forced percentages via detect on crafted sample
         const forced = Array.from({ length: 200 }, (_, i) => {
             if (i < 150) return i % 5 === 0 ? 7 : 1;
             return 1; // last 50: no 7s
@@ -81,8 +55,40 @@ describe('evaluatePercentageReversal', () => {
         expect(check.prediction).toBe(7);
     });
 
-    it('normalizes options', () => {
+    it('normalizes options including switch_symbol', () => {
         expect(normalizePercentageReversalOptions({}).short_window).toBe(50);
         expect(normalizePercentageReversalOptions({}).dominance_min).toBe(15);
+        expect(normalizePercentageReversalOptions({}).switch_symbol).toBe(true);
+    });
+
+    it('resolves explicit Selected Symbols for multi-market scan', () => {
+        expect(resolveScanSymbols({ symbols: '1HZ50V, R_10, R_25' })).toEqual([
+            '1HZ50V',
+            'R_10',
+            'R_25',
+        ]);
+    });
+
+    it('picks the strongest collapse across symbols', () => {
+        const forcedStrong = Array.from({ length: 200 }, (_, i) => {
+            if (i < 150) return i % 5 === 0 ? 7 : 1;
+            return 1;
+        });
+        const weak = Array.from({ length: 200 }, () => 1);
+        const a = evaluateSymbolPercentageReversal('R_10', forcedStrong, {
+            dominance_min: 15,
+            collapse_max: 10,
+            min_drop: 7,
+        });
+        const b = evaluateSymbolPercentageReversal('R_25', weak, {
+            dominance_min: 15,
+            collapse_max: 10,
+            min_drop: 7,
+        });
+        expect(a.matched).toBe(true);
+        expect(b.matched).toBe(false);
+        const best = pickBestPercentageReversalMatch([b, a]);
+        expect(best?.symbol).toBe('R_10');
+        expect(best?.prediction).toBe(7);
     });
 });

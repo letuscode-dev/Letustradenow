@@ -5,7 +5,25 @@
  * Example regime change:
  *   Long 200: 17%  →  Medium 100: 20%  →  Short 50: 8%
  *   Digit was dominant, then rapidly collapsed → DIFFER that digit.
+ *
+ * Supports multi-symbol scanning via Selected Symbols / market_group.
  */
+
+import {
+    orderSymbolsForScan,
+    parseSymbolList,
+    resolveScanSymbols,
+    VOLATILITY_1S_SYMBOLS,
+    VOLATILITY_STANDARD_SYMBOLS,
+} from './sequential-digit-differs';
+
+export {
+    orderSymbolsForScan,
+    parseSymbolList,
+    resolveScanSymbols,
+    VOLATILITY_1S_SYMBOLS,
+    VOLATILITY_STANDARD_SYMBOLS,
+};
 
 export const BASELINE_PERCENT = 10;
 
@@ -22,6 +40,7 @@ export const DEFAULT_OPTIONS = {
     /** Prefer medium also above this when scoring (optional soft boost). */
     medium_dominance_min: 12,
     journal_enabled: true,
+    switch_symbol: true,
 };
 
 const toBool = (value, default_value = false) => {
@@ -64,7 +83,61 @@ export const normalizePercentageReversalOptions = (options = {}) => {
         min_drop: toNonNegNumber(options.min_drop, d.min_drop),
         medium_dominance_min: toNonNegNumber(options.medium_dominance_min, d.medium_dominance_min),
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
+        switch_symbol: toBool(options.switch_symbol, d.switch_symbol),
+        symbols: options.symbols,
+        market_group: options.market_group,
     };
+};
+
+export const evaluateSymbolPercentageReversal = (symbol, digits, raw_options = {}) => {
+    const result = evaluatePercentageReversal(digits, {
+        ...raw_options,
+        journal_enabled: false,
+    });
+    const best = result.analysis?.best || null;
+    return {
+        symbol,
+        prediction: result.prediction,
+        barrier: result.barrier,
+        matched: result.matched,
+        digit: result.digit,
+        drop: result.drop,
+        score: best?.score ?? 0,
+        prior_peak: best?.prior_peak ?? 0,
+        short_pct: best?.short_pct ?? 0,
+        ready: Boolean(result.analysis?.ready),
+        tick_count: result.analysis?.tick_count ?? 0,
+        need: result.analysis?.need ?? 0,
+        analysis: result.analysis,
+    };
+};
+
+/** Prefer strongest collapse score across scanned symbols. */
+export const pickBestPercentageReversalMatch = evaluations => {
+    if (!Array.isArray(evaluations)) return null;
+    let best = null;
+    for (let i = 0; i < evaluations.length; i++) {
+        const item = evaluations[i];
+        if (!item?.matched || item.prediction < 0) continue;
+        if (
+            !best ||
+            item.score > best.score ||
+            (item.score === best.score && item.drop > best.drop)
+        ) {
+            best = item;
+        }
+    }
+    return best;
+};
+
+export const makePercentageReversalSignalKey = (match, tip_epoch) => {
+    if (!match?.matched) return '';
+    return `${match.symbol}:${match.prediction}:${Math.round(match.drop * 100)}:${tip_epoch ?? ''}`;
+};
+
+export const isPercentageReversalSignalConsumed = (match, tip_epoch, consumed_key) => {
+    if (!match?.matched || !consumed_key) return false;
+    return makePercentageReversalSignalKey(match, tip_epoch) === consumed_key;
 };
 
 export const computeWindowPercentages = sample => {

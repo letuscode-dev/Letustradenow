@@ -1,9 +1,16 @@
 /**
  * Percentage Reversal free bot.
  *
- * Tracks digit % across Short / Medium / Long windows and trades DIGITDIFF
- * when a digit shifts from dominance into rapid percentage collapse.
+ * Multi-market: scans Selected Symbols for digit % dominance → collapse,
+ * then trades DIGITDIFF on the strongest match (switching market when needed).
  */
+
+const escapeXml = value =>
+    String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
 const varGet = (id, name) =>
     `<block type="variables_get"><field name="VAR" id="${id}">${name}</field></block>`;
@@ -12,6 +19,8 @@ const num = n => `<block type="math_number"><field name="NUM">${n}</field></bloc
 
 const bool = v =>
     `<block type="logic_boolean"><field name="BOOL">${v ? 'TRUE' : 'FALSE'}</field></block>`;
+
+const text = value => `<block type="text"><field name="TEXT">${escapeXml(value)}</field></block>`;
 
 const setVar = (id, name, valueXml, nextXml = '') =>
     `<block type="variables_set" id="pr_set_${id}">
@@ -68,8 +77,17 @@ const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
                     <value name="SECONDS">${secondsXml}</value>
                   </block>`;
 
-export const PERCENTAGE_REVERSAL_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+/**
+ * @param {string[]} selected_symbols
+ */
+export const buildPercentageReversalXml = (selected_symbols: string[] = []) => {
+    const symbols = selected_symbols.map(item => String(item || '').trim()).filter(Boolean);
+    const primary = symbols[0] || 'R_10';
+    const symbols_csv = symbols.join(',');
+
+    return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
+    <variable id="pr_symbols">Selected Symbols</variable>
     <variable id="pr_stake">Stake</variable>
     <variable id="pr_base_stake">Base Stake</variable>
     <variable id="pr_martingale">Martingale</variable>
@@ -92,7 +110,7 @@ export const PERCENTAGE_REVERSAL_XML = `<xml xmlns="https://developers.google.co
       <block type="trade_definition_market" id="pr_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">R_10</field>
+        <field name="SYMBOL_LIST">${escapeXml(primary)}</field>
         <next>
           <block type="trade_definition_tradetype" id="pr_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>
@@ -123,6 +141,7 @@ export const PERCENTAGE_REVERSAL_XML = `<xml xmlns="https://developers.google.co
     </statement>
     <statement name="INITIALIZATION">
       ${chainSets([
+          ['pr_symbols', 'Selected Symbols', text(symbols_csv)],
           ['pr_stake', 'Stake', num(0.5)],
           ['pr_base_stake', 'Base Stake', num(0.5)],
           ['pr_martingale', 'Martingale', num(2)],
@@ -152,6 +171,7 @@ export const PERCENTAGE_REVERSAL_XML = `<xml xmlns="https://developers.google.co
                 <field name="VAR" id="pr_prediction">Prediction</field>
                 <value name="VALUE">
                   <block type="percentage_reversal_scan" id="pr_scan_block">
+                    <value name="SYMBOLS">${varGet('pr_symbols', 'Selected Symbols')}</value>
                     <value name="SHORT_WINDOW">${varGet('pr_short', 'Short Window')}</value>
                     <value name="MEDIUM_WINDOW">${varGet('pr_medium', 'Medium Window')}</value>
                     <value name="LONG_WINDOW">${varGet('pr_long', 'Long Window')}</value>
@@ -258,3 +278,11 @@ ${tpSlThenTradeAgain('pr_loss_cd', varGet('pr_cooldown_loss', 'Cooldown After Lo
     </statement>
   </block>
 </xml>`;
+};
+
+/** Default XML for Free Bots catalog. */
+export const PERCENTAGE_REVERSAL_XML = buildPercentageReversalXml([
+    '1HZ50V',
+    'R_10',
+    'R_25',
+]);

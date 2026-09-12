@@ -108,12 +108,13 @@ import {
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
-    evaluateIndividualDigitSuppression as runIndividualDigitSuppression,
-    normalizeIndividualDigitSuppressionOptions,
-} from '../utils/individual-digit-suppression';
-import {
-    evaluatePercentageReversal as runPercentageReversal,
+    evaluateSymbolPercentageReversal,
+    isPercentageReversalSignalConsumed,
+    makePercentageReversalSignalKey,
     normalizePercentageReversalOptions,
+    orderSymbolsForScan as orderPercentageReversalSymbols,
+    pickBestPercentageReversalMatch,
+    resolveScanSymbols as resolvePercentageReversalSymbols,
 } from '../utils/percentage-reversal';
 import {
     createRangeMomentumState,
@@ -507,64 +508,179 @@ const getBotInterface = tradeEngine => {
             return result;
         },
         /**
-         * Individual Digit Suppression — multi-window digit % → Over 1/2/3.
-         */
-        evaluateIndividualDigitSuppression: async options => {
-            const opts = normalizeIndividualDigitSuppressionOptions(options || {});
-            const need = Math.max(opts.short_window, opts.medium_window, opts.long_window);
-            if (typeof tradeEngine.ensureTickHistory === 'function') {
-                await tradeEngine.ensureTickHistory(need);
-            }
-            let digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(need)
-                : tradeEngine.getCachedLastDigitList
-                  ? tradeEngine.getCachedLastDigitList(need)
-                  : [];
-            if (!Array.isArray(digits)) {
-                digits = [];
-            }
-            const result = runIndividualDigitSuppression(digits, opts);
-            const tip =
-                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
-            const fp = `${tip}:${result.strategy_output}:${result.prediction}:${result.final_score}`;
-            if (
-                tradeEngine._individualDigitSuppressionJournalFp === fp &&
-                Array.isArray(result.journal_messages)
-            ) {
-                return { ...result, journal_messages: [] };
-            }
-            tradeEngine._individualDigitSuppressionJournalFp = fp;
-            return result;
-        },
-        /**
-         * Percentage Reversal — dominance → short-window collapse → Digit Differs.
+         * Percentage Reversal — multi-market dominance → collapse → Digit Differs.
          */
         evaluatePercentageReversal: async options => {
             const opts = normalizePercentageReversalOptions(options || {});
+            const journal_enabled = opts.journal_enabled;
             const need = Math.max(opts.short_window, opts.medium_window, opts.long_window);
-            if (typeof tradeEngine.ensureTickHistory === 'function') {
-                await tradeEngine.ensureTickHistory(need);
+            const symbols = resolvePercentageReversalSymbols(opts);
+            const active_symbol =
+                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
+            const ordered = orderPercentageReversalSymbols(
+                symbols.length ? symbols : [active_symbol].filter(Boolean),
+                active_symbol
+            );
+            const ticks_service = tradeEngine.$scope?.ticksService;
+
+            if (!ordered.length) {
+                return {
+                    prediction: -1,
+                    matched: false,
+                    symbol: active_symbol,
+                    symbols_scanned: [],
+                    journal_messages: journal_enabled
+                        ? [
+                              {
+                                  className: 'journal__text--error',
+                                  message: 'Percentage Reversal: no volatilities selected.',
+                              },
+                          ]
+                        : [],
+                };
             }
-            let digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(need)
-                : tradeEngine.getCachedLastDigitList
-                  ? tradeEngine.getCachedLastDigitList(need)
-                  : [];
-            if (!Array.isArray(digits)) {
-                digits = [];
+
+            if (ticks_service?.warmScanStreams) {
+                ticks_service.warmScanStreams(ordered).catch(() => {});
             }
-            const result = runPercentageReversal(digits, opts);
-            const tip =
-                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
-            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}`;
-            if (
-                tradeEngine._percentageReversalJournalFp === fp &&
-                Array.isArray(result.journal_messages)
-            ) {
-                return { ...result, journal_messages: [] };
+            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
+                try {
+                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
+                } catch (e) {
+                    // keep prior caches
+                }
             }
-            tradeEngine._percentageReversalJournalFp = fp;
-            return result;
+
+            if (active_symbol && typeof tradeEngine.ensureDigitsForSymbol === 'function') {
+                const cached = tradeEngine.getCachedDigitsForSymbol
+                    ? tradeEngine.getCachedDigitsForSymbol(active_symbol, need)
+                    : [];
+                if (!Array.isArray(cached) || cached.length < need) {
+                    try {
+                        await tradeEngine.ensureDigitsForSymbol(active_symbol, need);
+                    } catch (e) {
+                        // keep prior cache
+                    }
+                }
+            }
+
+            const evaluations = await Promise.all(
+                ordered.map(async symbol => {
+                    if (ticks_service?._noteScanTip) {
+                        ticks_service._noteScanTip(symbol);
+                    }
+                    let digits = tradeEngine.getCachedDigitsForSymbol
+                        ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
+                        : [];
+                    if (
+                        symbol === active_symbol &&
+                        (!Array.isArray(digits) || digits.length < need) &&
+                        typeof tradeEngine.getDigitsForSymbol === 'function'
+                    ) {
+                        try {
+                            digits = await tradeEngine.getDigitsForSymbol(symbol, need);
+                        } catch (e) {
+                            digits = Array.isArray(digits) ? digits : [];
+                        }
+                    }
+                    return evaluateSymbolPercentageReversal(symbol, digits, opts);
+                })
+            );
+
+            const raw_match = pickBestPercentageReversalMatch(evaluations);
+            let tip_epoch = null;
+            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+                const tip = ticks[ticks.length - 1];
+                if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+                    tip_epoch = Number(tip.epoch);
+                } else if (tip) {
+                    tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
+                }
+            }
+
+            const skipped_consumed = isPercentageReversalSignalConsumed(
+                raw_match,
+                tip_epoch,
+                tradeEngine._percentageReversalConsumedKey
+            );
+            const match = skipped_consumed ? null : raw_match;
+
+            let switched = false;
+            let switch_failed = false;
+            if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
+                try {
+                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                        await tradeEngine.switchTradeSymbol(match.symbol);
+                        const now_symbol =
+                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                        if (now_symbol === match.symbol) {
+                            switched = true;
+                        } else {
+                            switch_failed = true;
+                        }
+                    } else {
+                        switch_failed = true;
+                    }
+                } catch (e) {
+                    switch_failed = true;
+                }
+            }
+
+            const tradeable = match?.matched && !switch_failed ? match : null;
+            if (tradeable) {
+                tradeEngine._percentageReversalConsumedKey = makePercentageReversalSignalKey(
+                    tradeable,
+                    tip_epoch
+                );
+            }
+
+            const journal_messages = [];
+            if (journal_enabled) {
+                if (tradeable) {
+                    journal_messages.push({
+                        className: 'journal__text--success',
+                        message: `Percentage Reversal: ${tradeable.symbol} → DIFFER ${tradeable.prediction} (peak ${Number(tradeable.prior_peak).toFixed(1)}% → short ${Number(tradeable.short_pct).toFixed(1)}%, drop ${Number(tradeable.drop).toFixed(1)}%)${switched ? ' (switched)' : ''}`,
+                    });
+                } else if (!skipped_consumed) {
+                    const watching = evaluations
+                        .map(item => {
+                            const ticks_label = item.ready
+                                ? `ready`
+                                : `${item.tick_count}/${item.need}`;
+                            return `${item.symbol}:${ticks_label}`;
+                        })
+                        .slice(0, 5)
+                        .join(' | ');
+                    const tip_fp = `watch:${watching}`;
+                    if (tradeEngine._percentageReversalJournalFp !== tip_fp) {
+                        tradeEngine._percentageReversalJournalFp = tip_fp;
+                        journal_messages.push({
+                            className: 'journal__text',
+                            message: `Percentage Reversal: scanning ${watching || '…'}`,
+                        });
+                    }
+                }
+            }
+
+            return {
+                prediction: tradeable ? tradeable.prediction : -1,
+                barrier: tradeable ? tradeable.prediction : -1,
+                matched: Boolean(tradeable),
+                digit: tradeable?.digit ?? -1,
+                drop: tradeable?.drop ?? 0,
+                symbol: tradeable?.symbol || active_symbol,
+                symbols_scanned: ordered,
+                evaluations,
+                switched,
+                skipped_consumed,
+                reason: tradeable
+                    ? 'dominance_collapse'
+                    : skipped_consumed
+                      ? 'consumed'
+                      : 'watching',
+                journal_messages,
+            };
         },
         /**
          * Triple-digit Martingale — last 3 equal → Differs 4th-from-end across selected volatilities.
