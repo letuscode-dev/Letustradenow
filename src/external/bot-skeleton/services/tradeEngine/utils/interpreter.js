@@ -229,20 +229,6 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateTripleDigitMartingaleScan)
             );
         }
-        if (typeof bot_interface.evaluatePercentageReversal === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluatePercentageReversal',
-                createAsync(js_interpreter, bot_interface.evaluatePercentageReversal)
-            );
-        }
-        if (typeof bot_interface.evaluateDominantDigitPercentage === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluateDominantDigitPercentage',
-                createAsync(js_interpreter, bot_interface.evaluateDominantDigitPercentage)
-            );
-        }
         if (typeof bot_interface.evaluateDigitPercentageDecrease === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

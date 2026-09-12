@@ -1,9 +1,7 @@
 import type { FreeBot } from './types';
 import { DIGIT_PERCENTAGE_DECREASE_XML } from './bots/digit-percentage-decrease';
-import { DOMINANT_DIGIT_PERCENTAGE_XML } from './bots/dominant-digit-percentage';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
-import { PERCENTAGE_REVERSAL_XML } from './bots/percentage-reversal';
 import { TRIPLE_DIGIT_MARTINGALE_XML } from './bots/triple-digit-martingale';
 
 /**
@@ -36,22 +34,6 @@ export const FREE_BOTS: FreeBot[] = [
             'Switches between Even, Odd, Over 4, and Under 5 from last-digit patterns, with martingale and stop rules in Bot Builder.',
         tags: ['Even/Odd', 'Over/Under', 'Pattern'],
         xml: PATTERN_SWITCH_XML,
-    },
-    {
-        id: 'percentage-reversal-v1',
-        title: 'Percentage Reversal',
-        description:
-            'Scans Selected Symbols for digit percentage regime changes (dominance → collapse) and trades Digit Differs on the strongest match, switching market when needed. Default martingale is 10.5; windows, thresholds, martingale, and TP/SL are configurable in Bot Builder.',
-        tags: ['Differs', 'Percentage', 'Martingale', 'Multi-market'],
-        xml: PERCENTAGE_REVERSAL_XML,
-    },
-    {
-        id: 'dominant-digit-percentage-v1',
-        title: 'Dominant Digit Percentage – Differ',
-        description:
-            'Finds the highest-occurrence digit in a configurable tick window and trades Digit Differs when its percentage (and optional gap, persistence, and multi-window filters) pass. Default martingale 10.5; full settings in Bot Builder.',
-        tags: ['Differs', 'Percentage', 'Dominant', 'Martingale'],
-        xml: DOMINANT_DIGIT_PERCENTAGE_XML,
     },
     {
         id: 'digit-percentage-decrease-v1',

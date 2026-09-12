@@ -210,14 +210,6 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/triple_digit_martingale_scan'));
     }
 
-    if (block_string.includes('percentage_reversal_scan')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/percentage_reversal_scan'));
-    }
-
-    if (block_string.includes('dominant_digit_percentage_scan')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/dominant_digit_percentage_scan'));
-    }
-
     if (block_string.includes('digit_percentage_decrease_scan')) {
         imports.push(import('../blocks/Binary/Tick Analysis/digit_percentage_decrease_scan'));
     }
