@@ -1,5 +1,6 @@
 import type { FreeBot } from './types';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
+import { INDIVIDUAL_DIGIT_SUPPRESSION_XML } from './bots/individual-digit-suppression';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 import { TRIPLE_DIGIT_MARTINGALE_XML } from './bots/triple-digit-martingale';
 
@@ -33,5 +34,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Switches between Even, Odd, Over 4, and Under 5 from last-digit patterns, with martingale and stop rules in Bot Builder.',
         tags: ['Even/Odd', 'Over/Under', 'Pattern'],
         xml: PATTERN_SWITCH_XML,
+    },
+    {
+        id: 'individual-digit-suppression-v1',
+        title: 'Individual Digit Suppression Strategy',
+        description:
+            'Finds digits under the 10% baseline across Short/Medium/Long windows, ranks Over 1 / 2 / 3 confirmations, and journals a live suppression dashboard. Configure all thresholds in Bot Builder.',
+        tags: ['Over', 'Suppression', 'Multi-window'],
+        xml: INDIVIDUAL_DIGIT_SUPPRESSION_XML,
     },
 ];

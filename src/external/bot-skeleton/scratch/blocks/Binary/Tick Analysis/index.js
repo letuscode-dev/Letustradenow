@@ -32,6 +32,7 @@ import './parity_run_differs_scan';
 import './pattern_switch_scan';
 import './double_digit_return_differs_prediction';
 import './triple_digit_martingale_scan';
+import './individual_digit_suppression_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

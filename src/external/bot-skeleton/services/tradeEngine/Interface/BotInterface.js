@@ -108,6 +108,10 @@ import {
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
+    evaluateIndividualDigitSuppression as runIndividualDigitSuppression,
+    normalizeIndividualDigitSuppressionOptions,
+} from '../utils/individual-digit-suppression';
+import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -496,6 +500,36 @@ const getBotInterface = tradeEngine => {
                 return { ...result, journal_messages: [] };
             }
             tradeEngine._patternSwitchLastJournalFp = tip_fp;
+            return result;
+        },
+        /**
+         * Individual Digit Suppression — multi-window digit % → Over 1/2/3.
+         */
+        evaluateIndividualDigitSuppression: async options => {
+            const opts = normalizeIndividualDigitSuppressionOptions(options || {});
+            const need = Math.max(opts.short_window, opts.medium_window, opts.long_window);
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(need);
+            }
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(need)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(need)
+                  : [];
+            if (!Array.isArray(digits)) {
+                digits = [];
+            }
+            const result = runIndividualDigitSuppression(digits, opts);
+            const tip =
+                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
+            const fp = `${tip}:${result.strategy_output}:${result.prediction}:${result.final_score}`;
+            if (
+                tradeEngine._individualDigitSuppressionJournalFp === fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._individualDigitSuppressionJournalFp = fp;
             return result;
         },
         /**
