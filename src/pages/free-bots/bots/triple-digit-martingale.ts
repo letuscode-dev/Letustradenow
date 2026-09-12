@@ -5,6 +5,20 @@
  * 4th-from-end digit. Scans only the volatilities the user selected.
  */
 
+export type TripleDigitMartingaleParams = {
+    stake?: number;
+    size?: number;
+    take_profit?: number;
+    stop_loss?: number;
+};
+
+export const DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS: Required<TripleDigitMartingaleParams> = {
+    stake: 2.6,
+    size: 10.5,
+    take_profit: 100,
+    stop_loss: 1000,
+};
+
 const escapeXml = value =>
     String(value)
         .replace(/&/g, '&amp;')
@@ -12,13 +26,29 @@ const escapeXml = value =>
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
+const toPositiveNumber = (value, fallback) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
 /**
  * @param {string[]} selected_symbols
+ * @param {TripleDigitMartingaleParams} [params]
  */
-export const buildTripleDigitMartingaleXml = (selected_symbols: string[] = []) => {
+export const buildTripleDigitMartingaleXml = (
+    selected_symbols: string[] = [],
+    params: TripleDigitMartingaleParams = {}
+) => {
     const symbols = selected_symbols.map(item => String(item || '').trim()).filter(Boolean);
     const primary = symbols[0] || '1HZ50V';
     const symbols_csv = escapeXml(symbols.join(','));
+    const stake = toPositiveNumber(params.stake, DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.stake);
+    const size = toPositiveNumber(params.size, DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.size);
+    const take_profit = toPositiveNumber(
+        params.take_profit,
+        DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.take_profit
+    );
+    const stop_loss = toPositiveNumber(params.stop_loss, DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.stop_loss);
 
     return `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -71,9 +101,9 @@ export const buildTripleDigitMartingaleXml = (selected_symbols: string[] = []) =
         <field name="VAR" id="tdm_symbols">Selected Symbols</field>
         <value name="VALUE"><block type="text"><field name="TEXT">${symbols_csv}</field></block></value>
         <next>
-                  <block type="variables_set" id="tdm_init_stake">
+          <block type="variables_set" id="tdm_init_stake">
             <field name="VAR" id="tdm_stake">Stake</field>
-            <value name="VALUE"><block type="math_number"><field name="NUM">2.6</field></block></value>
+            <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
             <next>
               <block type="variables_set" id="tdm_init_base">
                 <field name="VAR" id="tdm_base_stake">Base Stake</field>
@@ -81,15 +111,15 @@ export const buildTripleDigitMartingaleXml = (selected_symbols: string[] = []) =
                 <next>
                   <block type="variables_set" id="tdm_init_size">
                     <field name="VAR" id="tdm_size">Martingale Size</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">10.5</field></block></value>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">${size}</field></block></value>
                     <next>
                       <block type="variables_set" id="tdm_init_tp">
                         <field name="VAR" id="tdm_take_profit">Take Profit</field>
-                        <value name="VALUE"><block type="math_number"><field name="NUM">100</field></block></value>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">${take_profit}</field></block></value>
                         <next>
                           <block type="variables_set" id="tdm_init_sl">
                             <field name="VAR" id="tdm_stop_loss">Stop Loss</field>
-                            <value name="VALUE"><block type="math_number"><field name="NUM">1000</field></block></value>
+                            <value name="VALUE"><block type="math_number"><field name="NUM">${stop_loss}</field></block></value>
                             <next>
                               <block type="variables_set" id="tdm_init_duration">
                                 <field name="VAR" id="tdm_duration">Trade Duration</field>
@@ -249,4 +279,7 @@ export const buildTripleDigitMartingaleXml = (selected_symbols: string[] = []) =
 };
 
 /** Default XML for catalog preview / fallback (original Martingale market). */
-export const TRIPLE_DIGIT_MARTINGALE_XML = buildTripleDigitMartingaleXml(['1HZ50V', 'R_10', 'R_25']);
+export const TRIPLE_DIGIT_MARTINGALE_XML = buildTripleDigitMartingaleXml(
+    ['1HZ50V', 'R_10', 'R_25'],
+    DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS
+);

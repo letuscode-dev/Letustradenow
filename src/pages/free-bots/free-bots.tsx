@@ -7,11 +7,19 @@ import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
 import { FREE_BOTS } from './catalog';
-import type { FreeBot, FreeBotSymbolOption } from './types';
+import type { FreeBot, FreeBotNumberParam, FreeBotSymbolOption } from './types';
 import './free-bots.scss';
 
 const defaultSelectedSymbols = (options: FreeBotSymbolOption[] = []) =>
     options.filter(option => option.defaultSelected).map(option => option.symbol);
+
+const defaultParams = (options: FreeBotNumberParam[] = []) => {
+    const initial = {};
+    options.forEach(option => {
+        initial[option.key] = option.defaultValue;
+    });
+    return initial;
+};
 
 const FreeBots = () => {
     const { dashboard, run_panel } = useStore();
@@ -22,6 +30,15 @@ const FreeBots = () => {
         FREE_BOTS.forEach(bot => {
             if (bot.symbol_options?.length) {
                 initial[bot.id] = defaultSelectedSymbols(bot.symbol_options);
+            }
+        });
+        return initial;
+    });
+    const [params_by_bot, setParamsByBot] = React.useState<Record<string, Record<string, number>>>(() => {
+        const initial = {};
+        FREE_BOTS.forEach(bot => {
+            if (bot.param_options?.length) {
+                initial[bot.id] = defaultParams(bot.param_options);
             }
         });
         return initial;
@@ -56,6 +73,21 @@ const FreeBots = () => {
         });
     };
 
+    const setParamValue = (bot: FreeBot, key: string, raw_value: string) => {
+        const option = bot.param_options?.find(item => item.key === key);
+        const parsed = Number(raw_value);
+        const fallback = option?.defaultValue ?? 0;
+        const min = option?.min ?? 0.01;
+        const next_value = Number.isFinite(parsed) ? Math.max(min, parsed) : fallback;
+        setParamsByBot(prev => ({
+            ...prev,
+            [bot.id]: {
+                ...(prev[bot.id] || defaultParams(bot.param_options)),
+                [key]: next_value,
+            },
+        }));
+    };
+
     const loadBot = async (bot: FreeBot) => {
         try {
             setBusyId(bot.id);
@@ -67,8 +99,25 @@ const FreeBots = () => {
                 return;
             }
 
+            const params = params_by_bot[bot.id] || defaultParams(bot.param_options);
+            if (bot.param_options?.length) {
+                const invalid = bot.param_options.find(option => {
+                    const value = Number(params[option.key]);
+                    return !Number.isFinite(value) || value < (option.min ?? 0.01);
+                });
+                if (invalid) {
+                    setStatus(
+                        bot.id,
+                        localize('Enter a valid {{label}} before loading.', { label: invalid.label })
+                    );
+                    return;
+                }
+            }
+
             const block_string =
-                typeof bot.buildXml === 'function' ? bot.buildXml(selected_symbols) : bot.xml;
+                typeof bot.buildXml === 'function'
+                    ? bot.buildXml({ selected_symbols, params })
+                    : bot.xml;
 
             await load({
                 block_string,
@@ -115,7 +164,9 @@ const FreeBots = () => {
                         const status = status_by_id[bot.id];
                         const bot_number = index + 1;
                         const selected_symbols = selected_symbols_by_bot[bot.id] || [];
+                        const params = params_by_bot[bot.id] || defaultParams(bot.param_options);
                         const has_symbol_options = !!bot.symbol_options?.length;
+                        const has_param_options = !!bot.param_options?.length;
                         const standard_options =
                             bot.symbol_options?.filter(option => (option.group || 'standard') === 'standard') ||
                             [];
@@ -142,6 +193,39 @@ const FreeBots = () => {
                                                     {tag}
                                                 </span>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    {has_param_options && (
+                                        <div className='free-bots__params'>
+                                            <div className='free-bots__params-title'>
+                                                <Localize i18n_default_text='Trade settings' />
+                                            </div>
+                                            <div className='free-bots__params-grid'>
+                                                {bot.param_options.map(option => (
+                                                    <label
+                                                        key={option.key}
+                                                        className='free-bots__param'
+                                                        htmlFor={`${bot.id}-${option.key}`}
+                                                    >
+                                                        <span className='free-bots__param-label'>
+                                                            {option.label}
+                                                        </span>
+                                                        <input
+                                                            id={`${bot.id}-${option.key}`}
+                                                            className='free-bots__param-input'
+                                                            type='number'
+                                                            inputMode='decimal'
+                                                            min={option.min ?? 0.01}
+                                                            step={option.step ?? 0.01}
+                                                            value={params[option.key] ?? option.defaultValue}
+                                                            onChange={event =>
+                                                                setParamValue(bot, option.key, event.target.value)
+                                                            }
+                                                        />
+                                                    </label>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 

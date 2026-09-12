@@ -3,6 +3,7 @@ import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-diff
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 import {
     buildTripleDigitMartingaleXml,
+    DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS,
     TRIPLE_DIGIT_MARTINGALE_XML,
 } from './bots/triple-digit-martingale';
 import { FREE_BOT_VOLATILITY_OPTIONS } from './volatility-options';
@@ -18,11 +19,47 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'triple-digit-martingale-v1',
         title: 'Triple-Digit Martingale Differs',
         description:
-            'Same signal as classic Martingale.xml: when the last 3 digits match, places Digit Differs on the digit before that run. Pick one or more volatilities below — the bot scans only those markets, then martingales on loss until take profit / stop loss.',
-        tags: ['Differs', 'Martingale', 'Triple digit', 'Multi-market', 'Selectable volatilities'],
+            'Same signal as classic Martingale.xml: when the last 3 digits match, places Digit Differs on the digit before that run. Configure stake, martingale size, take profit, and stop loss below, then pick the volatilities to scan.',
+        tags: ['Differs', 'Martingale', 'Triple digit', 'Multi-market', 'Configurable risk'],
         xml: TRIPLE_DIGIT_MARTINGALE_XML,
         symbol_options: FREE_BOT_VOLATILITY_OPTIONS,
-        buildXml: buildTripleDigitMartingaleXml,
+        param_options: [
+            {
+                key: 'stake',
+                label: 'Stake',
+                defaultValue: DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.stake,
+                min: 0.35,
+                step: 0.01,
+            },
+            {
+                key: 'size',
+                label: 'Martingale size',
+                defaultValue: DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.size,
+                min: 1,
+                step: 0.1,
+            },
+            {
+                key: 'take_profit',
+                label: 'Take profit',
+                defaultValue: DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.take_profit,
+                min: 0.01,
+                step: 1,
+            },
+            {
+                key: 'stop_loss',
+                label: 'Stop loss',
+                defaultValue: DEFAULT_TRIPLE_DIGIT_MARTINGALE_PARAMS.stop_loss,
+                min: 0.01,
+                step: 1,
+            },
+        ],
+        buildXml: ({ selected_symbols = [], params = {} }) =>
+            buildTripleDigitMartingaleXml(selected_symbols, {
+                stake: params.stake,
+                size: params.size,
+                take_profit: params.take_profit,
+                stop_loss: params.stop_loss,
+            }),
     },
     {
         id: 'double-digit-return-differs-v1',
