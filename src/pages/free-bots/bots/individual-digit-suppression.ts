@@ -2,7 +2,7 @@
  * Individual Digit Suppression Strategy free bot.
  *
  * Over 2 / Over 3 suppression analysis drives entries; the bot always trades
- * Over 1. Only stake, risk, tick windows, and cooldown are user variables.
+ * Under 8. Only stake, risk, tick windows, and cooldown are user variables.
  */
 
 const varGet = (id, name) =>
@@ -113,13 +113,13 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                       <block type="logic_compare">
                         <field name="OP">EQ</field>
                         <value name="A">${varGet('ids_prediction', 'Prediction')}</value>
-                        <value name="B">${num(1)}</value>
+                        <value name="B">${num(8)}</value>
                       </block>
                     </value>
                     <statement name="DO0">
                       <block type="variables_set">
                         <field name="VAR" id="ids_prediction">Prediction</field>
-                        <value name="VALUE">${num(1)}</value>
+                        <value name="VALUE">${num(8)}</value>
                         <next>
                           <block type="variables_set">
                             <field name="VAR" id="ids_signal">Entry Signal</field>
@@ -253,8 +253,8 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
   </block>
   <block type="before_purchase" id="ids_before" deletable="false" collapsed="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="override_contract_type_purchase" id="ids_buy_over">
-        <field name="CONTRACT_TYPE">DIGITOVER</field>
+      <block type="override_contract_type_purchase" id="ids_buy_under">
+        <field name="CONTRACT_TYPE">DIGITUNDER</field>
       </block>
     </statement>
   </block>
