@@ -12,6 +12,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
     <variable id="dd_base_stake">Base Stake</variable>
     <variable id="dd_stop_loss">Consecutive Loss Stop</variable>
     <variable id="dd_take_profit">Take Profit</variable>
+    <variable id="dd_protect">Martingale Off When Profit > Stake</variable>
     <variable id="dd_losses">Consecutive Losses</variable>
     <variable id="dd_recovery">Recovery Pending</variable>
     <variable id="dd_recovery_multiplier">Recovery Multiplier</variable>
@@ -47,6 +48,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
     <statement name="INITIALIZATION">
       <block type="variables_set" id="dd_init_stake"><field name="VAR" id="dd_stake">Stake</field><value name="VALUE"><block type="math_number"><field name="NUM">0.35</field></block></value>
         <next><block type="variables_set" id="dd_init_recovery_multiplier"><field name="VAR" id="dd_recovery_multiplier">Recovery Multiplier</field><value name="VALUE"><block type="math_number"><field name="NUM">10.5</field></block></value>
+          <next><block type="variables_set" id="dd_init_protect"><field name="VAR" id="dd_protect">Martingale Off When Profit > Stake</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
           <next><block type="variables_set" id="dd_init_take_profit"><field name="VAR" id="dd_take_profit">Take Profit</field><value name="VALUE"><block type="math_number"><field name="NUM">10</field></block></value>
             <next><block type="variables_set" id="dd_init_stop_loss"><field name="VAR" id="dd_stop_loss">Consecutive Loss Stop</field><value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
               <next><block type="variables_set" id="dd_init_window"><field name="VAR" id="dd_window">Analysis Window</field><value name="VALUE"><block type="math_number"><field name="NUM">120</field></block></value>
@@ -78,6 +80,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
                 )}</next>
               </block></next>
             </block></next>
+          </block></next>
           </block></next>
         </block></next>
       </block>

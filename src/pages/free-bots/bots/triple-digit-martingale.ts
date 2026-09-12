@@ -7,6 +7,7 @@
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+import { protectedMartingaleMultiplierXml } from './protected-martingale';
 
 export type TripleDigitMartingaleParams = {
     stake?: number;
@@ -58,6 +59,7 @@ export const buildTripleDigitMartingaleXml = (
     <variable id="tdm_stake">Stake</variable>
     <variable id="tdm_base_stake">Base Stake</variable>
     <variable id="tdm_size">Martingale Size</variable>
+    <variable id="tdm_protect">Martingale Off When Profit > Stake</variable>
     <variable id="tdm_take_profit">Take Profit</variable>
     <variable id="tdm_stop_loss">Stop Loss</variable>
     <variable id="tdm_symbols">Selected Symbols</variable>
@@ -112,6 +114,10 @@ export const buildTripleDigitMartingaleXml = (
                 <field name="VAR" id="tdm_size">Martingale Size</field>
                 <value name="VALUE"><block type="math_number"><field name="NUM">${size}</field></block></value>
                 <next>
+                  <block type="variables_set" id="tdm_init_protect">
+                    <field name="VAR" id="tdm_protect">Martingale Off When Profit > Stake</field>
+                    <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+                    <next>
                   <block type="variables_set" id="tdm_init_tp">
                     <field name="VAR" id="tdm_take_profit">Take Profit</field>
                     <value name="VALUE"><block type="math_number"><field name="NUM">${take_profit}</field></block></value>
@@ -147,6 +153,8 @@ ${wrapCollapsedAdvancedInit(
 )}
                         </next>
                       </block>
+                    </next>
+                  </block>
                     </next>
                   </block>
                 </next>
@@ -228,7 +236,12 @@ ${wrapCollapsedAdvancedInit(
             <value name="VALUE">
               <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
                 <value name="A"><block type="variables_get"><field name="VAR" id="tdm_stake">Stake</field></block></value>
-                <value name="B"><block type="variables_get"><field name="VAR" id="tdm_size">Martingale Size</field></block></value>
+                <value name="B">${protectedMartingaleMultiplierXml({
+                    protect_id: 'tdm_protect',
+                    stake_id: 'tdm_stake',
+                    martingale_id: 'tdm_size',
+                    martingale_name: 'Martingale Size',
+                })}</value>
               </block>
             </value>
             <next>

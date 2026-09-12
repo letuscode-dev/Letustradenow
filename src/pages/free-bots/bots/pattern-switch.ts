@@ -13,11 +13,13 @@
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+import { protectedMartingaleMultiplierXml } from './protected-martingale';
 
 export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="kp_stake">Stake</variable>
     <variable id="kp_martingale">Martingale</variable>
+    <variable id="kp_protect">Martingale Off When Profit > Stake</variable>
     <variable id="kp_signal">Entry Signal</variable>
     <variable id="kp_take_profit">Take Profit</variable>
     <variable id="kp_base_stake">Base Stake</variable>
@@ -70,6 +72,10 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
             <field name="VAR" id="kp_martingale">Martingale</field>
             <value name="VALUE"><block type="math_number"><field name="NUM">2</field></block></value>
             <next>
+              <block type="variables_set" id="kp_set_protect">
+                <field name="VAR" id="kp_protect">Martingale Off When Profit > Stake</field>
+                <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+                <next>
               <block type="variables_set" id="kp_set_tp">
                 <field name="VAR" id="kp_take_profit">Take Profit</field>
                 <value name="VALUE"><block type="math_number"><field name="NUM">10</field></block></value>
@@ -117,6 +123,8 @@ ${wrapCollapsedAdvancedInit(
                       </block>
                     </next>
                   </block>
+                </next>
+              </block>
                 </next>
               </block>
             </next>
@@ -254,7 +262,12 @@ ${wrapCollapsedAdvancedInit(
             <value name="VALUE">
               <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
                 <value name="A"><block type="variables_get"><field name="VAR" id="kp_stake">Stake</field></block></value>
-                <value name="B"><block type="variables_get"><field name="VAR" id="kp_martingale">Martingale</field></block></value>
+                <value name="B">${protectedMartingaleMultiplierXml({
+                    protect_id: 'kp_protect',
+                    stake_id: 'kp_stake',
+                    martingale_id: 'kp_martingale',
+                    martingale_name: 'Martingale',
+                })}</value>
               </block>
             </value>
             <next>

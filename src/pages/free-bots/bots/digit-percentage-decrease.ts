@@ -6,6 +6,7 @@
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+import { protectedMartingaleMultiplierXml } from './protected-martingale';
 
 const varGet = (id, name) =>
     `<block type="variables_get"><field name="VAR" id="${id}">${name}</field></block>`;
@@ -30,6 +31,15 @@ const chainSets = (entries, tailXml = '') => {
     }
     return xml;
 };
+
+const lossMultiplier = () =>
+    protectedMartingaleMultiplierXml({
+        protect_id: 'dpd_protect',
+        stake_id: 'dpd_stake',
+        martingale_id: 'dpd_martingale',
+        martingale_name: 'Martingale',
+    });
+
 
 const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
                   <block type="timeout" id="${timeoutId}">
@@ -75,6 +85,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
     <variable id="dpd_stake">Stake</variable>
     <variable id="dpd_base_stake">Base Stake</variable>
     <variable id="dpd_martingale">Martingale</variable>
+    <variable id="dpd_protect">Martingale Off When Profit > Stake</variable>
     <variable id="dpd_take_profit">Take Profit</variable>
     <variable id="dpd_stop_loss">Stop Loss</variable>
     <variable id="dpd_window">Analysis Tick Window</variable>
@@ -124,6 +135,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
           [
               ['dpd_stake', 'Stake', num(0.5)],
               ['dpd_martingale', 'Martingale', num(10.5)],
+              ['dpd_protect', 'Martingale Off When Profit > Stake', bool(false)],
               ['dpd_take_profit', 'Take Profit', num(20)],
               ['dpd_stop_loss', 'Stop Loss', num(50)],
               ['dpd_window', 'Analysis Tick Window', num(1000)],
@@ -224,7 +236,7 @@ ${tpSlThenTradeAgain('dpd_win_cd', varGet('dpd_cooldown_win', 'Cooldown After Wi
             <value name="VALUE">
               <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
                 <value name="A">${varGet('dpd_stake', 'Stake')}</value>
-                <value name="B">${varGet('dpd_martingale', 'Martingale')}</value>
+                <value name="B">${lossMultiplier()}</value>
               </block>
             </value>
             <next>
