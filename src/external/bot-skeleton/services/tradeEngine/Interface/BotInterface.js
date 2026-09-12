@@ -112,6 +112,10 @@ import {
     normalizeIndividualDigitSuppressionOptions,
 } from '../utils/individual-digit-suppression';
 import {
+    evaluatePercentageReversal as runPercentageReversal,
+    normalizePercentageReversalOptions,
+} from '../utils/percentage-reversal';
+import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -530,6 +534,36 @@ const getBotInterface = tradeEngine => {
                 return { ...result, journal_messages: [] };
             }
             tradeEngine._individualDigitSuppressionJournalFp = fp;
+            return result;
+        },
+        /**
+         * Percentage Reversal — dominance → short-window collapse → Digit Differs.
+         */
+        evaluatePercentageReversal: async options => {
+            const opts = normalizePercentageReversalOptions(options || {});
+            const need = Math.max(opts.short_window, opts.medium_window, opts.long_window);
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(need);
+            }
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(need)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(need)
+                  : [];
+            if (!Array.isArray(digits)) {
+                digits = [];
+            }
+            const result = runPercentageReversal(digits, opts);
+            const tip =
+                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
+            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}`;
+            if (
+                tradeEngine._percentageReversalJournalFp === fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._percentageReversalJournalFp = fp;
             return result;
         },
         /**

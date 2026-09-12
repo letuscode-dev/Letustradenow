@@ -236,6 +236,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateIndividualDigitSuppression)
             );
         }
+        if (typeof bot_interface.evaluatePercentageReversal === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluatePercentageReversal',
+                createAsync(js_interpreter, bot_interface.evaluatePercentageReversal)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

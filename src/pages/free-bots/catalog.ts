@@ -2,6 +2,7 @@ import type { FreeBot } from './types';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { INDIVIDUAL_DIGIT_SUPPRESSION_XML } from './bots/individual-digit-suppression';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
+import { PERCENTAGE_REVERSAL_XML } from './bots/percentage-reversal';
 import { TRIPLE_DIGIT_MARTINGALE_XML } from './bots/triple-digit-martingale';
 
 /**
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Ranks Over 1 / Over 2 / Over 3 from multi-window digit suppression (10% baseline), journals a live dashboard, and trades the strongest DIGITOVER signal. Windows, thresholds, enables, and cooldowns are configurable in Bot Builder.',
         tags: ['Over 1', 'Over 2', 'Over 3', 'Suppression'],
         xml: INDIVIDUAL_DIGIT_SUPPRESSION_XML,
+    },
+    {
+        id: 'percentage-reversal-v1',
+        title: 'Percentage Reversal',
+        description:
+            'Tracks digit percentages across Short/Medium/Long windows and trades Digit Differs when a dominant digit collapses into underrepresentation — a percentage regime-change strategy. Windows, dominance/collapse thresholds, martingale, and TP/SL are configurable in Bot Builder.',
+        tags: ['Differs', 'Percentage', 'Regime change'],
+        xml: PERCENTAGE_REVERSAL_XML,
     },
 ];
