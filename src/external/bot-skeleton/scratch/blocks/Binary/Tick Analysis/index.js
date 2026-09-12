@@ -31,7 +31,6 @@ import './hybrid_multi_scan';
 import './parity_run_differs_scan';
 import './pattern_switch_scan';
 import './double_digit_return_differs_prediction';
-import './double_repeat_relationship_scanner_prediction';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

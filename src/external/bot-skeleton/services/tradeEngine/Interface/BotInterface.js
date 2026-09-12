@@ -31,10 +31,6 @@ import {
     resetDoubleDigitReturnState,
 } from '../utils/double-digit-return-differs';
 import {
-    createDoubleRepeatRelationshipState,
-    evaluateDoubleRepeatRelationshipScanner,
-} from '../utils/double-repeat-relationship-scanner';
-import {
     applyEvenOddPairSettlement,
     armEvenOddPairPrediction,
     buildEvenOddPairResult,
@@ -451,41 +447,15 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.doubleDigitReturnState = createDoubleDigitReturnState();
             }
             const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
-            let digit_ticks = tradeEngine.getCachedDigitTicks
-                ? tradeEngine.getCachedDigitTicks()
-                : null;
-            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
-                if (typeof tradeEngine.ensureTickHistory === 'function') {
-                    await tradeEngine.ensureTickHistory(tick_window);
-                }
-                digit_ticks = tradeEngine.getCachedDigitTicks
-                    ? tradeEngine.getCachedDigitTicks()
-                    : null;
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
             }
-            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
-                const digits = tradeEngine.getCachedLastDigitList
-                    ? tradeEngine.getCachedLastDigitList(tick_window)
-                    : [];
-                digit_ticks = Array.isArray(digits) ? digits : [];
+            // Prefer epoch-tagged ticks so rolling windows do not re-process history.
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
             }
             return evaluateDoubleDigitReturnDiffers(digit_ticks, opts, tradeEngine.doubleDigitReturnState);
-        },
-        evaluateDoubleRepeatRelationshipScanner: async options => {
-            const opts = options || {};
-            if (!tradeEngine.doubleRepeatRelationshipState) {
-                tradeEngine.doubleRepeatRelationshipState = createDoubleRepeatRelationshipState();
-            }
-            const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
-            let digit_ticks = tradeEngine.getCachedDigitTicks
-                ? tradeEngine.getCachedDigitTicks()
-                : [];
-            if (!Array.isArray(digit_ticks) || digit_ticks.length < 2) {
-                if (typeof tradeEngine.ensureTickHistory === 'function') {
-                    await tradeEngine.ensureTickHistory(tick_window);
-                }
-                digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
-            }
-            return evaluateDoubleRepeatRelationshipScanner(digit_ticks, opts, tradeEngine.doubleRepeatRelationshipState);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
@@ -493,15 +463,18 @@ const getBotInterface = tradeEngine => {
         evaluatePatternSwitch: async options => {
             const opts = options || {};
             const need = 4;
-            let digits = tradeEngine.getCachedLastDigitList
-                ? tradeEngine.getCachedLastDigitList(need)
-                : [];
-            if (!Array.isArray(digits) || digits.length < need) {
-                digits = tradeEngine.ensureTickHistory
-                    ? await tradeEngine.ensureTickHistory(Math.max(need, 10))
-                    : digits;
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(Math.max(need, 10));
             }
-            const window_digits = Array.isArray(digits) ? digits.slice(-Math.max(need, digits.length)) : [];
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(Math.max(need, 10))
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(need)
+                  : [];
+            if (!Array.isArray(digits)) {
+                digits = [];
+            }
+            const window_digits = digits.slice(-Math.max(need, Math.min(digits.length, 10)));
             const result = runPatternSwitch(window_digits, opts);
             const tip_fp = `${result.reason}:${(result.sequence || []).join(',')}`;
             if (

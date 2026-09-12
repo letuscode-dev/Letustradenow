@@ -92,9 +92,15 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                                     <field name="VAR" id="kp_runs">Runs</field>
                                     <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
                                     <next>
-                                      <block type="variables_set" id="kp_set_pred0">
-                                        <field name="VAR" id="kp_prediction">Prediction:</field>
-                                        <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                      <block type="variables_set" id="kp_set_direction">
+                                        <field name="VAR" id="kp_direction">Trade Direction</field>
+                                        <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                                        <next>
+                                          <block type="variables_set" id="kp_set_pred0">
+                                            <field name="VAR" id="kp_prediction">Prediction:</field>
+                                            <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                                          </block>
+                                        </next>
                                       </block>
                                     </next>
                                   </block>
@@ -219,8 +225,13 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                           <block type="variables_set"><field name="VAR" id="kp_runs">Runs</field>
                             <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
                             <next>
-                              <block type="variables_set"><field name="VAR" id="kp_stake">Stake</field>
-                                <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Stake []</field></block></value>
+                              <block type="variables_set"><field name="VAR" id="kp_direction">Trade Direction</field>
+                                <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                                <next>
+                                  <block type="variables_set"><field name="VAR" id="kp_stake">Stake</field>
+                                    <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Stake []</field></block></value>
+                                  </block>
+                                </next>
                               </block>
                             </next>
                           </block>
@@ -253,7 +264,16 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
               </block>
             </value>
             <statement name="DO0">
-              <block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">Take Profit reached</field></shadow></value></block>
+              <block type="variables_set" id="kp_tp_stop_signal">
+                <field name="VAR" id="kp_signal">Entry Signal</field>
+                <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+                <next>
+                  <block type="variables_set" id="kp_tp_stop_direction">
+                    <field name="VAR" id="kp_direction">Trade Direction</field>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                  </block>
+                </next>
+              </block>
             </statement>
             <value name="IF1">
               <block type="logic_compare"><field name="OP">LTE</field>
@@ -266,7 +286,16 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
               </block>
             </value>
             <statement name="DO1">
-              <block type="text_print"><value name="TEXT"><shadow type="text"><field name="TEXT">Stop Loss reached</field></shadow></value></block>
+              <block type="variables_set" id="kp_sl_stop_signal">
+                <field name="VAR" id="kp_signal">Entry Signal</field>
+                <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+                <next>
+                  <block type="variables_set" id="kp_sl_stop_direction">
+                    <field name="VAR" id="kp_direction">Trade Direction</field>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                  </block>
+                </next>
+              </block>
             </statement>
             <statement name="ELSE"><block type="trade_again"></block></statement>
           </block>

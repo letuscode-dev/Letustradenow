@@ -194,12 +194,16 @@ const delayExecution = ms => new Promise(resolve => setTimeout(resolve, ms));
 const ensureFreeBotBlocksRegistered = async block_string => {
     const imports = [];
 
-    if (block_string.includes('double_repeat_relationship_scanner_prediction')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/double_repeat_relationship_scanner_prediction'));
+    if (block_string.includes('double_digit_return_differs_prediction')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/double_digit_return_differs_prediction'));
     }
 
-    if (block_string.includes('double_repeat_relationship_risk_management')) {
-        imports.push(import('../blocks/Binary/After Purchase/double_repeat_relationship_risk_management'));
+    if (block_string.includes('double_digit_risk_management')) {
+        imports.push(import('../blocks/Binary/After Purchase/double_digit_risk_management'));
+    }
+
+    if (block_string.includes('pattern_switch_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/pattern_switch_scan'));
     }
 
     await Promise.all(imports);

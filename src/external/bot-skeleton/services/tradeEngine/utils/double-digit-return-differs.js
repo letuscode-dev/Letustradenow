@@ -24,6 +24,8 @@ export const createDoubleDigitReturnState = () => ({
     digits: Array.from({ length: 10 }, createDigitState),
     bootstrapped: false,
     last_processed_epoch: null,
+    last_signal_key: null,
+    last_plain_fingerprint: null,
     tick_index: -1,
     previous_digit: -1,
 });
@@ -49,7 +51,7 @@ const storeTarget = (state, trigger, target, epoch, journal_messages) => {
     });
 };
 
-const handleRepeatedDigit = (state, trigger, journal_messages, suppress_signal) => {
+const handleRepeatedDigit = (state, trigger, epoch, journal_messages, suppress_signal) => {
     const item = state.digits[trigger];
     if (item.target_digit < 0) {
         item.awaiting_target = true;
@@ -58,6 +60,11 @@ const handleRepeatedDigit = (state, trigger, journal_messages, suppress_signal) 
     if (suppress_signal) return -1;
 
     const target = item.target_digit;
+    const signal_key = `${epoch ?? state.tick_index}:${trigger}->${target}`;
+    if (state.last_signal_key === signal_key) {
+        return -1;
+    }
+
     item.confirmations += 1;
     item.status = 'CONFIRMED';
     item.trade_status = 'SIGNAL';
@@ -70,7 +77,60 @@ const handleRepeatedDigit = (state, trigger, journal_messages, suppress_signal) 
     item.status = 'WATCHING';
     item.trade_status = 'IDLE';
     item.first_pattern_epoch = null;
+    state.last_signal_key = signal_key;
     return target;
+};
+
+/**
+ * When ticks lack epochs (plain digit lists), only process the new suffix / tip
+ * so a rolling window is not replayed on every scan poll.
+ */
+const selectTicksToProcess = (ticks, state) => {
+    const has_epochs = ticks.some(tick => tick.epoch !== null);
+    if (has_epochs) {
+        return ticks;
+    }
+
+    const fingerprint = ticks.map(tick => tick.digit).join('');
+    if (!fingerprint) {
+        return [];
+    }
+
+    if (!state.bootstrapped || !state.last_plain_fingerprint) {
+        state.last_plain_fingerprint = fingerprint;
+        return ticks;
+    }
+
+    if (fingerprint === state.last_plain_fingerprint) {
+        return [];
+    }
+
+    const prev = state.last_plain_fingerprint;
+    let start = 0;
+
+    if (fingerprint.length >= prev.length && fingerprint.slice(0, prev.length) === prev) {
+        // Append-only growth — process only the new digits.
+        start = prev.length;
+    } else if (
+        fingerprint.length === prev.length &&
+        prev.length > 0 &&
+        fingerprint.slice(0, -1) === prev.slice(1)
+    ) {
+        // Fixed-size sliding window — only the newest tip is new.
+        start = fingerprint.length - 1;
+    } else if (
+        fingerprint.length === prev.length + 1 &&
+        fingerprint.slice(0, -1) === prev
+    ) {
+        start = prev.length;
+    } else {
+        // Unrelated window reshape: rebuild quietly (no live signals).
+        state.bootstrapped = false;
+        start = 0;
+    }
+
+    state.last_plain_fingerprint = fingerprint;
+    return ticks.slice(Math.max(0, start));
 };
 
 export const evaluateDoubleDigitReturnDiffers = (
@@ -81,14 +141,17 @@ export const evaluateDoubleDigitReturnDiffers = (
     const tick_window = Math.max(120, Math.floor(Number(options.tick_window)) || 120);
     const journal_enabled = options.journal_enabled !== false;
     const journal_messages = [];
-    const ticks = normalizeTicks(raw_ticks).slice(-tick_window);
+    const window_ticks = normalizeTicks(raw_ticks).slice(-tick_window);
+    const ticks = selectTicksToProcess(window_ticks, state);
     let prediction = -1;
 
     if (ticks.length) {
         const bootstrapping = !state.bootstrapped;
         ticks.forEach(tick => {
             if (tick.epoch !== null && tick.epoch === state.last_processed_epoch) return;
-            if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) return;
+            if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) {
+                return;
+            }
 
             state.tick_index += 1;
             state.digits.forEach((item, trigger) => {
@@ -98,7 +161,13 @@ export const evaluateDoubleDigitReturnDiffers = (
             });
 
             if (state.previous_digit >= 0 && state.previous_digit === tick.digit) {
-                const result = handleRepeatedDigit(state, tick.digit, journal_messages, bootstrapping);
+                const result = handleRepeatedDigit(
+                    state,
+                    tick.digit,
+                    tick.epoch ?? state.tick_index,
+                    journal_messages,
+                    bootstrapping
+                );
                 if (prediction < 0 && result >= 0) prediction = result;
             }
             state.previous_digit = tick.digit;

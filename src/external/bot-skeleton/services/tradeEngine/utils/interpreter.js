@@ -222,13 +222,6 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateDoubleDigitReturnDiffers)
             );
         }
-        if (typeof bot_interface.evaluateDoubleRepeatRelationshipScanner === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluateDoubleRepeatRelationshipScanner',
-                createAsync(js_interpreter, bot_interface.evaluateDoubleRepeatRelationshipScanner)
-            );
-        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

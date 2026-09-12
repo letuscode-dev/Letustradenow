@@ -57,7 +57,9 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
                               <next><block type="variables_set" id="dd_init_losses"><field name="VAR" id="dd_losses">Consecutive Losses</field><value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
                                 <next><block type="variables_set" id="dd_init_recovery"><field name="VAR" id="dd_recovery">Recovery Pending</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
                                   <next><block type="variables_set" id="dd_init_signal"><field name="VAR" id="dd_signal">Signal</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
-                                    <next><block type="variables_set" id="dd_init_stop"><field name="VAR" id="dd_stop">Stop</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value></block></next>
+                                    <next><block type="variables_set" id="dd_init_prediction"><field name="VAR" id="dd_prediction">Target Differ</field><value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                                      <next><block type="variables_set" id="dd_init_stop"><field name="VAR" id="dd_stop">Stop</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value></block></next>
+                                    </block></next>
                                   </block></next>
                                 </block></next>
                               </block></next>

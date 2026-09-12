@@ -11,7 +11,7 @@ describe('double digit return differs', () => {
         expect(first.prediction).toBe(-1);
         expect(first.states[2]).toMatchObject({ target_digit: 7, status: 'WAITING' });
 
-        const confirmation = evaluateDoubleDigitReturnDiffers([2, 2], {}, state);
+        const confirmation = evaluateDoubleDigitReturnDiffers([2, 2, 7, 2, 2], {}, state);
         expect(confirmation.prediction).toBe(7);
         expect(confirmation.states[2]).toMatchObject({ target_digit: -1, status: 'WATCHING' });
     });
@@ -24,7 +24,7 @@ describe('double digit return differs', () => {
         expect(first.states[2].target_digit).toBe(7);
         expect(first.states[5].target_digit).toBe(3);
 
-        const confirmation = evaluateDoubleDigitReturnDiffers([2, 2], {}, state);
+        const confirmation = evaluateDoubleDigitReturnDiffers([2, 2, 7, 5, 5, 3, 2, 2], {}, state);
         expect(confirmation.prediction).toBe(7);
         expect(confirmation.states[5].target_digit).toBe(3);
     });
@@ -49,6 +49,29 @@ describe('double digit return differs', () => {
             {},
             state
         );
+        expect(confirmation.prediction).toBe(7);
+    });
+
+    it('does not re-process an unchanged plain digit window on the next poll', () => {
+        const state = createDoubleDigitReturnState();
+
+        const first = evaluateDoubleDigitReturnDiffers([2, 2, 7], {}, state);
+        expect(first.prediction).toBe(-1);
+        expect(first.states[2].target_digit).toBe(7);
+
+        const replay = evaluateDoubleDigitReturnDiffers([2, 2, 7], {}, state);
+        expect(replay.prediction).toBe(-1);
+        expect(replay.states[2].target_digit).toBe(7);
+    });
+
+    it('processes only the new tip when a plain digit sliding window advances', () => {
+        const state = createDoubleDigitReturnState();
+
+        evaluateDoubleDigitReturnDiffers([1, 2, 2, 7], {}, state);
+        const next = evaluateDoubleDigitReturnDiffers([2, 2, 7, 2], {}, state);
+        expect(next.prediction).toBe(-1);
+
+        const confirmation = evaluateDoubleDigitReturnDiffers([2, 7, 2, 2], {}, state);
         expect(confirmation.prediction).toBe(7);
     });
 });

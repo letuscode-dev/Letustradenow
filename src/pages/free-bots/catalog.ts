@@ -1,6 +1,5 @@
 import type { FreeBot } from './types';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
-import { DOUBLE_REPEAT_RELATIONSHIP_SCANNER_XML } from './bots/double-repeat-relationship-scanner';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 
 /**
@@ -10,14 +9,6 @@ import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
-    {
-        id: 'double-repeat-relationship-scanner-v1',
-        title: 'Double-Repeat Relationship Scanner',
-        description:
-            'Learns X → X → Y relationships independently for every digit, tracks confirmations, failures, reliability, strength, recency, and secondary patterns, then trades the strongest eligible Digit Differ relationship by default.',
-        tags: ['Differs', 'Relationship scanner', 'Reliability ranking', 'Secondary analysis', 'Risk controls'],
-        xml: DOUBLE_REPEAT_RELATIONSHIP_SCANNER_XML,
-    },
     {
         id: 'double-digit-return-differs-v1',
         title: 'Double Digit → Return Differs Strategy',

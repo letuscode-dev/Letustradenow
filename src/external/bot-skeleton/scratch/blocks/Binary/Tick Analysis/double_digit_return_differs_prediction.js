@@ -47,9 +47,9 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.double_digit_return_diffe
                 var BinaryBotPrivateDdrMsg = BinaryBotPrivateDdrMsgs[BinaryBotPrivateDdrIndex];
                 Bot.notify({ className: BinaryBotPrivateDdrMsg.className, message: BinaryBotPrivateDdrMsg.message, sound: 'silent', block_id: ${JSON.stringify(block.id)}, variable_name: null });
             }
-        }
-        if (BinaryBotPrivateDdrResult && BinaryBotPrivateDdrResult.state_summary) {
-            Bot.notify({ className: 'journal__text', message: 'Double Digit states: ' + BinaryBotPrivateDdrResult.state_summary, sound: 'silent', block_id: ${JSON.stringify(block.id)}, variable_name: null });
+            if (BinaryBotPrivateDdrResult && BinaryBotPrivateDdrResult.state_summary) {
+                Bot.notify({ className: 'journal__text', message: 'Double Digit states: ' + BinaryBotPrivateDdrResult.state_summary, sound: 'silent', block_id: ${JSON.stringify(block.id)}, variable_name: null });
+            }
         }
         return BinaryBotPrivateDdrResult && BinaryBotPrivateDdrResult.allowed && ${read('AUTO') || 'true'}
             ? Number(BinaryBotPrivateDdrResult.prediction) : -1;
