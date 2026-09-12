@@ -108,7 +108,7 @@ export const buildTripleDigitMartingaleXml = (
             <next>
               <block type="variables_set" id="tdm_init_base">
                 <field name="VAR" id="tdm_base_stake">Base Stake</field>
-                <value name="VALUE"><block type="variables_get"><field name="VAR" id="tdm_stake">Stake</field></block></value>
+                <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
                 <next>
                   <block type="variables_set" id="tdm_init_size">
                     <field name="VAR" id="tdm_size">Martingale Size</field>

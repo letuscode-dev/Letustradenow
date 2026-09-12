@@ -18,7 +18,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
     <variable id="kp_martingale">Martingale</variable>
     <variable id="kp_signal">Entry Signal</variable>
     <variable id="kp_take_profit">Take Profit</variable>
-    <variable id="kp_base_stake">Stake []</variable>
+    <variable id="kp_base_stake">Base Stake</variable>
     <variable id="kp_runs">Runs</variable>
     <variable id="kp_direction">Trade Direction</variable>
     <variable id="kp_stop_loss">Stop Loss</variable>
@@ -83,10 +83,10 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                           <block type="variables_set" id="kp_set_sig">
                             <field name="VAR" id="kp_signal">Entry Signal</field>
                             <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
-                            <next>
-                              <block type="variables_set" id="kp_set_base">
-                                <field name="VAR" id="kp_base_stake">Stake []</field>
-                                <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_stake">Stake</field></block></value>
+                                <next>
+                                  <block type="variables_set" id="kp_set_base">
+                                    <field name="VAR" id="kp_base_stake">Base Stake</field>
+                                    <value name="VALUE"><block type="math_number"><field name="NUM">0.5</field></block></value>
                                 <next>
                                   <block type="variables_set" id="kp_set_runs">
                                     <field name="VAR" id="kp_runs">Runs</field>
@@ -206,7 +206,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
         <value name="IF0"><block type="contract_check_result"><field name="CHECK_RESULT">win</field></block></value>
         <statement name="DO0">
           <block type="variables_set"><field name="VAR" id="kp_stake">Stake</field>
-            <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Stake []</field></block></value>
+            <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Base Stake</field></block></value>
             <next>
               <block type="math_change"><field name="VAR" id="kp_runs">Runs</field>
                 <value name="DELTA"><shadow type="math_number"><field name="NUM">1</field></shadow></value>
@@ -229,7 +229,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                                 <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
                                 <next>
                                   <block type="variables_set"><field name="VAR" id="kp_stake">Stake</field>
-                                    <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Stake []</field></block></value>
+                                    <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_base_stake">Base Stake</field></block></value>
                                   </block>
                                 </next>
                               </block>
@@ -252,6 +252,11 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                 <value name="B"><block type="variables_get"><field name="VAR" id="kp_martingale">Martingale</field></block></value>
               </block>
             </value>
+            <next>
+              <block type="variables_set"><field name="VAR" id="kp_runs">Runs</field>
+                <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+              </block>
+            </next>
           </block>
         </statement>
         <next>

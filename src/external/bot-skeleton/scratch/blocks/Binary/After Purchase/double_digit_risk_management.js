@@ -66,6 +66,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.double_digit_risk_managem
         (BinaryBotPrivateDdrStopLoss > 0 && Number(${losses}) >= BinaryBotPrivateDdrStopLoss) ||
         Number(${trades}) >= Number(${max_trades})) {
         ${stop} = true;
+        ${signal} = false;
     } else {
         ${signal} = false;
         Bot.isTradeAgain(true);
