@@ -1,8 +1,8 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Over 1 / Over 2 suppression analysis drives Over 1 entries.
- * On loss: martingale recovery trades Over 2 at Base Stake × Martingale.
+ * Over 2 / Over 3 suppression analysis drives Over 2 entries.
+ * On loss: martingale recovery stays on Over 2 at Base Stake × Martingale.
  */
 
 const varGet = (id, name) =>
@@ -154,13 +154,13 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                       <block type="logic_compare">
                         <field name="OP">EQ</field>
                         <value name="A">${varGet('ids_prediction', 'Prediction')}</value>
-                        <value name="B">${num(1)}</value>
+                        <value name="B">${num(2)}</value>
                       </block>
                     </value>
                     <statement name="DO0">
                       <block type="variables_set">
                         <field name="VAR" id="ids_prediction">Prediction</field>
-                        <value name="VALUE">${num(1)}</value>
+                        <value name="VALUE">${num(2)}</value>
                         <next>
                           <block type="variables_set">
                             <field name="VAR" id="ids_signal">Entry Signal</field>

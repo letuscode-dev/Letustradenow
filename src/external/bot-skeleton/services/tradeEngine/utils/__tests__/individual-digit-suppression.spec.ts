@@ -8,7 +8,7 @@ import {
     normalizeIndividualDigitSuppressionOptions,
     scoreOverContracts,
     selectTradeCandidate,
-    TRADE_AS_OVER_1,
+    TRADE_AS_OVER_2,
 } from '../individual-digit-suppression';
 
 describe('computeWindowDigitStats', () => {
@@ -138,25 +138,26 @@ describe('evaluateIndividualDigitSuppression', () => {
         expect(opts.trade_as).toBe('');
     });
 
-    it('forces Over 1/2 analysis when trade_as is OVER_1', () => {
+    it('forces Over 2/3 analysis when trade_as is OVER_2', () => {
         const opts = normalizeIndividualDigitSuppressionOptions({
-            trade_as: 'OVER_1',
-            enable_over_1: false,
+            trade_as: 'OVER_2',
+            enable_over_1: true,
             enable_over_2: false,
-            enable_over_3: true,
+            enable_over_3: false,
         });
-        expect(opts.trade_as).toBe(TRADE_AS_OVER_1);
-        expect(opts.enable_over_1).toBe(true);
+        expect(opts.trade_as).toBe(TRADE_AS_OVER_2);
+        expect(opts.enable_over_1).toBe(false);
         expect(opts.enable_over_2).toBe(true);
-        expect(opts.enable_over_3).toBe(false);
+        expect(opts.enable_over_3).toBe(true);
     });
 
-    it('trade_as OVER_1 returns barrier 1 when Over 1/2 analysis passes', () => {
+    it('trade_as OVER_2 returns barrier 2 when Over 2/3 analysis passes', () => {
         const digits = [];
         for (let i = 0; i < 200; i++) {
             if (i % 40 === 0) digits.push(0);
             else if (i % 41 === 0) digits.push(1);
             else if (i % 42 === 0) digits.push(2);
+            else if (i % 43 === 0) digits.push(3);
             else digits.push(5 + (i % 5));
         }
         const result = evaluateIndividualDigitSuppression(digits, {
@@ -166,15 +167,15 @@ describe('evaluateIndividualDigitSuppression', () => {
             min_confirm_windows: 2,
             min_signal_score: 4,
             require_persistence: true,
-            trade_as: 'OVER_1',
+            trade_as: 'OVER_2',
             journal_enabled: false,
         });
-        expect(result.contracts.every(c => c.barrier !== 3)).toBe(true);
+        expect(result.contracts.every(c => c.barrier !== 1)).toBe(true);
         if (result.matched) {
-            expect(result.prediction).toBe(1);
-            expect(result.recommended_contract).toBe('OVER 1');
+            expect(result.prediction).toBe(2);
+            expect(result.recommended_contract).toBe('OVER 2');
             expect(result.contract_type).toBe('DIGITOVER');
-            expect(result.filter_status).toBe('driven_by_over_1_2');
+            expect(result.filter_status).toBe('driven_by_over_2_3');
             expect(result.higher_barrier_support.length).toBeGreaterThan(0);
         }
     });
@@ -189,13 +190,13 @@ describe('selectTradeCandidate', () => {
         digit_scores: [],
     });
 
-    it('trades Over 1 when Over 1 analysis passes', () => {
+    it('trades Over 2 when Over 2 analysis passes', () => {
         const { best, filter_status, higher_barrier_support } = selectTradeCandidate(
             [
-                { barrier: 1, label: 'OVER 1', ...base(8), suppressed_losing_digits: [0, 1] },
+                { barrier: 2, label: 'OVER 2', ...base(8), suppressed_losing_digits: [0, 2] },
                 {
-                    barrier: 2,
-                    label: 'OVER 2',
+                    barrier: 3,
+                    label: 'OVER 3',
                     score: 0,
                     passes: false,
                     suppressed_losing_digits: [],
@@ -203,40 +204,40 @@ describe('selectTradeCandidate', () => {
                     digit_scores: [],
                 },
             ],
-            { trade_as: TRADE_AS_OVER_1, min_signal_score: 6, max_simultaneous_signals: 1 }
+            { trade_as: TRADE_AS_OVER_2, min_signal_score: 6, max_simultaneous_signals: 1 }
         );
-        expect(best?.barrier).toBe(1);
+        expect(best?.barrier).toBe(2);
         expect(best?.contract_type).toBe('DIGITOVER');
-        expect(filter_status).toBe('driven_by_over_1_2');
-        expect(higher_barrier_support).toEqual(['OVER 1']);
-    });
-
-    it('trades Over 1 when only Over 2 analysis passes', () => {
-        const { best, higher_barrier_support } = selectTradeCandidate(
-            [
-                {
-                    barrier: 1,
-                    label: 'OVER 1',
-                    score: 2,
-                    passes: false,
-                    suppressed_losing_digits: [0],
-                    signal_strength: 'WEAK',
-                    digit_scores: [],
-                },
-                { barrier: 2, label: 'OVER 2', ...base(9), suppressed_losing_digits: [0, 1, 2] },
-            ],
-            { trade_as: TRADE_AS_OVER_1, min_signal_score: 6, max_simultaneous_signals: 1 }
-        );
-        expect(best?.barrier).toBe(1);
+        expect(filter_status).toBe('driven_by_over_2_3');
         expect(higher_barrier_support).toEqual(['OVER 2']);
     });
 
-    it('waits when neither Over 1 nor Over 2 passes', () => {
+    it('trades Over 2 when only Over 3 analysis passes', () => {
+        const { best, higher_barrier_support } = selectTradeCandidate(
+            [
+                {
+                    barrier: 2,
+                    label: 'OVER 2',
+                    score: 2,
+                    passes: false,
+                    suppressed_losing_digits: [0],
+                    signal_strength: 'WEAK',
+                    digit_scores: [],
+                },
+                { barrier: 3, label: 'OVER 3', ...base(9), suppressed_losing_digits: [0, 1, 3] },
+            ],
+            { trade_as: TRADE_AS_OVER_2, min_signal_score: 6, max_simultaneous_signals: 1 }
+        );
+        expect(best?.barrier).toBe(2);
+        expect(higher_barrier_support).toEqual(['OVER 3']);
+    });
+
+    it('waits when neither Over 2 nor Over 3 passes', () => {
         const { best, filter_status } = selectTradeCandidate(
             [
                 {
-                    barrier: 1,
-                    label: 'OVER 1',
+                    barrier: 2,
+                    label: 'OVER 2',
                     score: 2,
                     passes: false,
                     suppressed_losing_digits: [0],
@@ -244,8 +245,8 @@ describe('selectTradeCandidate', () => {
                     digit_scores: [],
                 },
                 {
-                    barrier: 2,
-                    label: 'OVER 2',
+                    barrier: 3,
+                    label: 'OVER 3',
                     score: 1,
                     passes: false,
                     suppressed_losing_digits: [1],
@@ -253,24 +254,24 @@ describe('selectTradeCandidate', () => {
                     digit_scores: [],
                 },
             ],
-            { trade_as: TRADE_AS_OVER_1, min_signal_score: 6, max_simultaneous_signals: 1 }
+            { trade_as: TRADE_AS_OVER_2, min_signal_score: 6, max_simultaneous_signals: 1 }
         );
         expect(best).toBeNull();
-        expect(filter_status).toBe('waiting_over_1_2');
+        expect(filter_status).toBe('waiting_over_2_3');
     });
 
-    it('combines Over 1 and Over 2 when both pass', () => {
+    it('combines Over 2 and Over 3 when both pass', () => {
         const { best, higher_barrier_support } = selectTradeCandidate(
             [
-                { barrier: 1, label: 'OVER 1', ...base(7), suppressed_losing_digits: [0, 1] },
-                { barrier: 2, label: 'OVER 2', ...base(10), suppressed_losing_digits: [0, 2] },
+                { barrier: 2, label: 'OVER 2', ...base(7), suppressed_losing_digits: [0, 2] },
+                { barrier: 3, label: 'OVER 3', ...base(10), suppressed_losing_digits: [0, 1, 3] },
             ],
-            { trade_as: TRADE_AS_OVER_1, min_signal_score: 6, max_simultaneous_signals: 1 }
+            { trade_as: TRADE_AS_OVER_2, min_signal_score: 6, max_simultaneous_signals: 1 }
         );
-        expect(best?.barrier).toBe(1);
+        expect(best?.barrier).toBe(2);
         expect(best?.score).toBe(10);
-        expect(higher_barrier_support).toEqual(['OVER 1', 'OVER 2']);
-        expect(best?.suppressed_losing_digits).toEqual([0, 1, 2]);
+        expect(higher_barrier_support).toEqual(['OVER 2', 'OVER 3']);
+        expect(best?.suppressed_losing_digits).toEqual([0, 1, 2, 3]);
     });
 
     it('detects analysis drivers only when they pass', () => {

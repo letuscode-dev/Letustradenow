@@ -1,5 +1,5 @@
 /**
- * Individual Digit Suppression — returns Over 1 barrier (1) or -1.
+ * Individual Digit Suppression — returns Over 2 barrier (2) or -1.
  * Strategy thresholds are baked into the generator; users only wire tick windows.
  */
 import { localize } from '@deriv-com/translations';
@@ -12,7 +12,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
     },
     definition() {
         return {
-            message0: localize('digit suppression Over 1 (short %1 med %2 long %3 journal %4)', {
+            message0: localize('digit suppression Over 2 (short %1 med %2 long %3 journal %4)', {
                 short: '%1',
                 med: '%2',
                 long: '%3',
@@ -30,7 +30,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Uses Over 1 / Over 2 suppression scores to drive Over 1 trades. Returns barrier 1 or -1.'
+                'Uses Over 2 / Over 3 suppression scores to drive Over 2 trades. Returns barrier 2 or -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -39,7 +39,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
         return {
             display_name: localize('Individual Digit Suppression scan'),
             description: localize(
-                'Over 1 / Over 2 digit-suppression analysis drives Over 1 entries across Short/Medium/Long windows.'
+                'Over 2 / Over 3 digit-suppression analysis drives Over 2 entries across Short/Medium/Long windows.'
             ),
             key_words: localize('suppression, digit, over, frequency, persistence'),
         };
@@ -70,10 +70,10 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.individual_digit_suppress
             min_signal_score: 6,
             require_persistence: true,
             require_trend: false,
-            enable_over_1: true,
+            enable_over_1: false,
             enable_over_2: true,
-            enable_over_3: false,
-            trade_as: 'OVER_1',
+            enable_over_3: true,
+            trade_as: 'OVER_2',
             journal_enabled: ${read('JOURNAL') || 'true'}
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivateIdsResult && BinaryBotPrivateIdsResult.journal_messages;

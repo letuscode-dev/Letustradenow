@@ -7,7 +7,7 @@
  */
 
 export const BASELINE_PERCENT = 10;
-export const TRADE_AS_OVER_1 = 'OVER_1';
+export const TRADE_AS_OVER_2 = 'OVER_2';
 
 export const DEFAULT_OPTIONS = {
     short_window: 15,
@@ -35,7 +35,7 @@ export const DEFAULT_OPTIONS = {
     score_trend_strengthen: 2,
     score_belongs_to_over: 2,
     /**
-     * OVER_1: Over 1 / Over 2 analysis drives the entry; always trade Over 1.
+     * OVER_2: Over 2 / Over 3 analysis drives the entry; always trade Over 2.
      * Empty: pick the best enabled Over among 1/2/3 (legacy ranking).
      */
     trade_as: '',
@@ -84,8 +84,8 @@ export const normalizeIndividualDigitSuppressionOptions = (options = {}) => {
         .toUpperCase()
         .replace(/\s+/g, '_');
     const trade_as =
-        trade_as_raw === 'OVER_1' || trade_as_raw === 'OVER1' ? TRADE_AS_OVER_1 : '';
-    const driven_mode = trade_as === TRADE_AS_OVER_1;
+        trade_as_raw === 'OVER_2' || trade_as_raw === 'OVER2' ? TRADE_AS_OVER_2 : '';
+    const driven_mode = trade_as === TRADE_AS_OVER_2;
     return {
         short_window: toPositiveInt(options.short_window, d.short_window, 10, 2000),
         medium_window: toPositiveInt(options.medium_window, d.medium_window, 10, 2000),
@@ -98,10 +98,10 @@ export const normalizeIndividualDigitSuppressionOptions = (options = {}) => {
         min_signal_score: toNonNegNumber(options.min_signal_score, d.min_signal_score),
         require_persistence: toBool(options.require_persistence, d.require_persistence),
         require_trend: toBool(options.require_trend, d.require_trend),
-        enable_over_1: driven_mode ? true : toBool(options.enable_over_1, d.enable_over_1),
+        // Over 1 is not used for Over-2 driven entries.
+        enable_over_1: driven_mode ? false : toBool(options.enable_over_1, d.enable_over_1),
         enable_over_2: driven_mode ? true : toBool(options.enable_over_2, d.enable_over_2),
-        // Over 3 is not used for Over-1 driven entries.
-        enable_over_3: driven_mode ? false : toBool(options.enable_over_3, d.enable_over_3),
+        enable_over_3: driven_mode ? true : toBool(options.enable_over_3, d.enable_over_3),
         max_simultaneous_signals: toPositiveInt(
             options.max_simultaneous_signals,
             d.max_simultaneous_signals,
@@ -411,36 +411,36 @@ export const higherBarrierDrivesOverOne = analysisContractPasses;
 /**
  * Select the trade candidate.
  *
- * trade_as OVER_1: Over 1 / Over 2 analysis drives the entry; always trade Over 1.
+ * trade_as OVER_2: Over 2 / Over 3 analysis drives the entry; always trade Over 2.
  * Otherwise: best passing enabled Over contract (ranked).
  */
 export const selectTradeCandidate = (contracts, options) => {
     const list = Array.isArray(contracts) ? contracts : [];
 
-    if (options.trade_as === TRADE_AS_OVER_1) {
-        const o1 = list.find(c => c.barrier === 1) || null;
+    if (options.trade_as === TRADE_AS_OVER_2) {
         const o2 = list.find(c => c.barrier === 2) || null;
+        const o3 = list.find(c => c.barrier === 3) || null;
 
         const drivers = [];
-        if (analysisContractPasses(o1)) drivers.push('OVER 1');
         if (analysisContractPasses(o2)) drivers.push('OVER 2');
+        if (analysisContractPasses(o3)) drivers.push('OVER 3');
 
         if (!drivers.length) {
             return {
                 best: null,
-                filter_status: 'waiting_over_1_2',
+                filter_status: 'waiting_over_2_3',
                 higher_barrier_support: [],
             };
         }
 
         const suppressed = [
             ...new Set([
-                ...(o1?.passes ? o1.suppressed_losing_digits || [] : []),
                 ...(o2?.passes ? o2.suppressed_losing_digits || [] : []),
+                ...(o3?.passes ? o3.suppressed_losing_digits || [] : []),
             ]),
         ].sort((a, b) => a - b);
 
-        const score = Math.max(o1?.passes ? o1.score : 0, o2?.passes ? o2.score : 0);
+        const score = Math.max(o2?.passes ? o2.score : 0, o3?.passes ? o3.score : 0);
         let strength = 'NONE';
         if (score >= options.min_signal_score + 6) strength = 'VERY HIGH';
         else if (score >= options.min_signal_score + 3) strength = 'HIGH';
@@ -449,21 +449,21 @@ export const selectTradeCandidate = (contracts, options) => {
 
         return {
             best: {
-                barrier: 1,
-                label: 'OVER 1',
+                barrier: 2,
+                label: 'OVER 2',
                 contract_type: 'DIGITOVER',
                 score,
                 passes: true,
                 suppressed_losing_digits: suppressed,
                 digit_scores: [
-                    ...(o1?.passes ? o1.digit_scores || [] : []),
                     ...(o2?.passes ? o2.digit_scores || [] : []),
+                    ...(o3?.passes ? o3.digit_scores || [] : []),
                 ],
                 signal_strength: strength,
-                filter_status: 'driven_by_over_1_2',
+                filter_status: 'driven_by_over_2_3',
                 higher_barrier_support: drivers,
             },
-            filter_status: 'driven_by_over_1_2',
+            filter_status: 'driven_by_over_2_3',
             higher_barrier_support: drivers,
         };
     }
@@ -533,26 +533,26 @@ export const buildSuppressionJournalMessages = (
         });
     });
 
-    if (options.trade_as === TRADE_AS_OVER_1) {
+    if (options.trade_as === TRADE_AS_OVER_2) {
         const support = filter_meta.higher_barrier_support || [];
         const status = filter_meta.filter_status || '';
-        if (status === 'waiting_over_1_2') {
+        if (status === 'waiting_over_2_3') {
             messages.push({
                 className: 'journal__text',
                 message:
-                    'Waiting — Over 1 / Over 2 suppression must pass before trading Over 1.',
+                    'Waiting — Over 2 / Over 3 suppression must pass before trading Over 2.',
             });
-        } else if (status === 'driven_by_over_1_2' && best?.passes) {
+        } else if (status === 'driven_by_over_2_3' && best?.passes) {
             messages.push({
                 className: 'journal__text--success',
-                message: `OVER 1 entry driven by ${support.join(' + ') || 'Over 1 / Over 2'} analysis.`,
+                message: `OVER 2 entry driven by ${support.join(' + ') || 'Over 2 / Over 3'} analysis.`,
             });
         }
     }
 
     if (best?.passes) {
         const primary_row = analysis.primary_row;
-        const trade_label = options.trade_as === TRADE_AS_OVER_1 ? 'OVER 1' : best.label;
+        const trade_label = options.trade_as === TRADE_AS_OVER_2 ? 'OVER 2' : best.label;
         messages.push({
             className: 'journal__text--success',
             message: `${strategy_output} → TRADE: ${trade_label} (score ${best.score}) | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
@@ -561,8 +561,8 @@ export const buildSuppressionJournalMessages = (
         messages.push({
             className: 'journal__text',
             message:
-                options.trade_as === TRADE_AS_OVER_1
-                    ? 'NO SIGNAL — Over 1 / Over 2 analysis has not confirmed an Over 1 entry yet.'
+                options.trade_as === TRADE_AS_OVER_2
+                    ? 'NO SIGNAL — Over 2 / Over 3 analysis has not confirmed an Over 2 entry yet.'
                     : 'NO SIGNAL — thresholds not met for Over 1 / 2 / 3.',
         });
     }
@@ -612,7 +612,7 @@ export const evaluateIndividualDigitSuppression = (digits, raw_options = {}) => 
         : [];
 
     const barrier =
-        best && options.trade_as === TRADE_AS_OVER_1 ? 1 : best ? best.barrier : -1;
+        best && options.trade_as === TRADE_AS_OVER_2 ? 2 : best ? best.barrier : -1;
 
     return {
         prediction: barrier,
@@ -621,12 +621,12 @@ export const evaluateIndividualDigitSuppression = (digits, raw_options = {}) => 
         allowed: Boolean(best),
         strategy_output,
         recommended_contract: best
-            ? options.trade_as === TRADE_AS_OVER_1
-                ? 'OVER 1'
+            ? options.trade_as === TRADE_AS_OVER_2
+                ? 'OVER 2'
                 : best.label
             : null,
         contract_type:
-            best && options.trade_as === TRADE_AS_OVER_1
+            best && options.trade_as === TRADE_AS_OVER_2
                 ? 'DIGITOVER'
                 : best?.contract_type || null,
         primary_digit: analysis.primary_digit,
