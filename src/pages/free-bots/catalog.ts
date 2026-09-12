@@ -39,7 +39,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'individual-digit-suppression-v1',
         title: 'Individual Digit Suppression Strategy',
         description:
-            'Trades Over 1 only. Over 2 / Over 3 analysis filters entries when available. Configure stake, risk, tick windows, and cooldown in Bot Builder.',
+            'Uses Over 2 / Over 3 digit-suppression analysis to enter Over 1 trades. Configure stake, risk, tick windows, and cooldown in Bot Builder.',
         tags: ['Over 1', 'Suppression', 'Multi-window'],
         xml: INDIVIDUAL_DIGIT_SUPPRESSION_XML,
     },

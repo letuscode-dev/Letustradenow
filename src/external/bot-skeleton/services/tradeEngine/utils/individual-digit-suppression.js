@@ -34,8 +34,7 @@ export const DEFAULT_OPTIONS = {
     score_trend_strengthen: 2,
     score_belongs_to_over: 2,
     /**
-     * When 1: always analyze Over 1/2/3, trade Over 1 only, and use Over 2/3
-     * scores as confirmation filters where those analyses are meaningful.
+     * When 1: Over 2 / Over 3 analysis drives the entry; always trade Over 1.
      * When 0: pick the best enabled Over among 1/2/3 (legacy ranking).
      */
     trade_barrier: 0,
@@ -399,95 +398,67 @@ export const classifyStrategyOutput = (best, min_score) => {
 };
 
 /**
- * Whether a higher-barrier (Over 2 / Over 3) contract analysis is usable as a filter.
+ * Over 2 / Over 3 qualify as drivers for an Over 1 trade when they fully pass
+ * their own suppression score (same thresholds as a direct Over 2 / Over 3 signal).
  */
-export const isHigherBarrierAnalysisMeaningful = contract =>
-    Boolean(
-        contract &&
-            (contract.score > 0 ||
-                (Array.isArray(contract.suppressed_losing_digits) &&
-                    contract.suppressed_losing_digits.length > 0))
-    );
-
-/**
- * Over 2 / Over 3 support Over 1 when they pass, or show extra suppressed
- * losing digits beyond {0,1} (broader low-digit suppression).
- */
-export const higherBarrierSupportsOverOne = (contract, min_signal_score = 6) => {
-    if (!contract) return false;
-    if (contract.passes) return true;
-    const extra = (contract.suppressed_losing_digits || []).filter(d => d >= 2);
-    if (extra.length > 0 && contract.score > 0) return true;
-    // Partial confirmation: meaningful score with any suppressed losing digits
-    if (contract.score >= min_signal_score * 0.5 && (contract.suppressed_losing_digits || []).length > 0) {
-        return true;
-    }
-    return false;
-};
+export const higherBarrierDrivesOverOne = contract => Boolean(contract?.passes);
 
 /**
  * Select the trade candidate.
  *
- * trade_barrier === 1: Over 1 only, filtered by Over 2 / Over 3 analysis where possible.
+ * trade_barrier === 1: Over 2 / Over 3 analysis drives the entry; always trade Over 1.
  * Otherwise: best passing enabled contract (ranked).
  */
 export const selectTradeCandidate = (contracts, options) => {
     const list = Array.isArray(contracts) ? contracts : [];
 
     if (options.trade_barrier === 1) {
-        const o1 = list.find(c => c.barrier === 1) || null;
         const o2 = list.find(c => c.barrier === 2) || null;
         const o3 = list.find(c => c.barrier === 3) || null;
 
-        if (!o1?.passes) {
+        const drivers = [];
+        if (higherBarrierDrivesOverOne(o2)) drivers.push('OVER 2');
+        if (higherBarrierDrivesOverOne(o3)) drivers.push('OVER 3');
+
+        if (!drivers.length) {
             return {
                 best: null,
-                filter_status: 'over_1_failed',
+                filter_status: 'waiting_over_2_3',
                 higher_barrier_support: [],
             };
         }
 
-        const o2_meaningful = isHigherBarrierAnalysisMeaningful(o2);
-        const o3_meaningful = isHigherBarrierAnalysisMeaningful(o3);
-        const can_filter = o2_meaningful || o3_meaningful;
+        const suppressed = [
+            ...new Set([
+                ...(o2?.passes ? o2.suppressed_losing_digits || [] : []),
+                ...(o3?.passes ? o3.suppressed_losing_digits || [] : []),
+            ]),
+        ].sort((a, b) => a - b);
 
-        if (!can_filter) {
-            return {
-                best: {
-                    ...o1,
-                    label: 'OVER 1',
-                    filter_status: 'no_higher_barrier_filter',
-                    higher_barrier_support: [],
-                },
-                filter_status: 'no_higher_barrier_filter',
-                higher_barrier_support: [],
-            };
-        }
-
-        const o2_supports = higherBarrierSupportsOverOne(o2, options.min_signal_score);
-        const o3_supports = higherBarrierSupportsOverOne(o3, options.min_signal_score);
-        const support = [];
-        if (o2_supports) support.push('OVER 2');
-        if (o3_supports) support.push('OVER 3');
-
-        if (!o2_supports && !o3_supports) {
-            return {
-                best: null,
-                filter_status: 'filtered_by_over_2_3',
-                higher_barrier_support: [],
-            };
-        }
+        const score = Math.max(o2?.passes ? o2.score : 0, o3?.passes ? o3.score : 0);
+        let strength = 'NONE';
+        if (score >= options.min_signal_score + 6) strength = 'VERY HIGH';
+        else if (score >= options.min_signal_score + 3) strength = 'HIGH';
+        else if (score >= options.min_signal_score) strength = 'MODERATE';
+        else if (score > 0) strength = 'WEAK';
 
         return {
             best: {
-                ...o1,
+                barrier: 1,
                 label: 'OVER 1',
+                score,
                 passes: true,
-                filter_status: 'higher_barrier_confirmed',
-                higher_barrier_support: support,
+                suppressed_losing_digits: suppressed,
+                digit_scores: [
+                    ...(o2?.passes ? o2.digit_scores || [] : []),
+                    ...(o3?.passes ? o3.digit_scores || [] : []),
+                ],
+                signal_strength: strength,
+                filter_status: 'driven_by_over_2_3',
+                higher_barrier_support: drivers,
             },
-            filter_status: 'higher_barrier_confirmed',
-            higher_barrier_support: support,
+            filter_status: 'driven_by_over_2_3',
+            higher_barrier_support: drivers,
         };
     }
 
@@ -559,30 +530,23 @@ export const buildSuppressionJournalMessages = (
     if (options.trade_barrier === 1) {
         const support = filter_meta.higher_barrier_support || [];
         const status = filter_meta.filter_status || '';
-        if (status === 'filtered_by_over_2_3') {
+        if (status === 'waiting_over_2_3') {
             messages.push({
                 className: 'journal__text',
                 message:
-                    'OVER 1 filtered — Over 2 / Over 3 analysis did not confirm low-digit suppression.',
+                    'Waiting — Over 2 / Over 3 suppression must pass before trading Over 1.',
             });
-        } else if (status === 'no_higher_barrier_filter' && best?.passes) {
-            messages.push({
-                className: 'journal__text',
-                message:
-                    'OVER 1 allowed — Over 2 / Over 3 filter not applicable (no higher-barrier signal yet).',
-            });
-        } else if (status === 'higher_barrier_confirmed' && best?.passes) {
+        } else if (status === 'driven_by_over_2_3' && best?.passes) {
             messages.push({
                 className: 'journal__text--success',
-                message: `OVER 1 confirmed by ${support.join(' + ') || 'higher-barrier'} filter.`,
+                message: `OVER 1 entry driven by ${support.join(' + ') || 'Over 2 / Over 3'} analysis.`,
             });
         }
     }
 
     if (best?.passes) {
         const primary_row = analysis.primary_row;
-        const trade_label =
-            options.trade_barrier === 1 ? 'OVER 1' : best.label;
+        const trade_label = options.trade_barrier === 1 ? 'OVER 1' : best.label;
         messages.push({
             className: 'journal__text--success',
             message: `${strategy_output} → TRADE: ${trade_label} (score ${best.score}) | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
@@ -592,7 +556,7 @@ export const buildSuppressionJournalMessages = (
             className: 'journal__text',
             message:
                 options.trade_barrier === 1
-                    ? 'NO SIGNAL — Over 1 thresholds not met or blocked by Over 2 / Over 3 filter.'
+                    ? 'NO SIGNAL — Over 2 / Over 3 analysis has not confirmed an Over 1 entry yet.'
                     : 'NO SIGNAL — thresholds not met for Over 1 / 2 / 3.',
         });
     }

@@ -30,7 +30,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scores Over 1 / 2 / 3 from suppressed digits, trades Over 1 only, and uses Over 2 / Over 3 as filters. Returns 1 or -1.'
+                'Uses Over 2 / Over 3 suppression scores to drive Over 1 trades. Returns barrier 1 or -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -39,7 +39,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
         return {
             display_name: localize('Individual Digit Suppression scan'),
             description: localize(
-                'Finds digits under the 10% baseline across Short/Medium/Long windows. Over 1 only; Over 2 / Over 3 filter entries.'
+                'Over 2 / Over 3 digit-suppression analysis drives Over 1 entries across Short/Medium/Long windows.'
             ),
             key_words: localize('suppression, digit, over, frequency, persistence'),
         };

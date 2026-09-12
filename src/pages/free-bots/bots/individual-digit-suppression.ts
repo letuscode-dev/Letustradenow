@@ -1,9 +1,8 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Trades Over 1 only; Over 2 / Over 3 analysis filters entries.
- * Only stake, risk, tick windows, and cooldown are user variables —
- * strategy thresholds are hardcoded inside the scan block.
+ * Over 2 / Over 3 suppression analysis drives entries; the bot always trades
+ * Over 1. Only stake, risk, tick windows, and cooldown are user variables.
  */
 
 const varGet = (id, name) =>
