@@ -1,9 +1,9 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Multi-window digit frequency → suppression vs 10% baseline → Over 1 only
- * (losing digits 0–1). Locked to Over 1 so a future recovery layer can stay
- * on a single contract type. Thresholds remain Bot Builder variables.
+ * Multi-window digit frequency → suppression vs 10% baseline.
+ * Trades Over 1 only; Over 2 / Over 3 analysis still runs and filters Over 1
+ * entries where those higher-barrier signals are meaningful (recovery-ready).
  */
 
 const varGet = (id, name) =>
@@ -137,8 +137,8 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <value name="REQUIRE_PERSISTENCE">${varGet('ids_persist', 'Require Persistence')}</value>
                     <value name="REQUIRE_TREND">${varGet('ids_trend', 'Require Trend Confirmation')}</value>
                     <value name="ENABLE_OVER_1">${bool(true)}</value>
-                    <value name="ENABLE_OVER_2">${bool(false)}</value>
-                    <value name="ENABLE_OVER_3">${bool(false)}</value>
+                    <value name="ENABLE_OVER_2">${bool(true)}</value>
+                    <value name="ENABLE_OVER_3">${bool(true)}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>

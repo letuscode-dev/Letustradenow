@@ -33,6 +33,12 @@ export const DEFAULT_OPTIONS = {
     score_all_windows: 2,
     score_trend_strengthen: 2,
     score_belongs_to_over: 2,
+    /**
+     * When 1: always analyze Over 1/2/3, trade Over 1 only, and use Over 2/3
+     * scores as confirmation filters where those analyses are meaningful.
+     * When 0: pick the best enabled Over among 1/2/3 (legacy ranking).
+     */
+    trade_barrier: 0,
     journal_enabled: true,
 };
 
@@ -74,6 +80,11 @@ const cleanDigits = digits => {
 
 export const normalizeIndividualDigitSuppressionOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
+    const trade_barrier = (() => {
+        const n = Math.floor(Number(options.trade_barrier));
+        return n === 1 || n === 2 || n === 3 ? n : d.trade_barrier;
+    })();
+    const force_all_overs = trade_barrier === 1;
     return {
         short_window: toPositiveInt(options.short_window, d.short_window, 10, 2000),
         medium_window: toPositiveInt(options.medium_window, d.medium_window, 10, 2000),
@@ -86,9 +97,9 @@ export const normalizeIndividualDigitSuppressionOptions = (options = {}) => {
         min_signal_score: toNonNegNumber(options.min_signal_score, d.min_signal_score),
         require_persistence: toBool(options.require_persistence, d.require_persistence),
         require_trend: toBool(options.require_trend, d.require_trend),
-        enable_over_1: toBool(options.enable_over_1, d.enable_over_1),
-        enable_over_2: toBool(options.enable_over_2, d.enable_over_2),
-        enable_over_3: toBool(options.enable_over_3, d.enable_over_3),
+        enable_over_1: force_all_overs ? true : toBool(options.enable_over_1, d.enable_over_1),
+        enable_over_2: force_all_overs ? true : toBool(options.enable_over_2, d.enable_over_2),
+        enable_over_3: force_all_overs ? true : toBool(options.enable_over_3, d.enable_over_3),
         max_simultaneous_signals: toPositiveInt(
             options.max_simultaneous_signals,
             d.max_simultaneous_signals,
@@ -110,6 +121,7 @@ export const normalizeIndividualDigitSuppressionOptions = (options = {}) => {
             options.score_belongs_to_over,
             d.score_belongs_to_over
         ),
+        trade_barrier,
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
     };
 };
@@ -386,9 +398,118 @@ export const classifyStrategyOutput = (best, min_score) => {
     return 'WEAK SIGNAL';
 };
 
+/**
+ * Whether a higher-barrier (Over 2 / Over 3) contract analysis is usable as a filter.
+ */
+export const isHigherBarrierAnalysisMeaningful = contract =>
+    Boolean(
+        contract &&
+            (contract.score > 0 ||
+                (Array.isArray(contract.suppressed_losing_digits) &&
+                    contract.suppressed_losing_digits.length > 0))
+    );
+
+/**
+ * Over 2 / Over 3 support Over 1 when they pass, or show extra suppressed
+ * losing digits beyond {0,1} (broader low-digit suppression).
+ */
+export const higherBarrierSupportsOverOne = (contract, min_signal_score = 6) => {
+    if (!contract) return false;
+    if (contract.passes) return true;
+    const extra = (contract.suppressed_losing_digits || []).filter(d => d >= 2);
+    if (extra.length > 0 && contract.score > 0) return true;
+    // Partial confirmation: meaningful score with any suppressed losing digits
+    if (contract.score >= min_signal_score * 0.5 && (contract.suppressed_losing_digits || []).length > 0) {
+        return true;
+    }
+    return false;
+};
+
+/**
+ * Select the trade candidate.
+ *
+ * trade_barrier === 1: Over 1 only, filtered by Over 2 / Over 3 analysis where possible.
+ * Otherwise: best passing enabled contract (ranked).
+ */
+export const selectTradeCandidate = (contracts, options) => {
+    const list = Array.isArray(contracts) ? contracts : [];
+
+    if (options.trade_barrier === 1) {
+        const o1 = list.find(c => c.barrier === 1) || null;
+        const o2 = list.find(c => c.barrier === 2) || null;
+        const o3 = list.find(c => c.barrier === 3) || null;
+
+        if (!o1?.passes) {
+            return {
+                best: null,
+                filter_status: 'over_1_failed',
+                higher_barrier_support: [],
+            };
+        }
+
+        const o2_meaningful = isHigherBarrierAnalysisMeaningful(o2);
+        const o3_meaningful = isHigherBarrierAnalysisMeaningful(o3);
+        const can_filter = o2_meaningful || o3_meaningful;
+
+        if (!can_filter) {
+            return {
+                best: {
+                    ...o1,
+                    label: 'OVER 1',
+                    filter_status: 'no_higher_barrier_filter',
+                    higher_barrier_support: [],
+                },
+                filter_status: 'no_higher_barrier_filter',
+                higher_barrier_support: [],
+            };
+        }
+
+        const o2_supports = higherBarrierSupportsOverOne(o2, options.min_signal_score);
+        const o3_supports = higherBarrierSupportsOverOne(o3, options.min_signal_score);
+        const support = [];
+        if (o2_supports) support.push('OVER 2');
+        if (o3_supports) support.push('OVER 3');
+
+        if (!o2_supports && !o3_supports) {
+            return {
+                best: null,
+                filter_status: 'filtered_by_over_2_3',
+                higher_barrier_support: [],
+            };
+        }
+
+        return {
+            best: {
+                ...o1,
+                label: 'OVER 1',
+                passes: true,
+                filter_status: 'higher_barrier_confirmed',
+                higher_barrier_support: support,
+            },
+            filter_status: 'higher_barrier_confirmed',
+            higher_barrier_support: support,
+        };
+    }
+
+    const passing = list.filter(c => c.passes);
+    const limited = passing.slice(0, options.max_simultaneous_signals);
+    const best = limited[0] || null;
+    return {
+        best,
+        filter_status: best ? 'ranked' : 'none',
+        higher_barrier_support: [],
+    };
+};
+
 const fmtPct = value => `${(Math.round(value * 100) / 100).toFixed(2)}%`;
 
-export const buildSuppressionJournalMessages = (analysis, contracts, best, strategy_output) => {
+export const buildSuppressionJournalMessages = (
+    analysis,
+    contracts,
+    best,
+    strategy_output,
+    filter_meta = {}
+) => {
     const messages = [];
     const { options, digit_rows, primary_digit, secondary_digit, ready, tick_count, need } =
         analysis;
@@ -435,16 +556,44 @@ export const buildSuppressionJournalMessages = (analysis, contracts, best, strat
         });
     });
 
+    if (options.trade_barrier === 1) {
+        const support = filter_meta.higher_barrier_support || [];
+        const status = filter_meta.filter_status || '';
+        if (status === 'filtered_by_over_2_3') {
+            messages.push({
+                className: 'journal__text',
+                message:
+                    'OVER 1 filtered — Over 2 / Over 3 analysis did not confirm low-digit suppression.',
+            });
+        } else if (status === 'no_higher_barrier_filter' && best?.passes) {
+            messages.push({
+                className: 'journal__text',
+                message:
+                    'OVER 1 allowed — Over 2 / Over 3 filter not applicable (no higher-barrier signal yet).',
+            });
+        } else if (status === 'higher_barrier_confirmed' && best?.passes) {
+            messages.push({
+                className: 'journal__text--success',
+                message: `OVER 1 confirmed by ${support.join(' + ') || 'higher-barrier'} filter.`,
+            });
+        }
+    }
+
     if (best?.passes) {
         const primary_row = analysis.primary_row;
+        const trade_label =
+            options.trade_barrier === 1 ? 'OVER 1' : best.label;
         messages.push({
             className: 'journal__text--success',
-            message: `${strategy_output} → BEST: ${best.label} (score ${best.score}) | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
+            message: `${strategy_output} → TRADE: ${trade_label} (score ${best.score}) | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
         });
     } else {
         messages.push({
             className: 'journal__text',
-            message: 'NO SIGNAL — thresholds not met for Over 1 / 2 / 3.',
+            message:
+                options.trade_barrier === 1
+                    ? 'NO SIGNAL — Over 1 thresholds not met or blocked by Over 2 / Over 3 filter.'
+                    : 'NO SIGNAL — thresholds not met for Over 1 / 2 / 3.',
         });
     }
 
@@ -475,6 +624,8 @@ export const evaluateIndividualDigitSuppression = (digits, raw_options = {}) => 
             analysis,
             contracts: [],
             best: null,
+            filter_status: 'collecting',
+            higher_barrier_support: [],
             journal_messages: options.journal_enabled
                 ? buildSuppressionJournalMessages(analysis, [], null, 'NO SIGNAL')
                 : [],
@@ -482,22 +633,23 @@ export const evaluateIndividualDigitSuppression = (digits, raw_options = {}) => 
     }
 
     const contracts = scoreOverContracts(analysis);
-    const passing = contracts.filter(c => c.passes);
-    const limited = passing.slice(0, options.max_simultaneous_signals);
-    const best = limited[0] || null;
+    const selection = selectTradeCandidate(contracts, options);
+    const best = selection.best;
     const strategy_output = classifyStrategyOutput(best, options.min_signal_score);
 
     const journal_messages = options.journal_enabled
-        ? buildSuppressionJournalMessages(analysis, contracts, best, strategy_output)
+        ? buildSuppressionJournalMessages(analysis, contracts, best, strategy_output, selection)
         : [];
 
+    const barrier = best && options.trade_barrier === 1 ? 1 : best ? best.barrier : -1;
+
     return {
-        prediction: best ? best.barrier : -1,
-        barrier: best ? best.barrier : -1,
+        prediction: barrier,
+        barrier,
         matched: Boolean(best),
         allowed: Boolean(best),
         strategy_output,
-        recommended_contract: best ? best.label : null,
+        recommended_contract: best ? (options.trade_barrier === 1 ? 'OVER 1' : best.label) : null,
         primary_digit: analysis.primary_digit,
         secondary_digit: analysis.secondary_digit,
         suppression_strength: analysis.primary_row?.avg_suppression ?? 0,
@@ -505,6 +657,8 @@ export const evaluateIndividualDigitSuppression = (digits, raw_options = {}) => 
             ? `${analysis.primary_row.confirming_windows}/3`
             : '0/3',
         final_score: best ? best.score : 0,
+        filter_status: selection.filter_status,
+        higher_barrier_support: selection.higher_barrier_support,
         analysis,
         contracts,
         best,

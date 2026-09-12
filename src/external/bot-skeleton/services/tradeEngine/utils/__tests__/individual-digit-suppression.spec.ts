@@ -4,8 +4,10 @@ import {
     classifySuppressionTrend,
     computeWindowDigitStats,
     evaluateIndividualDigitSuppression,
+    higherBarrierSupportsOverOne,
     normalizeIndividualDigitSuppressionOptions,
     scoreOverContracts,
+    selectTradeCandidate,
 } from '../individual-digit-suppression';
 
 describe('computeWindowDigitStats', () => {
@@ -135,5 +137,149 @@ describe('evaluateIndividualDigitSuppression', () => {
         const opts = normalizeIndividualDigitSuppressionOptions({});
         expect(opts.short_window).toBe(50);
         expect(opts.very_high_threshold).toBe(7);
+    });
+
+    it('forces Over 1/2/3 analysis when trade_barrier is 1', () => {
+        const opts = normalizeIndividualDigitSuppressionOptions({
+            trade_barrier: 1,
+            enable_over_2: false,
+            enable_over_3: false,
+        });
+        expect(opts.trade_barrier).toBe(1);
+        expect(opts.enable_over_1).toBe(true);
+        expect(opts.enable_over_2).toBe(true);
+        expect(opts.enable_over_3).toBe(true);
+    });
+
+    it('trade_barrier 1 only returns Over 1 when higher barriers confirm', () => {
+        const digits = [];
+        for (let i = 0; i < 200; i++) {
+            if (i % 40 === 0) digits.push(0);
+            else if (i % 41 === 0) digits.push(1);
+            else if (i % 42 === 0) digits.push(2);
+            else if (i % 43 === 0) digits.push(3);
+            else digits.push(5 + (i % 5));
+        }
+        const result = evaluateIndividualDigitSuppression(digits, {
+            short_window: 50,
+            medium_window: 100,
+            long_window: 200,
+            min_confirm_windows: 2,
+            min_signal_score: 4,
+            require_persistence: true,
+            trade_barrier: 1,
+            journal_enabled: false,
+        });
+        expect(result.contracts.length).toBe(3);
+        if (result.matched) {
+            expect(result.prediction).toBe(1);
+            expect(result.recommended_contract).toBe('OVER 1');
+            expect(['higher_barrier_confirmed', 'no_higher_barrier_filter']).toContain(
+                result.filter_status
+            );
+        }
+    });
+});
+
+describe('selectTradeCandidate', () => {
+    const base = min => ({
+        score: min,
+        passes: true,
+        suppressed_losing_digits: [0],
+        signal_strength: 'MODERATE',
+        digit_scores: [],
+    });
+
+    it('allows Over 1 when Over 2 confirms', () => {
+        const { best, filter_status, higher_barrier_support } = selectTradeCandidate(
+            [
+                { barrier: 1, label: 'OVER 1', ...base(8) },
+                { barrier: 2, label: 'OVER 2', ...base(8), suppressed_losing_digits: [0, 2] },
+                {
+                    barrier: 3,
+                    label: 'OVER 3',
+                    score: 0,
+                    passes: false,
+                    suppressed_losing_digits: [],
+                    signal_strength: 'NONE',
+                    digit_scores: [],
+                },
+            ],
+            { trade_barrier: 1, min_signal_score: 6, max_simultaneous_signals: 1 }
+        );
+        expect(best?.barrier).toBe(1);
+        expect(filter_status).toBe('higher_barrier_confirmed');
+        expect(higher_barrier_support).toContain('OVER 2');
+    });
+
+    it('filters Over 1 when Over 2/3 are meaningful but do not support', () => {
+        const { best, filter_status } = selectTradeCandidate(
+            [
+                { barrier: 1, label: 'OVER 1', ...base(8) },
+                {
+                    barrier: 2,
+                    label: 'OVER 2',
+                    score: 2,
+                    passes: false,
+                    suppressed_losing_digits: [0],
+                    signal_strength: 'WEAK',
+                    digit_scores: [],
+                },
+                {
+                    barrier: 3,
+                    label: 'OVER 3',
+                    score: 1,
+                    passes: false,
+                    suppressed_losing_digits: [1],
+                    signal_strength: 'WEAK',
+                    digit_scores: [],
+                },
+            ],
+            { trade_barrier: 1, min_signal_score: 6, max_simultaneous_signals: 1 }
+        );
+        expect(best).toBeNull();
+        expect(filter_status).toBe('filtered_by_over_2_3');
+    });
+
+    it('allows Over 1 without filter when higher barriers have no signal', () => {
+        const { best, filter_status } = selectTradeCandidate(
+            [
+                { barrier: 1, label: 'OVER 1', ...base(8) },
+                {
+                    barrier: 2,
+                    label: 'OVER 2',
+                    score: 0,
+                    passes: false,
+                    suppressed_losing_digits: [],
+                    signal_strength: 'NONE',
+                    digit_scores: [],
+                },
+                {
+                    barrier: 3,
+                    label: 'OVER 3',
+                    score: 0,
+                    passes: false,
+                    suppressed_losing_digits: [],
+                    signal_strength: 'NONE',
+                    digit_scores: [],
+                },
+            ],
+            { trade_barrier: 1, min_signal_score: 6, max_simultaneous_signals: 1 }
+        );
+        expect(best?.barrier).toBe(1);
+        expect(filter_status).toBe('no_higher_barrier_filter');
+    });
+
+    it('detects extra digit support on Over 2', () => {
+        expect(
+            higherBarrierSupportsOverOne(
+                {
+                    passes: false,
+                    score: 4,
+                    suppressed_losing_digits: [0, 2],
+                },
+                6
+            )
+        ).toBe(true);
     });
 });

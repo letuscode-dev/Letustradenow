@@ -37,7 +37,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scores Over 1 / 2 / 3 from persistently suppressed losing digits across Short/Medium/Long windows. Returns barrier 1–3 or -1.'
+                'Scores Over 1 / 2 / 3 from suppressed losing digits. Trades Over 1 only; Over 2 / Over 3 act as confirmation filters where possible. Returns barrier 1 or -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -80,6 +80,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.individual_digit_suppress
             enable_over_1: ${read('ENABLE_OVER_1') || 'true'},
             enable_over_2: ${read('ENABLE_OVER_2') || 'true'},
             enable_over_3: ${read('ENABLE_OVER_3') || 'true'},
+            trade_barrier: 1,
             journal_enabled: ${read('JOURNAL') || 'true'}
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivateIdsResult && BinaryBotPrivateIdsResult.journal_messages;
