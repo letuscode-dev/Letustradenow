@@ -1,8 +1,9 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Over 2 / Over 3 suppression analysis drives entries; the bot always trades
- * Under 8. Only stake, risk, tick windows, and cooldown are user variables.
+ * Over 2 / Over 3 suppression analysis drives Under 8 entries.
+ * On loss: martingale recovery trades Under 6 at Base Stake × Martingale.
+ * User variables: stake, risk, windows, cooldown, martingale multiplier.
  */
 
 const varGet = (id, name) =>
@@ -29,10 +30,51 @@ const chainSets = entries => {
     return xml;
 };
 
+/** TP / SL gate then trade_again (shared by win + loss paths). */
+const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
+                  <block type="timeout" id="${timeoutId}">
+                    <statement name="TIMEOUTSTACK">
+                      <block type="controls_if">
+                        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
+                        <value name="IF0">
+                          <block type="logic_compare"><field name="OP">GTE</field>
+                            <value name="A"><block type="total_profit"></block></value>
+                            <value name="B">${varGet('ids_take_profit', 'Take Profit')}</value>
+                          </block>
+                        </value>
+                        <statement name="DO0">
+                          <block type="variables_set">
+                            <field name="VAR" id="ids_signal">Entry Signal</field>
+                            <value name="VALUE">${bool(false)}</value>
+                          </block>
+                        </statement>
+                        <value name="IF1">
+                          <block type="logic_compare"><field name="OP">LTE</field>
+                            <value name="A"><block type="total_profit"></block></value>
+                            <value name="B">
+                              <block type="math_single"><field name="OP">NEG</field>
+                                <value name="NUM">${varGet('ids_stop_loss', 'Stop Loss')}</value>
+                              </block>
+                            </value>
+                          </block>
+                        </value>
+                        <statement name="DO1">
+                          <block type="variables_set">
+                            <field name="VAR" id="ids_signal">Entry Signal</field>
+                            <value name="VALUE">${bool(false)}</value>
+                          </block>
+                        </statement>
+                        <statement name="ELSE"><block type="trade_again"></block></statement>
+                      </block>
+                    </statement>
+                    <value name="SECONDS">${secondsXml}</value>
+                  </block>`;
+
 export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="ids_stake">Stake</variable>
     <variable id="ids_base_stake">Base Stake</variable>
+    <variable id="ids_martingale">Martingale</variable>
     <variable id="ids_take_profit">Take Profit</variable>
     <variable id="ids_stop_loss">Stop Loss</variable>
     <variable id="ids_short">Short Window</variable>
@@ -80,6 +122,7 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
       ${chainSets([
           ['ids_stake', 'Stake', num(0.5)],
           ['ids_base_stake', 'Base Stake', num(0.5)],
+          ['ids_martingale', 'Martingale', num(2.1)],
           ['ids_take_profit', 'Take Profit', num(20)],
           ['ids_stop_loss', 'Stop Loss', num(50)],
           ['ids_short', 'Short Window', num(50)],
@@ -158,45 +201,15 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
             <value name="VALUE">${varGet('ids_base_stake', 'Base Stake')}</value>
             <next>
               <block type="variables_set">
-                <field name="VAR" id="ids_signal">Entry Signal</field>
-                <value name="VALUE">${bool(false)}</value>
+                <field name="VAR" id="ids_prediction">Prediction</field>
+                <value name="VALUE">${num(-1)}</value>
                 <next>
-                  <block type="timeout" id="ids_win_cd">
-                    <statement name="TIMEOUTSTACK">
-                      <block type="controls_if">
-                        <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-                        <value name="IF0">
-                          <block type="logic_compare"><field name="OP">GTE</field>
-                            <value name="A"><block type="total_profit"></block></value>
-                            <value name="B">${varGet('ids_take_profit', 'Take Profit')}</value>
-                          </block>
-                        </value>
-                        <statement name="DO0">
-                          <block type="variables_set">
-                            <field name="VAR" id="ids_signal">Entry Signal</field>
-                            <value name="VALUE">${bool(false)}</value>
-                          </block>
-                        </statement>
-                        <value name="IF1">
-                          <block type="logic_compare"><field name="OP">LTE</field>
-                            <value name="A"><block type="total_profit"></block></value>
-                            <value name="B">
-                              <block type="math_single"><field name="OP">NEG</field>
-                                <value name="NUM">${varGet('ids_stop_loss', 'Stop Loss')}</value>
-                              </block>
-                            </value>
-                          </block>
-                        </value>
-                        <statement name="DO1">
-                          <block type="variables_set">
-                            <field name="VAR" id="ids_signal">Entry Signal</field>
-                            <value name="VALUE">${bool(false)}</value>
-                          </block>
-                        </statement>
-                        <statement name="ELSE"><block type="trade_again"></block></statement>
-                      </block>
-                    </statement>
-                    <value name="SECONDS">${varGet('ids_cooldown', 'Cooldown')}</value>
+                  <block type="variables_set">
+                    <field name="VAR" id="ids_signal">Entry Signal</field>
+                    <value name="VALUE">${bool(false)}</value>
+                    <next>
+${tpSlThenTradeAgain('ids_win_cd', varGet('ids_cooldown', 'Cooldown'))}
+                    </next>
                   </block>
                 </next>
               </block>
@@ -205,45 +218,26 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
         </statement>
         <statement name="ELSE">
           <block type="variables_set">
-            <field name="VAR" id="ids_signal">Entry Signal</field>
-            <value name="VALUE">${bool(false)}</value>
+            <field name="VAR" id="ids_stake">Stake</field>
+            <value name="VALUE">
+              <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
+                <value name="A">${varGet('ids_base_stake', 'Base Stake')}</value>
+                <value name="B">${varGet('ids_martingale', 'Martingale')}</value>
+              </block>
+            </value>
             <next>
-              <block type="timeout" id="ids_loss_cd">
-                <statement name="TIMEOUTSTACK">
-                  <block type="controls_if">
-                    <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="1" else="1"></mutation>
-                    <value name="IF0">
-                      <block type="logic_compare"><field name="OP">GTE</field>
-                        <value name="A"><block type="total_profit"></block></value>
-                        <value name="B">${varGet('ids_take_profit', 'Take Profit')}</value>
-                      </block>
-                    </value>
-                    <statement name="DO0">
-                      <block type="variables_set">
-                        <field name="VAR" id="ids_signal">Entry Signal</field>
-                        <value name="VALUE">${bool(false)}</value>
-                      </block>
-                    </statement>
-                    <value name="IF1">
-                      <block type="logic_compare"><field name="OP">LTE</field>
-                        <value name="A"><block type="total_profit"></block></value>
-                        <value name="B">
-                          <block type="math_single"><field name="OP">NEG</field>
-                            <value name="NUM">${varGet('ids_stop_loss', 'Stop Loss')}</value>
-                          </block>
-                        </value>
-                      </block>
-                    </value>
-                    <statement name="DO1">
-                      <block type="variables_set">
-                        <field name="VAR" id="ids_signal">Entry Signal</field>
-                        <value name="VALUE">${bool(false)}</value>
-                      </block>
-                    </statement>
-                    <statement name="ELSE"><block type="trade_again"></block></statement>
+              <block type="variables_set">
+                <field name="VAR" id="ids_prediction">Prediction</field>
+                <value name="VALUE">${num(6)}</value>
+                <next>
+                  <block type="variables_set">
+                    <field name="VAR" id="ids_signal">Entry Signal</field>
+                    <value name="VALUE">${bool(true)}</value>
+                    <next>
+${tpSlThenTradeAgain('ids_loss_cd', varGet('ids_cooldown', 'Cooldown'))}
+                    </next>
                   </block>
-                </statement>
-                <value name="SECONDS">${num(5)}</value>
+                </next>
               </block>
             </next>
           </block>
