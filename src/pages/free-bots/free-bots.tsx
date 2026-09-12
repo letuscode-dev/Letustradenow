@@ -10,7 +10,7 @@ import { FREE_BOTS } from './catalog';
 import type { FreeBot } from './types';
 import './free-bots.scss';
 
-const MAIN_BLOCK_TYPES = ['trade_definition', 'before_purchase', 'during_purchase', 'after_purchase'];
+const MAIN_BLOCK_TYPES = ['trade_definition', 'before_purchase', 'during_purchase'];
 
 const expandMainBlocks = workspace => {
     if (!workspace?.getAllBlocks) return;

@@ -77,7 +77,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="controls_whileUntil" id="dd_scan_loop"><field name="MODE">UNTIL</field><value name="BOOL"><block type="logic_operation"><field name="OP">OR</field><value name="A"><block type="variables_get"><field name="VAR" id="dd_signal">Signal</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="dd_stop">Stop</field></block></value></block></value>
+      <block type="controls_whileUntil" id="dd_scan_loop" collapsed="true"><field name="MODE">UNTIL</field><value name="BOOL"><block type="logic_operation"><field name="OP">OR</field><value name="A"><block type="variables_get"><field name="VAR" id="dd_signal">Signal</field></block></value><value name="B"><block type="variables_get"><field name="VAR" id="dd_stop">Stop</field></block></value></block></value>
         <statement name="DO"><block type="timeout" id="dd_scan_timeout"><statement name="TIMEOUTSTACK"><block type="variables_set" id="dd_scan_prediction"><field name="VAR" id="dd_prediction">Target Differ</field><value name="VALUE"><block type="double_digit_return_differs_prediction"><value name="WINDOW"><block type="variables_get"><field name="VAR" id="dd_window">Analysis Window</field></block></value><value name="AUTO"><block type="variables_get"><field name="VAR" id="dd_auto">Auto-trading</field></block></value><value name="JOURNAL"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value></block></value>
           <next><block type="controls_if" id="dd_signal_if"><value name="IF0"><block type="logic_compare"><field name="OP">GTE</field><value name="A"><block type="variables_get"><field name="VAR" id="dd_prediction">Target Differ</field></block></value><value name="B"><block type="math_number"><field name="NUM">0</field></block></value></block></value><statement name="DO0"><block type="variables_set"><field name="VAR" id="dd_signal">Signal</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">TRUE</field></block></value></block></statement></block></next>
         </block></statement><value name="SECONDS"><block type="variables_get"><field name="VAR" id="dd_cooldown">Cooldown</field></block></value></block></statement>
@@ -85,6 +85,6 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="dd_after_purchase" collapsed="false" x="900" y="60"><statement name="AFTERPURCHASE_STACK"><block type="double_digit_risk_management" id="dd_risk_management"></block></statement></block>
+  <block type="after_purchase" id="dd_after_purchase" collapsed="true" x="900" y="60"><statement name="AFTERPURCHASE_STACK"><block type="double_digit_risk_management" id="dd_risk_management"></block></statement></block>
   <block type="before_purchase" id="dd_before_purchase" deletable="false" collapsed="false" x="0" y="900"><statement name="BEFOREPURCHASE_STACK"><block type="apollo_purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block></statement></block>
 </xml>`;

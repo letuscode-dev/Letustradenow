@@ -120,7 +120,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
       </block>
     </statement>
     <statement name="SUBMARKET">
-      <block type="controls_whileUntil" id="kp_scan_loop">
+      <block type="controls_whileUntil" id="kp_scan_loop" collapsed="true">
         <field name="MODE">UNTIL</field>
         <value name="BOOL"><block type="variables_get"><field name="VAR" id="kp_signal">Entry Signal</field></block></value>
         <statement name="DO">
@@ -199,7 +199,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="kp_after" collapsed="false" x="900" y="60">
+  <block type="after_purchase" id="kp_after" collapsed="true" x="900" y="60">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="kp_ap_win">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
