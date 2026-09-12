@@ -133,7 +133,7 @@ describe('evaluateIndividualDigitSuppression', () => {
 
     it('normalizes options', () => {
         const opts = normalizeIndividualDigitSuppressionOptions({});
-        expect(opts.short_window).toBe(15);
+        expect(opts.short_window).toBe(50);
         expect(opts.very_high_threshold).toBe(7);
         expect(opts.trade_as).toBe('');
     });
@@ -177,6 +177,36 @@ describe('evaluateIndividualDigitSuppression', () => {
             expect(result.contract_type).toBe('DIGITOVER');
             expect(result.filter_status).toBe('driven_by_over_2_3');
             expect(result.higher_barrier_support.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('ranked mode returns best Over 1/2/3 barrier', () => {
+        const digits = [];
+        for (let i = 0; i < 200; i++) {
+            if (i % 40 === 0) digits.push(0);
+            else if (i % 41 === 0) digits.push(1);
+            else if (i % 42 === 0) digits.push(2);
+            else if (i % 43 === 0) digits.push(3);
+            else digits.push(5 + (i % 5));
+        }
+        const result = evaluateIndividualDigitSuppression(digits, {
+            short_window: 50,
+            medium_window: 100,
+            long_window: 200,
+            min_confirm_windows: 2,
+            min_signal_score: 4,
+            require_persistence: true,
+            trade_as: '',
+            enable_over_1: true,
+            enable_over_2: true,
+            enable_over_3: true,
+            journal_enabled: false,
+        });
+        expect(result.contracts.length).toBe(3);
+        if (result.matched) {
+            expect([1, 2, 3]).toContain(result.prediction);
+            expect(result.recommended_contract).toMatch(/^OVER /);
+            expect(result.filter_status).toBe('ranked');
         }
     });
 });

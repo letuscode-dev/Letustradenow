@@ -1,8 +1,9 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Over 2 / Over 3 suppression analysis drives Over 2 entries.
- * On loss: martingale recovery stays on Over 2 at Base Stake × Martingale.
+ * Multi-window digit suppression ranks Over 1 / Over 2 / Over 3 and trades
+ * the strongest passing signal (DIGITOVER). Thresholds and enables are
+ * Bot Builder variables; the journal shows the live digit dashboard.
  */
 
 const varGet = (id, name) =>
@@ -72,13 +73,25 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
   <variables>
     <variable id="ids_stake">Stake</variable>
     <variable id="ids_base_stake">Base Stake</variable>
-    <variable id="ids_martingale">Martingale</variable>
     <variable id="ids_take_profit">Take Profit</variable>
     <variable id="ids_stop_loss">Stop Loss</variable>
     <variable id="ids_short">Short Window</variable>
     <variable id="ids_medium">Medium Window</variable>
     <variable id="ids_long">Long Window</variable>
-    <variable id="ids_cooldown">Cooldown</variable>
+    <variable id="ids_min_supp">Minimum Suppression %</variable>
+    <variable id="ids_mod">Moderate Threshold</variable>
+    <variable id="ids_high">High Suppression Threshold</variable>
+    <variable id="ids_vhigh">Very High Suppression Threshold</variable>
+    <variable id="ids_min_windows">Minimum Confirmation Windows</variable>
+    <variable id="ids_min_score">Minimum Signal Score</variable>
+    <variable id="ids_persist">Require Persistence</variable>
+    <variable id="ids_trend">Require Trend Confirmation</variable>
+    <variable id="ids_o1">Enable Over 1</variable>
+    <variable id="ids_o2">Enable Over 2</variable>
+    <variable id="ids_o3">Enable Over 3</variable>
+    <variable id="ids_cooldown_signal">Cooldown After Signal</variable>
+    <variable id="ids_cooldown_loss">Cooldown After Loss</variable>
+    <variable id="ids_cooldown_win">Cooldown After Win</variable>
     <variable id="ids_signal">Entry Signal</variable>
     <variable id="ids_prediction">Prediction</variable>
   </variables>
@@ -120,13 +133,25 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
       ${chainSets([
           ['ids_stake', 'Stake', num(0.5)],
           ['ids_base_stake', 'Base Stake', num(0.5)],
-          ['ids_martingale', 'Martingale', num(2.1)],
           ['ids_take_profit', 'Take Profit', num(20)],
           ['ids_stop_loss', 'Stop Loss', num(50)],
-          ['ids_short', 'Short Window', num(15)],
-          ['ids_medium', 'Medium Window', num(30)],
-          ['ids_long', 'Long Window', num(60)],
-          ['ids_cooldown', 'Cooldown', num(2)],
+          ['ids_short', 'Short Window', num(50)],
+          ['ids_medium', 'Medium Window', num(100)],
+          ['ids_long', 'Long Window', num(200)],
+          ['ids_min_supp', 'Minimum Suppression %', num(0)],
+          ['ids_mod', 'Moderate Threshold', num(3)],
+          ['ids_high', 'High Suppression Threshold', num(5)],
+          ['ids_vhigh', 'Very High Suppression Threshold', num(7)],
+          ['ids_min_windows', 'Minimum Confirmation Windows', num(2)],
+          ['ids_min_score', 'Minimum Signal Score', num(6)],
+          ['ids_persist', 'Require Persistence', bool(true)],
+          ['ids_trend', 'Require Trend Confirmation', bool(false)],
+          ['ids_o1', 'Enable Over 1', bool(true)],
+          ['ids_o2', 'Enable Over 2', bool(true)],
+          ['ids_o3', 'Enable Over 3', bool(true)],
+          ['ids_cooldown_signal', 'Cooldown After Signal', num(2)],
+          ['ids_cooldown_loss', 'Cooldown After Loss', num(5)],
+          ['ids_cooldown_win', 'Cooldown After Win', num(2)],
           ['ids_signal', 'Entry Signal', bool(false)],
           ['ids_prediction', 'Prediction', num(-1)],
       ])}
@@ -145,6 +170,17 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <value name="SHORT_WINDOW">${varGet('ids_short', 'Short Window')}</value>
                     <value name="MEDIUM_WINDOW">${varGet('ids_medium', 'Medium Window')}</value>
                     <value name="LONG_WINDOW">${varGet('ids_long', 'Long Window')}</value>
+                    <value name="MIN_SUPPRESSION">${varGet('ids_min_supp', 'Minimum Suppression %')}</value>
+                    <value name="MODERATE_THRESHOLD">${varGet('ids_mod', 'Moderate Threshold')}</value>
+                    <value name="HIGH_THRESHOLD">${varGet('ids_high', 'High Suppression Threshold')}</value>
+                    <value name="VERY_HIGH_THRESHOLD">${varGet('ids_vhigh', 'Very High Suppression Threshold')}</value>
+                    <value name="MIN_CONFIRM_WINDOWS">${varGet('ids_min_windows', 'Minimum Confirmation Windows')}</value>
+                    <value name="MIN_SIGNAL_SCORE">${varGet('ids_min_score', 'Minimum Signal Score')}</value>
+                    <value name="REQUIRE_PERSISTENCE">${varGet('ids_persist', 'Require Persistence')}</value>
+                    <value name="REQUIRE_TREND">${varGet('ids_trend', 'Require Trend Confirmation')}</value>
+                    <value name="ENABLE_OVER_1">${varGet('ids_o1', 'Enable Over 1')}</value>
+                    <value name="ENABLE_OVER_2">${varGet('ids_o2', 'Enable Over 2')}</value>
+                    <value name="ENABLE_OVER_3">${varGet('ids_o3', 'Enable Over 3')}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>
@@ -152,28 +188,22 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                   <block type="controls_if" id="ids_if_hit">
                     <value name="IF0">
                       <block type="logic_compare">
-                        <field name="OP">EQ</field>
+                        <field name="OP">GTE</field>
                         <value name="A">${varGet('ids_prediction', 'Prediction')}</value>
-                        <value name="B">${num(2)}</value>
+                        <value name="B">${num(1)}</value>
                       </block>
                     </value>
                     <statement name="DO0">
                       <block type="variables_set">
-                        <field name="VAR" id="ids_prediction">Prediction</field>
-                        <value name="VALUE">${num(2)}</value>
-                        <next>
-                          <block type="variables_set">
-                            <field name="VAR" id="ids_signal">Entry Signal</field>
-                            <value name="VALUE">${bool(true)}</value>
-                          </block>
-                        </next>
+                        <field name="VAR" id="ids_signal">Entry Signal</field>
+                        <value name="VALUE">${bool(true)}</value>
                       </block>
                     </statement>
                   </block>
                 </next>
               </block>
             </statement>
-            <value name="SECONDS">${varGet('ids_cooldown', 'Cooldown')}</value>
+            <value name="SECONDS">${varGet('ids_cooldown_signal', 'Cooldown After Signal')}</value>
           </block>
         </statement>
         <next>
@@ -206,7 +236,7 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <field name="VAR" id="ids_signal">Entry Signal</field>
                     <value name="VALUE">${bool(false)}</value>
                     <next>
-${tpSlThenTradeAgain('ids_win_cd', varGet('ids_cooldown', 'Cooldown'))}
+${tpSlThenTradeAgain('ids_win_cd', varGet('ids_cooldown_win', 'Cooldown After Win'))}
                     </next>
                   </block>
                 </next>
@@ -216,25 +246,14 @@ ${tpSlThenTradeAgain('ids_win_cd', varGet('ids_cooldown', 'Cooldown'))}
         </statement>
         <statement name="ELSE">
           <block type="variables_set">
-            <field name="VAR" id="ids_stake">Stake</field>
-            <value name="VALUE">
-              <block type="math_arithmetic"><field name="OP">MULTIPLY</field>
-                <value name="A">${varGet('ids_base_stake', 'Base Stake')}</value>
-                <value name="B">${varGet('ids_martingale', 'Martingale')}</value>
-              </block>
-            </value>
+            <field name="VAR" id="ids_prediction">Prediction</field>
+            <value name="VALUE">${num(-1)}</value>
             <next>
               <block type="variables_set">
-                <field name="VAR" id="ids_prediction">Prediction</field>
-                <value name="VALUE">${num(2)}</value>
+                <field name="VAR" id="ids_signal">Entry Signal</field>
+                <value name="VALUE">${bool(false)}</value>
                 <next>
-                  <block type="variables_set">
-                    <field name="VAR" id="ids_signal">Entry Signal</field>
-                    <value name="VALUE">${bool(true)}</value>
-                    <next>
-${tpSlThenTradeAgain('ids_loss_cd', varGet('ids_cooldown', 'Cooldown'))}
-                    </next>
-                  </block>
+${tpSlThenTradeAgain('ids_loss_cd', varGet('ids_cooldown_loss', 'Cooldown After Loss'))}
                 </next>
               </block>
             </next>

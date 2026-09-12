@@ -10,9 +10,9 @@ export const BASELINE_PERCENT = 10;
 export const TRADE_AS_OVER_2 = 'OVER_2';
 
 export const DEFAULT_OPTIONS = {
-    short_window: 15,
-    medium_window: 30,
-    long_window: 60,
+    short_window: 50,
+    medium_window: 100,
+    long_window: 200,
     min_suppression: 0,
     moderate_threshold: 3,
     high_threshold: 5,
@@ -552,10 +552,15 @@ export const buildSuppressionJournalMessages = (
 
     if (best?.passes) {
         const primary_row = analysis.primary_row;
-        const trade_label = options.trade_as === TRADE_AS_OVER_2 ? 'OVER 2' : best.label;
+        const trade_label =
+            options.trade_as === TRADE_AS_OVER_2 ? 'OVER 2' : best.label;
+        const confidence_hint =
+            !options.trade_as && best.score
+                ? ` | Confidence ${best.score}`
+                : '';
         messages.push({
             className: 'journal__text--success',
-            message: `${strategy_output} → TRADE: ${trade_label} (score ${best.score}) | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
+            message: `${strategy_output} → BEST SIGNAL: ${trade_label} (score ${best.score})${confidence_hint} | Primary digit ${primary_digit} | Supp ${primary_row ? fmtPct(primary_row.avg_suppression) : '—'} | Persist ${primary_row ? primary_row.confirming_windows : 0}/3`,
         });
     } else {
         messages.push({
