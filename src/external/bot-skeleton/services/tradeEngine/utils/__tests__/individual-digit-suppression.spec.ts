@@ -133,7 +133,7 @@ describe('evaluateIndividualDigitSuppression', () => {
 
     it('normalizes options', () => {
         const opts = normalizeIndividualDigitSuppressionOptions({});
-        expect(opts.short_window).toBe(50);
+        expect(opts.short_window).toBe(15);
         expect(opts.very_high_threshold).toBe(7);
         expect(opts.trade_as).toBe('');
     });

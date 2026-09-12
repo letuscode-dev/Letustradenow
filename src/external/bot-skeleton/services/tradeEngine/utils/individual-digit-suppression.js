@@ -10,9 +10,9 @@ export const BASELINE_PERCENT = 10;
 export const TRADE_AS_OVER_1 = 'OVER_1';
 
 export const DEFAULT_OPTIONS = {
-    short_window: 50,
-    medium_window: 100,
-    long_window: 200,
+    short_window: 15,
+    medium_window: 30,
+    long_window: 60,
     min_suppression: 0,
     moderate_threshold: 3,
     high_threshold: 5,

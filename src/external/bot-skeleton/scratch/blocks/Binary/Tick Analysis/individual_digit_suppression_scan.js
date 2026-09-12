@@ -59,9 +59,9 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.individual_digit_suppress
 
     const code = `(function () {
         var BinaryBotPrivateIdsResult = Bot.evaluateIndividualDigitSuppression({
-            short_window: ${read('SHORT_WINDOW') || '50'},
-            medium_window: ${read('MEDIUM_WINDOW') || '100'},
-            long_window: ${read('LONG_WINDOW') || '200'},
+            short_window: ${read('SHORT_WINDOW') || '15'},
+            medium_window: ${read('MEDIUM_WINDOW') || '30'},
+            long_window: ${read('LONG_WINDOW') || '60'},
             min_suppression: 0,
             moderate_threshold: 3,
             high_threshold: 5,
