@@ -236,6 +236,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluatePercentageReversal)
             );
         }
+        if (typeof bot_interface.evaluateDominantDigitPercentage === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateDominantDigitPercentage',
+                createAsync(js_interpreter, bot_interface.evaluateDominantDigitPercentage)
+            );
+        }
         if (typeof bot_interface.switchTradeSymbol === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

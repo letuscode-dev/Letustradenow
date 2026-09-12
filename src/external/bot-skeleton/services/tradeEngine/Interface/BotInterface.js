@@ -117,6 +117,12 @@ import {
     resolveScanSymbols as resolvePercentageReversalSymbols,
 } from '../utils/percentage-reversal';
 import {
+    createDominantDigitPercentageState,
+    evaluateDominantDigitPercentage as runDominantDigitPercentage,
+    normalizeDominantDigitPercentageOptions,
+    resetDominantDigitPercentageState,
+} from '../utils/dominant-digit-percentage';
+import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -681,6 +687,54 @@ const getBotInterface = tradeEngine => {
                       : 'watching',
                 journal_messages,
             };
+        },
+        /**
+         * Dominant Digit Percentage – Differ on highest-occurrence digit.
+         */
+        evaluateDominantDigitPercentage: async options => {
+            const opts = normalizeDominantDigitPercentageOptions(options || {});
+            if (opts.reset_analysis) {
+                tradeEngine.dominantDigitPercentageState = resetDominantDigitPercentageState(
+                    tradeEngine.dominantDigitPercentageState
+                );
+            }
+            if (!tradeEngine.dominantDigitPercentageState) {
+                tradeEngine.dominantDigitPercentageState = createDominantDigitPercentageState();
+            }
+            const need = Math.max(
+                opts.analysis_window,
+                opts.min_sample,
+                opts.enable_multi_window
+                    ? Math.max(opts.short_window, opts.medium_window, opts.long_window)
+                    : 0
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(need);
+            }
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(need)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(need)
+                  : [];
+            if (!Array.isArray(digits)) {
+                digits = [];
+            }
+            const result = runDominantDigitPercentage(
+                digits,
+                opts,
+                tradeEngine.dominantDigitPercentageState
+            );
+            const tip =
+                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
+            const fp = `${tip}:${result.prediction}:${result.matched}:${result.persistence}:${result.strength}`;
+            if (
+                tradeEngine._dominantDigitPercentageJournalFp === fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._dominantDigitPercentageJournalFp = fp;
+            return result;
         },
         /**
          * Triple-digit Martingale — last 3 equal → Differs 4th-from-end across selected volatilities.

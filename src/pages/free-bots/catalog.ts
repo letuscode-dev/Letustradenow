@@ -1,4 +1,5 @@
 import type { FreeBot } from './types';
+import { DOMINANT_DIGIT_PERCENTAGE_XML } from './bots/dominant-digit-percentage';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
 import { PERCENTAGE_REVERSAL_XML } from './bots/percentage-reversal';
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Scans Selected Symbols for digit percentage regime changes (dominance → collapse) and trades Digit Differs on the strongest match, switching market when needed. Default martingale is 10.5; windows, thresholds, martingale, and TP/SL are configurable in Bot Builder.',
         tags: ['Differs', 'Percentage', 'Martingale', 'Multi-market'],
         xml: PERCENTAGE_REVERSAL_XML,
+    },
+    {
+        id: 'dominant-digit-percentage-v1',
+        title: 'Dominant Digit Percentage – Differ',
+        description:
+            'Finds the highest-occurrence digit in a configurable tick window and trades Digit Differs when its percentage (and optional gap, persistence, and multi-window filters) pass. Default martingale 10.5; full settings in Bot Builder.',
+        tags: ['Differs', 'Percentage', 'Dominant', 'Martingale'],
+        xml: DOMINANT_DIGIT_PERCENTAGE_XML,
     },
 ];
