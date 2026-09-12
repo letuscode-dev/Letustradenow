@@ -1,9 +1,8 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Over 2 / Over 3 suppression analysis drives Under 8 entries.
- * On loss: martingale recovery trades Under 6 at Base Stake × Martingale.
- * User variables: stake, risk, windows, cooldown, martingale multiplier.
+ * Over 1 / Over 2 suppression analysis drives Over 1 entries.
+ * On loss: martingale recovery trades Over 2 at Base Stake × Martingale.
  */
 
 const varGet = (id, name) =>
@@ -30,7 +29,6 @@ const chainSets = entries => {
     return xml;
 };
 
-/** TP / SL gate then trade_again (shared by win + loss paths). */
 const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
                   <block type="timeout" id="${timeoutId}">
                     <statement name="TIMEOUTSTACK">
@@ -156,13 +154,13 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                       <block type="logic_compare">
                         <field name="OP">EQ</field>
                         <value name="A">${varGet('ids_prediction', 'Prediction')}</value>
-                        <value name="B">${num(8)}</value>
+                        <value name="B">${num(1)}</value>
                       </block>
                     </value>
                     <statement name="DO0">
                       <block type="variables_set">
                         <field name="VAR" id="ids_prediction">Prediction</field>
-                        <value name="VALUE">${num(8)}</value>
+                        <value name="VALUE">${num(1)}</value>
                         <next>
                           <block type="variables_set">
                             <field name="VAR" id="ids_signal">Entry Signal</field>
@@ -228,7 +226,7 @@ ${tpSlThenTradeAgain('ids_win_cd', varGet('ids_cooldown', 'Cooldown'))}
             <next>
               <block type="variables_set">
                 <field name="VAR" id="ids_prediction">Prediction</field>
-                <value name="VALUE">${num(6)}</value>
+                <value name="VALUE">${num(2)}</value>
                 <next>
                   <block type="variables_set">
                     <field name="VAR" id="ids_signal">Entry Signal</field>
@@ -247,8 +245,8 @@ ${tpSlThenTradeAgain('ids_loss_cd', varGet('ids_cooldown', 'Cooldown'))}
   </block>
   <block type="before_purchase" id="ids_before" deletable="false" collapsed="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
-      <block type="override_contract_type_purchase" id="ids_buy_under">
-        <field name="CONTRACT_TYPE">DIGITUNDER</field>
+      <block type="override_contract_type_purchase" id="ids_buy_over">
+        <field name="CONTRACT_TYPE">DIGITOVER</field>
       </block>
     </statement>
   </block>

@@ -39,8 +39,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'individual-digit-suppression-v1',
         title: 'Individual Digit Suppression Strategy',
         description:
-            'Uses Over 2 / Over 3 suppression to enter Under 8. On loss, recovers with Under 6 at Base Stake × Martingale. Configure stake, martingale, risk, windows, and cooldown in Bot Builder.',
-        tags: ['Under 8', 'Under 6', 'Martingale', 'Suppression'],
+            'Uses Over 1 / Over 2 suppression to enter Over 1. On loss, recovers with Over 2 at Base Stake × Martingale. Configure stake, martingale, risk, windows, and cooldown in Bot Builder.',
+        tags: ['Over 1', 'Over 2', 'Martingale', 'Suppression'],
         xml: INDIVIDUAL_DIGIT_SUPPRESSION_XML,
     },
 ];
