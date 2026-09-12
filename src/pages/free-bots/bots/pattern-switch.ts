@@ -12,6 +12,8 @@
  * Uses only supported workspace blocks (pattern_switch_scan + purchase/override).
  */
 
+import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+
 export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="kp_stake">Stake</variable>
@@ -80,34 +82,37 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
                         <field name="VAR" id="kp_reanalyse">Re Analyse After</field>
                         <value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value>
                         <next>
-                          <block type="variables_set" id="kp_set_sig">
-                            <field name="VAR" id="kp_signal">Entry Signal</field>
-                            <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
-                                <next>
-                                  <block type="variables_set" id="kp_set_base">
-                                    <field name="VAR" id="kp_base_stake">Base Stake</field>
-                                    <value name="VALUE"><block type="math_number"><field name="NUM">0.5</field></block></value>
-                                <next>
-                                  <block type="variables_set" id="kp_set_runs">
-                                    <field name="VAR" id="kp_runs">Runs</field>
-                                    <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
-                                    <next>
-                                      <block type="variables_set" id="kp_set_direction">
-                                        <field name="VAR" id="kp_direction">Trade Direction</field>
-                                        <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
-                                        <next>
-                                          <block type="variables_set" id="kp_set_pred0">
-                                            <field name="VAR" id="kp_prediction">Prediction:</field>
-                                            <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
-                                          </block>
-                                        </next>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
+${wrapCollapsedAdvancedInit(
+    'kp',
+    `<block type="variables_set" id="kp_set_base">
+      <field name="VAR" id="kp_base_stake">Base Stake</field>
+      <value name="VALUE"><block type="math_number"><field name="NUM">0.5</field></block></value>
+      <next>
+        <block type="variables_set" id="kp_set_sig">
+          <field name="VAR" id="kp_signal">Entry Signal</field>
+          <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+          <next>
+            <block type="variables_set" id="kp_set_runs">
+              <field name="VAR" id="kp_runs">Runs</field>
+              <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+              <next>
+                <block type="variables_set" id="kp_set_direction">
+                  <field name="VAR" id="kp_direction">Trade Direction</field>
+                  <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                  <next>
+                    <block type="variables_set" id="kp_set_pred0">
+                      <field name="VAR" id="kp_prediction">Prediction:</field>
+                      <value name="VALUE"><block type="math_number"><field name="NUM">0</field></block></value>
+                    </block>
+                  </next>
+                </block>
+              </next>
+            </block>
+          </next>
+        </block>
+      </next>
+    </block>`
+)}
                         </next>
                       </block>
                     </next>
@@ -308,7 +313,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="kp_before" deletable="false" collapsed="false" x="0" y="1100">
+  <block type="before_purchase" id="kp_before" deletable="false" collapsed="true" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="controls_if" id="kp_buy_if">
         <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="3"></mutation>

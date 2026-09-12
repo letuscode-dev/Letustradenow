@@ -10,14 +10,32 @@ import { FREE_BOTS } from './catalog';
 import type { FreeBot } from './types';
 import './free-bots.scss';
 
-const MAIN_BLOCK_TYPES = ['trade_definition', 'before_purchase', 'during_purchase'];
+/** Keep trade parameters visible; leave purchase/risk/scan stacks collapsed. */
+const VISIBLE_MAIN_TYPES = new Set(['trade_definition']);
+const FORCE_COLLAPSED_TYPES = new Set(['before_purchase', 'after_purchase', 'during_purchase']);
 
-const expandMainBlocks = workspace => {
+const applyFreeBotCollapseState = workspace => {
     if (!workspace?.getAllBlocks) return;
     workspace.getAllBlocks(false).forEach(block => {
-        if (!block || !MAIN_BLOCK_TYPES.includes(block.type)) return;
-        if (typeof block.setCollapsed === 'function' && block.isCollapsed?.()) {
-            block.setCollapsed(false);
+        if (!block || typeof block.setCollapsed !== 'function') return;
+
+        if (VISIBLE_MAIN_TYPES.has(block.type)) {
+            if (block.isCollapsed?.()) block.setCollapsed(false);
+            return;
+        }
+
+        if (FORCE_COLLAPSED_TYPES.has(block.type)) {
+            if (!block.isCollapsed?.()) block.setCollapsed(true);
+            return;
+        }
+
+        const block_id = String(block.id || '');
+        if (
+            block_id.includes('_advanced_init') ||
+            block_id.includes('_scan_loop') ||
+            block.type === 'controls_whileUntil'
+        ) {
+            if (!block.isCollapsed?.()) block.setCollapsed(true);
         }
     });
     if (typeof workspace.render === 'function') {
@@ -50,9 +68,9 @@ const FreeBots = () => {
             });
 
             const workspace = window.Blockly?.derivWorkspace;
-            expandMainBlocks(workspace);
-            window.setTimeout(() => expandMainBlocks(workspace), 0);
-            window.setTimeout(() => expandMainBlocks(workspace), 50);
+            applyFreeBotCollapseState(workspace);
+            window.setTimeout(() => applyFreeBotCollapseState(workspace), 0);
+            window.setTimeout(() => applyFreeBotCollapseState(workspace), 50);
 
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             setStatus(bot.id, localize('{{title}} loaded in Bot Builder.', { title: bot.title }));

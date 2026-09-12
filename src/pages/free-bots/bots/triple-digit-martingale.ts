@@ -6,6 +6,8 @@
  * Stake, Martingale Size, Take Profit, Stop Loss).
  */
 
+import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+
 export type TripleDigitMartingaleParams = {
     stake?: number;
     size?: number;
@@ -106,40 +108,43 @@ export const buildTripleDigitMartingaleXml = (
             <field name="VAR" id="tdm_stake">Stake</field>
             <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
             <next>
-              <block type="variables_set" id="tdm_init_base">
-                <field name="VAR" id="tdm_base_stake">Base Stake</field>
-                <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
+              <block type="variables_set" id="tdm_init_size">
+                <field name="VAR" id="tdm_size">Martingale Size</field>
+                <value name="VALUE"><block type="math_number"><field name="NUM">${size}</field></block></value>
                 <next>
-                  <block type="variables_set" id="tdm_init_size">
-                    <field name="VAR" id="tdm_size">Martingale Size</field>
-                    <value name="VALUE"><block type="math_number"><field name="NUM">${size}</field></block></value>
+                  <block type="variables_set" id="tdm_init_tp">
+                    <field name="VAR" id="tdm_take_profit">Take Profit</field>
+                    <value name="VALUE"><block type="math_number"><field name="NUM">${take_profit}</field></block></value>
                     <next>
-                      <block type="variables_set" id="tdm_init_tp">
-                        <field name="VAR" id="tdm_take_profit">Take Profit</field>
-                        <value name="VALUE"><block type="math_number"><field name="NUM">${take_profit}</field></block></value>
+                      <block type="variables_set" id="tdm_init_sl">
+                        <field name="VAR" id="tdm_stop_loss">Stop Loss</field>
+                        <value name="VALUE"><block type="math_number"><field name="NUM">${stop_loss}</field></block></value>
                         <next>
-                          <block type="variables_set" id="tdm_init_sl">
-                            <field name="VAR" id="tdm_stop_loss">Stop Loss</field>
-                            <value name="VALUE"><block type="math_number"><field name="NUM">${stop_loss}</field></block></value>
-                            <next>
-                              <block type="variables_set" id="tdm_init_duration">
-                                <field name="VAR" id="tdm_duration">Trade Duration</field>
-                                <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
-                                <next>
-                                  <block type="variables_set" id="tdm_init_signal">
-                                    <field name="VAR" id="tdm_signal">Entry Signal</field>
-                                    <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
-                                    <next>
-                                      <block type="variables_set" id="tdm_init_prediction">
-                                        <field name="VAR" id="tdm_prediction">Prediction</field>
-                                        <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
-                                      </block>
-                                    </next>
-                                  </block>
-                                </next>
-                              </block>
-                            </next>
-                          </block>
+${wrapCollapsedAdvancedInit(
+    'tdm',
+    `<block type="variables_set" id="tdm_init_base">
+      <field name="VAR" id="tdm_base_stake">Base Stake</field>
+      <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
+      <next>
+        <block type="variables_set" id="tdm_init_duration">
+          <field name="VAR" id="tdm_duration">Trade Duration</field>
+          <value name="VALUE"><block type="math_number"><field name="NUM">1</field></block></value>
+          <next>
+            <block type="variables_set" id="tdm_init_signal">
+              <field name="VAR" id="tdm_signal">Entry Signal</field>
+              <value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
+              <next>
+                <block type="variables_set" id="tdm_init_prediction">
+                  <field name="VAR" id="tdm_prediction">Prediction</field>
+                  <value name="VALUE"><block type="math_number"><field name="NUM">-1</field></block></value>
+                </block>
+              </next>
+            </block>
+          </next>
+        </block>
+      </next>
+    </block>`
+)}
                         </next>
                       </block>
                     </next>
@@ -271,7 +276,7 @@ export const buildTripleDigitMartingaleXml = (
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="tdm_before" deletable="false" collapsed="false" x="0" y="980">
+  <block type="before_purchase" id="tdm_before" deletable="false" collapsed="true" x="0" y="980">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase" id="tdm_buy"><field name="PURCHASE_LIST">DIGITDIFF</field></block>
     </statement>

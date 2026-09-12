@@ -5,6 +5,8 @@
  * 0.1pp vs the previous window, trade DIGITDIFF on that digit. Martingale 10.5.
  */
 
+import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
+
 const varGet = (id, name) =>
     `<block type="variables_get"><field name="VAR" id="${id}">${name}</field></block>`;
 
@@ -20,8 +22,8 @@ const setVar = (id, name, valueXml, nextXml = '') =>
       ${nextXml ? `<next>${nextXml}</next>` : ''}
     </block>`;
 
-const chainSets = entries => {
-    let xml = '';
+const chainSets = (entries, tailXml = '') => {
+    let xml = tailXml;
     for (let i = entries.length - 1; i >= 0; i--) {
         const [id, name, valueXml] = entries[i];
         xml = setVar(id, name, valueXml, xml);
@@ -118,20 +120,27 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
       </block>
     </statement>
     <statement name="INITIALIZATION">
-      ${chainSets([
-          ['dpd_stake', 'Stake', num(0.5)],
-          ['dpd_base_stake', 'Base Stake', num(0.5)],
-          ['dpd_martingale', 'Martingale', num(10.5)],
-          ['dpd_take_profit', 'Take Profit', num(20)],
-          ['dpd_stop_loss', 'Stop Loss', num(50)],
-          ['dpd_window', 'Analysis Tick Window', num(1000)],
-          ['dpd_min_drop', 'Minimum Percentage Decrease', num(0.1)],
-          ['dpd_cooldown_signal', 'Cooldown After Signal', num(2)],
-          ['dpd_cooldown_loss', 'Cooldown After Loss', num(5)],
-          ['dpd_cooldown_win', 'Cooldown After Win', num(2)],
-          ['dpd_signal', 'Entry Signal', bool(false)],
-          ['dpd_prediction', 'Prediction', num(-1)],
-      ])}
+      ${chainSets(
+          [
+              ['dpd_stake', 'Stake', num(0.5)],
+              ['dpd_martingale', 'Martingale', num(10.5)],
+              ['dpd_take_profit', 'Take Profit', num(20)],
+              ['dpd_stop_loss', 'Stop Loss', num(50)],
+              ['dpd_window', 'Analysis Tick Window', num(1000)],
+              ['dpd_min_drop', 'Minimum Percentage Decrease', num(0.1)],
+          ],
+          wrapCollapsedAdvancedInit(
+              'dpd',
+              chainSets([
+                  ['dpd_base_stake', 'Base Stake', num(0.5)],
+                  ['dpd_cooldown_signal', 'Cooldown After Signal', num(2)],
+                  ['dpd_cooldown_loss', 'Cooldown After Loss', num(5)],
+                  ['dpd_cooldown_win', 'Cooldown After Win', num(2)],
+                  ['dpd_signal', 'Entry Signal', bool(false)],
+                  ['dpd_prediction', 'Prediction', num(-1)],
+              ])
+          )
+      )}
     </statement>
     <statement name="SUBMARKET">
       <block type="controls_whileUntil" id="dpd_scan_loop" collapsed="true">
@@ -238,7 +247,7 @@ ${tpSlThenTradeAgain('dpd_loss_cd', varGet('dpd_cooldown_loss', 'Cooldown After 
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="dpd_before" deletable="false" collapsed="false" x="0" y="1100">
+  <block type="before_purchase" id="dpd_before" deletable="false" collapsed="true" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase" id="dpd_buy">
         <field name="PURCHASE_LIST">DIGITDIFF</field>
