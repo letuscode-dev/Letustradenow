@@ -206,6 +206,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/pattern_switch_scan'));
     }
 
+    if (block_string.includes('triple_digit_martingale_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/triple_digit_martingale_scan'));
+    }
+
     await Promise.all(imports);
 };
 

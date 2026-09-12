@@ -1,6 +1,11 @@
 import type { FreeBot } from './types';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
+import {
+    buildTripleDigitMartingaleXml,
+    TRIPLE_DIGIT_MARTINGALE_XML,
+} from './bots/triple-digit-martingale';
+import { FREE_BOT_VOLATILITY_OPTIONS } from './volatility-options';
 
 /**
  * Free Bots catalog.
@@ -9,6 +14,16 @@ import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
  * Users can Load it into Bot Builder to inspect or run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'triple-digit-martingale-v1',
+        title: 'Triple-Digit Martingale Differs',
+        description:
+            'Same signal as classic Martingale.xml: when the last 3 digits match, places Digit Differs on the digit before that run. Pick one or more volatilities below — the bot scans only those markets, then martingales on loss until take profit / stop loss.',
+        tags: ['Differs', 'Martingale', 'Triple digit', 'Multi-market', 'Selectable volatilities'],
+        xml: TRIPLE_DIGIT_MARTINGALE_XML,
+        symbol_options: FREE_BOT_VOLATILITY_OPTIONS,
+        buildXml: buildTripleDigitMartingaleXml,
+    },
     {
         id: 'double-digit-return-differs-v1',
         title: 'Double Digit → Return Differs Strategy',

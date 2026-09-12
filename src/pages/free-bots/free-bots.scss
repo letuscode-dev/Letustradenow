@@ -102,6 +102,11 @@
             min-width: 24rem;
         }
 
+        &:has(.free-bots__symbols) {
+            flex: 1 1 34rem;
+            max-width: 42rem;
+        }
+
         @include mobile-screen {
             border-radius: 0.6rem;
             flex: 0 0 auto;
@@ -218,6 +223,63 @@
 
         @include mobile-screen {
             font-size: 1rem;
+        }
+    }
+
+    &__symbols {
+        border-top: 1px solid var(--border-normal);
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        margin-top: 0.4rem;
+        padding-top: 0.8rem;
+    }
+
+    &__symbols-title {
+        color: var(--text-prominent);
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    &__symbol-group {
+        border: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin: 0;
+        min-width: 0;
+        padding: 0;
+    }
+
+    &__symbol-group-label {
+        color: var(--text-less-prominent);
+        font-size: 1.05rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin-bottom: 0.2rem;
+        padding: 0;
+        text-transform: uppercase;
+    }
+
+    &__symbol-option {
+        align-items: center;
+        color: var(--text-general);
+        cursor: pointer;
+        display: flex;
+        font-size: 1.2rem;
+        gap: 0.6rem;
+        line-height: 1.3;
+
+        input {
+            accent-color: var(--brand-primary, var(--button-primary-default));
+            flex-shrink: 0;
+            margin: 0;
+        }
+
+        &--group {
+            color: var(--text-prominent);
+            font-weight: 600;
+            margin-bottom: 0.1rem;
         }
     }
 

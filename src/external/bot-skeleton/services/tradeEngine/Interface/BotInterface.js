@@ -31,6 +31,15 @@ import {
     resetDoubleDigitReturnState,
 } from '../utils/double-digit-return-differs';
 import {
+    evaluateSymbolTripleDigitSignal,
+    isTripleDigitSignalConsumed,
+    makeTripleDigitSignalKey,
+    normalizeTripleDigitMartingaleOptions,
+    orderSymbolsForScan as orderTripleDigitSymbols,
+    pickFirstTripleDigitMatch,
+    resolveScanSymbols as resolveTripleDigitSymbols,
+} from '../utils/triple-digit-martingale';
+import {
     applyEvenOddPairSettlement,
     armEvenOddPairPrediction,
     buildEvenOddPairResult,
@@ -184,6 +193,8 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine._repeatReappearLastJournalFp = null;
             tradeEngine._patternSwitchLastJournalFp = null;
+            tradeEngine._tripleDigitMartingaleLastJournalFp = null;
+            tradeEngine._tripleDigitMartingaleConsumedKey = null;
             if (tradeEngine.strategyVotingState) {
                 resetStrategyVotingState(tradeEngine.strategyVotingState);
                 tradeEngine.strategyVotingState = null;
@@ -486,6 +497,163 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine._patternSwitchLastJournalFp = tip_fp;
             return result;
+        },
+        /**
+         * Triple-digit Martingale — last 3 equal → Differs 4th-from-end across selected volatilities.
+         */
+        evaluateTripleDigitMartingaleScan: async options => {
+            const opts = normalizeTripleDigitMartingaleOptions(options || {});
+            const journal_enabled = opts.journal_enabled;
+            const symbols = resolveTripleDigitSymbols(opts);
+            const active_symbol =
+                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
+            const ordered = orderTripleDigitSymbols(symbols.length ? symbols : [active_symbol].filter(Boolean), active_symbol);
+            const ticks_service = tradeEngine.$scope?.ticksService;
+            const need = 4;
+
+            if (!ordered.length) {
+                return {
+                    prediction: -1,
+                    matched: false,
+                    symbol: active_symbol,
+                    symbols_scanned: [],
+                    journal_messages: journal_enabled
+                        ? [{ className: 'journal__text--error', message: 'Triple-digit Martingale: no volatilities selected.' }]
+                        : [],
+                };
+            }
+
+            if (ticks_service?.warmScanStreams) {
+                ticks_service.warmScanStreams(ordered).catch(() => {});
+            }
+            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
+                try {
+                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
+                } catch (e) {
+                    // keep prior caches
+                }
+            }
+
+            if (active_symbol && typeof tradeEngine.ensureDigitsForSymbol === 'function') {
+                const cached = tradeEngine.getCachedDigitsForSymbol
+                    ? tradeEngine.getCachedDigitsForSymbol(active_symbol, need)
+                    : [];
+                if (!Array.isArray(cached) || cached.length < need) {
+                    try {
+                        await tradeEngine.ensureDigitsForSymbol(active_symbol, need);
+                    } catch (e) {
+                        // keep prior cache
+                    }
+                }
+            }
+
+            const evaluations = await Promise.all(
+                ordered.map(async symbol => {
+                    if (ticks_service?._noteScanTip) {
+                        ticks_service._noteScanTip(symbol);
+                    }
+                    let digits = tradeEngine.getCachedDigitsForSymbol
+                        ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
+                        : [];
+                    if (
+                        symbol === active_symbol &&
+                        (!Array.isArray(digits) || digits.length < need) &&
+                        typeof tradeEngine.getDigitsForSymbol === 'function'
+                    ) {
+                        try {
+                            digits = await tradeEngine.getDigitsForSymbol(symbol, need);
+                        } catch (e) {
+                            digits = Array.isArray(digits) ? digits : [];
+                        }
+                    }
+                    return evaluateSymbolTripleDigitSignal(symbol, digits);
+                })
+            );
+
+            const raw_match = pickFirstTripleDigitMatch(evaluations);
+            let tip_epoch = null;
+            if (raw_match?.symbol && ticks_service?.getCachedTicks) {
+                const ticks = ticks_service.getCachedTicks(raw_match.symbol) || [];
+                const tip = ticks[ticks.length - 1];
+                if (tip?.epoch != null && Number.isFinite(Number(tip.epoch))) {
+                    tip_epoch = Number(tip.epoch);
+                } else if (tip) {
+                    tip_epoch = `${ticks.length}:${tip.quote ?? ''}`;
+                }
+            }
+
+            const skipped_consumed = isTripleDigitSignalConsumed(
+                raw_match,
+                tip_epoch,
+                tradeEngine._tripleDigitMartingaleConsumedKey
+            );
+            const match = skipped_consumed ? null : raw_match;
+
+            let switched = false;
+            let switch_failed = false;
+            if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
+                try {
+                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                        await tradeEngine.switchTradeSymbol(match.symbol);
+                        const now_symbol =
+                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                        if (now_symbol === match.symbol) {
+                            switched = true;
+                        } else {
+                            switch_failed = true;
+                        }
+                    } else {
+                        switch_failed = true;
+                    }
+                } catch (e) {
+                    switch_failed = true;
+                }
+            }
+
+            const tradeable = match?.matched && !switch_failed ? match : null;
+            if (tradeable) {
+                tradeEngine._tripleDigitMartingaleConsumedKey = makeTripleDigitSignalKey(
+                    tradeable,
+                    tip_epoch
+                );
+            }
+
+            const journal_messages = [];
+            if (journal_enabled) {
+                if (tradeable) {
+                    journal_messages.push({
+                        className: 'journal__text--success',
+                        message: `Triple-digit Martingale: ${tradeable.symbol} [${(tradeable.sequence || []).join(',')}] → DIFFER ${tradeable.prediction}${switched ? ' (switched)' : ''}`,
+                    });
+                } else if (!skipped_consumed) {
+                    const watching = evaluations
+                        .map(item => `${item.symbol}:[${(item.sequence || []).join(',') || '…'}]`)
+                        .slice(0, 4)
+                        .join(' | ');
+                    const tip_fp = `watch:${watching}`;
+                    if (tradeEngine._tripleDigitMartingaleLastJournalFp !== tip_fp) {
+                        tradeEngine._tripleDigitMartingaleLastJournalFp = tip_fp;
+                        journal_messages.push({
+                            className: 'journal__text',
+                            message: `Triple-digit Martingale: watching ${watching || '…'}`,
+                        });
+                    }
+                }
+            }
+
+            return {
+                prediction: tradeable ? tradeable.prediction : -1,
+                barrier: tradeable ? tradeable.prediction : -1,
+                matched: Boolean(tradeable),
+                symbol: tradeable?.symbol || active_symbol,
+                sequence: tradeable?.sequence || [],
+                symbols_scanned: ordered,
+                evaluations,
+                switched,
+                skipped_consumed,
+                reason: tradeable ? 'triple_repeat' : skipped_consumed ? 'consumed' : 'watching',
+                journal_messages,
+            };
         },
         /**
          * Strategy Voting Engine — weighted Digit Differs votes across modular strategies.
