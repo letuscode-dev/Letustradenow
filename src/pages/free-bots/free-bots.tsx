@@ -10,6 +10,8 @@ import { FREE_BOTS } from './catalog';
 import type { FreeBot, FreeBotNumberParam, FreeBotSymbolOption } from './types';
 import './free-bots.scss';
 
+const MAIN_BLOCK_TYPES = ['trade_definition', 'before_purchase', 'during_purchase', 'after_purchase'];
+
 const defaultSelectedSymbols = (options: FreeBotSymbolOption[] = []) =>
     options.filter(option => option.defaultSelected).map(option => option.symbol);
 
@@ -21,10 +23,26 @@ const defaultParams = (options: FreeBotNumberParam[] = []) => {
     return initial;
 };
 
+const expandMainBlocks = (workspace) => {
+    if (!workspace?.getAllBlocks) return;
+    workspace.getAllBlocks(false).forEach(block => {
+        if (!block || !MAIN_BLOCK_TYPES.includes(block.type)) return;
+        if (typeof block.setCollapsed === 'function' && block.isCollapsed?.()) {
+            block.setCollapsed(false);
+        }
+    });
+    if (typeof workspace.render === 'function') {
+        workspace.render();
+    }
+};
+
 const FreeBots = () => {
     const { dashboard, run_panel } = useStore();
     const [status_by_id, setStatusById] = React.useState<Record<string, string>>({});
     const [busy_id, setBusyId] = React.useState<string | null>(null);
+    const [expanded_id, setExpandedId] = React.useState<string | null>(
+        () => FREE_BOTS.find(bot => bot.symbol_options?.length || bot.param_options?.length)?.id || null
+    );
     const [selected_symbols_by_bot, setSelectedSymbolsByBot] = React.useState<Record<string, string[]>>(() => {
         const initial = {};
         FREE_BOTS.forEach(bot => {
@@ -96,6 +114,7 @@ const FreeBots = () => {
             const selected_symbols = selected_symbols_by_bot[bot.id] || [];
             if (bot.symbol_options?.length && selected_symbols.length === 0) {
                 setStatus(bot.id, localize('Select at least one volatility before loading.'));
+                setExpandedId(bot.id);
                 return;
             }
 
@@ -110,6 +129,7 @@ const FreeBots = () => {
                         bot.id,
                         localize('Enter a valid {{label}} before loading.', { label: invalid.label })
                     );
+                    setExpandedId(bot.id);
                     return;
                 }
             }
@@ -129,6 +149,12 @@ const FreeBots = () => {
                 showIncompatibleStrategyDialog: null,
             });
 
+            const workspace = window.Blockly?.derivWorkspace;
+            expandMainBlocks(workspace);
+            // cleanUp / render can re-apply collapse state after the first paint
+            window.setTimeout(() => expandMainBlocks(workspace), 0);
+            window.setTimeout(() => expandMainBlocks(workspace), 50);
+
             dashboard.setActiveTab(DBOT_TABS.BOT_BUILDER);
             setStatus(bot.id, localize('{{title}} loaded in Bot Builder.', { title: bot.title }));
         } catch (error) {
@@ -147,7 +173,7 @@ const FreeBots = () => {
                     <Localize i18n_default_text='Free Bots' />
                 </h2>
                 <p className='free-bots__subtitle'>
-                    <Localize i18n_default_text='Ready-made bots from the team. Load one into Bot Builder to inspect, customise, and run it.' />
+                    <Localize i18n_default_text='Pick a bot, adjust settings if needed, then load it into Bot Builder.' />
                 </p>
             </header>
 
@@ -167,173 +193,234 @@ const FreeBots = () => {
                         const params = params_by_bot[bot.id] || defaultParams(bot.param_options);
                         const has_symbol_options = !!bot.symbol_options?.length;
                         const has_param_options = !!bot.param_options?.length;
+                        const has_config = has_symbol_options || has_param_options;
+                        const is_expanded = expanded_id === bot.id;
                         const standard_options =
                             bot.symbol_options?.filter(option => (option.group || 'standard') === 'standard') ||
                             [];
                         const one_s_options =
                             bot.symbol_options?.filter(option => option.group === '1s') || [];
+                        const selected_count = selected_symbols.length;
+                        const summary_bits = [];
+                        if (has_param_options) {
+                            summary_bits.push(
+                                localize('Stake {{stake}}', {
+                                    stake: params.stake ?? bot.param_options.find(o => o.key === 'stake')?.defaultValue,
+                                })
+                            );
+                        }
+                        if (has_symbol_options) {
+                            summary_bits.push(
+                                localize('{{count}} markets', { count: selected_count })
+                            );
+                        }
 
                         return (
-                            <li key={bot.id} className='free-bots__card'>
-                                <div className='free-bots__card-body'>
-                                    <div className='free-bots__card-heading'>
+                            <li
+                                key={bot.id}
+                                className={`free-bots__row${is_expanded ? ' free-bots__row--open' : ''}`}
+                            >
+                                <div className='free-bots__row-main'>
+                                    <button
+                                        type='button'
+                                        className='free-bots__row-toggle'
+                                        aria-expanded={is_expanded}
+                                        onClick={() =>
+                                            setExpandedId(current => (current === bot.id ? null : bot.id))
+                                        }
+                                    >
                                         <span
-                                            className='free-bots__card-number'
+                                            className='free-bots__row-number'
                                             aria-label={localize('Bot {{number}}', { number: bot_number })}
                                         >
                                             {bot_number}
                                         </span>
-                                        <h3 className='free-bots__card-title'>{bot.title}</h3>
-                                    </div>
-                                    <p className='free-bots__card-description'>{bot.description}</p>
-                                    {!!bot.tags?.length && (
-                                        <div className='free-bots__tags'>
-                                            {bot.tags.map(tag => (
-                                                <span key={tag} className='free-bots__tag'>
-                                                    {tag}
+                                        <span className='free-bots__row-copy'>
+                                            <span className='free-bots__row-title'>{bot.title}</span>
+                                            <span className='free-bots__row-desc'>{bot.description}</span>
+                                            {!!summary_bits.length && (
+                                                <span className='free-bots__row-summary'>
+                                                    {summary_bits.join(' · ')}
                                                 </span>
-                                            ))}
-                                        </div>
-                                    )}
+                                            )}
+                                        </span>
+                                        {has_config && (
+                                            <span className='free-bots__chevron' aria-hidden='true'>
+                                                {is_expanded ? '−' : '+'}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <div className='free-bots__row-actions'>
+                                        <Button
+                                            className='free-bots__button'
+                                            is_disabled={
+                                                is_busy ||
+                                                run_panel.is_running ||
+                                                (has_symbol_options && selected_symbols.length === 0)
+                                            }
+                                            onClick={() => loadBot(bot)}
+                                            primary
+                                            type='button'
+                                        >
+                                            {localize('Load')}
+                                        </Button>
+                                    </div>
+                                </div>
 
-                                    {has_param_options && (
-                                        <div className='free-bots__params'>
-                                            <div className='free-bots__params-title'>
-                                                <Localize i18n_default_text='Trade settings' />
-                                            </div>
-                                            <div className='free-bots__params-grid'>
-                                                {bot.param_options.map(option => (
-                                                    <label
-                                                        key={option.key}
-                                                        className='free-bots__param'
-                                                        htmlFor={`${bot.id}-${option.key}`}
-                                                    >
-                                                        <span className='free-bots__param-label'>
-                                                            {option.label}
-                                                        </span>
-                                                        <input
-                                                            id={`${bot.id}-${option.key}`}
-                                                            className='free-bots__param-input'
-                                                            type='number'
-                                                            inputMode='decimal'
-                                                            min={option.min ?? 0.01}
-                                                            step={option.step ?? 0.01}
-                                                            value={params[option.key] ?? option.defaultValue}
-                                                            onChange={event =>
-                                                                setParamValue(bot, option.key, event.target.value)
-                                                            }
-                                                        />
-                                                    </label>
+                                {is_expanded && (
+                                    <div className='free-bots__row-panel'>
+                                        {!!bot.tags?.length && (
+                                            <div className='free-bots__tags'>
+                                                {bot.tags.map(tag => (
+                                                    <span key={tag} className='free-bots__tag'>
+                                                        {tag}
+                                                    </span>
                                                 ))}
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {has_symbol_options && (
-                                        <div className='free-bots__symbols'>
-                                            <div className='free-bots__symbols-title'>
-                                                <Localize i18n_default_text='Volatilities to scan' />
+                                        {has_param_options && (
+                                            <div className='free-bots__params'>
+                                                <div className='free-bots__section-title'>
+                                                    <Localize i18n_default_text='Trade settings' />
+                                                </div>
+                                                <div className='free-bots__params-grid'>
+                                                    {bot.param_options.map(option => (
+                                                        <label
+                                                            key={option.key}
+                                                            className='free-bots__param'
+                                                            htmlFor={`${bot.id}-${option.key}`}
+                                                        >
+                                                            <span className='free-bots__param-label'>
+                                                                {option.label}
+                                                            </span>
+                                                            <input
+                                                                id={`${bot.id}-${option.key}`}
+                                                                className='free-bots__param-input'
+                                                                type='number'
+                                                                inputMode='decimal'
+                                                                min={option.min ?? 0.01}
+                                                                step={option.step ?? 0.01}
+                                                                value={params[option.key] ?? option.defaultValue}
+                                                                onChange={event =>
+                                                                    setParamValue(
+                                                                        bot,
+                                                                        option.key,
+                                                                        event.target.value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            {!!standard_options.length && (
-                                                <fieldset className='free-bots__symbol-group'>
-                                                    <legend className='free-bots__symbol-group-label'>
-                                                        <Localize i18n_default_text='Standard' />
-                                                    </legend>
-                                                    <label className='free-bots__symbol-option free-bots__symbol-option--group'>
-                                                        <input
-                                                            type='checkbox'
-                                                            checked={standard_options.every(option =>
-                                                                selected_symbols.includes(option.symbol)
-                                                            )}
-                                                            onChange={event =>
-                                                                selectSymbolGroup(
-                                                                    bot,
-                                                                    'standard',
-                                                                    event.target.checked
-                                                                )
-                                                            }
-                                                        />
-                                                        <span>
-                                                            <Localize i18n_default_text='All standard' />
-                                                        </span>
-                                                    </label>
-                                                    {standard_options.map(option => (
-                                                        <label
-                                                            key={option.symbol}
-                                                            className='free-bots__symbol-option'
-                                                        >
-                                                            <input
-                                                                type='checkbox'
-                                                                checked={selected_symbols.includes(
-                                                                    option.symbol
-                                                                )}
-                                                                onChange={() =>
-                                                                    toggleSymbol(bot.id, option.symbol)
-                                                                }
-                                                            />
-                                                            <span>{option.label}</span>
-                                                        </label>
-                                                    ))}
-                                                </fieldset>
-                                            )}
-                                            {!!one_s_options.length && (
-                                                <fieldset className='free-bots__symbol-group'>
-                                                    <legend className='free-bots__symbol-group-label'>
-                                                        <Localize i18n_default_text='1-second' />
-                                                    </legend>
-                                                    <label className='free-bots__symbol-option free-bots__symbol-option--group'>
-                                                        <input
-                                                            type='checkbox'
-                                                            checked={one_s_options.every(option =>
-                                                                selected_symbols.includes(option.symbol)
-                                                            )}
-                                                            onChange={event =>
-                                                                selectSymbolGroup(bot, '1s', event.target.checked)
-                                                            }
-                                                        />
-                                                        <span>
-                                                            <Localize i18n_default_text='All 1s' />
-                                                        </span>
-                                                    </label>
-                                                    {one_s_options.map(option => (
-                                                        <label
-                                                            key={option.symbol}
-                                                            className='free-bots__symbol-option'
-                                                        >
-                                                            <input
-                                                                type='checkbox'
-                                                                checked={selected_symbols.includes(
-                                                                    option.symbol
-                                                                )}
-                                                                onChange={() =>
-                                                                    toggleSymbol(bot.id, option.symbol)
-                                                                }
-                                                            />
-                                                            <span>{option.label}</span>
-                                                        </label>
-                                                    ))}
-                                                </fieldset>
-                                            )}
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {status && <div className='free-bots__status'>{status}</div>}
-                                </div>
-                                <div className='free-bots__actions'>
-                                    <Button
-                                        className='free-bots__button'
-                                        is_disabled={
-                                            is_busy ||
-                                            run_panel.is_running ||
-                                            (has_symbol_options && selected_symbols.length === 0)
-                                        }
-                                        onClick={() => loadBot(bot)}
-                                        primary
-                                        type='button'
-                                    >
-                                        {localize('Load into Bot Builder')}
-                                    </Button>
-                                </div>
+                                        {has_symbol_options && (
+                                            <div className='free-bots__symbols'>
+                                                <div className='free-bots__section-title'>
+                                                    <Localize i18n_default_text='Volatilities' />
+                                                </div>
+                                                <div className='free-bots__symbol-columns'>
+                                                    {!!standard_options.length && (
+                                                        <fieldset className='free-bots__symbol-group'>
+                                                            <legend className='free-bots__symbol-group-label'>
+                                                                <Localize i18n_default_text='Standard' />
+                                                            </legend>
+                                                            <label className='free-bots__symbol-option free-bots__symbol-option--group'>
+                                                                <input
+                                                                    type='checkbox'
+                                                                    checked={standard_options.every(option =>
+                                                                        selected_symbols.includes(option.symbol)
+                                                                    )}
+                                                                    onChange={event =>
+                                                                        selectSymbolGroup(
+                                                                            bot,
+                                                                            'standard',
+                                                                            event.target.checked
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <span>
+                                                                    <Localize i18n_default_text='All' />
+                                                                </span>
+                                                            </label>
+                                                            <div className='free-bots__symbol-chips'>
+                                                                {standard_options.map(option => (
+                                                                    <label
+                                                                        key={option.symbol}
+                                                                        className='free-bots__symbol-option'
+                                                                    >
+                                                                        <input
+                                                                            type='checkbox'
+                                                                            checked={selected_symbols.includes(
+                                                                                option.symbol
+                                                                            )}
+                                                                            onChange={() =>
+                                                                                toggleSymbol(bot.id, option.symbol)
+                                                                            }
+                                                                        />
+                                                                        <span>{option.label}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </fieldset>
+                                                    )}
+                                                    {!!one_s_options.length && (
+                                                        <fieldset className='free-bots__symbol-group'>
+                                                            <legend className='free-bots__symbol-group-label'>
+                                                                <Localize i18n_default_text='1s' />
+                                                            </legend>
+                                                            <label className='free-bots__symbol-option free-bots__symbol-option--group'>
+                                                                <input
+                                                                    type='checkbox'
+                                                                    checked={one_s_options.every(option =>
+                                                                        selected_symbols.includes(option.symbol)
+                                                                    )}
+                                                                    onChange={event =>
+                                                                        selectSymbolGroup(
+                                                                            bot,
+                                                                            '1s',
+                                                                            event.target.checked
+                                                                        )
+                                                                    }
+                                                                />
+                                                                <span>
+                                                                    <Localize i18n_default_text='All' />
+                                                                </span>
+                                                            </label>
+                                                            <div className='free-bots__symbol-chips'>
+                                                                {one_s_options.map(option => (
+                                                                    <label
+                                                                        key={option.symbol}
+                                                                        className='free-bots__symbol-option'
+                                                                    >
+                                                                        <input
+                                                                            type='checkbox'
+                                                                            checked={selected_symbols.includes(
+                                                                                option.symbol
+                                                                            )}
+                                                                            onChange={() =>
+                                                                                toggleSymbol(bot.id, option.symbol)
+                                                                            }
+                                                                        />
+                                                                        <span>{option.label}</span>
+                                                                    </label>
+                                                                ))}
+                                                            </div>
+                                                        </fieldset>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {status && <div className='free-bots__status'>{status}</div>}
+                                    </div>
+                                )}
+
+                                {!is_expanded && status && (
+                                    <div className='free-bots__status free-bots__status--inline'>{status}</div>
+                                )}
                             </li>
                         );
                     })}

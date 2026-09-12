@@ -25,7 +25,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
     <variable id="kp_reanalyse">Re Analyse After</variable>
     <variable id="kp_prediction">Prediction:</variable>
   </variables>
-  <block type="trade_definition" id="kp_trade_def" deletable="false" x="0" y="60">
+  <block type="trade_definition" id="kp_trade_def" deletable="false" collapsed="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="kp_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
@@ -199,7 +199,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="kp_after" x="900" y="60">
+  <block type="after_purchase" id="kp_after" collapsed="false" x="900" y="60">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="kp_ap_win">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
@@ -303,7 +303,7 @@ export const PATTERN_SWITCH_XML = `<xml xmlns="https://developers.google.com/blo
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="kp_before" deletable="false" x="0" y="1100">
+  <block type="before_purchase" id="kp_before" deletable="false" collapsed="false" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="controls_if" id="kp_buy_if">
         <mutation xmlns="http://www.w3.org/1999/xhtml" elseif="3"></mutation>

@@ -62,7 +62,7 @@ export const buildTripleDigitMartingaleXml = (
     <variable id="tdm_prediction">Prediction</variable>
     <variable id="tdm_duration">Trade Duration</variable>
   </variables>
-  <block type="trade_definition" id="tdm_trade_def" deletable="false" x="0" y="60">
+  <block type="trade_definition" id="tdm_trade_def" deletable="false" collapsed="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="tdm_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
@@ -199,7 +199,7 @@ export const buildTripleDigitMartingaleXml = (
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="tdm_after" x="900" y="60">
+  <block type="after_purchase" id="tdm_after" collapsed="false" x="900" y="60">
     <statement name="AFTERPURCHASE_STACK">
       <block type="controls_if" id="tdm_ap_win">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
@@ -270,7 +270,7 @@ export const buildTripleDigitMartingaleXml = (
       </block>
     </statement>
   </block>
-  <block type="before_purchase" id="tdm_before" deletable="false" x="0" y="980">
+  <block type="before_purchase" id="tdm_before" deletable="false" collapsed="false" x="0" y="980">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase" id="tdm_buy"><field name="PURCHASE_LIST">DIGITDIFF</field></block>
     </statement>

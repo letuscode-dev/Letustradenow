@@ -23,7 +23,7 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
     <variable id="dd_prediction">Target Differ</variable>
     <variable id="dd_stop">Stop</variable>
   </variables>
-  <block type="trade_definition" id="dd_trade_definition" deletable="false" x="0" y="60">
+  <block type="trade_definition" id="dd_trade_definition" deletable="false" collapsed="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="dd_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
@@ -85,6 +85,6 @@ export const DOUBLE_DIGIT_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.g
       </block>
     </statement>
   </block>
-  <block type="after_purchase" id="dd_after_purchase" x="900" y="60"><statement name="AFTERPURCHASE_STACK"><block type="double_digit_risk_management" id="dd_risk_management"></block></statement></block>
-  <block type="before_purchase" id="dd_before_purchase" deletable="false" x="0" y="900"><statement name="BEFOREPURCHASE_STACK"><block type="apollo_purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block></statement></block>
+  <block type="after_purchase" id="dd_after_purchase" collapsed="false" x="900" y="60"><statement name="AFTERPURCHASE_STACK"><block type="double_digit_risk_management" id="dd_risk_management"></block></statement></block>
+  <block type="before_purchase" id="dd_before_purchase" deletable="false" collapsed="false" x="0" y="900"><statement name="BEFOREPURCHASE_STACK"><block type="apollo_purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block></statement></block>
 </xml>`;
