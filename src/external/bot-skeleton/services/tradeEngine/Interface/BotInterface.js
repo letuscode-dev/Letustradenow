@@ -123,6 +123,10 @@ import {
     resetDominantDigitPercentageState,
 } from '../utils/dominant-digit-percentage';
 import {
+    evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
+    normalizeDigitPercentageDecreaseOptions,
+} from '../utils/digit-percentage-decrease';
+import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -734,6 +738,36 @@ const getBotInterface = tradeEngine => {
                 return { ...result, journal_messages: [] };
             }
             tradeEngine._dominantDigitPercentageJournalFp = fp;
+            return result;
+        },
+        /**
+         * Digit Percentage Decrease — Differ on digit whose rolling % dropped.
+         */
+        evaluateDigitPercentageDecrease: async options => {
+            const opts = normalizeDigitPercentageDecreaseOptions(options || {});
+            const need = opts.analysis_window + 1;
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(need);
+            }
+            let digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(need)
+                : tradeEngine.getCachedLastDigitList
+                  ? tradeEngine.getCachedLastDigitList(need)
+                  : [];
+            if (!Array.isArray(digits)) {
+                digits = [];
+            }
+            const result = runDigitPercentageDecrease(digits, opts);
+            const tip =
+                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
+            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}`;
+            if (
+                tradeEngine._digitPercentageDecreaseJournalFp === fp &&
+                Array.isArray(result.journal_messages)
+            ) {
+                return { ...result, journal_messages: [] };
+            }
+            tradeEngine._digitPercentageDecreaseJournalFp = fp;
             return result;
         },
         /**

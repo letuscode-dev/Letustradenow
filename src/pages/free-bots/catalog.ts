@@ -1,4 +1,5 @@
 import type { FreeBot } from './types';
+import { DIGIT_PERCENTAGE_DECREASE_XML } from './bots/digit-percentage-decrease';
 import { DOMINANT_DIGIT_PERCENTAGE_XML } from './bots/dominant-digit-percentage';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
@@ -51,5 +52,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Finds the highest-occurrence digit in a configurable tick window and trades Digit Differs when its percentage (and optional gap, persistence, and multi-window filters) pass. Default martingale 10.5; full settings in Bot Builder.',
         tags: ['Differs', 'Percentage', 'Dominant', 'Martingale'],
         xml: DOMINANT_DIGIT_PERCENTAGE_XML,
+    },
+    {
+        id: 'digit-percentage-decrease-v1',
+        title: 'Digit Percentage Decrease – Differ',
+        description:
+            'Tracks all digits over a rolling 1000-tick window and trades Digit Differs when any digit’s occurrence percentage drops by at least 0.1pp. Default martingale 10.5; window and drop threshold are editable in Bot Builder.',
+        tags: ['Differs', 'Percentage', 'Decrease', 'Martingale'],
+        xml: DIGIT_PERCENTAGE_DECREASE_XML,
     },
 ];

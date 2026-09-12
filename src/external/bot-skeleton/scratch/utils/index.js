@@ -218,6 +218,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/dominant_digit_percentage_scan'));
     }
 
+    if (block_string.includes('digit_percentage_decrease_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/digit_percentage_decrease_scan'));
+    }
+
     await Promise.all(imports);
 };
 
