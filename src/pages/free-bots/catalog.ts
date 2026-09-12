@@ -57,7 +57,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'digit-percentage-decrease-v1',
         title: 'Digit Percentage Decrease – Differ',
         description:
-            'Tracks all digits over a rolling 1000-tick window and trades Digit Differs when any digit’s occurrence percentage drops by at least 0.1pp. Default martingale 10.5; window and drop threshold are editable in Bot Builder.',
+            'On every new tick, recomputes all digit percentages over a rolling 1000-tick window and trades Digit Differs when any digit’s share drops by at least 0.1pp vs the previous tip. Default martingale 10.5; window and drop threshold are editable in Bot Builder.',
         tags: ['Differs', 'Percentage', 'Decrease', 'Martingale'],
         xml: DIGIT_PERCENTAGE_DECREASE_XML,
     },

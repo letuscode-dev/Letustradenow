@@ -26,7 +26,7 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Compares the previous and current rolling tick windows. Returns Differ prediction for the digit whose percentage fell by at least the minimum drop (default 0.1% over 1000 ticks).'
+                'On each new tick, recomputes digit percentages over the rolling window and returns Differ prediction for the digit whose share fell by at least the minimum drop (default 0.1% over 1000 ticks).'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -35,7 +35,7 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
         return {
             display_name: localize('Digit Percentage Decrease scan'),
             description: localize(
-                'Tracks all digits in a rolling window and signals Digit Differs when a digit’s occurrence percentage decreases by the configured amount.'
+                'Re-evaluates all digit percentages after every incoming tick and signals Digit Differs when a digit’s occurrence percentage decreases by the configured amount.'
             ),
             key_words: localize('percentage, decrease, differs, rolling window, digits'),
         };

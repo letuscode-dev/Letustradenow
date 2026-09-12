@@ -1,12 +1,10 @@
 /**
  * Digit Percentage Decrease – Differ
  *
- * Over a rolling analysis window (default 1000 ticks), compare the previous
- * full window to the current window after each new tip. Digits whose occurrence
- * percentage fell by at least min_decrease (default 0.1pp) qualify.
- *
- * On a full 1000-tick slide, the aged-out digit drops by exactly 0.1%.
- * Signal DIGITDIFF against the digit with the largest qualifying decrease.
+ * On every new tip, recompute digit % over the rolling analysis window
+ * (default 1000) and compare against the previous tip’s percentages.
+ * Digits whose share fell by at least min_decrease (default 0.1pp) qualify.
+ * Signal DIGITDIFF on the largest qualifying drop.
  */
 
 export const DEFAULT_OPTIONS = {
@@ -51,6 +49,22 @@ export const normalizeDigitPercentageDecreaseOptions = (options = {}) => {
     };
 };
 
+export const createDigitPercentageDecreaseState = () => ({
+    last_tip_fp: '',
+    prev_percentages: null,
+    prev_counts: null,
+    last_result: null,
+});
+
+export const resetDigitPercentageDecreaseState = state => {
+    const next = state || createDigitPercentageDecreaseState();
+    next.last_tip_fp = '';
+    next.prev_percentages = null;
+    next.prev_counts = null;
+    next.last_result = null;
+    return next;
+};
+
 export const computeDigitPercentages = sample => {
     const counts = Array.from({ length: 10 }, () => 0);
     const size = Array.isArray(sample) ? sample.length : 0;
@@ -61,45 +75,99 @@ export const computeDigitPercentages = sample => {
     return { size, counts, percentages };
 };
 
+const emptyCollecting = (options, tick_count, need) => ({
+    options,
+    tick_count,
+    need,
+    ready: false,
+    matched: false,
+    prediction: -1,
+    barrier: -1,
+    digit: -1,
+    drop: 0,
+    rows: [],
+    aged_out: -1,
+    aged_in: -1,
+    tip: null,
+    reason: 'collecting',
+});
+
 /**
- * Compare previous vs current rolling windows and find percentage decreases.
+ * Re-evaluate on each new tip: current rolling % vs previous tip’s % for all digits.
+ *
+ * @param {Array<number|string>} digits
+ * @param {object} raw_options
+ * @param {ReturnType<typeof createDigitPercentageDecreaseState>|null} runtime_state
  */
-export const detectDigitPercentageDecrease = (digits, raw_options = {}) => {
+export const detectDigitPercentageDecrease = (
+    digits,
+    raw_options = {},
+    runtime_state = null
+) => {
     const options = normalizeDigitPercentageDecreaseOptions(raw_options);
+    const state = runtime_state || createDigitPercentageDecreaseState();
     const cleaned = cleanDigits(digits);
     const window = options.analysis_window;
-    const need = window + 1;
+    const need = window;
     const ready = cleaned.length >= need;
+    const tip = cleaned.length ? cleaned[cleaned.length - 1] : null;
+    const tip_fp = `${cleaned.length}:${tip}`;
 
     if (!ready) {
-        return {
+        const collecting = emptyCollecting(options, cleaned.length, need);
+        state.last_result = collecting;
+        return collecting;
+    }
+
+    // Same tip re-scan: keep prior evaluation (signal stays available for purchase).
+    if (state.last_tip_fp === tip_fp && state.last_result) {
+        return state.last_result;
+    }
+
+    const curr = cleaned.slice(-window);
+    const curr_stats = computeDigitPercentages(curr);
+    const aged_in = tip;
+    // Digit that left the window when the tip advanced (if we still have prior length context).
+    const aged_out =
+        cleaned.length > window ? cleaned[cleaned.length - 1 - window] : state._last_aged_hint ?? -1;
+
+    // First full window: seed baseline percentages, wait for the next tip to compare.
+    if (!Array.isArray(state.prev_percentages)) {
+        state.prev_percentages = [...curr_stats.percentages];
+        state.prev_counts = [...curr_stats.counts];
+        state.last_tip_fp = tip_fp;
+        state._last_aged_hint = aged_in;
+        const baseline = {
             options,
             tick_count: cleaned.length,
             need,
-            ready: false,
+            ready: true,
             matched: false,
             prediction: -1,
             barrier: -1,
             digit: -1,
             drop: 0,
-            rows: [],
+            rows: curr_stats.percentages.map((curr_pct, digit) => ({
+                digit,
+                prev_pct: curr_pct,
+                curr_pct,
+                drop: 0,
+                decreased: false,
+            })),
+            decreased: [],
             aged_out: -1,
-            aged_in: -1,
-            reason: 'collecting',
+            aged_in,
+            tip,
+            curr_stats,
+            reason: 'baseline_seeded',
         };
+        state.last_result = baseline;
+        return baseline;
     }
-
-    const prev = cleaned.slice(-(window + 1), -1);
-    const curr = cleaned.slice(-window);
-    const aged_out = cleaned[cleaned.length - 1 - window];
-    const aged_in = cleaned[cleaned.length - 1];
-
-    const prev_stats = computeDigitPercentages(prev);
-    const curr_stats = computeDigitPercentages(curr);
 
     const rows = [];
     for (let digit = 0; digit <= 9; digit++) {
-        const prev_pct = prev_stats.percentages[digit];
+        const prev_pct = Number(state.prev_percentages[digit]) || 0;
         const curr_pct = curr_stats.percentages[digit];
         const drop = prev_pct - curr_pct;
         rows.push({
@@ -117,7 +185,13 @@ export const detectDigitPercentageDecrease = (digits, raw_options = {}) => {
 
     const best = decreased[0] || null;
 
-    return {
+    // Advance snapshot to this tip so the next incoming tick re-evaluates fresh changes.
+    state.prev_percentages = [...curr_stats.percentages];
+    state.prev_counts = [...curr_stats.counts];
+    state.last_tip_fp = tip_fp;
+    state._last_aged_hint = aged_in;
+
+    const result = {
         options,
         tick_count: cleaned.length,
         need,
@@ -131,10 +205,12 @@ export const detectDigitPercentageDecrease = (digits, raw_options = {}) => {
         decreased,
         aged_out,
         aged_in,
-        prev_stats,
+        tip,
         curr_stats,
         reason: best ? 'percentage_decrease' : 'no_decrease',
     };
+    state.last_result = result;
+    return result;
 };
 
 const fmtPct = value => `${(Math.round(Number(value) * 1000) / 1000).toFixed(3)}%`;
@@ -151,12 +227,20 @@ export const buildDigitPercentageDecreaseJournal = analysis => {
         return messages;
     }
 
+    if (analysis.reason === 'baseline_seeded') {
+        messages.push({
+            className: 'journal__text',
+            message: `DIGIT % DECREASE — window ${options.analysis_window} ready; baseline set. Waiting for next tick to re-evaluate % changes…`,
+        });
+        return messages;
+    }
+
     messages.push({
         className: 'journal__text',
-        message: `DIGIT % DECREASE — window ${options.analysis_window} | min drop ${options.min_decrease}pp | out ${aged_out} → in ${aged_in}`,
+        message: `DIGIT % DECREASE — window ${options.analysis_window} | min drop ${options.min_decrease}pp | tip ${aged_in}${aged_out >= 0 ? ` (left ${aged_out})` : ''}`,
     });
 
-    const highlight = [...analysis.rows].sort((a, b) => b.drop - a.drop).slice(0, 5);
+    const highlight = [...(analysis.rows || [])].sort((a, b) => b.drop - a.drop).slice(0, 5);
     highlight.forEach(row => {
         messages.push({
             className: row.decreased ? 'journal__text--success' : 'journal__text',
@@ -172,7 +256,7 @@ export const buildDigitPercentageDecreaseJournal = analysis => {
     } else {
         messages.push({
             className: 'journal__text',
-            message: 'NO SIGNAL — no digit decreased by the configured minimum.',
+            message: 'NO SIGNAL — no digit decreased by the configured minimum on this tip.',
         });
     }
 
@@ -182,9 +266,14 @@ export const buildDigitPercentageDecreaseJournal = analysis => {
 /**
  * @param {Array<number|string>} digits oldest → newest
  * @param {object} raw_options
+ * @param {object|null} runtime_state
  */
-export const evaluateDigitPercentageDecrease = (digits, raw_options = {}) => {
-    const analysis = detectDigitPercentageDecrease(digits, raw_options);
+export const evaluateDigitPercentageDecrease = (
+    digits,
+    raw_options = {},
+    runtime_state = null
+) => {
+    const analysis = detectDigitPercentageDecrease(digits, raw_options, runtime_state);
     const journal_messages = analysis.options.journal_enabled
         ? buildDigitPercentageDecreaseJournal(analysis)
         : [];

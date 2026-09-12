@@ -123,6 +123,7 @@ import {
     resetDominantDigitPercentageState,
 } from '../utils/dominant-digit-percentage';
 import {
+    createDigitPercentageDecreaseState,
     evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
     normalizeDigitPercentageDecreaseOptions,
 } from '../utils/digit-percentage-decrease';
@@ -745,7 +746,10 @@ const getBotInterface = tradeEngine => {
          */
         evaluateDigitPercentageDecrease: async options => {
             const opts = normalizeDigitPercentageDecreaseOptions(options || {});
-            const need = opts.analysis_window + 1;
+            if (!tradeEngine.digitPercentageDecreaseState) {
+                tradeEngine.digitPercentageDecreaseState = createDigitPercentageDecreaseState();
+            }
+            const need = opts.analysis_window;
             if (typeof tradeEngine.ensureTickHistory === 'function') {
                 await tradeEngine.ensureTickHistory(need);
             }
@@ -757,10 +761,14 @@ const getBotInterface = tradeEngine => {
             if (!Array.isArray(digits)) {
                 digits = [];
             }
-            const result = runDigitPercentageDecrease(digits, opts);
+            const result = runDigitPercentageDecrease(
+                digits,
+                opts,
+                tradeEngine.digitPercentageDecreaseState
+            );
             const tip =
                 digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
-            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}`;
+            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}:${result.analysis?.reason}`;
             if (
                 tradeEngine._digitPercentageDecreaseJournalFp === fp &&
                 Array.isArray(result.journal_messages)

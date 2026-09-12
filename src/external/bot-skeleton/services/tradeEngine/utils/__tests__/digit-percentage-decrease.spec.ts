@@ -1,4 +1,5 @@
 import {
+    createDigitPercentageDecreaseState,
     detectDigitPercentageDecrease,
     evaluateDigitPercentageDecrease,
     normalizeDigitPercentageDecreaseOptions,
@@ -13,47 +14,74 @@ describe('normalizeDigitPercentageDecreaseOptions', () => {
 });
 
 describe('evaluateDigitPercentageDecrease', () => {
-    it('collects until window+1 ticks', () => {
-        const result = evaluateDigitPercentageDecrease(Array(1000).fill(1), {
+    it('collects until the analysis window is full', () => {
+        const result = evaluateDigitPercentageDecrease(Array(999).fill(1), {
+            analysis_window: 1000,
             journal_enabled: false,
         });
         expect(result.matched).toBe(false);
         expect(result.analysis.ready).toBe(false);
+        expect(result.analysis.need).toBe(1000);
     });
 
-    it('signals Differ on the digit that aged out (0.1pp drop on 1000 window)', () => {
-        // 1000 ticks of digit 5, then tip 7 → digit 5 drops by 0.1%
-        const digits = [...Array(1000).fill(5), 7];
-        const result = evaluateDigitPercentageDecrease(digits, {
+    it('seeds baseline on first full window then signals on next tip decrease', () => {
+        const state = createDigitPercentageDecreaseState();
+        const windowDigits = Array(1000).fill(5);
+
+        const baseline = evaluateDigitPercentageDecrease(windowDigits, {
+            analysis_window: 1000,
+            min_decrease: 0.1,
+            journal_enabled: false,
+        }, state);
+        expect(baseline.matched).toBe(false);
+        expect(baseline.analysis.reason).toBe('baseline_seeded');
+
+        // Slide: drop one 5, add 7 → digit 5 falls by 0.1pp
+        const next = [...windowDigits.slice(1), 7];
+        const result = evaluateDigitPercentageDecrease(next, {
             analysis_window: 1000,
             min_decrease: 0.1,
             journal_enabled: true,
-        });
+        }, state);
+
         expect(result.matched).toBe(true);
         expect(result.prediction).toBe(5);
         expect(result.drop).toBeCloseTo(0.1, 5);
-        expect(result.aged_out).toBe(5);
-        expect(result.aged_in).toBe(7);
     });
 
-    it('does not signal when the same digit rolls through', () => {
-        const digits = [...Array(1000).fill(4), 4];
-        const result = evaluateDigitPercentageDecrease(digits, {
-            analysis_window: 1000,
-            min_decrease: 0.1,
+    it('re-evaluates on each new tip and keeps signal for the same tip', () => {
+        const state = createDigitPercentageDecreaseState();
+        const base = Array(1000).fill(3);
+        evaluateDigitPercentageDecrease(base, { journal_enabled: false }, state);
+
+        const tip1 = [...base.slice(1), 8];
+        const first = evaluateDigitPercentageDecrease(tip1, { journal_enabled: false }, state);
+        expect(first.matched).toBe(true);
+        expect(first.prediction).toBe(3);
+
+        const again = evaluateDigitPercentageDecrease(tip1, { journal_enabled: false }, state);
+        expect(again.matched).toBe(true);
+        expect(again.prediction).toBe(3);
+    });
+
+    it('does not signal when percentages are unchanged', () => {
+        const state = createDigitPercentageDecreaseState();
+        const base = Array(1000).fill(4);
+        evaluateDigitPercentageDecrease(base, { journal_enabled: false }, state);
+        const same = evaluateDigitPercentageDecrease([...base.slice(1), 4], {
             journal_enabled: false,
-        });
-        expect(result.matched).toBe(false);
-        expect(result.prediction).toBe(-1);
+        }, state);
+        expect(same.matched).toBe(false);
     });
 
     it('respects a higher min_decrease threshold', () => {
-        const digits = [...Array(1000).fill(2), 9];
-        const result = detectDigitPercentageDecrease(digits, {
+        const state = createDigitPercentageDecreaseState();
+        const base = Array(1000).fill(2);
+        detectDigitPercentageDecrease(base, { min_decrease: 0.5 }, state);
+        const result = detectDigitPercentageDecrease([...base.slice(1), 9], {
             analysis_window: 1000,
             min_decrease: 0.5,
-            journal_enabled: false,
-        });
+        }, state);
         expect(result.matched).toBe(false);
     });
 });
