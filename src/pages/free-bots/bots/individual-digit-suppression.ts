@@ -1,9 +1,9 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Multi-window digit frequency → suppression vs 10% baseline.
- * Trades Over 1 only; Over 2 / Over 3 analysis still runs and filters Over 1
- * entries where those higher-barrier signals are meaningful (recovery-ready).
+ * Trades Over 1 only; Over 2 / Over 3 analysis filters entries.
+ * Only stake, risk, tick windows, and cooldown are user variables —
+ * strategy thresholds are hardcoded inside the scan block.
  */
 
 const varGet = (id, name) =>
@@ -21,7 +21,6 @@ const setVar = (id, name, valueXml, nextXml = '') =>
       ${nextXml ? `<next>${nextXml}</next>` : ''}
     </block>`;
 
-/** Nest variables_set chain (first = outermost). */
 const chainSets = entries => {
     let xml = '';
     for (let i = entries.length - 1; i >= 0; i--) {
@@ -40,20 +39,9 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
     <variable id="ids_short">Short Window</variable>
     <variable id="ids_medium">Medium Window</variable>
     <variable id="ids_long">Long Window</variable>
-    <variable id="ids_min_supp">Minimum Suppression %</variable>
-    <variable id="ids_mod">Moderate Threshold</variable>
-    <variable id="ids_high">High Suppression Threshold</variable>
-    <variable id="ids_vhigh">Very High Suppression Threshold</variable>
-    <variable id="ids_min_windows">Minimum Confirmation Windows</variable>
-    <variable id="ids_min_score">Minimum Signal Score</variable>
-    <variable id="ids_persist">Require Persistence</variable>
-    <variable id="ids_trend">Require Trend Confirmation</variable>
-    <variable id="ids_cooldown_signal">Cooldown After Signal</variable>
-    <variable id="ids_cooldown_loss">Cooldown After Loss</variable>
-    <variable id="ids_cooldown_win">Cooldown After Win</variable>
+    <variable id="ids_cooldown">Cooldown</variable>
     <variable id="ids_signal">Entry Signal</variable>
     <variable id="ids_prediction">Prediction</variable>
-    <variable id="ids_duration">Trade Duration</variable>
   </variables>
   <block type="trade_definition" id="ids_trade_def" deletable="false" collapsed="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">
@@ -98,18 +86,7 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
           ['ids_short', 'Short Window', num(50)],
           ['ids_medium', 'Medium Window', num(100)],
           ['ids_long', 'Long Window', num(200)],
-          ['ids_min_supp', 'Minimum Suppression %', num(0)],
-          ['ids_mod', 'Moderate Threshold', num(3)],
-          ['ids_high', 'High Suppression Threshold', num(5)],
-          ['ids_vhigh', 'Very High Suppression Threshold', num(7)],
-          ['ids_min_windows', 'Minimum Confirmation Windows', num(2)],
-          ['ids_min_score', 'Minimum Signal Score', num(6)],
-          ['ids_persist', 'Require Persistence', bool(true)],
-          ['ids_trend', 'Require Trend Confirmation', bool(false)],
-          ['ids_cooldown_signal', 'Cooldown After Signal', num(2)],
-          ['ids_cooldown_loss', 'Cooldown After Loss', num(5)],
-          ['ids_cooldown_win', 'Cooldown After Win', num(2)],
-          ['ids_duration', 'Trade Duration', num(1)],
+          ['ids_cooldown', 'Cooldown', num(2)],
           ['ids_signal', 'Entry Signal', bool(false)],
           ['ids_prediction', 'Prediction', num(-1)],
       ])}
@@ -128,17 +105,6 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <value name="SHORT_WINDOW">${varGet('ids_short', 'Short Window')}</value>
                     <value name="MEDIUM_WINDOW">${varGet('ids_medium', 'Medium Window')}</value>
                     <value name="LONG_WINDOW">${varGet('ids_long', 'Long Window')}</value>
-                    <value name="MIN_SUPPRESSION">${varGet('ids_min_supp', 'Minimum Suppression %')}</value>
-                    <value name="MODERATE_THRESHOLD">${varGet('ids_mod', 'Moderate Threshold')}</value>
-                    <value name="HIGH_THRESHOLD">${varGet('ids_high', 'High Suppression Threshold')}</value>
-                    <value name="VERY_HIGH_THRESHOLD">${varGet('ids_vhigh', 'Very High Suppression Threshold')}</value>
-                    <value name="MIN_CONFIRM_WINDOWS">${varGet('ids_min_windows', 'Minimum Confirmation Windows')}</value>
-                    <value name="MIN_SIGNAL_SCORE">${varGet('ids_min_score', 'Minimum Signal Score')}</value>
-                    <value name="REQUIRE_PERSISTENCE">${varGet('ids_persist', 'Require Persistence')}</value>
-                    <value name="REQUIRE_TREND">${varGet('ids_trend', 'Require Trend Confirmation')}</value>
-                    <value name="ENABLE_OVER_1">${bool(true)}</value>
-                    <value name="ENABLE_OVER_2">${bool(true)}</value>
-                    <value name="ENABLE_OVER_3">${bool(true)}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>
@@ -167,14 +133,14 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                 </next>
               </block>
             </statement>
-            <value name="SECONDS">${varGet('ids_cooldown_signal', 'Cooldown After Signal')}</value>
+            <value name="SECONDS">${varGet('ids_cooldown', 'Cooldown')}</value>
           </block>
         </statement>
         <next>
           <block type="trade_definition_tradeoptions" id="ids_tradeopts">
             <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
             <field name="DURATIONTYPE_LIST">t</field>
-            <value name="DURATION">${varGet('ids_duration', 'Trade Duration')}</value>
+            <value name="DURATION">${num(1)}</value>
             <value name="AMOUNT">${varGet('ids_stake', 'Stake')}</value>
             <value name="PREDICTION">${varGet('ids_prediction', 'Prediction')}</value>
           </block>
@@ -231,7 +197,7 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                         <statement name="ELSE"><block type="trade_again"></block></statement>
                       </block>
                     </statement>
-                    <value name="SECONDS">${varGet('ids_cooldown_win', 'Cooldown After Win')}</value>
+                    <value name="SECONDS">${varGet('ids_cooldown', 'Cooldown')}</value>
                   </block>
                 </next>
               </block>
@@ -278,7 +244,7 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <statement name="ELSE"><block type="trade_again"></block></statement>
                   </block>
                 </statement>
-                <value name="SECONDS">${varGet('ids_cooldown_loss', 'Cooldown After Loss')}</value>
+                <value name="SECONDS">${num(5)}</value>
               </block>
             </next>
           </block>

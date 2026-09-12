@@ -1,5 +1,6 @@
 /**
- * Individual Digit Suppression — returns Over barrier (1/2/3) or -1.
+ * Individual Digit Suppression — returns Over barrier 1 or -1.
+ * Strategy thresholds are baked into the generator; users only wire tick windows.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -7,28 +8,20 @@ import { modifyContextMenu } from '../../../utils';
 window.Blockly.Blocks.individual_digit_suppression_scan = {
     init() {
         this.jsonInit(this.definition());
-        this.setInputsInline(false);
+        this.setInputsInline(true);
     },
     definition() {
         return {
-            message0: localize(
-                'digit suppression Over short %1 med %2 long %3 min% %4 mod %5 high %6 vhigh %7 wins %8 score %9 persist %10 trend %11 O1 %12 O2 %13 O3 %14 journal %15'
-            ),
+            message0: localize('digit suppression Over 1 (short %1 med %2 long %3 journal %4)', {
+                short: '%1',
+                med: '%2',
+                long: '%3',
+                journal: '%4',
+            }),
             args0: [
                 { type: 'input_value', name: 'SHORT_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'MEDIUM_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'LONG_WINDOW', check: 'Number' },
-                { type: 'input_value', name: 'MIN_SUPPRESSION', check: 'Number' },
-                { type: 'input_value', name: 'MODERATE_THRESHOLD', check: 'Number' },
-                { type: 'input_value', name: 'HIGH_THRESHOLD', check: 'Number' },
-                { type: 'input_value', name: 'VERY_HIGH_THRESHOLD', check: 'Number' },
-                { type: 'input_value', name: 'MIN_CONFIRM_WINDOWS', check: 'Number' },
-                { type: 'input_value', name: 'MIN_SIGNAL_SCORE', check: 'Number' },
-                { type: 'input_value', name: 'REQUIRE_PERSISTENCE', check: 'Boolean' },
-                { type: 'input_value', name: 'REQUIRE_TREND', check: 'Boolean' },
-                { type: 'input_value', name: 'ENABLE_OVER_1', check: 'Boolean' },
-                { type: 'input_value', name: 'ENABLE_OVER_2', check: 'Boolean' },
-                { type: 'input_value', name: 'ENABLE_OVER_3', check: 'Boolean' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
             output: 'Number',
@@ -37,7 +30,7 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scores Over 1 / 2 / 3 from suppressed losing digits. Trades Over 1 only; Over 2 / Over 3 act as confirmation filters where possible. Returns barrier 1 or -1.'
+                'Scores Over 1 / 2 / 3 from suppressed digits, trades Over 1 only, and uses Over 2 / Over 3 as filters. Returns 1 or -1.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -46,9 +39,9 @@ window.Blockly.Blocks.individual_digit_suppression_scan = {
         return {
             display_name: localize('Individual Digit Suppression scan'),
             description: localize(
-                'Finds digits under the 10% baseline across configurable tick windows and ranks Over 1 / Over 2 / Over 3 confirmations.'
+                'Finds digits under the 10% baseline across Short/Medium/Long windows. Over 1 only; Over 2 / Over 3 filter entries.'
             ),
-            key_words: localize('suppression, digit, over, frequency, persistence, dashboard'),
+            key_words: localize('suppression, digit, over, frequency, persistence'),
         };
     },
     customContextMenu(menu) {
@@ -64,22 +57,23 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.individual_digit_suppress
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
         );
 
+    // Internal strategy defaults (not exposed as workspace variables).
     const code = `(function () {
         var BinaryBotPrivateIdsResult = Bot.evaluateIndividualDigitSuppression({
             short_window: ${read('SHORT_WINDOW') || '50'},
             medium_window: ${read('MEDIUM_WINDOW') || '100'},
             long_window: ${read('LONG_WINDOW') || '200'},
-            min_suppression: ${read('MIN_SUPPRESSION') || '0'},
-            moderate_threshold: ${read('MODERATE_THRESHOLD') || '3'},
-            high_threshold: ${read('HIGH_THRESHOLD') || '5'},
-            very_high_threshold: ${read('VERY_HIGH_THRESHOLD') || '7'},
-            min_confirm_windows: ${read('MIN_CONFIRM_WINDOWS') || '2'},
-            min_signal_score: ${read('MIN_SIGNAL_SCORE') || '6'},
-            require_persistence: ${read('REQUIRE_PERSISTENCE') || 'true'},
-            require_trend: ${read('REQUIRE_TREND') || 'false'},
-            enable_over_1: ${read('ENABLE_OVER_1') || 'true'},
-            enable_over_2: ${read('ENABLE_OVER_2') || 'true'},
-            enable_over_3: ${read('ENABLE_OVER_3') || 'true'},
+            min_suppression: 0,
+            moderate_threshold: 3,
+            high_threshold: 5,
+            very_high_threshold: 7,
+            min_confirm_windows: 2,
+            min_signal_score: 6,
+            require_persistence: true,
+            require_trend: false,
+            enable_over_1: true,
+            enable_over_2: true,
+            enable_over_3: true,
             trade_barrier: 1,
             journal_enabled: ${read('JOURNAL') || 'true'}
         });
