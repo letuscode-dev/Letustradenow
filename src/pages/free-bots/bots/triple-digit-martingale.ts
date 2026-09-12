@@ -2,7 +2,8 @@
  * Multi-volatility Triple-digit Martingale free bot.
  *
  * Signal (same as Martingale.xml): last 3 digits equal → Digit Differs on the
- * 4th-from-end digit. Scans only the volatilities the user selected.
+ * 4th-from-end digit. Defaults can be changed in Bot Builder (Selected Symbols,
+ * Stake, Martingale Size, Take Profit, Stop Loss).
  */
 
 export type TripleDigitMartingaleParams = {
