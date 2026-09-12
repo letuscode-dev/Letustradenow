@@ -72,7 +72,7 @@ const FreeBots = () => {
                     <Localize i18n_default_text='Free Bots' />
                 </h2>
                 <p className='free-bots__subtitle'>
-                    <Localize i18n_default_text='Load a ready-made bot into Bot Builder to configure and run it.' />
+                    <Localize i18n_default_text='Choose a strategy, load it into Bot Builder, then configure and run.' />
                 </p>
             </header>
 
@@ -83,49 +83,50 @@ const FreeBots = () => {
                     </p>
                 </div>
             ) : (
-                <ul className='free-bots__list'>
+                <ul className='free-bots__grid'>
                     {FREE_BOTS.map((bot, index) => {
                         const is_busy = busy_id === bot.id;
                         const status = status_by_id[bot.id];
                         const bot_number = index + 1;
 
                         return (
-                            <li key={bot.id} className='free-bots__row'>
-                                <div className='free-bots__row-main'>
-                                    <div className='free-bots__row-info'>
-                                        <span
-                                            className='free-bots__row-number'
-                                            aria-label={localize('Bot {{number}}', { number: bot_number })}
-                                        >
-                                            {bot_number}
-                                        </span>
-                                        <span className='free-bots__row-copy'>
-                                            <span className='free-bots__row-title'>{bot.title}</span>
-                                            <span className='free-bots__row-desc'>{bot.description}</span>
-                                            {!!bot.tags?.length && (
-                                                <span className='free-bots__tags'>
-                                                    {bot.tags.map(tag => (
-                                                        <span key={tag} className='free-bots__tag'>
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className='free-bots__row-actions'>
-                                        <Button
-                                            className='free-bots__button'
-                                            is_disabled={is_busy || run_panel.is_running}
-                                            onClick={() => loadBot(bot)}
-                                            primary
-                                            type='button'
-                                        >
-                                            {localize('Load')}
-                                        </Button>
-                                    </div>
+                            <li key={bot.id} className='free-bots__card'>
+                                <div className='free-bots__card-top'>
+                                    <span
+                                        className='free-bots__badge'
+                                        aria-label={localize('Bot {{number}}', { number: bot_number })}
+                                    >
+                                        {bot_number}
+                                    </span>
+                                    <h3 className='free-bots__card-title'>{bot.title}</h3>
                                 </div>
-                                {status && <div className='free-bots__status'>{status}</div>}
+
+                                <p className='free-bots__card-desc'>{bot.description}</p>
+
+                                {!!bot.tags?.length && (
+                                    <ul className='free-bots__tags' aria-label={localize('Tags')}>
+                                        {bot.tags.map(tag => (
+                                            <li key={tag} className='free-bots__tag'>
+                                                {tag}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                <div className='free-bots__card-footer'>
+                                    {status && <p className='free-bots__status'>{status}</p>}
+                                    <Button
+                                        className='free-bots__button'
+                                        is_disabled={is_busy || run_panel.is_running}
+                                        onClick={() => loadBot(bot)}
+                                        primary
+                                        type='button'
+                                    >
+                                        {is_busy
+                                            ? localize('Loading...')
+                                            : localize('Load into Bot Builder')}
+                                    </Button>
+                                </div>
                             </li>
                         );
                     })}
