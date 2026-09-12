@@ -39,8 +39,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'individual-digit-suppression-v1',
         title: 'Individual Digit Suppression Strategy',
         description:
-            'Finds digits under the 10% baseline across Short/Medium/Long windows, ranks Over 1 / 2 / 3 confirmations, and journals a live suppression dashboard. Configure all thresholds in Bot Builder.',
-        tags: ['Over', 'Suppression', 'Multi-window'],
+            'Trades Over 1 only when digits 0–1 stay under the 10% baseline across Short/Medium/Long windows. Journals a suppression dashboard; thresholds are editable in Bot Builder (Over 2/3 disabled for a future recovery layer).',
+        tags: ['Over 1', 'Suppression', 'Multi-window'],
         xml: INDIVIDUAL_DIGIT_SUPPRESSION_XML,
     },
 ];

@@ -1,8 +1,9 @@
 /**
  * Individual Digit Suppression Strategy free bot.
  *
- * Multi-window digit frequency → suppression vs 10% baseline → ranked
- * Over 1 / Over 2 / Over 3 confirmation. All thresholds are Bot Builder variables.
+ * Multi-window digit frequency → suppression vs 10% baseline → Over 1 only
+ * (losing digits 0–1). Locked to Over 1 so a future recovery layer can stay
+ * on a single contract type. Thresholds remain Bot Builder variables.
  */
 
 const varGet = (id, name) =>
@@ -47,9 +48,6 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
     <variable id="ids_min_score">Minimum Signal Score</variable>
     <variable id="ids_persist">Require Persistence</variable>
     <variable id="ids_trend">Require Trend Confirmation</variable>
-    <variable id="ids_o1">Enable Over 1</variable>
-    <variable id="ids_o2">Enable Over 2</variable>
-    <variable id="ids_o3">Enable Over 3</variable>
     <variable id="ids_cooldown_signal">Cooldown After Signal</variable>
     <variable id="ids_cooldown_loss">Cooldown After Loss</variable>
     <variable id="ids_cooldown_win">Cooldown After Win</variable>
@@ -108,9 +106,6 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
           ['ids_min_score', 'Minimum Signal Score', num(6)],
           ['ids_persist', 'Require Persistence', bool(true)],
           ['ids_trend', 'Require Trend Confirmation', bool(false)],
-          ['ids_o1', 'Enable Over 1', bool(true)],
-          ['ids_o2', 'Enable Over 2', bool(true)],
-          ['ids_o3', 'Enable Over 3', bool(true)],
           ['ids_cooldown_signal', 'Cooldown After Signal', num(2)],
           ['ids_cooldown_loss', 'Cooldown After Loss', num(5)],
           ['ids_cooldown_win', 'Cooldown After Win', num(2)],
@@ -141,9 +136,9 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                     <value name="MIN_SIGNAL_SCORE">${varGet('ids_min_score', 'Minimum Signal Score')}</value>
                     <value name="REQUIRE_PERSISTENCE">${varGet('ids_persist', 'Require Persistence')}</value>
                     <value name="REQUIRE_TREND">${varGet('ids_trend', 'Require Trend Confirmation')}</value>
-                    <value name="ENABLE_OVER_1">${varGet('ids_o1', 'Enable Over 1')}</value>
-                    <value name="ENABLE_OVER_2">${varGet('ids_o2', 'Enable Over 2')}</value>
-                    <value name="ENABLE_OVER_3">${varGet('ids_o3', 'Enable Over 3')}</value>
+                    <value name="ENABLE_OVER_1">${bool(true)}</value>
+                    <value name="ENABLE_OVER_2">${bool(false)}</value>
+                    <value name="ENABLE_OVER_3">${bool(false)}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>
@@ -151,15 +146,21 @@ export const INDIVIDUAL_DIGIT_SUPPRESSION_XML = `<xml xmlns="https://developers.
                   <block type="controls_if" id="ids_if_hit">
                     <value name="IF0">
                       <block type="logic_compare">
-                        <field name="OP">GTE</field>
+                        <field name="OP">EQ</field>
                         <value name="A">${varGet('ids_prediction', 'Prediction')}</value>
                         <value name="B">${num(1)}</value>
                       </block>
                     </value>
                     <statement name="DO0">
                       <block type="variables_set">
-                        <field name="VAR" id="ids_signal">Entry Signal</field>
-                        <value name="VALUE">${bool(true)}</value>
+                        <field name="VAR" id="ids_prediction">Prediction</field>
+                        <value name="VALUE">${num(1)}</value>
+                        <next>
+                          <block type="variables_set">
+                            <field name="VAR" id="ids_signal">Entry Signal</field>
+                            <value name="VALUE">${bool(true)}</value>
+                          </block>
+                        </next>
                       </block>
                     </statement>
                   </block>
