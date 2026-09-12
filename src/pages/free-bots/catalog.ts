@@ -39,8 +39,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'percentage-reversal-v1',
         title: 'Percentage Reversal',
         description:
-            'Scans Selected Symbols for digit percentage regime changes (dominance → collapse) and trades Digit Differs on the strongest match, switching market when needed. Windows, thresholds, martingale, and TP/SL are configurable in Bot Builder.',
-        tags: ['Differs', 'Percentage', 'Multi-market'],
+            'Scans Selected Symbols for digit percentage regime changes (dominance → collapse) and trades Digit Differs on the strongest match, switching market when needed. Default martingale is 10.5; windows, thresholds, martingale, and TP/SL are configurable in Bot Builder.',
+        tags: ['Differs', 'Percentage', 'Martingale', 'Multi-market'],
         xml: PERCENTAGE_REVERSAL_XML,
     },
 ];

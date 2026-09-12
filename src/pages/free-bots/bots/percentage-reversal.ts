@@ -144,7 +144,7 @@ export const buildPercentageReversalXml = (selected_symbols: string[] = []) => {
           ['pr_symbols', 'Selected Symbols', text(symbols_csv)],
           ['pr_stake', 'Stake', num(0.5)],
           ['pr_base_stake', 'Base Stake', num(0.5)],
-          ['pr_martingale', 'Martingale', num(2)],
+          ['pr_martingale', 'Martingale', num(10.5)],
           ['pr_take_profit', 'Take Profit', num(20)],
           ['pr_stop_loss', 'Stop Loss', num(50)],
           ['pr_short', 'Short Window', num(50)],
