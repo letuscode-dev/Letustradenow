@@ -54,6 +54,7 @@ export const createDigitPercentageDecreaseState = () => ({
     prev_percentages: null,
     prev_counts: null,
     last_result: null,
+    consumed_key: '',
 });
 
 export const resetDigitPercentageDecreaseState = state => {
@@ -62,7 +63,18 @@ export const resetDigitPercentageDecreaseState = state => {
     next.prev_percentages = null;
     next.prev_counts = null;
     next.last_result = null;
+    next.consumed_key = '';
     return next;
+};
+
+export const makeDigitPercentageDecreaseSignalKey = (result, tip_fp) => {
+    if (!result?.matched || result.prediction < 0) return '';
+    return `${tip_fp}:${result.prediction}:${Math.round(Number(result.drop) * 1000)}`;
+};
+
+export const isDigitPercentageDecreaseSignalConsumed = (result, tip_fp, consumed_key) => {
+    if (!result?.matched || !consumed_key) return false;
+    return makeDigitPercentageDecreaseSignalKey(result, tip_fp) === consumed_key;
 };
 
 export const computeDigitPercentages = sample => {

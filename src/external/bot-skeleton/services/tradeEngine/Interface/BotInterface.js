@@ -110,7 +110,10 @@ import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
     createDigitPercentageDecreaseState,
     evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
+    isDigitPercentageDecreaseSignalConsumed,
+    makeDigitPercentageDecreaseSignalKey,
     normalizeDigitPercentageDecreaseOptions,
+    resetDigitPercentageDecreaseState,
 } from '../utils/digit-percentage-decrease';
 import {
     createRangeMomentumState,
@@ -200,6 +203,12 @@ const getBotInterface = tradeEngine => {
             tradeEngine._patternSwitchLastJournalFp = null;
             tradeEngine._tripleDigitMartingaleLastJournalFp = null;
             tradeEngine._tripleDigitMartingaleConsumedKey = null;
+            if (tradeEngine.digitPercentageDecreaseState) {
+                resetDigitPercentageDecreaseState(tradeEngine.digitPercentageDecreaseState);
+                tradeEngine.digitPercentageDecreaseState = null;
+            }
+            tradeEngine._digitPercentageDecreaseJournalFp = null;
+            tradeEngine._digitPercentageDecreaseConsumedKey = null;
             if (tradeEngine.strategyVotingState) {
                 resetStrategyVotingState(tradeEngine.strategyVotingState);
                 tradeEngine.strategyVotingState = null;
@@ -530,15 +539,39 @@ const getBotInterface = tradeEngine => {
             );
             const tip =
                 digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
-            const fp = `${tip}:${result.prediction}:${result.drop}:${result.matched}:${result.analysis?.reason}`;
+            const tip_fp = tip;
+            const skipped_consumed = isDigitPercentageDecreaseSignalConsumed(
+                result,
+                tip_fp,
+                tradeEngine._digitPercentageDecreaseConsumedKey
+            );
+            const tradeable =
+                result.matched && !skipped_consumed
+                    ? result
+                    : {
+                          ...result,
+                          matched: false,
+                          allowed: false,
+                          prediction: -1,
+                          barrier: -1,
+                          digit: -1,
+                          reason: skipped_consumed ? 'consumed' : result.analysis?.reason,
+                      };
+            if (tradeable.matched) {
+                tradeEngine._digitPercentageDecreaseConsumedKey = makeDigitPercentageDecreaseSignalKey(
+                    tradeable,
+                    tip_fp
+                );
+            }
+            const fp = `${tip}:${tradeable.prediction}:${tradeable.drop}:${tradeable.matched}:${tradeable.reason || result.analysis?.reason}`;
             if (
                 tradeEngine._digitPercentageDecreaseJournalFp === fp &&
-                Array.isArray(result.journal_messages)
+                Array.isArray(tradeable.journal_messages)
             ) {
-                return { ...result, journal_messages: [] };
+                return { ...tradeable, journal_messages: [] };
             }
             tradeEngine._digitPercentageDecreaseJournalFp = fp;
-            return result;
+            return tradeable;
         },
         /**
          * Triple-digit Martingale — last 3 equal → Differs 4th-from-end across selected volatilities.
@@ -598,7 +631,6 @@ const getBotInterface = tradeEngine => {
                         ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
                         : [];
                     if (
-                        symbol === active_symbol &&
                         (!Array.isArray(digits) || digits.length < need) &&
                         typeof tradeEngine.getDigitsForSymbol === 'function'
                     ) {

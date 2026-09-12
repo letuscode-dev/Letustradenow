@@ -1,24 +1,27 @@
 /**
  * Shared Free Bot risk helper:
  * When "Martingale Off When Profit > Stake" is true and session total profit
- * exceeds Stake, loss recovery uses multiplier 1 instead of Martingale.
+ * exceeds Base Stake, loss recovery uses multiplier 1 instead of Martingale.
  */
 
 export const PROTECT_PROFIT_VAR_NAME = 'Martingale Off When Profit > Stake';
 
-/** Ternary multiplier: protect && total_profit > stake ? 1 : martingale */
+/**
+ * Ternary multiplier: protect && total_profit > compare_stake ? 1 : martingale
+ * compare_stake should be Base Stake (not the inflated current Stake).
+ */
 export const protectedMartingaleMultiplierXml = ({
     protect_id,
     protect_name = PROTECT_PROFIT_VAR_NAME,
-    stake_id,
-    stake_name = 'Stake',
+    compare_stake_id,
+    compare_stake_name = 'Base Stake',
     martingale_id,
     martingale_name,
 }: {
     protect_id: string;
     protect_name?: string;
-    stake_id: string;
-    stake_name?: string;
+    compare_stake_id: string;
+    compare_stake_name?: string;
     martingale_id: string;
     martingale_name: string;
 }) => `<block type="logic_ternary">
@@ -28,7 +31,7 @@ export const protectedMartingaleMultiplierXml = ({
       <value name="B">
         <block type="logic_compare"><field name="OP">GT</field>
           <value name="A"><block type="total_profit"></block></value>
-          <value name="B"><block type="variables_get"><field name="VAR" id="${stake_id}">${stake_name}</field></block></value>
+          <value name="B"><block type="variables_get"><field name="VAR" id="${compare_stake_id}">${compare_stake_name}</field></block></value>
         </block>
       </value>
     </block>

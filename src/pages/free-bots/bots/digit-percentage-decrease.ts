@@ -35,7 +35,8 @@ const chainSets = (entries, tailXml = '') => {
 const lossMultiplier = () =>
     protectedMartingaleMultiplierXml({
         protect_id: 'dpd_protect',
-        stake_id: 'dpd_stake',
+        compare_stake_id: 'dpd_base_stake',
+        compare_stake_name: 'Base Stake',
         martingale_id: 'dpd_martingale',
         martingale_name: 'Martingale',
     });
@@ -144,7 +145,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
           wrapCollapsedAdvancedInit(
               'dpd',
               chainSets([
-                  ['dpd_base_stake', 'Base Stake', num(0.5)],
+                  ['dpd_base_stake', 'Base Stake', varGet('dpd_stake', 'Stake')],
                   ['dpd_cooldown_signal', 'Cooldown After Signal', num(2)],
                   ['dpd_cooldown_loss', 'Cooldown After Loss', num(5)],
                   ['dpd_cooldown_win', 'Cooldown After Win', num(2)],

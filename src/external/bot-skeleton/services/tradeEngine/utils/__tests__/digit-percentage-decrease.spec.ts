@@ -2,6 +2,8 @@ import {
     createDigitPercentageDecreaseState,
     detectDigitPercentageDecrease,
     evaluateDigitPercentageDecrease,
+    isDigitPercentageDecreaseSignalConsumed,
+    makeDigitPercentageDecreaseSignalKey,
     normalizeDigitPercentageDecreaseOptions,
 } from '../digit-percentage-decrease';
 
@@ -83,5 +85,17 @@ describe('evaluateDigitPercentageDecrease', () => {
             min_decrease: 0.5,
         }, state);
         expect(result.matched).toBe(false);
+    });
+
+    it('builds a stable consume key for the same tip signal', () => {
+        const tip_fp = '1000:7';
+        const result = { matched: true, prediction: 5, drop: 0.1 };
+        const key = makeDigitPercentageDecreaseSignalKey(result, tip_fp);
+        expect(key).toContain('5');
+        expect(isDigitPercentageDecreaseSignalConsumed(result, tip_fp, key)).toBe(true);
+        expect(isDigitPercentageDecreaseSignalConsumed(result, tip_fp, '')).toBe(false);
+        expect(
+            isDigitPercentageDecreaseSignalConsumed(result, '1001:8', key)
+        ).toBe(false);
     });
 });

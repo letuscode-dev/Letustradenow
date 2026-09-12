@@ -130,7 +130,7 @@ ${wrapCollapsedAdvancedInit(
     'tdm',
     `<block type="variables_set" id="tdm_init_base">
       <field name="VAR" id="tdm_base_stake">Base Stake</field>
-      <value name="VALUE"><block type="math_number"><field name="NUM">${stake}</field></block></value>
+      <value name="VALUE"><block type="variables_get"><field name="VAR" id="tdm_stake">Stake</field></block></value>
       <next>
         <block type="variables_set" id="tdm_init_duration">
           <field name="VAR" id="tdm_duration">Trade Duration</field>
@@ -238,7 +238,8 @@ ${wrapCollapsedAdvancedInit(
                 <value name="A"><block type="variables_get"><field name="VAR" id="tdm_stake">Stake</field></block></value>
                 <value name="B">${protectedMartingaleMultiplierXml({
                     protect_id: 'tdm_protect',
-                    stake_id: 'tdm_stake',
+                    compare_stake_id: 'tdm_base_stake',
+                    compare_stake_name: 'Base Stake',
                     martingale_id: 'tdm_size',
                     martingale_name: 'Martingale Size',
                 })}</value>

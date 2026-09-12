@@ -92,7 +92,7 @@ ${wrapCollapsedAdvancedInit(
     'kp',
     `<block type="variables_set" id="kp_set_base">
       <field name="VAR" id="kp_base_stake">Base Stake</field>
-      <value name="VALUE"><block type="math_number"><field name="NUM">0.5</field></block></value>
+      <value name="VALUE"><block type="variables_get"><field name="VAR" id="kp_stake">Stake</field></block></value>
       <next>
         <block type="variables_set" id="kp_set_sig">
           <field name="VAR" id="kp_signal">Entry Signal</field>
@@ -264,7 +264,8 @@ ${wrapCollapsedAdvancedInit(
                 <value name="A"><block type="variables_get"><field name="VAR" id="kp_stake">Stake</field></block></value>
                 <value name="B">${protectedMartingaleMultiplierXml({
                     protect_id: 'kp_protect',
-                    stake_id: 'kp_stake',
+                    compare_stake_id: 'kp_base_stake',
+                    compare_stake_name: 'Base Stake',
                     martingale_id: 'kp_martingale',
                     martingale_name: 'Martingale',
                 })}</value>

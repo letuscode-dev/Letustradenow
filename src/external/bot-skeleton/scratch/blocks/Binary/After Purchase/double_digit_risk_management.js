@@ -58,7 +58,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.double_digit_risk_managem
         var BinaryBotPrivateDdrSessionProfit = Number(Bot.getSessionProfit(false));
         var BinaryBotPrivateDdrProtect = ${protect_profit} === true || ${protect_profit} === 1 || ${protect_profit} === 'TRUE' || ${protect_profit} === 'true';
         var BinaryBotPrivateDdrMg = Number(${recovery_multiplier});
-        if (BinaryBotPrivateDdrProtect && BinaryBotPrivateDdrSessionProfit > Number(${stake})) {
+        if (BinaryBotPrivateDdrProtect && BinaryBotPrivateDdrSessionProfit > Number(${base_stake})) {
             BinaryBotPrivateDdrMg = 1;
         }
         if (${recovery_pending}) {
