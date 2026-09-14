@@ -360,7 +360,12 @@ export default Engine =>
             if (this.data) {
                 this.data.proposals = [];
             }
-            await this.watchTicks(next);
+            try {
+                await this.watchTicks(next);
+            } catch (e) {
+                // Proposal uses options.symbol. A failed tick watch must not undo the switch.
+                this.symbol = next;
+            }
 
             try {
                 const Blockly = typeof window !== 'undefined' ? window.Blockly : null;

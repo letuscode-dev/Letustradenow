@@ -79,6 +79,7 @@ export const resetDigitPercentageDecreaseState = state => {
     next.last_result = null;
     next.consumed_key = '';
     next.by_symbol = {};
+    next.last_traded_symbol = '';
     return next;
 };
 
@@ -89,6 +90,7 @@ export const makeDigitPercentageDecreaseSignalKey = (result, tip_fp) => {
 
 export const createDigitPercentageDecreaseRuntime = () => ({
     by_symbol: {},
+    last_traded_symbol: '',
 });
 
 export const getDigitPercentageDecreaseSymbolState = (runtime, symbol) => {
@@ -104,15 +106,35 @@ export const getDigitPercentageDecreaseSymbolState = (runtime, symbol) => {
     return runtime.by_symbol[symbol];
 };
 
-export const pickBestDigitPercentageDecreaseMatch = evaluations => {
+export const pickBestDigitPercentageDecreaseMatch = (evaluations, options = {}) => {
     if (!Array.isArray(evaluations)) return null;
-    let best = null;
+    const last_symbol = String(options.last_symbol || '');
+    const symbol_order = Array.isArray(options.symbol_order) ? options.symbol_order : [];
+    const order_index = symbol => {
+        const idx = symbol_order.indexOf(symbol);
+        return idx < 0 ? Number.MAX_SAFE_INTEGER : idx;
+    };
+    const matches = [];
     for (let i = 0; i < evaluations.length; i++) {
         const item = evaluations[i];
         if (!item?.matched || item.prediction < 0) continue;
-        if (!best || item.drop > best.drop) best = item;
+        matches.push(item);
     }
-    return best;
+    if (!matches.length) return null;
+
+    let best_drop = Number(matches[0].drop) || 0;
+    for (let i = 1; i < matches.length; i++) {
+        const drop = Number(matches[i].drop) || 0;
+        if (drop > best_drop) best_drop = drop;
+    }
+    const tied = matches
+        .filter(item => Math.abs((Number(item.drop) || 0) - best_drop) <= 1e-9)
+        .sort((a, b) => order_index(a.symbol) - order_index(b.symbol) || String(a.symbol).localeCompare(String(b.symbol)));
+    if (tied.length === 1 || !last_symbol) return tied[0];
+
+    const last_pos = order_index(last_symbol);
+    const next = tied.find(item => order_index(item.symbol) > last_pos);
+    return next || tied[0];
 };
 
 export const isDigitPercentageDecreaseSignalConsumed = (result, tip_fp, consumed_key) => {
@@ -166,7 +188,8 @@ export const detectDigitPercentageDecrease = (
     const need = window;
     const ready = cleaned.length >= need;
     const tip = cleaned.length ? cleaned[cleaned.length - 1] : null;
-    const tip_fp = `${cleaned.length}:${tip}`;
+    const tip_key = raw_options.tip_key != null && raw_options.tip_key !== '' ? String(raw_options.tip_key) : '';
+    const tip_fp = tip_key || `${cleaned.length}:${tip}`;
 
     if (!ready) {
         const collecting = emptyCollecting(options, cleaned.length, need);

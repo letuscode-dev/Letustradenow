@@ -78,6 +78,18 @@ describe('evaluateDigitPercentageDecrease', () => {
         expect(same.matched).toBe(false);
     });
 
+    it('re-evaluates when the tick identity changes even if the last digit repeats', () => {
+        const state = createDigitPercentageDecreaseState();
+        const base = Array(1000).fill(4);
+        evaluateDigitPercentageDecrease(base, { journal_enabled: false, tip_key: '1HZ15V:1' }, state);
+        const next = evaluateDigitPercentageDecrease([...base.slice(1), 4], {
+            journal_enabled: false,
+            tip_key: '1HZ15V:2',
+        }, state);
+        expect(next.matched).toBe(false);
+        expect(next.analysis?.reason).toBe('no_decrease');
+    });
+
     it('respects a higher min_decrease threshold', () => {
         const state = createDigitPercentageDecreaseState();
         const base = Array(1000).fill(2);
@@ -102,6 +114,32 @@ describe('evaluateDigitPercentageDecrease', () => {
         ]);
         expect(best?.symbol).toBe('R_25');
         expect(best?.prediction).toBe(7);
+    });
+
+    it('rotates equal drops across the configured symbol list', () => {
+        const evaluations = [
+            { matched: true, prediction: 1, drop: 0.1, symbol: '1HZ50V' },
+            { matched: true, prediction: 2, drop: 0.1, symbol: '1HZ15V' },
+            { matched: true, prediction: 3, drop: 0.1, symbol: '1HZ75V' },
+        ];
+        const symbol_order = ['1HZ50V', '1HZ15V', '1HZ75V'];
+        const first = pickBestDigitPercentageDecreaseMatch(evaluations, { symbol_order });
+        expect(first?.symbol).toBe('1HZ50V');
+        const second = pickBestDigitPercentageDecreaseMatch(evaluations, {
+            symbol_order,
+            last_symbol: '1HZ50V',
+        });
+        expect(second?.symbol).toBe('1HZ15V');
+        const third = pickBestDigitPercentageDecreaseMatch(evaluations, {
+            symbol_order,
+            last_symbol: '1HZ15V',
+        });
+        expect(third?.symbol).toBe('1HZ75V');
+        const wrapped = pickBestDigitPercentageDecreaseMatch(evaluations, {
+            symbol_order,
+            last_symbol: '1HZ75V',
+        });
+        expect(wrapped?.symbol).toBe('1HZ50V');
     });
 
     it('builds a stable consume key for the same tip signal', () => {

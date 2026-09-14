@@ -34,6 +34,26 @@ const updateTicks = (ticks, newTick) => {
     return [...ticks.slice(1), newTick];
 };
 
+/**
+ * Merge tick snapshots by epoch. A short warm/refresh must not wipe a longer
+ * analysis window (e.g. 25 live ticks replacing a 1000-tick history fill).
+ */
+const mergeTickHistory = (existing, incoming, cap = 1000) => {
+    const left = Array.isArray(existing) ? existing : [];
+    const right = Array.isArray(incoming) ? incoming : [];
+    if (!right.length) return left;
+    if (!left.length) return right.slice(-cap);
+
+    const by_epoch = new Map();
+    const push = tick => {
+        if (!tick || tick.epoch == null || !Number.isFinite(Number(tick.epoch))) return;
+        by_epoch.set(Number(tick.epoch), tick);
+    };
+    left.forEach(push);
+    right.forEach(push);
+    return [...by_epoch.values()].sort((a, b) => Number(a.epoch) - Number(b.epoch)).slice(-cap);
+};
+
 const updateCandles = (candles, ohlc) => {
     const lastCandle = getLast(candles);
     if (
@@ -387,11 +407,7 @@ export default class TicksService {
                     return existing;
                 }
 
-                const last_history_epoch = Number(history[history.length - 1]?.epoch);
-                const newer_live = Array.isArray(existing)
-                    ? existing.filter(tick => Number(tick?.epoch) > last_history_epoch)
-                    : [];
-                const merged = [...history, ...newer_live].slice(-1000);
+                const merged = mergeTickHistory(existing, history);
                 this.updateTicksAndCallListeners(symbol, merged);
                 return merged;
             })
@@ -464,11 +480,7 @@ export default class TicksService {
                 }
 
                 const existing = this.getCachedTicks(symbol) || [];
-                const last_history_epoch = Number(history[history.length - 1]?.epoch);
-                const newer_live = Array.isArray(existing)
-                    ? existing.filter(tick => Number(tick?.epoch) > last_history_epoch)
-                    : [];
-                const merged = [...history, ...newer_live].slice(-1000);
+                const merged = mergeTickHistory(existing, history);
                 this.updateTicksAndCallListeners(symbol, merged);
                 this._noteScanTip(symbol);
                 return merged;
@@ -684,7 +696,8 @@ export default class TicksService {
             const response = await api_base.api.send(request_object);
             const history = historyToTicks(response?.history);
             if (Array.isArray(history) && history.length) {
-                this.updateTicksAndCallListeners(symbol, history);
+                const existing = this.getCachedTicks(symbol) || [];
+                this.updateTicksAndCallListeners(symbol, mergeTickHistory(existing, history));
             }
             if (response?.subscription?.id) {
                 this.subscriptions = this.subscriptions.setIn(['tick', symbol], response.subscription.id);

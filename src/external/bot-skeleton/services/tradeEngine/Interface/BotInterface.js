@@ -551,49 +551,58 @@ const getBotInterface = tradeEngine => {
                 };
             }
 
+            // Subscribe every configured market, then fill a full analysis window.
+            // A 25-tick warm or 50-tick refresh left only the trade-definition
+            // market (1HZ50V) ready, so the bot never left that symbol.
             if (ticks_service?.warmScanStreams) {
-                ticks_service.warmScanStreams(ordered).catch(() => {});
-            }
-            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
                 try {
-                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
+                    await ticks_service.warmScanStreams(ordered);
                 } catch (e) {
-                    // keep prior caches
+                    // history fill below can still seed the window
                 }
             }
 
-            const evaluations = await Promise.all(
-                ordered.map(async symbol => {
-                    if (ticks_service?._noteScanTip) {
-                        ticks_service._noteScanTip(symbol);
-                    }
-                    let digits = tradeEngine.getCachedDigitsForSymbol
+            if (typeof tradeEngine.ensureDigitsForSymbol === 'function') {
+                for (let i = 0; i < ordered.length; i++) {
+                    const symbol = ordered[i];
+                    const cached = tradeEngine.getCachedDigitsForSymbol
                         ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
                         : [];
-                    if (
-                        (!Array.isArray(digits) || digits.length < need) &&
-                        typeof tradeEngine.getDigitsForSymbol === 'function'
-                    ) {
+                    if (!Array.isArray(cached) || cached.length < need) {
                         try {
-                            digits = await tradeEngine.getDigitsForSymbol(symbol, need);
+                            await tradeEngine.ensureDigitsForSymbol(symbol, need);
                         } catch (e) {
-                            digits = Array.isArray(digits) ? digits : [];
+                            // keep prior cache; this symbol stays collecting
                         }
                     }
-                    const result = runDigitPercentageDecrease(
-                        digits,
-                        { ...opts, journal_enabled: false },
-                        getDigitPercentageDecreaseSymbolState(runtime, symbol)
-                    );
-                    const tip =
-                        Array.isArray(digits) && digits.length
-                            ? `${digits[digits.length - 1]}:${digits.length}`
-                            : 'empty';
-                    return { ...result, symbol, tip_fp: tip };
-                })
-            );
+                }
+            }
 
-            const raw_match = pickBestDigitPercentageDecreaseMatch(evaluations);
+            const evaluations = ordered.map(symbol => {
+                if (ticks_service?._noteScanTip) {
+                    ticks_service._noteScanTip(symbol);
+                }
+                const digits = tradeEngine.getCachedDigitsForSymbol
+                    ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
+                    : [];
+                const ticks = ticks_service?.getCachedTicks ? ticks_service.getCachedTicks(symbol) || [] : [];
+                const latest = ticks.length ? ticks[ticks.length - 1] : null;
+                const tip_key =
+                    latest?.epoch != null
+                        ? `${symbol}:${latest.epoch}`
+                        : `${symbol}:${digits.length}:${digits[digits.length - 1] ?? ''}`;
+                const result = runDigitPercentageDecrease(
+                    digits,
+                    { ...opts, journal_enabled: false, tip_key },
+                    getDigitPercentageDecreaseSymbolState(runtime, symbol)
+                );
+                return { ...result, symbol, tip_fp: tip_key };
+            });
+
+            const raw_match = pickBestDigitPercentageDecreaseMatch(evaluations, {
+                last_symbol: runtime.last_traded_symbol || '',
+                symbol_order: symbols.length ? symbols : ordered,
+            });
             const tip_fp = raw_match?.tip_fp || 'empty';
             const skipped_consumed = isDigitPercentageDecreaseSignalConsumed(
                 raw_match,
@@ -625,6 +634,7 @@ const getBotInterface = tradeEngine => {
 
             const tradeable = match?.matched && !switch_failed ? match : null;
             if (tradeable) {
+                runtime.last_traded_symbol = tradeable.symbol || '';
                 tradeEngine._digitPercentageDecreaseConsumedKey = makeDigitPercentageDecreaseSignalKey(
                     tradeable,
                     tradeable.tip_fp || tip_fp
@@ -651,7 +661,6 @@ const getBotInterface = tradeEngine => {
                                 : `${item.analysis?.tick_count || 0}/${need}`;
                             return `${item.symbol}:${label}`;
                         })
-                        .slice(0, 5)
                         .join(' | ');
                     const watch_fp = `watch:${watching}`;
                     if (tradeEngine._digitPercentageDecreaseJournalFp !== watch_fp) {
