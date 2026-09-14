@@ -16,6 +16,13 @@ const num = n => `<block type="math_number"><field name="NUM">${n}</field></bloc
 const bool = v =>
     `<block type="logic_boolean"><field name="BOOL">${v ? 'TRUE' : 'FALSE'}</field></block>`;
 
+const text = value =>
+    `<block type="text"><field name="TEXT">${String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')}</field></block>`;
+
 const setVar = (id, name, valueXml, nextXml = '') =>
     `<block type="variables_set" id="dpd_set_${id}">
       <field name="VAR" id="${id}">${name}</field>
@@ -83,6 +90,7 @@ const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
 
 export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
+    <variable id="dpd_symbols">Selected Symbols</variable>
     <variable id="dpd_stake">Stake</variable>
     <variable id="dpd_base_stake">Base Stake</variable>
     <variable id="dpd_martingale">Martingale</variable>
@@ -102,7 +110,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
       <block type="trade_definition_market" id="dpd_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">R_10</field>
+        <field name="SYMBOL_LIST">1HZ50V</field>
         <next>
           <block type="trade_definition_tradetype" id="dpd_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>
@@ -134,6 +142,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
     <statement name="INITIALIZATION">
       ${chainSets(
           [
+              ['dpd_symbols', 'Selected Symbols', text('1HZ50V,R_10,R_25')],
               ['dpd_stake', 'Stake', num(0.5)],
               ['dpd_martingale', 'Martingale', num(10.5)],
               ['dpd_protect', 'Martingale Off When Profit > Stake', bool(false)],
@@ -166,6 +175,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
                 <field name="VAR" id="dpd_prediction">Prediction</field>
                 <value name="VALUE">
                   <block type="digit_percentage_decrease_scan" id="dpd_scan_block">
+                    <value name="SYMBOLS">${varGet('dpd_symbols', 'Selected Symbols')}</value>
                     <value name="ANALYSIS_WINDOW">${varGet('dpd_window', 'Analysis Tick Window')}</value>
                     <value name="MIN_DECREASE">${varGet('dpd_min_drop', 'Minimum Percentage Decrease')}</value>
                     <value name="JOURNAL">${bool(true)}</value>

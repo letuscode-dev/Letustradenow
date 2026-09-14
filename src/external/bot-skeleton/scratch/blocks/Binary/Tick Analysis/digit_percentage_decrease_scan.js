@@ -13,9 +13,10 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
     definition() {
         return {
             message0: localize(
-                'digit % decrease window %1 min drop %2 journal %3'
+                'digit % decrease symbols %1 window %2 min drop %3 journal %4'
             ),
             args0: [
+                { type: 'input_value', name: 'SYMBOLS', check: 'String' },
                 { type: 'input_value', name: 'ANALYSIS_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'MIN_DECREASE', check: 'Number' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
@@ -26,7 +27,7 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'On each new tick, recomputes digit percentages over the rolling window and returns Differ prediction for the digit whose share fell by at least the minimum drop (default 0.1% over 1000 ticks).'
+                'Scans selected volatilities. On each new tick, recomputes digit percentages and returns Differ prediction for the digit whose share fell by at least the minimum drop, switching to that market.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -35,9 +36,9 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
         return {
             display_name: localize('Digit Percentage Decrease scan'),
             description: localize(
-                'Re-evaluates all digit percentages after every incoming tick and signals Digit Differs when a digit’s occurrence percentage decreases by the configured amount.'
+                'Multi-market Digit Differs when a digit’s occurrence percentage decreases by the configured amount versus the previous tip.'
             ),
-            key_words: localize('percentage, decrease, differs, rolling window, digits'),
+            key_words: localize('percentage, decrease, differs, rolling window, multi-market'),
         };
     },
     customContextMenu(menu) {
@@ -55,9 +56,11 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_percentage_decrease
 
     const code = `(function () {
         var BinaryBotPrivateDpdResult = Bot.evaluateDigitPercentageDecrease({
+            symbols: ${read('SYMBOLS') || '""'},
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
             min_decrease: ${read('MIN_DECREASE') || '0.1'},
-            journal_enabled: ${read('JOURNAL') || 'true'}
+            journal_enabled: ${read('JOURNAL') || 'true'},
+            switch_symbol: true
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivateDpdResult && BinaryBotPrivateDpdResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {

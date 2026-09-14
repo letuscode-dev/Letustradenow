@@ -5,6 +5,8 @@ import {
     isDigitPercentageDecreaseSignalConsumed,
     makeDigitPercentageDecreaseSignalKey,
     normalizeDigitPercentageDecreaseOptions,
+    pickBestDigitPercentageDecreaseMatch,
+    resolveScanSymbols,
 } from '../digit-percentage-decrease';
 
 describe('normalizeDigitPercentageDecreaseOptions', () => {
@@ -85,6 +87,21 @@ describe('evaluateDigitPercentageDecrease', () => {
             min_decrease: 0.5,
         }, state);
         expect(result.matched).toBe(false);
+    });
+
+    it('resolves Selected Symbols and picks the largest drop', () => {
+        expect(resolveScanSymbols({ symbols: '1HZ50V, R_10, R_25' })).toEqual([
+            '1HZ50V',
+            'R_10',
+            'R_25',
+        ]);
+        const best = pickBestDigitPercentageDecreaseMatch([
+            { matched: true, prediction: 3, drop: 0.1, symbol: 'R_10' },
+            { matched: true, prediction: 7, drop: 0.2, symbol: 'R_25' },
+            { matched: false, prediction: -1, drop: 0, symbol: '1HZ50V' },
+        ]);
+        expect(best?.symbol).toBe('R_25');
+        expect(best?.prediction).toBe(7);
     });
 
     it('builds a stable consume key for the same tip signal', () => {

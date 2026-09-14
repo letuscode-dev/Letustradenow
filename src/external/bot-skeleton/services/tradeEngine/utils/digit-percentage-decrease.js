@@ -5,12 +5,23 @@
  * (default 1000) and compare against the previous tip’s percentages.
  * Digits whose share fell by at least min_decrease (default 0.1pp) qualify.
  * Signal DIGITDIFF on the largest qualifying drop.
+ *
+ * Supports multi-symbol scanning via Selected Symbols.
  */
+
+import {
+    orderSymbolsForScan,
+    parseSymbolList,
+    resolveScanSymbols,
+} from './sequential-digit-differs';
+
+export { orderSymbolsForScan, parseSymbolList, resolveScanSymbols };
 
 export const DEFAULT_OPTIONS = {
     analysis_window: 1000,
     min_decrease: 0.1,
     journal_enabled: true,
+    switch_symbol: true,
 };
 
 const toBool = (value, default_value = false) => {
@@ -46,6 +57,9 @@ export const normalizeDigitPercentageDecreaseOptions = (options = {}) => {
         analysis_window: toPositiveInt(options.analysis_window, d.analysis_window, 10, 5000),
         min_decrease: toNonNegNumber(options.min_decrease, d.min_decrease),
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
+        switch_symbol: toBool(options.switch_symbol, d.switch_symbol),
+        symbols: options.symbols,
+        market_group: options.market_group,
     };
 };
 
@@ -64,12 +78,41 @@ export const resetDigitPercentageDecreaseState = state => {
     next.prev_counts = null;
     next.last_result = null;
     next.consumed_key = '';
+    next.by_symbol = {};
     return next;
 };
 
 export const makeDigitPercentageDecreaseSignalKey = (result, tip_fp) => {
     if (!result?.matched || result.prediction < 0) return '';
-    return `${tip_fp}:${result.prediction}:${Math.round(Number(result.drop) * 1000)}`;
+    return `${result.symbol || ''}:${tip_fp}:${result.prediction}:${Math.round(Number(result.drop) * 1000)}`;
+};
+
+export const createDigitPercentageDecreaseRuntime = () => ({
+    by_symbol: {},
+});
+
+export const getDigitPercentageDecreaseSymbolState = (runtime, symbol) => {
+    if (!runtime || typeof runtime !== 'object') {
+        return createDigitPercentageDecreaseState();
+    }
+    if (!runtime.by_symbol || typeof runtime.by_symbol !== 'object') {
+        runtime.by_symbol = {};
+    }
+    if (!runtime.by_symbol[symbol]) {
+        runtime.by_symbol[symbol] = createDigitPercentageDecreaseState();
+    }
+    return runtime.by_symbol[symbol];
+};
+
+export const pickBestDigitPercentageDecreaseMatch = evaluations => {
+    if (!Array.isArray(evaluations)) return null;
+    let best = null;
+    for (let i = 0; i < evaluations.length; i++) {
+        const item = evaluations[i];
+        if (!item?.matched || item.prediction < 0) continue;
+        if (!best || item.drop > best.drop) best = item;
+    }
+    return best;
 };
 
 export const isDigitPercentageDecreaseSignalConsumed = (result, tip_fp, consumed_key) => {

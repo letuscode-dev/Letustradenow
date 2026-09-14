@@ -108,11 +108,13 @@ import {
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
-    createDigitPercentageDecreaseState,
+    createDigitPercentageDecreaseRuntime,
     evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
+    getDigitPercentageDecreaseSymbolState,
     isDigitPercentageDecreaseSignalConsumed,
     makeDigitPercentageDecreaseSignalKey,
     normalizeDigitPercentageDecreaseOptions,
+    pickBestDigitPercentageDecreaseMatch,
     resetDigitPercentageDecreaseState,
 } from '../utils/digit-percentage-decrease';
 import {
@@ -513,65 +515,173 @@ const getBotInterface = tradeEngine => {
             return result;
         },
         /**
-         * Digit Percentage Decrease — Differ on digit whose rolling % dropped.
+         * Digit Percentage Decrease — multi-market Differ on the largest rolling % drop.
          */
         evaluateDigitPercentageDecrease: async options => {
             const opts = normalizeDigitPercentageDecreaseOptions(options || {});
-            if (!tradeEngine.digitPercentageDecreaseState) {
-                tradeEngine.digitPercentageDecreaseState = createDigitPercentageDecreaseState();
+            const journal_enabled = opts.journal_enabled;
+            if (!tradeEngine.digitPercentageDecreaseState?.by_symbol) {
+                tradeEngine.digitPercentageDecreaseState = createDigitPercentageDecreaseRuntime();
             }
+            const runtime = tradeEngine.digitPercentageDecreaseState;
             const need = opts.analysis_window;
-            if (typeof tradeEngine.ensureTickHistory === 'function') {
-                await tradeEngine.ensureTickHistory(need);
-            }
-            let digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(need)
-                : tradeEngine.getCachedLastDigitList
-                  ? tradeEngine.getCachedLastDigitList(need)
-                  : [];
-            if (!Array.isArray(digits)) {
-                digits = [];
-            }
-            const result = runDigitPercentageDecrease(
-                digits,
-                opts,
-                tradeEngine.digitPercentageDecreaseState
+            const symbols = resolveScanSymbols(opts);
+            const active_symbol =
+                tradeEngine.options?.symbol || tradeEngine.symbol || symbols[0] || '';
+            const ordered = orderSymbolsForScan(
+                symbols.length ? symbols : [active_symbol].filter(Boolean),
+                active_symbol
             );
-            const tip =
-                digits.length > 0 ? `${digits[digits.length - 1]}:${digits.length}` : 'empty';
-            const tip_fp = tip;
+            const ticks_service = tradeEngine.$scope?.ticksService;
+
+            if (!ordered.length) {
+                return {
+                    prediction: -1,
+                    matched: false,
+                    symbol: active_symbol,
+                    symbols_scanned: [],
+                    journal_messages: journal_enabled
+                        ? [
+                              {
+                                  className: 'journal__text--error',
+                                  message: 'Digit % Decrease: no volatilities selected.',
+                              },
+                          ]
+                        : [],
+                };
+            }
+
+            if (ticks_service?.warmScanStreams) {
+                ticks_service.warmScanStreams(ordered).catch(() => {});
+            }
+            if (ticks_service?.pickAndRefreshStaleScanSymbol) {
+                try {
+                    await ticks_service.pickAndRefreshStaleScanSymbol(ordered, active_symbol);
+                } catch (e) {
+                    // keep prior caches
+                }
+            }
+
+            const evaluations = await Promise.all(
+                ordered.map(async symbol => {
+                    if (ticks_service?._noteScanTip) {
+                        ticks_service._noteScanTip(symbol);
+                    }
+                    let digits = tradeEngine.getCachedDigitsForSymbol
+                        ? tradeEngine.getCachedDigitsForSymbol(symbol, need)
+                        : [];
+                    if (
+                        (!Array.isArray(digits) || digits.length < need) &&
+                        typeof tradeEngine.getDigitsForSymbol === 'function'
+                    ) {
+                        try {
+                            digits = await tradeEngine.getDigitsForSymbol(symbol, need);
+                        } catch (e) {
+                            digits = Array.isArray(digits) ? digits : [];
+                        }
+                    }
+                    const result = runDigitPercentageDecrease(
+                        digits,
+                        { ...opts, journal_enabled: false },
+                        getDigitPercentageDecreaseSymbolState(runtime, symbol)
+                    );
+                    const tip =
+                        Array.isArray(digits) && digits.length
+                            ? `${digits[digits.length - 1]}:${digits.length}`
+                            : 'empty';
+                    return { ...result, symbol, tip_fp: tip };
+                })
+            );
+
+            const raw_match = pickBestDigitPercentageDecreaseMatch(evaluations);
+            const tip_fp = raw_match?.tip_fp || 'empty';
             const skipped_consumed = isDigitPercentageDecreaseSignalConsumed(
-                result,
+                raw_match,
                 tip_fp,
                 tradeEngine._digitPercentageDecreaseConsumedKey
             );
-            const tradeable =
-                result.matched && !skipped_consumed
-                    ? result
-                    : {
-                          ...result,
-                          matched: false,
-                          allowed: false,
-                          prediction: -1,
-                          barrier: -1,
-                          digit: -1,
-                          reason: skipped_consumed ? 'consumed' : result.analysis?.reason,
-                      };
-            if (tradeable.matched) {
+            const match = skipped_consumed ? null : raw_match;
+
+            let switched = false;
+            let switch_failed = false;
+            if (match && opts.switch_symbol && match.symbol && match.symbol !== active_symbol) {
+                try {
+                    if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                        await tradeEngine.switchTradeSymbol(match.symbol);
+                        const now_symbol =
+                            tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                        if (now_symbol === match.symbol) {
+                            switched = true;
+                        } else {
+                            switch_failed = true;
+                        }
+                    } else {
+                        switch_failed = true;
+                    }
+                } catch (e) {
+                    switch_failed = true;
+                }
+            }
+
+            const tradeable = match?.matched && !switch_failed ? match : null;
+            if (tradeable) {
                 tradeEngine._digitPercentageDecreaseConsumedKey = makeDigitPercentageDecreaseSignalKey(
                     tradeable,
-                    tip_fp
+                    tradeable.tip_fp || tip_fp
                 );
             }
-            const fp = `${tip}:${tradeable.prediction}:${tradeable.drop}:${tradeable.matched}:${tradeable.reason || result.analysis?.reason}`;
-            if (
-                tradeEngine._digitPercentageDecreaseJournalFp === fp &&
-                Array.isArray(tradeable.journal_messages)
-            ) {
-                return { ...tradeable, journal_messages: [] };
+
+            const journal_messages = [];
+            if (journal_enabled) {
+                if (tradeable) {
+                    journal_messages.push({
+                        className: 'journal__text--success',
+                        message: `Digit % Decrease: ${tradeable.symbol} → DIFFER ${tradeable.prediction} (drop ${Number(tradeable.drop).toFixed(3)}pp)${switched ? ' (switched)' : ''}`,
+                    });
+                } else if (!skipped_consumed) {
+                    const watching = evaluations
+                        .map(item => {
+                            const ready = item.analysis?.ready;
+                            const label = ready
+                                ? item.matched
+                                    ? `diff ${item.prediction}`
+                                    : item.analysis?.reason === 'baseline_seeded'
+                                      ? 'baseline'
+                                      : 'watch'
+                                : `${item.analysis?.tick_count || 0}/${need}`;
+                            return `${item.symbol}:${label}`;
+                        })
+                        .slice(0, 5)
+                        .join(' | ');
+                    const watch_fp = `watch:${watching}`;
+                    if (tradeEngine._digitPercentageDecreaseJournalFp !== watch_fp) {
+                        tradeEngine._digitPercentageDecreaseJournalFp = watch_fp;
+                        journal_messages.push({
+                            className: 'journal__text',
+                            message: `Digit % Decrease: scanning ${watching || '…'}`,
+                        });
+                    }
+                }
             }
-            tradeEngine._digitPercentageDecreaseJournalFp = fp;
-            return tradeable;
+
+            return {
+                prediction: tradeable ? tradeable.prediction : -1,
+                barrier: tradeable ? tradeable.prediction : -1,
+                matched: Boolean(tradeable),
+                digit: tradeable?.digit ?? -1,
+                drop: tradeable?.drop ?? 0,
+                symbol: tradeable?.symbol || active_symbol,
+                symbols_scanned: ordered,
+                evaluations,
+                switched,
+                skipped_consumed,
+                reason: tradeable
+                    ? 'percentage_decrease'
+                    : skipped_consumed
+                      ? 'consumed'
+                      : 'watching',
+                journal_messages,
+            };
         },
         /**
          * Triple-digit Martingale — last 3 equal → Differs 4th-from-end across selected volatilities.
