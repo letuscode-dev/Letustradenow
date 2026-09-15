@@ -2,10 +2,11 @@
  * Digit Pair → Return Differs
  *
  * Learns A → B → C for every digit pair (A,B) with A,B,C in 0–9.
- * When A → B appears again as the newest two digits, signals Digit Differs C.
+ * When A → B appear again as the two previous digits before a new tip,
+ * signals Digit Differs on the stored C (the digit that used to be p0).
  *
  * Example: 7 → 3 → 1 stores target 1 for pair (7,3).
- * Later 7 → 3 fires DIFFER 1.
+ * Later 7 → 3 → X fires DIFFER 1.
  */
 
 const toDigit = value => {
@@ -38,12 +39,24 @@ export const createDigitPairReturnState = () => ({
     last_processed_epoch: null,
     last_signal_key: null,
     last_plain_fingerprint: null,
+    last_result: null,
+    last_result_fp: '',
     tick_index: -1,
     previous_digit: -1,
     prev_previous_digit: -1,
 });
 
-export const resetDigitPairReturnState = () => createDigitPairReturnState();
+export const resetDigitPairReturnState = (state = null) => {
+    const next = createDigitPairReturnState();
+    if (!state || typeof state !== 'object') {
+        return next;
+    }
+    Object.keys(state).forEach(key => {
+        delete state[key];
+    });
+    Object.assign(state, next);
+    return state;
+};
 
 const getPairState = (state, a, b) => {
     const key = pairKey(a, b);
@@ -77,12 +90,9 @@ const storeTarget = (state, a, b, target, epoch, journal_messages) => {
     });
 };
 
-const handlePairReturn = (state, a, b, epoch, journal_messages, suppress_signal) => {
+const firePairReturn = (state, a, b, epoch, journal_messages) => {
     const item = getPairState(state, a, b);
     if (item.target_digit < 0) {
-        return -1;
-    }
-    if (suppress_signal) {
         return -1;
     }
 
@@ -103,6 +113,7 @@ const handlePairReturn = (state, a, b, epoch, journal_messages, suppress_signal)
     item.status = 'WATCHING';
     item.trade_status = 'IDLE';
     item.first_pattern_epoch = null;
+    item.last_pattern = '';
     state.last_signal_key = signal_key;
     return target;
 };
@@ -153,65 +164,7 @@ const selectTicksToProcess = (ticks, state) => {
     return ticks.slice(Math.max(0, start));
 };
 
-export const evaluateDigitPairReturnDiffers = (
-    raw_ticks,
-    options = {},
-    state = createDigitPairReturnState()
-) => {
-    const tick_window = Math.max(120, Math.floor(Number(options.tick_window)) || 120);
-    const journal_enabled = options.journal_enabled !== false;
-    const journal_messages = [];
-    const window_ticks = normalizeTicks(raw_ticks).slice(-tick_window);
-    const ticks = selectTicksToProcess(window_ticks, state);
-    let prediction = -1;
-
-    if (ticks.length) {
-        const bootstrapping = !state.bootstrapped;
-        ticks.forEach(tick => {
-            if (tick.epoch !== null && tick.epoch === state.last_processed_epoch) return;
-            if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) {
-                return;
-            }
-
-            state.tick_index += 1;
-            const tip = tick.digit;
-            const previous = state.previous_digit;
-            const prev_previous = state.prev_previous_digit;
-
-            if (previous >= 0) {
-                const result = handlePairReturn(
-                    state,
-                    previous,
-                    tip,
-                    tick.epoch ?? state.tick_index,
-                    journal_messages,
-                    bootstrapping
-                );
-                if (prediction < 0 && result >= 0) prediction = result;
-            }
-
-            // After a return fire clears (A,B), learning A → B → C on this same tip
-            // still stores the new follower for the prior pair.
-            if (prev_previous >= 0 && previous >= 0) {
-                storeTarget(
-                    state,
-                    prev_previous,
-                    previous,
-                    tip,
-                    tick.epoch ?? state.tick_index,
-                    journal_messages
-                );
-            }
-
-            state.prev_previous_digit = previous;
-            state.previous_digit = tip;
-            if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
-        });
-        state.bootstrapped = true;
-    }
-
-    if (!journal_enabled) journal_messages.length = 0;
-
+const buildResult = (state, prediction, tick_window, journal_messages) => {
     const waiting_pairs = Object.entries(state.pairs || {})
         .filter(([, item]) => item.target_digit >= 0)
         .map(([key, item]) => {
@@ -227,4 +180,94 @@ export const evaluateDigitPairReturnDiffers = (
         state_summary: statusLine(state),
         journal_messages,
     };
+};
+
+export const evaluateDigitPairReturnDiffers = (
+    raw_ticks,
+    options = {},
+    state = createDigitPairReturnState()
+) => {
+    const tick_window = Math.max(120, Math.floor(Number(options.tick_window)) || 120);
+    const journal_enabled = options.journal_enabled !== false;
+    const journal_messages = [];
+    const window_ticks = normalizeTicks(raw_ticks).slice(-tick_window);
+    const ticks = selectTicksToProcess(window_ticks, state);
+    let prediction = -1;
+
+    const tip = window_ticks.length ? window_ticks[window_ticks.length - 1] : null;
+    const result_fp = tip
+        ? `${tip.epoch ?? 'e'}:${window_ticks.length}:${tip.digit}`
+        : `empty:${state.last_signal_key || ''}`;
+
+    // Same tip re-poll (purchase / Start retry): keep the signal available.
+    if (!ticks.length && state.last_result && state.last_result_fp === result_fp) {
+        const cached = {
+            ...state.last_result,
+            journal_messages: journal_enabled ? state.last_result.journal_messages || [] : [],
+        };
+        return cached;
+    }
+
+    if (ticks.length) {
+        const bootstrapping = !state.bootstrapped;
+        ticks.forEach(tick => {
+            if (tick.epoch !== null && tick.epoch === state.last_processed_epoch) return;
+            if (tick.epoch !== null && state.last_processed_epoch !== null && tick.epoch < state.last_processed_epoch) {
+                return;
+            }
+
+            state.tick_index += 1;
+            const current = tick.digit;
+            const previous = state.previous_digit;
+            const prev_previous = state.prev_previous_digit;
+
+            // p2=prev_previous, p1=previous, p0=current.
+            // Learn on first A→B→C; on a later A→B→X fire Differ stored C.
+            if (prev_previous >= 0 && previous >= 0) {
+                const item = getPairState(state, prev_previous, previous);
+                if (item.target_digit >= 0) {
+                    if (bootstrapping) {
+                        storeTarget(
+                            state,
+                            prev_previous,
+                            previous,
+                            current,
+                            tick.epoch ?? state.tick_index,
+                            journal_messages
+                        );
+                    } else {
+                        const result = firePairReturn(
+                            state,
+                            prev_previous,
+                            previous,
+                            tick.epoch ?? state.tick_index,
+                            journal_messages
+                        );
+                        if (prediction < 0 && result >= 0) prediction = result;
+                    }
+                } else {
+                    storeTarget(
+                        state,
+                        prev_previous,
+                        previous,
+                        current,
+                        tick.epoch ?? state.tick_index,
+                        journal_messages
+                    );
+                }
+            }
+
+            state.prev_previous_digit = previous;
+            state.previous_digit = current;
+            if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
+        });
+        state.bootstrapped = true;
+    }
+
+    if (!journal_enabled) journal_messages.length = 0;
+
+    const result = buildResult(state, prediction, tick_window, journal_messages);
+    state.last_result = result;
+    state.last_result_fp = result_fp;
+    return result;
 };

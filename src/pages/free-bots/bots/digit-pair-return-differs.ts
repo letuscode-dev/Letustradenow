@@ -1,7 +1,8 @@
 /**
  * Digit Pair → Return Differs free bot.
  *
- * Learns A → B → C for every digit pair, then Differs C when A → B returns.
+ * Learns A → B → C for every digit pair, then Differs C when A → B
+ * reappear as the previous two digits before a new tip.
  * Risk management matches Double Digit → Return Differs.
  */
 
