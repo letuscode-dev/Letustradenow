@@ -31,6 +31,11 @@ import {
     resetDoubleDigitReturnState,
 } from '../utils/double-digit-return-differs';
 import {
+    createDigitPairReturnState,
+    evaluateDigitPairReturnDiffers,
+    resetDigitPairReturnState,
+} from '../utils/digit-pair-return-differs';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -258,6 +263,10 @@ const getBotInterface = tradeEngine => {
                 resetDoubleDigitReturnState(tradeEngine.doubleDigitReturnState);
                 tradeEngine.doubleDigitReturnState = null;
             }
+            if (tradeEngine.digitPairReturnState) {
+                resetDigitPairReturnState(tradeEngine.digitPairReturnState);
+                tradeEngine.digitPairReturnState = null;
+            }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
             tradeEngine._parityRunConsumedKey = null;
@@ -483,6 +492,25 @@ const getBotInterface = tradeEngine => {
                 digit_ticks = [];
             }
             return evaluateDoubleDigitReturnDiffers(digit_ticks, opts, tradeEngine.doubleDigitReturnState);
+        },
+        /**
+         * Digit Pair → Return Differs — learns A → B → C for every pair,
+         * then Differs C when A → B returns.
+         */
+        evaluateDigitPairReturnDiffers: async options => {
+            const opts = options || {};
+            if (!tradeEngine.digitPairReturnState) {
+                tradeEngine.digitPairReturnState = createDigitPairReturnState();
+            }
+            const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateDigitPairReturnDiffers(digit_ticks, opts, tradeEngine.digitPairReturnState);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

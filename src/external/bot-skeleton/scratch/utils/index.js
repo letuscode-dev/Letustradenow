@@ -198,8 +198,16 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/double_digit_return_differs_prediction'));
     }
 
+    if (block_string.includes('digit_pair_return_differs_prediction')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/digit_pair_return_differs_prediction'));
+    }
+
     if (block_string.includes('double_digit_risk_management')) {
         imports.push(import('../blocks/Binary/After Purchase/double_digit_risk_management'));
+    }
+
+    if (block_string.includes('digit_pair_return_risk_management')) {
+        imports.push(import('../blocks/Binary/After Purchase/digit_pair_return_risk_management'));
     }
 
     if (block_string.includes('pattern_switch_scan')) {

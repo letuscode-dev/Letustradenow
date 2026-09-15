@@ -222,6 +222,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateDoubleDigitReturnDiffers)
             );
         }
+        if (typeof bot_interface.evaluateDigitPairReturnDiffers === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateDigitPairReturnDiffers',
+                createAsync(js_interpreter, bot_interface.evaluateDigitPairReturnDiffers)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

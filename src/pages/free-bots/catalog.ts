@@ -1,4 +1,5 @@
 import type { FreeBot } from './types';
+import { DIGIT_PAIR_RETURN_DIFFERS_XML } from './bots/digit-pair-return-differs';
 import { DIGIT_PERCENTAGE_DECREASE_XML } from './bots/digit-percentage-decrease';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
@@ -26,6 +27,14 @@ export const FREE_BOTS: FreeBot[] = [
             'Learns X → X → Y per digit, then Differs Y on the next double. Risk controls include optional Martingale Off When Profit > Stake (default off) in Bot Builder.',
         tags: ['Differs', 'Double digit', 'Return'],
         xml: DOUBLE_DIGIT_RETURN_DIFFERS_XML,
+    },
+    {
+        id: 'digit-pair-return-differs-v1',
+        title: 'Digit Pair → Return Differs',
+        description:
+            'Learns A → B → C for every digit pair (0–9), then Differs C when A → B returns. Same risk controls as Double Digit → Return Differs, including optional Martingale Off When Profit > Stake.',
+        tags: ['Differs', 'Digit pair', 'Return'],
+        xml: DIGIT_PAIR_RETURN_DIFFERS_XML,
     },
     {
         id: 'pattern-switch-v1',
