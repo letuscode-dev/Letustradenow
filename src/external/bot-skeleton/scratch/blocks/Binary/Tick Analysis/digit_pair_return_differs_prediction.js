@@ -23,7 +23,7 @@ window.Blockly.Blocks.digit_pair_return_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Learns A → B → C → D → E → F for every digit pattern, then returns stored F when A → B → C → D → E reappear as the previous five digits.'
+                'When last digits form A → B → C, returns Digit Differs on A.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         });
@@ -32,9 +32,9 @@ window.Blockly.Blocks.digit_pair_return_differs_prediction = {
         return {
             display_name: localize('Digit Pair → Return Differs'),
             description: localize(
-                'Stores the follower after A → B → C → D → E → F, then signals Digit Differs F when A → B → C → D → E appear again as the previous five digits before a new tip.'
+                'When three consecutive last digits form A → B → C, signals Digit Differs A.'
             ),
-            key_words: localize('digit pair, sextet, return, differs, pattern, confirmation'),
+            key_words: localize('digit pair, triple, differs, A B C'),
         };
     },
     customContextMenu(menu) {

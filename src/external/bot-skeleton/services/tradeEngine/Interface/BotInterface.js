@@ -494,8 +494,7 @@ const getBotInterface = tradeEngine => {
             return evaluateDoubleDigitReturnDiffers(digit_ticks, opts, tradeEngine.doubleDigitReturnState);
         },
         /**
-         * Digit Pair → Return Differs — learns A → B → C → D → E → F for every pattern,
-         * then Differs F when A → B → C → D → E return.
+         * Digit Pair → Return Differs — A → B → C → Differ A.
          */
         evaluateDigitPairReturnDiffers: async options => {
             const opts = options || {};

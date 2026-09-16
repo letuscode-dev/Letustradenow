@@ -1,12 +1,10 @@
 /**
  * Digit Pair → Return Differs
  *
- * Learns A → B → C → D → E → F for every digit quintuple (A,B,C,D,E) with digits 0–9.
- * When A → B → C → D → E appear again as the five previous digits before a new tip,
- * signals Digit Differs on the stored F (the digit that used to be p0).
+ * When three consecutive last digits form A → B → C (digits 0–9),
+ * signals Digit Differs on A.
  *
- * Example: 7 → 3 → 1 → 4 → 5 → 2 stores target 2 for pattern (7,3,1,4,5).
- * Later 7 → 3 → 1 → 4 → 5 → X fires DIFFER 2.
+ * Example: 7 → 3 → 1 → DIFFER 7.
  */
 
 const toDigit = value => {
@@ -22,19 +20,7 @@ const normalizeTicks = ticks =>
         return [{ digit, epoch: Number.isFinite(epoch) ? epoch : null }];
     });
 
-const patternKey = (a, b, c, d, e) => `${a},${b},${c},${d},${e}`;
-
-const createPatternState = () => ({
-    target_digit: -1,
-    status: 'WATCHING',
-    confirmations: 0,
-    first_pattern_epoch: null,
-    last_pattern: '',
-    trade_status: 'IDLE',
-});
-
 export const createDigitPairReturnState = () => ({
-    pairs: {},
     bootstrapped: false,
     last_processed_epoch: null,
     last_signal_key: null,
@@ -44,9 +30,7 @@ export const createDigitPairReturnState = () => ({
     tick_index: -1,
     previous_digit: -1,
     prev_previous_digit: -1,
-    prev3_digit: -1,
-    prev4_digit: -1,
-    prev5_digit: -1,
+    last_pattern: '',
 });
 
 export const resetDigitPairReturnState = (state = null) => {
@@ -59,66 +43,6 @@ export const resetDigitPairReturnState = (state = null) => {
     });
     Object.assign(state, next);
     return state;
-};
-
-const getPatternState = (state, a, b, c, d, e) => {
-    const key = patternKey(a, b, c, d, e);
-    if (!state.pairs[key]) {
-        state.pairs[key] = createPatternState();
-    }
-    return state.pairs[key];
-};
-
-const statusLine = state => {
-    const entries = Object.entries(state.pairs || {})
-        .filter(([, item]) => item.target_digit >= 0)
-        .map(([key, item]) => `${key}→${item.target_digit}`)
-        .slice(0, 12);
-    return entries.length ? entries.join(' | ') : 'none waiting';
-};
-
-const storeTarget = (state, a, b, c, d, e, target, epoch, journal_messages) => {
-    const item = getPatternState(state, a, b, c, d, e);
-    if (item.target_digit === target && item.status === 'WAITING') {
-        return;
-    }
-    item.target_digit = target;
-    item.status = 'WAITING';
-    item.trade_status = 'IDLE';
-    item.first_pattern_epoch = epoch;
-    item.last_pattern = `${a} → ${b} → ${c} → ${d} → ${e} → ${target}`;
-    journal_messages.push({
-        className: 'journal__text',
-        message: `Pattern ${a},${b},${c},${d},${e}: stored target ${target} (${item.last_pattern}).`,
-    });
-};
-
-const firePatternReturn = (state, a, b, c, d, e, epoch, journal_messages) => {
-    const item = getPatternState(state, a, b, c, d, e);
-    if (item.target_digit < 0) {
-        return -1;
-    }
-
-    const target = item.target_digit;
-    const signal_key = `${epoch ?? state.tick_index}:${a},${b},${c},${d},${e}->${target}`;
-    if (state.last_signal_key === signal_key) {
-        return -1;
-    }
-
-    item.confirmations += 1;
-    item.status = 'CONFIRMED';
-    item.trade_status = 'SIGNAL';
-    journal_messages.push({
-        className: 'journal__text--success',
-        message: `Pattern ${a},${b},${c},${d},${e}: return confirmed → DIFFER ${target}.`,
-    });
-    item.target_digit = -1;
-    item.status = 'WATCHING';
-    item.trade_status = 'IDLE';
-    item.first_pattern_epoch = null;
-    item.last_pattern = '';
-    state.last_signal_key = signal_key;
-    return target;
 };
 
 /**
@@ -167,23 +91,15 @@ const selectTicksToProcess = (ticks, state) => {
     return ticks.slice(Math.max(0, start));
 };
 
-const buildResult = (state, prediction, tick_window, journal_messages) => {
-    const waiting_pairs = Object.entries(state.pairs || {})
-        .filter(([, item]) => item.target_digit >= 0)
-        .map(([key, item]) => {
-            const [a, b, c, d, e] = key.split(',').map(Number);
-            return { pair: key, a, b, c, d, e, ...item };
-        });
-
-    return {
-        prediction,
-        allowed: prediction >= 0,
-        tick_window,
-        waiting_pairs,
-        state_summary: statusLine(state),
-        journal_messages,
-    };
-};
+const buildResult = (state, prediction, tick_window, journal_messages) => ({
+    prediction,
+    allowed: prediction >= 0,
+    tick_window,
+    pattern: state.last_pattern || '',
+    state_summary: state.last_pattern || 'watching for A → B → C',
+    waiting_pairs: [],
+    journal_messages,
+});
 
 export const evaluateDigitPairReturnDiffers = (
     raw_ticks,
@@ -204,11 +120,10 @@ export const evaluateDigitPairReturnDiffers = (
 
     // Same tip re-poll (purchase / Start retry): keep the signal available.
     if (!ticks.length && state.last_result && state.last_result_fp === result_fp) {
-        const cached = {
+        return {
             ...state.last_result,
             journal_messages: journal_enabled ? state.last_result.journal_messages || [] : [],
         };
-        return cached;
     }
 
     if (ticks.length) {
@@ -223,58 +138,33 @@ export const evaluateDigitPairReturnDiffers = (
             const current = tick.digit;
             const previous = state.previous_digit;
             const prev_previous = state.prev_previous_digit;
-            const prev3 = state.prev3_digit;
-            const prev4 = state.prev4_digit;
-            const prev5 = state.prev5_digit;
 
-            // p5=prev5 … p1=previous, p0=current.
-            // Learn on first A→B→C→D→E→F; on a later A→B→C→D→E→X fire Differ stored F.
-            if (prev5 >= 0 && prev4 >= 0 && prev3 >= 0 && prev_previous >= 0 && previous >= 0) {
-                const item = getPatternState(state, prev5, prev4, prev3, prev_previous, previous);
-                if (item.target_digit >= 0) {
-                    if (bootstrapping) {
-                        storeTarget(
-                            state,
-                            prev5,
-                            prev4,
-                            prev3,
-                            prev_previous,
-                            previous,
-                            current,
-                            tick.epoch ?? state.tick_index,
-                            journal_messages
-                        );
-                    } else {
-                        const result = firePatternReturn(
-                            state,
-                            prev5,
-                            prev4,
-                            prev3,
-                            prev_previous,
-                            previous,
-                            tick.epoch ?? state.tick_index,
-                            journal_messages
-                        );
-                        if (prediction < 0 && result >= 0) prediction = result;
+            // A → B → C complete → Differ A (unless bootstrapping history).
+            if (prev_previous >= 0 && previous >= 0) {
+                const a = prev_previous;
+                const b = previous;
+                const c = current;
+                const pattern = `${a} → ${b} → ${c}`;
+                state.last_pattern = pattern;
+
+                if (!bootstrapping) {
+                    const signal_key = `${tick.epoch ?? state.tick_index}:${a},${b},${c}->${a}`;
+                    if (state.last_signal_key !== signal_key) {
+                        state.last_signal_key = signal_key;
+                        prediction = a;
+                        journal_messages.push({
+                            className: 'journal__text--success',
+                            message: `Pattern ${pattern} → DIFFER ${a}.`,
+                        });
                     }
                 } else {
-                    storeTarget(
-                        state,
-                        prev5,
-                        prev4,
-                        prev3,
-                        prev_previous,
-                        previous,
-                        current,
-                        tick.epoch ?? state.tick_index,
-                        journal_messages
-                    );
+                    journal_messages.push({
+                        className: 'journal__text',
+                        message: `Bootstrap saw ${pattern} (no trade).`,
+                    });
                 }
             }
 
-            state.prev5_digit = prev4;
-            state.prev4_digit = prev3;
-            state.prev3_digit = prev_previous;
             state.prev_previous_digit = previous;
             state.previous_digit = current;
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
@@ -283,6 +173,11 @@ export const evaluateDigitPairReturnDiffers = (
     }
 
     if (!journal_enabled) journal_messages.length = 0;
+
+    // Keep only the newest few journal lines during bootstrap floods.
+    if (journal_messages.length > 8) {
+        journal_messages.splice(0, journal_messages.length - 8);
+    }
 
     const result = buildResult(state, prediction, tick_window, journal_messages);
     state.last_result = result;
