@@ -1,7 +1,7 @@
 /**
  * Digit Percentage Decrease – Differ free bot.
  *
- * Rolling window (default 1000): when any digit’s occurrence % drops by at least
+ * Rolling window (default 1000): when any digit’s occurrence % drops by exactly
  * 0.1pp vs the previous window, trade DIGITDIFF on that digit. Martingale 10.5.
  */
 
@@ -98,7 +98,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
     <variable id="dpd_take_profit">Take Profit</variable>
     <variable id="dpd_stop_loss">Stop Loss</variable>
     <variable id="dpd_window">Analysis Tick Window</variable>
-    <variable id="dpd_min_drop">Minimum Percentage Decrease</variable>
+    <variable id="dpd_min_drop">Exact Percentage Decrease</variable>
     <variable id="dpd_cooldown_signal">Cooldown After Signal</variable>
     <variable id="dpd_cooldown_loss">Cooldown After Loss</variable>
     <variable id="dpd_cooldown_win">Cooldown After Win</variable>
@@ -149,7 +149,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
               ['dpd_take_profit', 'Take Profit', num(20)],
               ['dpd_stop_loss', 'Stop Loss', num(50)],
               ['dpd_window', 'Analysis Tick Window', num(1000)],
-              ['dpd_min_drop', 'Minimum Percentage Decrease', num(0.1)],
+              ['dpd_min_drop', 'Exact Percentage Decrease', num(0.1)],
           ],
           wrapCollapsedAdvancedInit(
               'dpd',
@@ -177,7 +177,7 @@ export const DIGIT_PERCENTAGE_DECREASE_XML = `<xml xmlns="https://developers.goo
                   <block type="digit_percentage_decrease_scan" id="dpd_scan_block">
                     <value name="SYMBOLS">${varGet('dpd_symbols', 'Selected Symbols')}</value>
                     <value name="ANALYSIS_WINDOW">${varGet('dpd_window', 'Analysis Tick Window')}</value>
-                    <value name="MIN_DECREASE">${varGet('dpd_min_drop', 'Minimum Percentage Decrease')}</value>
+                    <value name="MIN_DECREASE">${varGet('dpd_min_drop', 'Exact Percentage Decrease')}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>

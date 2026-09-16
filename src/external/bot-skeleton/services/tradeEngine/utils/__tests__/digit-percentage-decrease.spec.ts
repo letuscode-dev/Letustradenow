@@ -90,7 +90,20 @@ describe('evaluateDigitPercentageDecrease', () => {
         expect(next.analysis?.reason).toBe('no_decrease');
     });
 
-    it('respects a higher min_decrease threshold', () => {
+    it('signals only on an exact threshold drop, not a larger one', () => {
+        // Window 100: one tip ages a 5 → 9 drops digit 5 by 1pp; exact 0.1pp must not match.
+        const state = createDigitPercentageDecreaseState();
+        const w100 = Array(100).fill(5);
+        detectDigitPercentageDecrease(w100, { analysis_window: 100, min_decrease: 0.1 }, state);
+        const bigDrop = detectDigitPercentageDecrease([...w100.slice(1), 9], {
+            analysis_window: 100,
+            min_decrease: 0.1,
+        }, state);
+        expect(bigDrop.matched).toBe(false);
+        expect(bigDrop.rows.find(row => row.digit === 5)?.drop).toBeCloseTo(1, 5);
+    });
+
+    it('respects a higher exact threshold', () => {
         const state = createDigitPercentageDecreaseState();
         const base = Array(1000).fill(2);
         detectDigitPercentageDecrease(base, { min_decrease: 0.5 }, state);

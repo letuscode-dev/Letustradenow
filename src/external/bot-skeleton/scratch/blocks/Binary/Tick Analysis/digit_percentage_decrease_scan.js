@@ -1,6 +1,6 @@
 /**
  * Digit Percentage Decrease — returns Differ prediction (0–9) or -1.
- * Detects ≥ min_decrease pp drop for any digit across a rolling analysis window.
+ * Detects an exact min_decrease pp drop for any digit across a rolling analysis window.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -13,7 +13,7 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
     definition() {
         return {
             message0: localize(
-                'digit % decrease symbols %1 window %2 min drop %3 journal %4'
+                'digit % decrease symbols %1 window %2 exact drop %3 journal %4'
             ),
             args0: [
                 { type: 'input_value', name: 'SYMBOLS', check: 'String' },
@@ -27,7 +27,7 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Scans selected volatilities. On each new tick, recomputes digit percentages and returns Differ prediction for the digit whose share fell by at least the minimum drop, switching to that market.'
+                'Scans selected volatilities. On each new tick, recomputes digit percentages and returns Differ prediction for the digit whose share fell by exactly the configured drop, switching to that market.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -36,9 +36,9 @@ window.Blockly.Blocks.digit_percentage_decrease_scan = {
         return {
             display_name: localize('Digit Percentage Decrease scan'),
             description: localize(
-                'Multi-market Digit Differs when a digit’s occurrence percentage decreases by the configured amount versus the previous tip.'
+                'Multi-market Digit Differs when a digit’s occurrence percentage decreases by exactly the configured amount versus the previous tip.'
             ),
-            key_words: localize('percentage, decrease, differs, rolling window, multi-market'),
+            key_words: localize('percentage, decrease, differs, rolling window, multi-market, exact'),
         };
     },
     customContextMenu(menu) {

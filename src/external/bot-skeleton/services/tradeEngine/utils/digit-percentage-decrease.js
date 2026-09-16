@@ -3,8 +3,8 @@
  *
  * On every new tip, recompute digit % over the rolling analysis window
  * (default 1000) and compare against the previous tip’s percentages.
- * Digits whose share fell by at least min_decrease (default 0.1pp) qualify.
- * Signal DIGITDIFF on the largest qualifying drop.
+ * Digits whose share fell by exactly min_decrease (default 0.1pp) qualify.
+ * Signal DIGITDIFF on the largest qualifying exact drop (ties rotate markets).
  *
  * Supports multi-symbol scanning via Selected Symbols.
  */
@@ -152,6 +152,8 @@ export const computeDigitPercentages = sample => {
     return { size, counts, percentages };
 };
 
+const isExactDrop = (drop, target) => Math.abs(Number(drop) - Number(target)) <= 1e-9;
+
 const emptyCollecting = (options, tick_count, need) => ({
     options,
     tick_count,
@@ -253,7 +255,7 @@ export const detectDigitPercentageDecrease = (
             prev_pct,
             curr_pct,
             drop,
-            decreased: drop >= options.min_decrease - 1e-9,
+            decreased: isExactDrop(drop, options.min_decrease),
         });
     }
 
@@ -315,7 +317,7 @@ export const buildDigitPercentageDecreaseJournal = analysis => {
 
     messages.push({
         className: 'journal__text',
-        message: `DIGIT % DECREASE — window ${options.analysis_window} | min drop ${options.min_decrease}pp | tip ${aged_in}${aged_out >= 0 ? ` (left ${aged_out})` : ''}`,
+        message: `DIGIT % DECREASE — window ${options.analysis_window} | exact drop ${options.min_decrease}pp | tip ${aged_in}${aged_out >= 0 ? ` (left ${aged_out})` : ''}`,
     });
 
     const highlight = [...(analysis.rows || [])].sort((a, b) => b.drop - a.drop).slice(0, 5);
@@ -329,12 +331,12 @@ export const buildDigitPercentageDecreaseJournal = analysis => {
     if (matched) {
         messages.push({
             className: 'journal__text--success',
-            message: `SIGNAL — DIFFER ${prediction} (drop ${fmtPct(analysis.drop)} ≥ ${options.min_decrease}pp)`,
+            message: `SIGNAL — DIFFER ${prediction} (drop ${fmtPct(analysis.drop)} = ${options.min_decrease}pp)`,
         });
     } else {
         messages.push({
             className: 'journal__text',
-            message: 'NO SIGNAL — no digit decreased by the configured minimum on this tip.',
+            message: 'NO SIGNAL — no digit decreased by exactly the configured threshold on this tip.',
         });
     }
 
