@@ -23,7 +23,7 @@ window.Blockly.Blocks.digit_pair_return_differs_prediction = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'When last digits form A → B → C → D, returns Digit Differs on C.'
+                'When last digits form A → B → C → D, returns Digit Differs on D.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         });
@@ -32,7 +32,7 @@ window.Blockly.Blocks.digit_pair_return_differs_prediction = {
         return {
             display_name: localize('Digit Pair → Return Differs'),
             description: localize(
-                'When four consecutive last digits form A → B → C → D, signals Digit Differs C.'
+                'When four consecutive last digits form A → B → C → D, signals Digit Differs D.'
             ),
             key_words: localize('digit pair, quartet, differs, A B C D'),
         };

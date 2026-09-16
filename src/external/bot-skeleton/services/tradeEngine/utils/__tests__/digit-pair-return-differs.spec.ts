@@ -5,24 +5,24 @@ import {
 } from '../digit-pair-return-differs';
 
 describe('digit pair return differs', () => {
-    it('signals Differ C when A → B → C → D completes after bootstrap', () => {
+    it('signals Differ D when A → B → C → D completes after bootstrap', () => {
         const state = createDigitPairReturnState();
 
         const first = evaluateDigitPairReturnDiffers([7, 3, 1, 4], {}, state);
         expect(first.prediction).toBe(-1);
 
-        // New tip 5 completes 3 → 1 → 4 → 5 → Differ 4 (C)
+        // New tip 5 completes 3 → 1 → 4 → 5 → Differ 5 (D)
         const confirmation = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 5], {}, state);
-        expect(confirmation.prediction).toBe(4);
+        expect(confirmation.prediction).toBe(5);
         expect(confirmation.allowed).toBe(true);
     });
 
-    it('Differs the third digit of the newest quartet', () => {
+    it('Differs the fourth digit of the newest quartet', () => {
         const state = createDigitPairReturnState();
         evaluateDigitPairReturnDiffers([0, 9, 4, 2], {}, state);
         const next = evaluateDigitPairReturnDiffers([0, 9, 4, 2, 7], {}, state);
-        // 9 → 4 → 2 → 7 → Differ 2
-        expect(next.prediction).toBe(2);
+        // 9 → 4 → 2 → 7 → Differ 7
+        expect(next.prediction).toBe(7);
     });
 
     it('does not fire during bootstrap of the first window', () => {
@@ -48,18 +48,18 @@ describe('digit pair return differs', () => {
             {},
             state
         );
-        // Tip 2 completes 3 → 1 → 4 → 5 → 2 wait: last four are 1,4,5,2 → Differ 5
-        expect(confirmation.prediction).toBe(5);
+        // Tip 2 completes 1 → 4 → 5 → 2 → Differ 2
+        expect(confirmation.prediction).toBe(2);
     });
 
     it('does not re-process an unchanged plain digit window on the next poll', () => {
         const state = createDigitPairReturnState();
         evaluateDigitPairReturnDiffers([7, 3, 1, 4], {}, state);
         const fire = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 5], {}, state);
-        expect(fire.prediction).toBe(4);
+        expect(fire.prediction).toBe(5);
 
         const replay = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 5], {}, state);
-        expect(replay.prediction).toBe(4);
+        expect(replay.prediction).toBe(5);
         expect(replay.allowed).toBe(true);
     });
 
@@ -67,9 +67,9 @@ describe('digit pair return differs', () => {
         const state = createDigitPairReturnState();
         evaluateDigitPairReturnDiffers([7, 3, 1, 4], {}, state);
         const fire = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 8], {}, state);
-        expect(fire.prediction).toBe(4);
+        expect(fire.prediction).toBe(8);
         const again = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 8], {}, state);
-        expect(again.prediction).toBe(4);
+        expect(again.prediction).toBe(8);
         expect(again.allowed).toBe(true);
     });
 
@@ -78,8 +78,8 @@ describe('digit pair return differs', () => {
 
         evaluateDigitPairReturnDiffers([9, 7, 3, 1, 4], {}, state);
         const confirmation = evaluateDigitPairReturnDiffers([7, 3, 1, 4, 0], {}, state);
-        // Tip 0 completes 3 → 1 → 4 → 0 → Differ 4
-        expect(confirmation.prediction).toBe(4);
+        // Tip 0 completes 3 → 1 → 4 → 0 → Differ 0
+        expect(confirmation.prediction).toBe(0);
     });
 
     it('resets runtime state in place on stop', () => {

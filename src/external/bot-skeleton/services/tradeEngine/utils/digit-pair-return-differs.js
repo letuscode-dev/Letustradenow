@@ -2,9 +2,9 @@
  * Digit Pair → Return Differs
  *
  * When four consecutive last digits form A → B → C → D (digits 0–9),
- * signals Digit Differs on C.
+ * signals Digit Differs on D.
  *
- * Example: 7 → 3 → 1 → 4 → DIFFER 1.
+ * Example: 7 → 3 → 1 → 4 → DIFFER 4.
  */
 
 const toDigit = value => {
@@ -141,7 +141,7 @@ export const evaluateDigitPairReturnDiffers = (
             const prev_previous = state.prev_previous_digit;
             const prev3 = state.prev3_digit;
 
-            // A → B → C → D complete → Differ C (unless bootstrapping history).
+            // A → B → C → D complete → Differ D (unless bootstrapping history).
             if (prev3 >= 0 && prev_previous >= 0 && previous >= 0) {
                 const a = prev3;
                 const b = prev_previous;
@@ -151,13 +151,13 @@ export const evaluateDigitPairReturnDiffers = (
                 state.last_pattern = pattern;
 
                 if (!bootstrapping) {
-                    const signal_key = `${tick.epoch ?? state.tick_index}:${a},${b},${c},${d}->${c}`;
+                    const signal_key = `${tick.epoch ?? state.tick_index}:${a},${b},${c},${d}->${d}`;
                     if (state.last_signal_key !== signal_key) {
                         state.last_signal_key = signal_key;
-                        prediction = c;
+                        prediction = d;
                         journal_messages.push({
                             className: 'journal__text--success',
-                            message: `Pattern ${pattern} → DIFFER ${c}.`,
+                            message: `Pattern ${pattern} → DIFFER ${d}.`,
                         });
                     }
                 } else {
