@@ -1,7 +1,7 @@
 /**
  * Digit Pair → Return Differs free bot.
  *
- * When last digits form A → B → C, Differs A.
+ * When last digits form A → B → C → D, Differs C.
  * Risk management matches Double Digit → Return Differs.
  */
 

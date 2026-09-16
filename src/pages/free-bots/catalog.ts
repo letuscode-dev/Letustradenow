@@ -32,7 +32,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'digit-pair-return-differs-v1',
         title: 'Digit Pair → Return Differs',
         description:
-            'When last digits form A → B → C, trades Digit Differs on A. Same risk controls as Double Digit → Return Differs, including optional Martingale Off When Profit > Stake.',
+            'When last digits form A → B → C → D, trades Digit Differs on C. Same risk controls as Double Digit → Return Differs, including optional Martingale Off When Profit > Stake.',
         tags: ['Differs', 'Digit pair', 'Return'],
         xml: DIGIT_PAIR_RETURN_DIFFERS_XML,
     },

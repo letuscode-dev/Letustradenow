@@ -1,10 +1,10 @@
 /**
  * Digit Pair → Return Differs
  *
- * When three consecutive last digits form A → B → C (digits 0–9),
- * signals Digit Differs on A.
+ * When four consecutive last digits form A → B → C → D (digits 0–9),
+ * signals Digit Differs on C.
  *
- * Example: 7 → 3 → 1 → DIFFER 7.
+ * Example: 7 → 3 → 1 → 4 → DIFFER 1.
  */
 
 const toDigit = value => {
@@ -30,6 +30,7 @@ export const createDigitPairReturnState = () => ({
     tick_index: -1,
     previous_digit: -1,
     prev_previous_digit: -1,
+    prev3_digit: -1,
     last_pattern: '',
 });
 
@@ -96,7 +97,7 @@ const buildResult = (state, prediction, tick_window, journal_messages) => ({
     allowed: prediction >= 0,
     tick_window,
     pattern: state.last_pattern || '',
-    state_summary: state.last_pattern || 'watching for A → B → C',
+    state_summary: state.last_pattern || 'watching for A → B → C → D',
     waiting_pairs: [],
     journal_messages,
 });
@@ -138,23 +139,25 @@ export const evaluateDigitPairReturnDiffers = (
             const current = tick.digit;
             const previous = state.previous_digit;
             const prev_previous = state.prev_previous_digit;
+            const prev3 = state.prev3_digit;
 
-            // A → B → C complete → Differ A (unless bootstrapping history).
-            if (prev_previous >= 0 && previous >= 0) {
-                const a = prev_previous;
-                const b = previous;
-                const c = current;
-                const pattern = `${a} → ${b} → ${c}`;
+            // A → B → C → D complete → Differ C (unless bootstrapping history).
+            if (prev3 >= 0 && prev_previous >= 0 && previous >= 0) {
+                const a = prev3;
+                const b = prev_previous;
+                const c = previous;
+                const d = current;
+                const pattern = `${a} → ${b} → ${c} → ${d}`;
                 state.last_pattern = pattern;
 
                 if (!bootstrapping) {
-                    const signal_key = `${tick.epoch ?? state.tick_index}:${a},${b},${c}->${a}`;
+                    const signal_key = `${tick.epoch ?? state.tick_index}:${a},${b},${c},${d}->${c}`;
                     if (state.last_signal_key !== signal_key) {
                         state.last_signal_key = signal_key;
-                        prediction = a;
+                        prediction = c;
                         journal_messages.push({
                             className: 'journal__text--success',
-                            message: `Pattern ${pattern} → DIFFER ${a}.`,
+                            message: `Pattern ${pattern} → DIFFER ${c}.`,
                         });
                     }
                 } else {
@@ -165,6 +168,7 @@ export const evaluateDigitPairReturnDiffers = (
                 }
             }
 
+            state.prev3_digit = prev_previous;
             state.prev_previous_digit = previous;
             state.previous_digit = current;
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
@@ -174,7 +178,6 @@ export const evaluateDigitPairReturnDiffers = (
 
     if (!journal_enabled) journal_messages.length = 0;
 
-    // Keep only the newest few journal lines during bootstrap floods.
     if (journal_messages.length > 8) {
         journal_messages.splice(0, journal_messages.length - 8);
     }
