@@ -33,7 +33,7 @@ describe('digit pair return differs', () => {
 
     it('enforces the minimum analysis window', () => {
         const result = evaluateDigitPairReturnDiffers([], { tick_window: 20 });
-        expect(result.tick_window).toBe(120);
+        expect(result.tick_window).toBe(30);
     });
 
     it('bootstraps from an epoch-tagged rolling window without stale trades', () => {

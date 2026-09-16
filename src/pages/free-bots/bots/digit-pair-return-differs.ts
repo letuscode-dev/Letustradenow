@@ -52,7 +52,7 @@ export const DIGIT_PAIR_RETURN_DIFFERS_XML = `<xml xmlns="https://developers.goo
           <next><block type="variables_set" id="dpr_init_protect"><field name="VAR" id="dpr_protect">Martingale Off When Profit > Stake</field><value name="VALUE"><block type="logic_boolean"><field name="BOOL">FALSE</field></block></value>
           <next><block type="variables_set" id="dpr_init_take_profit"><field name="VAR" id="dpr_take_profit">Take Profit</field><value name="VALUE"><block type="math_number"><field name="NUM">10</field></block></value>
             <next><block type="variables_set" id="dpr_init_stop_loss"><field name="VAR" id="dpr_stop_loss">Consecutive Loss Stop</field><value name="VALUE"><block type="math_number"><field name="NUM">5</field></block></value>
-              <next><block type="variables_set" id="dpr_init_window"><field name="VAR" id="dpr_window">Analysis Window</field><value name="VALUE"><block type="math_number"><field name="NUM">120</field></block></value>
+              <next><block type="variables_set" id="dpr_init_window"><field name="VAR" id="dpr_window">Analysis Window</field><value name="VALUE"><block type="math_number"><field name="NUM">30</field></block></value>
                 <next>${wrapCollapsedAdvancedInit(
                     'dpr',
                     `<block type="variables_set" id="dpr_init_base_stake"><field name="VAR" id="dpr_base_stake">Base Stake</field><value name="VALUE"><block type="variables_get"><field name="VAR" id="dpr_stake">Stake</field></block></value>

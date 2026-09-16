@@ -51,7 +51,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_pair_return_differs
         );
     const code = `(function () {
         var BinaryBotPrivateDprResult = Bot.evaluateDigitPairReturnDiffers({
-            tick_window: ${read('WINDOW') || '120'},
+            tick_window: ${read('WINDOW') || '30'},
             auto_trading: ${read('AUTO') || 'true'},
             journal_enabled: ${read('JOURNAL') || 'true'}
         });

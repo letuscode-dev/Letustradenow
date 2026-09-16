@@ -501,7 +501,7 @@ const getBotInterface = tradeEngine => {
             if (!tradeEngine.digitPairReturnState) {
                 tradeEngine.digitPairReturnState = createDigitPairReturnState();
             }
-            const tick_window = Math.max(120, Math.floor(Number(opts.tick_window)) || 120);
+            const tick_window = Math.max(30, Math.floor(Number(opts.tick_window)) || 30);
             if (typeof tradeEngine.ensureTickHistory === 'function') {
                 await tradeEngine.ensureTickHistory(tick_window);
             }

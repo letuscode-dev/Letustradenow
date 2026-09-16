@@ -107,7 +107,7 @@ export const evaluateDigitPairReturnDiffers = (
     options = {},
     state = createDigitPairReturnState()
 ) => {
-    const tick_window = Math.max(120, Math.floor(Number(options.tick_window)) || 120);
+    const tick_window = Math.max(30, Math.floor(Number(options.tick_window)) || 30);
     const journal_enabled = options.journal_enabled !== false;
     const journal_messages = [];
     const window_ticks = normalizeTicks(raw_ticks).slice(-tick_window);
