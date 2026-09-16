@@ -1,12 +1,12 @@
 /**
  * Digit Pair → Return Differs
  *
- * Learns A → B → C for every digit pair (A,B) with A,B,C in 0–9.
- * When A → B appear again as the two previous digits before a new tip,
- * signals Digit Differs on the stored C (the digit that used to be p0).
+ * Learns A → B → C → D for every digit triple (A,B,C) with digits 0–9.
+ * When A → B → C appear again as the three previous digits before a new tip,
+ * signals Digit Differs on the stored D (the digit that used to be p0).
  *
- * Example: 7 → 3 → 1 stores target 1 for pair (7,3).
- * Later 7 → 3 → X fires DIFFER 1.
+ * Example: 7 → 3 → 1 → 4 stores target 4 for pattern (7,3,1).
+ * Later 7 → 3 → 1 → X fires DIFFER 4.
  */
 
 const toDigit = value => {
@@ -22,9 +22,9 @@ const normalizeTicks = ticks =>
         return [{ digit, epoch: Number.isFinite(epoch) ? epoch : null }];
     });
 
-const pairKey = (a, b) => `${a},${b}`;
+const patternKey = (a, b, c) => `${a},${b},${c}`;
 
-const createPairState = () => ({
+const createPatternState = () => ({
     target_digit: -1,
     status: 'WATCHING',
     confirmations: 0,
@@ -44,6 +44,7 @@ export const createDigitPairReturnState = () => ({
     tick_index: -1,
     previous_digit: -1,
     prev_previous_digit: -1,
+    prev3_digit: -1,
 });
 
 export const resetDigitPairReturnState = (state = null) => {
@@ -58,10 +59,10 @@ export const resetDigitPairReturnState = (state = null) => {
     return state;
 };
 
-const getPairState = (state, a, b) => {
-    const key = pairKey(a, b);
+const getPatternState = (state, a, b, c) => {
+    const key = patternKey(a, b, c);
     if (!state.pairs[key]) {
-        state.pairs[key] = createPairState();
+        state.pairs[key] = createPatternState();
     }
     return state.pairs[key];
 };
@@ -74,8 +75,8 @@ const statusLine = state => {
     return entries.length ? entries.join(' | ') : 'none waiting';
 };
 
-const storeTarget = (state, a, b, target, epoch, journal_messages) => {
-    const item = getPairState(state, a, b);
+const storeTarget = (state, a, b, c, target, epoch, journal_messages) => {
+    const item = getPatternState(state, a, b, c);
     if (item.target_digit === target && item.status === 'WAITING') {
         return;
     }
@@ -83,21 +84,21 @@ const storeTarget = (state, a, b, target, epoch, journal_messages) => {
     item.status = 'WAITING';
     item.trade_status = 'IDLE';
     item.first_pattern_epoch = epoch;
-    item.last_pattern = `${a} → ${b} → ${target}`;
+    item.last_pattern = `${a} → ${b} → ${c} → ${target}`;
     journal_messages.push({
         className: 'journal__text',
-        message: `Pair ${a},${b}: stored target ${target} (${item.last_pattern}).`,
+        message: `Pattern ${a},${b},${c}: stored target ${target} (${item.last_pattern}).`,
     });
 };
 
-const firePairReturn = (state, a, b, epoch, journal_messages) => {
-    const item = getPairState(state, a, b);
+const firePatternReturn = (state, a, b, c, epoch, journal_messages) => {
+    const item = getPatternState(state, a, b, c);
     if (item.target_digit < 0) {
         return -1;
     }
 
     const target = item.target_digit;
-    const signal_key = `${epoch ?? state.tick_index}:${a},${b}->${target}`;
+    const signal_key = `${epoch ?? state.tick_index}:${a},${b},${c}->${target}`;
     if (state.last_signal_key === signal_key) {
         return -1;
     }
@@ -107,7 +108,7 @@ const firePairReturn = (state, a, b, epoch, journal_messages) => {
     item.trade_status = 'SIGNAL';
     journal_messages.push({
         className: 'journal__text--success',
-        message: `Pair ${a},${b}: return confirmed → DIFFER ${target}.`,
+        message: `Pattern ${a},${b},${c}: return confirmed → DIFFER ${target}.`,
     });
     item.target_digit = -1;
     item.status = 'WATCHING';
@@ -168,8 +169,8 @@ const buildResult = (state, prediction, tick_window, journal_messages) => {
     const waiting_pairs = Object.entries(state.pairs || {})
         .filter(([, item]) => item.target_digit >= 0)
         .map(([key, item]) => {
-            const [a, b] = key.split(',').map(Number);
-            return { pair: key, a, b, ...item };
+            const [a, b, c] = key.split(',').map(Number);
+            return { pair: key, a, b, c, ...item };
         });
 
     return {
@@ -220,15 +221,17 @@ export const evaluateDigitPairReturnDiffers = (
             const current = tick.digit;
             const previous = state.previous_digit;
             const prev_previous = state.prev_previous_digit;
+            const prev3 = state.prev3_digit;
 
-            // p2=prev_previous, p1=previous, p0=current.
-            // Learn on first A→B→C; on a later A→B→X fire Differ stored C.
-            if (prev_previous >= 0 && previous >= 0) {
-                const item = getPairState(state, prev_previous, previous);
+            // p3=prev3, p2=prev_previous, p1=previous, p0=current.
+            // Learn on first A→B→C→D; on a later A→B→C→X fire Differ stored D.
+            if (prev3 >= 0 && prev_previous >= 0 && previous >= 0) {
+                const item = getPatternState(state, prev3, prev_previous, previous);
                 if (item.target_digit >= 0) {
                     if (bootstrapping) {
                         storeTarget(
                             state,
+                            prev3,
                             prev_previous,
                             previous,
                             current,
@@ -236,8 +239,9 @@ export const evaluateDigitPairReturnDiffers = (
                             journal_messages
                         );
                     } else {
-                        const result = firePairReturn(
+                        const result = firePatternReturn(
                             state,
+                            prev3,
                             prev_previous,
                             previous,
                             tick.epoch ?? state.tick_index,
@@ -248,6 +252,7 @@ export const evaluateDigitPairReturnDiffers = (
                 } else {
                     storeTarget(
                         state,
+                        prev3,
                         prev_previous,
                         previous,
                         current,
@@ -257,6 +262,7 @@ export const evaluateDigitPairReturnDiffers = (
                 }
             }
 
+            state.prev3_digit = prev_previous;
             state.prev_previous_digit = previous;
             state.previous_digit = current;
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
