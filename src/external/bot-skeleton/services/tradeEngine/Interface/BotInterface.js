@@ -42,6 +42,12 @@ import {
     resetRecurringPatternDifferState,
 } from '../utils/recurring-pattern-differ';
 import {
+    createRecurringPatternOver2State,
+    evaluateRecurringPatternOver2,
+    replayRecurringPatternOver2,
+    resetRecurringPatternOver2State,
+} from '../utils/recurring-pattern-over2';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -276,6 +282,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.recurringPatternDifferState) {
                 resetRecurringPatternDifferState(tradeEngine.recurringPatternDifferState);
                 tradeEngine.recurringPatternDifferState = null;
+            }
+            if (tradeEngine.recurringPatternOver2State) {
+                resetRecurringPatternOver2State(tradeEngine.recurringPatternOver2State);
+                tradeEngine.recurringPatternOver2State = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -568,6 +578,53 @@ const getBotInterface = tradeEngine => {
                       : [];
             if (!Array.isArray(digit_ticks)) digit_ticks = [];
             return replayRecurringPatternDiffer(digit_ticks, opts);
+        },
+        /**
+         * Recurring Pattern Over 2 Consistency — OVER 2 only when historical
+         * Over 2 rate AND consistency filters pass (ACTIVE defaults).
+         */
+        evaluateRecurringPatternOver2: async options => {
+            const opts = options || {};
+            if (!tradeEngine.recurringPatternOver2State) {
+                tradeEngine.recurringPatternOver2State = createRecurringPatternOver2State();
+            }
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateRecurringPatternOver2(
+                digit_ticks,
+                opts,
+                tradeEngine.recurringPatternOver2State
+            );
+        },
+        /**
+         * Recurring Pattern Over 2 Consistency replay/backtest (no look-ahead).
+         */
+        replayRecurringPatternOver2: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayRecurringPatternOver2(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

@@ -243,6 +243,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayRecurringPatternDiffer)
             );
         }
+        if (typeof bot_interface.evaluateRecurringPatternOver2 === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateRecurringPatternOver2',
+                createAsync(js_interpreter, bot_interface.evaluateRecurringPatternOver2)
+            );
+        }
+        if (typeof bot_interface.replayRecurringPatternOver2 === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayRecurringPatternOver2',
+                createAsync(js_interpreter, bot_interface.replayRecurringPatternOver2)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
