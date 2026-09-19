@@ -66,7 +66,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.recurring_pattern_differ_
             min_pattern_length: BinaryBotPrivateRpdLen,
             max_pattern_length: BinaryBotPrivateRpdLen,
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
-            min_occurrences: ${read('MIN_OCCURRENCES') || '5'},
+            min_occurrences: ${read('MIN_OCCURRENCES') || '3'},
             min_target_pct: ${read('MIN_TARGET_PCT') || '15'},
             min_advantage: ${read('MIN_ADVANTAGE') || '5'},
             min_target_gap: ${read('MIN_TARGET_GAP') || '2'},

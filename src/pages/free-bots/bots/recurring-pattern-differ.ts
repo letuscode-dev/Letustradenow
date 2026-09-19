@@ -1,7 +1,7 @@
 /**
  * Recurring Pattern Differ free bot (ACTIVE defaults).
  *
- * Pattern length 3, min 5 occurrences, target ≥15%, advantage ≥5%.
+ * Pattern length 3, min 3 occurrences, target ≥15%, advantage ≥5%.
  * Journal shows WHY NO TRADE when filters block. DIGITDIFF only.
  * Risk matches Digit Percentage Decrease – Differ (martingale 10.5).
  */
@@ -153,7 +153,7 @@ export const RECURRING_PATTERN_DIFFER_XML = `<xml xmlns="https://developers.goog
               ['rpd_stop_loss', 'Stop Loss', num(50)],
               ['rpd_len', 'Pattern Length', num(3)],
               ['rpd_window', 'Analysis Tick Window', num(1000)],
-              ['rpd_min_occ', 'Minimum Pattern Occurrences', num(5)],
+              ['rpd_min_occ', 'Minimum Pattern Occurrences', num(3)],
               ['rpd_min_pct', 'Minimum Target Digit Percentage', num(15)],
               ['rpd_min_adv', 'Minimum Target Advantage', num(5)],
               ['rpd_min_gap', 'Minimum Target Gap', num(2)],

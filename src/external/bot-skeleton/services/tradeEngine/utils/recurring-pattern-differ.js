@@ -30,7 +30,7 @@ export const DEFAULT_OPTIONS = {
     min_pattern_length: 3,
     max_pattern_length: 3,
     analysis_window: 1000,
-    min_occurrences: 5,
+    min_occurrences: 3,
     min_target_pct: 15,
     min_advantage: 5,
     min_target_gap: 2,

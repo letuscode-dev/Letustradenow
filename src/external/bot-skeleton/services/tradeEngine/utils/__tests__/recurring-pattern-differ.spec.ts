@@ -11,7 +11,7 @@ import {
 const opts = (overrides = {}) =>
     normalizeRecurringPatternDifferOptions({
         pattern_length: 3,
-        min_occurrences: 5,
+        min_occurrences: 3,
         min_target_pct: 15,
         min_advantage: 5,
         min_target_gap: 2,
@@ -29,7 +29,7 @@ describe('recurring pattern differ (active)', () => {
         expect(o.pattern_length).toBe(3);
         expect(o.min_pattern_length).toBe(3);
         expect(o.max_pattern_length).toBe(3);
-        expect(o.min_occurrences).toBe(5);
+        expect(o.min_occurrences).toBe(3);
         expect(o.min_target_pct).toBe(15);
         expect(o.min_advantage).toBe(5);
         expect(o.require_dominance_gap).toBe(false);
