@@ -1,6 +1,6 @@
 /**
  * Recurring Pattern Differ — returns Differ prediction (0–9) or -1.
- * ACTIVE defaults: length 3, min occ 5, target 15%, advantage 5%, gap optional.
+ * ACTIVE defaults: length 3, min occ 3, target 15%, advantage 5%, gap optional.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
