@@ -34,6 +34,7 @@ import './double_digit_return_differs_prediction';
 import './digit_pair_return_differs_prediction';
 import './triple_digit_martingale_scan';
 import './digit_percentage_decrease_scan';
+import './recurring_pattern_differ_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

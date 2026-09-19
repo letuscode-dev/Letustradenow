@@ -3,6 +3,7 @@ import { DIGIT_PAIR_RETURN_DIFFERS_XML } from './bots/digit-pair-return-differs'
 import { DIGIT_PERCENTAGE_DECREASE_XML } from './bots/digit-percentage-decrease';
 import { DOUBLE_DIGIT_RETURN_DIFFERS_XML } from './bots/double-digit-return-differs';
 import { PATTERN_SWITCH_XML } from './bots/pattern-switch';
+import { RECURRING_PATTERN_DIFFER_XML } from './bots/recurring-pattern-differ';
 import { TRIPLE_DIGIT_MARTINGALE_XML } from './bots/triple-digit-martingale';
 
 /**
@@ -35,6 +36,14 @@ export const FREE_BOTS: FreeBot[] = [
             'When last digits form A → B → C → D, trades Digit Differs on D. Same risk controls as Double Digit → Return Differs, including optional Martingale Off When Profit > Stake.',
         tags: ['Differs', 'Digit pair', 'Return'],
         xml: DIGIT_PAIR_RETURN_DIFFERS_XML,
+    },
+    {
+        id: 'recurring-pattern-differ-v1',
+        title: 'Recurring Pattern Differ',
+        description:
+            'When a recurring digit pattern completes, Differ the historically most frequent next digit if min occurrences, target %, advantage over 10%, and target gap filters pass. DIGITDIFF only; martingale 10.5 with optional Martingale Off When Profit > Stake.',
+        tags: ['Differs', 'Pattern', 'Conditional probability', 'Martingale'],
+        xml: RECURRING_PATTERN_DIFFER_XML,
     },
     {
         id: 'pattern-switch-v1',

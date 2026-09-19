@@ -36,6 +36,11 @@ import {
     resetDigitPairReturnState,
 } from '../utils/digit-pair-return-differs';
 import {
+    createRecurringPatternDifferState,
+    evaluateRecurringPatternDiffer,
+    resetRecurringPatternDifferState,
+} from '../utils/recurring-pattern-differ';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -266,6 +271,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.digitPairReturnState) {
                 resetDigitPairReturnState(tradeEngine.digitPairReturnState);
                 tradeEngine.digitPairReturnState = null;
+            }
+            if (tradeEngine.recurringPatternDifferState) {
+                resetRecurringPatternDifferState(tradeEngine.recurringPatternDifferState);
+                tradeEngine.recurringPatternDifferState = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -510,6 +519,32 @@ const getBotInterface = tradeEngine => {
                 digit_ticks = [];
             }
             return evaluateDigitPairReturnDiffers(digit_ticks, opts, tradeEngine.digitPairReturnState);
+        },
+        /**
+         * Recurring Pattern Differ — Differ the historically most frequent next digit
+         * after a recurring digit sequence that passes statistical filters.
+         */
+        evaluateRecurringPatternDiffer: async options => {
+            const opts = options || {};
+            if (!tradeEngine.recurringPatternDifferState) {
+                tradeEngine.recurringPatternDifferState = createRecurringPatternDifferState();
+            }
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateRecurringPatternDiffer(
+                digit_ticks,
+                opts,
+                tradeEngine.recurringPatternDifferState
+            );
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
