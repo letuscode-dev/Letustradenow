@@ -2,6 +2,7 @@ import type { FreeBot } from './types';
 import { RECURRING_PATTERN_DIFFER_XML } from './bots/recurring-pattern-differ';
 import { RECURRING_PATTERN_OVER2_XML } from './bots/recurring-pattern-over2';
 import { RECURRING_PATTERN_UNDER7_XML } from './bots/recurring-pattern-under7';
+import { REPEATED_DIGIT_RECURRENCE_DIFFER_XML } from './bots/repeated-digit-recurrence-differ';
 
 /**
  * Free Bots catalog.
@@ -33,5 +34,13 @@ export const FREE_BOTS: FreeBot[] = [
             'UNDER 7 only. When a recurring digit pattern shows high Under 7 rate (≥75%) and high consistency (≥70) vs the 70% baseline, places Digit Under 7. Journal shows WHY NO TRADE. Strict mode raises thresholds. Martingale 10.5.',
         tags: ['Under 7', 'Pattern', 'Consistency', 'Martingale', 'Active'],
         xml: RECURRING_PATTERN_UNDER7_XML,
+    },
+    {
+        id: 'repeated-digit-recurrence-differ-v1',
+        title: 'Repeated Digit Recurrence DIFFER',
+        description:
+            'When a digit repeats N times (default 3) again after at least one prior occurrence, Differ that digit. First discovery is recorded only. Optional historical DIFFER % filter. Journal shows WHY NO TRADE. Martingale 10.5.',
+        tags: ['Differs', 'Repetition', 'Recurrence', 'Martingale', 'Active'],
+        xml: REPEATED_DIGIT_RECURRENCE_DIFFER_XML,
     },
 ];

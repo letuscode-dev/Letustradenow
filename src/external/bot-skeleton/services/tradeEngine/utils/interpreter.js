@@ -271,6 +271,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayRecurringPatternUnder7)
             );
         }
+        if (typeof bot_interface.evaluateRepeatedDigitRecurrence === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateRepeatedDigitRecurrence',
+                createAsync(js_interpreter, bot_interface.evaluateRepeatedDigitRecurrence)
+            );
+        }
+        if (typeof bot_interface.replayRepeatedDigitRecurrence === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayRepeatedDigitRecurrence',
+                createAsync(js_interpreter, bot_interface.replayRepeatedDigitRecurrence)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

@@ -37,6 +37,7 @@ import './digit_percentage_decrease_scan';
 import './recurring_pattern_differ_scan';
 import './recurring_pattern_over2_scan';
 import './recurring_pattern_under7_scan';
+import './repeated_digit_recurrence_differ_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

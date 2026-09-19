@@ -54,6 +54,12 @@ import {
     resetRecurringPatternUnder7State,
 } from '../utils/recurring-pattern-under7';
 import {
+    createRepeatedDigitRecurrenceState,
+    evaluateRepeatedDigitRecurrence,
+    replayRepeatedDigitRecurrence,
+    resetRepeatedDigitRecurrenceState,
+} from '../utils/repeated-digit-recurrence-differ';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -296,6 +302,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.recurringPatternUnder7State) {
                 resetRecurringPatternUnder7State(tradeEngine.recurringPatternUnder7State);
                 tradeEngine.recurringPatternUnder7State = null;
+            }
+            if (tradeEngine.repeatedDigitRecurrenceState) {
+                resetRepeatedDigitRecurrenceState(tradeEngine.repeatedDigitRecurrenceState);
+                tradeEngine.repeatedDigitRecurrenceState = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -682,6 +692,53 @@ const getBotInterface = tradeEngine => {
                       : [];
             if (!Array.isArray(digit_ticks)) digit_ticks = [];
             return replayRecurringPatternUnder7(digit_ticks, opts);
+        },
+        /**
+         * Repeated Digit Recurrence DIFFER — when digit × N recurs after prior
+         * occurrence(s), Differ that digit (ACTIVE defaults).
+         */
+        evaluateRepeatedDigitRecurrence: async options => {
+            const opts = options || {};
+            if (!tradeEngine.repeatedDigitRecurrenceState) {
+                tradeEngine.repeatedDigitRecurrenceState = createRepeatedDigitRecurrenceState();
+            }
+            const tick_window = Math.max(
+                50,
+                Math.floor(Number(opts.analysis_window)) || 5000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateRepeatedDigitRecurrence(
+                digit_ticks,
+                opts,
+                tradeEngine.repeatedDigitRecurrenceState
+            );
+        },
+        /**
+         * Repeated Digit Recurrence DIFFER replay/backtest (no look-ahead).
+         */
+        replayRepeatedDigitRecurrence: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(
+                50,
+                Math.floor(Number(opts.analysis_window)) || 5000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayRepeatedDigitRecurrence(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

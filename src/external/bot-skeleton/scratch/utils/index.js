@@ -234,6 +234,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/recurring_pattern_under7_scan'));
     }
 
+    if (block_string.includes('repeated_digit_recurrence_differ_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/repeated_digit_recurrence_differ_scan'));
+    }
+
     await Promise.all(imports);
 };
 
