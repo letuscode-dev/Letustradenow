@@ -1,7 +1,7 @@
 /**
  * Missing Digit Return DIFFER free bot.
  *
- * When a digit reappears after missing ≥ N tips (default 15), Differ that digit.
+ * When a digit reappears after missing ≥ N tips (default 20), Differ that digit.
  * Risk: martingale 10.5 with optional Martingale Off When Profit > Stake + cooldown.
  */
 
@@ -145,7 +145,7 @@ export const MISSING_DIGIT_RETURN_DIFFER_XML = `<xml xmlns="https://developers.g
               ['mdr_protect', 'Martingale Off When Profit > Stake', bool(false)],
               ['mdr_take_profit', 'Take Profit', num(20)],
               ['mdr_stop_loss', 'Stop Loss', num(50)],
-              ['mdr_period', 'Missing Period', num(15)],
+              ['mdr_period', 'Missing Period', num(20)],
               ['mdr_digits', 'Target Digits', text('ALL')],
           ],
           wrapCollapsedAdvancedInit(

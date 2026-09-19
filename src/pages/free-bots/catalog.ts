@@ -12,7 +12,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'missing-digit-return-differ-v1',
         title: 'Missing Digit Return DIFFER',
         description:
-            'When a digit reappears after being missing for a configurable period (default 15 tips), Differ that digit. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
+            'When a digit reappears after being missing for a configurable period (default 20 tips), Differ that digit. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
         tags: ['Differs', 'Missing digit', 'Absence', 'Martingale', 'Cooldown'],
         xml: MISSING_DIGIT_RETURN_DIFFER_XML,
     },

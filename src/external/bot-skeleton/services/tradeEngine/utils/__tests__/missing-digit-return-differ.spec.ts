@@ -9,7 +9,7 @@ import {
 
 const opts = (overrides = {}) =>
     normalizeMissingDigitReturnOptions({
-        missing_period: 15,
+        missing_period: 20,
         signal_cooldown_tips: 0,
         journal_enabled: false,
         analysis_window: 500,
@@ -17,18 +17,18 @@ const opts = (overrides = {}) =>
     });
 
 describe('missing digit return differ', () => {
-    it('defaults missing period to 15 with cooldown 1', () => {
+    it('defaults missing period to 20 with cooldown 1', () => {
         const o = normalizeMissingDigitReturnOptions({});
-        expect(o.missing_period).toBe(15);
+        expect(o.missing_period).toBe(20);
         expect(o.signal_cooldown_tips).toBe(1);
         expect(o.target_digits).toBe('ALL');
     });
 
     it('Differs a digit that returns after the configured absence', () => {
         const state = createMissingDigitReturnState();
-        // Seed digit 7, then 15 other tips, then 7 returns
+        // Seed digit 7, then 20 other tips, then 7 returns
         const history = [7];
-        for (let i = 0; i < 15; i++) history.push((i + 1) % 7); // 1..6 cycling, never 7
+        for (let i = 0; i < 20; i++) history.push((i + 1) % 7); // 1..6 cycling, never 7
         history.push(7);
 
         for (let i = 0; i < history.length - 1; i++) {
@@ -37,7 +37,7 @@ describe('missing digit return differ', () => {
         const live = evaluateMissingDigitReturn(history, opts(), state);
         expect(live.matched).toBe(true);
         expect(live.prediction).toBe(7);
-        expect(live.absence).toBe(15);
+        expect(live.absence).toBe(20);
         expect(live.status).toBe(STATUS.VALID_SIGNAL);
     });
 
@@ -45,9 +45,9 @@ describe('missing digit return differ', () => {
         const state = createMissingDigitReturnState();
         const history = [7, 1, 2, 3, 7]; // only 3 missing
         for (let i = 0; i < history.length; i++) {
-            evaluateMissingDigitReturn(history.slice(0, i + 1), opts({ missing_period: 15 }), state);
+            evaluateMissingDigitReturn(history.slice(0, i + 1), opts({ missing_period: 20 }), state);
         }
-        const live = evaluateMissingDigitReturn(history, opts({ missing_period: 15 }), state);
+        const live = evaluateMissingDigitReturn(history, opts({ missing_period: 20 }), state);
         expect(live.matched).toBe(false);
         expect(live.why_no_trade).toMatch(/only|Required|below|threshold|3/i);
     });
@@ -55,7 +55,7 @@ describe('missing digit return differ', () => {
     it('settles DIFFER outcome on the next tip', () => {
         const state = createMissingDigitReturnState();
         const history = [7];
-        for (let i = 0; i < 15; i++) history.push((i + 1) % 7);
+        for (let i = 0; i < 20; i++) history.push((i + 1) % 7);
         history.push(7);
         for (let i = 0; i < history.length; i++) {
             evaluateMissingDigitReturn(history.slice(0, i + 1), opts(), state);
@@ -69,7 +69,7 @@ describe('missing digit return differ', () => {
         const state = createMissingDigitReturnState();
         const toEpoch = digits => digits.map((digit, i) => ({ digit, epoch: i + 1 }));
         const history = [7];
-        for (let i = 0; i < 15; i++) history.push((i + 1) % 7);
+        for (let i = 0; i < 20; i++) history.push((i + 1) % 7);
         history.push(7);
         for (let i = 0; i < history.length; i++) {
             evaluateMissingDigitReturn(toEpoch(history.slice(0, i + 1)), opts(), state);
@@ -92,7 +92,7 @@ describe('missing digit return differ', () => {
         const history = [];
         for (let cycle = 0; cycle < 4; cycle++) {
             history.push(9);
-            for (let i = 0; i < 15; i++) history.push(i % 8);
+            for (let i = 0; i < 20; i++) history.push(i % 8);
             history.push(9);
             history.push(1); // settle
         }

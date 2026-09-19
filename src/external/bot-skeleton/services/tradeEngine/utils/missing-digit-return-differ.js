@@ -2,7 +2,7 @@
  * Missing Digit Return DIFFER
  *
  * Track how long each digit 0–9 has been absent. When a digit reappears after
- * being missing for at least `missing_period` tips (default 15), Differ that
+ * being missing for at least `missing_period` tips (default 20), Differ that
  * digit on the NEXT tip. Prior absence only — no look-ahead.
  */
 
@@ -16,7 +16,7 @@ export const STATUS = {
 };
 
 export const DEFAULT_OPTIONS = {
-    missing_period: 15,
+    missing_period: 20,
     target_digits: 'ALL',
     signal_cooldown_tips: 1,
     analysis_window: 2000,

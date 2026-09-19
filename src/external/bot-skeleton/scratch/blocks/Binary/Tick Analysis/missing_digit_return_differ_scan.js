@@ -1,6 +1,6 @@
 /**
  * Missing Digit Return DIFFER — returns Differ digit (0–9) or -1.
- * When a digit reappears after missing ≥ N tips (default 15), Differ that digit.
+ * When a digit reappears after missing ≥ N tips (default 20), Differ that digit.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -36,7 +36,7 @@ window.Blockly.Blocks.missing_digit_return_differ_scan = {
         return {
             display_name: localize('Missing Digit Return DIFFER scan'),
             description: localize(
-                'Places Digit Differs against a digit that reappears after a configurable absence (default 15).'
+                'Places Digit Differs against a digit that reappears after a configurable absence (default 20).'
             ),
             key_words: localize('missing, absence, return, differs'),
         };
@@ -56,7 +56,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.missing_digit_return_diff
 
     const code = `(function () {
         var BinaryBotPrivateMdrResult = Bot.evaluateMissingDigitReturn({
-            missing_period: ${read('MISSING_PERIOD') || '15'},
+            missing_period: ${read('MISSING_PERIOD') || '20'},
             target_digits: ${read('TARGET_DIGITS') || '"ALL"'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'}
