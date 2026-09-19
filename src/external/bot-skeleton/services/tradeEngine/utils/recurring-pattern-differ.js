@@ -173,6 +173,7 @@ const createPatternRecord = () => ({
     live: { signals: 0, wins: 0, losses: 0 },
     persistence_hits: 0,
     last_dominant: -1,
+    last_persistence_abs: -1,
 });
 
 export const createRecurringPatternDifferState = () => ({
@@ -227,7 +228,17 @@ const normalizeTicks = ticks =>
 
 const selectTicksToProcess = (ticks, state) => {
     const has_epochs = ticks.some(tick => tick.epoch !== null);
-    if (has_epochs) return ticks;
+    if (has_epochs) {
+        // Live ticks always carry epochs. Only process tips newer than the last
+        // handled epoch — otherwise every scan re-poll re-walks the full window
+        // (or skips all tips) and overwrites a valid same-tip signal with -1.
+        if (state.last_processed_epoch !== null) {
+            return ticks.filter(
+                tick => tick.epoch !== null && tick.epoch > state.last_processed_epoch
+            );
+        }
+        return ticks;
+    }
 
     const fingerprint = ticks.map(tick => tick.digit).join('');
     if (!fingerprint) return [];
@@ -259,6 +270,21 @@ const selectTicksToProcess = (ticks, state) => {
     }
     state.last_plain_fingerprint = fingerprint;
     return ticks.slice(Math.max(0, start));
+};
+
+/** Keep only pattern occurrences whose end index falls inside the lookback window. */
+const followersInLookback = (record, tip_abs, analysis_window) => {
+    const min_abs = tip_abs - analysis_window;
+    const followers = [];
+    const indices = [];
+    for (let i = 0; i < record.next_digits.length; i++) {
+        const occ_abs = record.occurrence_indices[i];
+        if (occ_abs >= min_abs) {
+            followers.push(record.next_digits[i]);
+            indices.push(occ_abs);
+        }
+    }
+    return { followers, indices };
 };
 
 const distributionFromFollowers = (followers, options) => {
@@ -356,27 +382,25 @@ const computeSignalScore = ({ total, target_pct, advantage, gap, live_wr }) => {
     return Math.round(Math.min(100, Math.max(0, sample + pct + adv + gap_score + live)));
 };
 
-const evaluatePatternCandidate = (state, pattern_digits, tip_abs, options) => {
+const evaluatePatternCandidate = (state, pattern_digits, tip_abs, options, { bootstrapping = false } = {}) => {
     const key = patternKey(pattern_digits);
     const record = getPatternRecord(state, key);
-    const dist = distributionFromFollowers(record.next_digits, options);
+    const { followers, indices } = followersInLookback(record, tip_abs, options.analysis_window);
+    const dist = distributionFromFollowers(followers, options);
     const length = pattern_digits.length;
-    const last_idx =
-        record.occurrence_indices.length > 0
-            ? record.occurrence_indices[record.occurrence_indices.length - 1]
-            : -1;
+    const last_idx = indices.length > 0 ? indices[indices.length - 1] : -1;
     const age = last_idx >= 0 ? tip_abs - last_idx : Number.POSITIVE_INFINITY;
 
     const live_total = record.live.wins + record.live.losses;
     const live_wr = live_total > 0 ? (record.live.wins / live_total) * 100 : 0;
 
     const multi = {
-        short: windowPct(record.next_digits, dist.target, options.short_window),
-        medium: windowPct(record.next_digits, dist.target, options.medium_window),
-        long: windowPct(record.next_digits, dist.target, options.long_window),
-        short_dom: windowDominant(record.next_digits, options.short_window),
-        medium_dom: windowDominant(record.next_digits, options.medium_window),
-        long_dom: windowDominant(record.next_digits, options.long_window),
+        short: windowPct(followers, dist.target, options.short_window),
+        medium: windowPct(followers, dist.target, options.medium_window),
+        long: windowPct(followers, dist.target, options.long_window),
+        short_dom: windowDominant(followers, options.short_window),
+        medium_dom: windowDominant(followers, options.medium_window),
+        long_dom: windowDominant(followers, options.long_window),
     };
 
     const reasons = [];
@@ -422,11 +446,15 @@ const evaluatePatternCandidate = (state, pattern_digits, tip_abs, options) => {
         );
         status = STATUS.MULTI_WINDOW_DISAGREEMENT;
     } else if (options.persistence) {
-        if (record.last_dominant === dist.target) {
-            record.persistence_hits += 1;
-        } else {
-            record.last_dominant = dist.target;
-            record.persistence_hits = 1;
+        // Only advance persistence once per tip, and never during bootstrap history load.
+        if (!bootstrapping && record.last_persistence_abs !== tip_abs) {
+            record.last_persistence_abs = tip_abs;
+            if (record.last_dominant === dist.target) {
+                record.persistence_hits += 1;
+            } else {
+                record.last_dominant = dist.target;
+                record.persistence_hits = 1;
+            }
         }
         if (record.persistence_hits < options.persistence_count) {
             reasons.push(
@@ -696,7 +724,11 @@ export const evaluateRecurringPatternDiffer = (
             for (let L = options.min_pattern_length; L <= options.max_pattern_length; L++) {
                 if (idx - L + 1 < 0) continue;
                 patterns_evaluated += 1;
-                candidates.push(evaluatePatternCandidate(state, patternDigitsFrom(state, idx, L), abs, options));
+                candidates.push(
+                    evaluatePatternCandidate(state, patternDigitsFrom(state, idx, L), abs, options, {
+                        bootstrapping,
+                    })
+                );
             }
             all_candidates = candidates;
             valid_signals = candidates.filter(c => c.qualified).length;

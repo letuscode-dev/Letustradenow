@@ -97,7 +97,9 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.recurring_pattern_differ_
         var BinaryBotPrivatePrediction = BinaryBotPrivateRpdResult
             ? Number(BinaryBotPrivateRpdResult.prediction)
             : NaN;
-        return !isNaN(BinaryBotPrivatePrediction) ? BinaryBotPrivatePrediction : -1;
+        return !isNaN(BinaryBotPrivatePrediction) && BinaryBotPrivatePrediction >= 0
+            ? BinaryBotPrivatePrediction
+            : -1;
     })()`;
 
     return [code, window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC];

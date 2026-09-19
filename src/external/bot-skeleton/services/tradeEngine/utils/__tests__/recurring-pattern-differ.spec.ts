@@ -144,4 +144,40 @@ describe('recurring pattern differ (active)', () => {
         expect(report.trades).toBeGreaterThan(0);
         expect(report.wins + report.losses).toBe(report.trades);
     });
+
+    it('preserves a valid signal across same-tip epoch re-polls (live tick path)', () => {
+        const state = createRecurringPatternDifferState();
+        const toEpochTicks = digits => digits.map((digit, i) => ({ digit, epoch: i + 1 }));
+        const history = [];
+        for (let i = 0; i < 8; i++) history.push(3, 7, 1, 8);
+
+        evaluateRecurringPatternDiffer(toEpochTicks(history), opts(), state);
+        const liveDigits = [...history, 3, 7, 1];
+        const fire = evaluateRecurringPatternDiffer(toEpochTicks(liveDigits), opts(), state);
+        expect(fire.matched).toBe(true);
+        expect(fire.prediction).toBe(8);
+
+        // Same tip polled again (scan loop) — must not wipe the signal to -1
+        const again = evaluateRecurringPatternDiffer(toEpochTicks(liveDigits), opts(), state);
+        expect(again.matched).toBe(true);
+        expect(again.prediction).toBe(8);
+        expect(again.pattern).toBe('3-7-1');
+    });
+
+    it('only counts pattern occurrences inside the analysis lookback window', () => {
+        const state = createRecurringPatternDifferState();
+        // Many old 3-7-1 → 8 occurrences, then a long gap of other digits, then a fresh tip
+        const history = [];
+        for (let i = 0; i < 20; i++) history.push(3, 7, 1, 8);
+        for (let i = 0; i < 80; i++) history.push(0, 1, 2, 4); // push old pattern outside a small window
+        evaluateRecurringPatternDiffer(history, opts({ analysis_window: 40, min_occurrences: 5 }), state);
+        const live = evaluateRecurringPatternDiffer(
+            [...history, 3, 7, 1],
+            opts({ analysis_window: 40, min_occurrences: 5 }),
+            state
+        );
+        // With window 40, almost no recent 3-7-1 history remains → insufficient / no match
+        expect(live.matched).toBe(false);
+        expect(live.occurrences).toBeLessThan(5);
+    });
 });

@@ -226,7 +226,16 @@ const normalizeTicks = ticks =>
 
 const selectTicksToProcess = (ticks, state) => {
     const has_epochs = ticks.some(tick => tick.epoch !== null);
-    if (has_epochs) return ticks;
+    if (has_epochs) {
+        // Live ticks always carry epochs. Only process tips newer than the last
+        // handled epoch — otherwise every scan re-poll overwrites a valid signal.
+        if (state.last_processed_epoch !== null) {
+            return ticks.filter(
+                tick => tick.epoch !== null && tick.epoch > state.last_processed_epoch
+            );
+        }
+        return ticks;
+    }
 
     const fingerprint = ticks.map(tick => tick.digit).join('');
     if (!fingerprint) return [];
