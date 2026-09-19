@@ -60,6 +60,12 @@ import {
     resetRepeatedDigitRecurrenceState,
 } from '../utils/repeated-digit-recurrence-differ';
 import {
+    createMissingDigitReturnState,
+    evaluateMissingDigitReturn,
+    replayMissingDigitReturn,
+    resetMissingDigitReturnState,
+} from '../utils/missing-digit-return-differ';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -306,6 +312,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.repeatedDigitRecurrenceState) {
                 resetRepeatedDigitRecurrenceState(tradeEngine.repeatedDigitRecurrenceState);
                 tradeEngine.repeatedDigitRecurrenceState = null;
+            }
+            if (tradeEngine.missingDigitReturnState) {
+                resetMissingDigitReturnState(tradeEngine.missingDigitReturnState);
+                tradeEngine.missingDigitReturnState = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -739,6 +749,53 @@ const getBotInterface = tradeEngine => {
                       : [];
             if (!Array.isArray(digit_ticks)) digit_ticks = [];
             return replayRepeatedDigitRecurrence(digit_ticks, opts);
+        },
+        /**
+         * Missing Digit Return DIFFER — Differ a digit that reappears after
+         * being absent for the configured period (default 15).
+         */
+        evaluateMissingDigitReturn: async options => {
+            const opts = options || {};
+            if (!tradeEngine.missingDigitReturnState) {
+                tradeEngine.missingDigitReturnState = createMissingDigitReturnState();
+            }
+            const tick_window = Math.max(
+                50,
+                Math.floor(Number(opts.analysis_window)) || 2000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateMissingDigitReturn(
+                digit_ticks,
+                opts,
+                tradeEngine.missingDigitReturnState
+            );
+        },
+        /**
+         * Missing Digit Return DIFFER replay/backtest (no look-ahead).
+         */
+        replayMissingDigitReturn: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(
+                50,
+                Math.floor(Number(opts.analysis_window)) || 2000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayMissingDigitReturn(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

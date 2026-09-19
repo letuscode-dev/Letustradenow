@@ -1,8 +1,5 @@
 import type { FreeBot } from './types';
-import { RECURRING_PATTERN_DIFFER_XML } from './bots/recurring-pattern-differ';
-import { RECURRING_PATTERN_OVER2_XML } from './bots/recurring-pattern-over2';
-import { RECURRING_PATTERN_UNDER7_XML } from './bots/recurring-pattern-under7';
-import { REPEATED_DIGIT_RECURRENCE_DIFFER_XML } from './bots/repeated-digit-recurrence-differ';
+import { MISSING_DIGIT_RETURN_DIFFER_XML } from './bots/missing-digit-return-differ';
 
 /**
  * Free Bots catalog.
@@ -12,35 +9,11 @@ import { REPEATED_DIGIT_RECURRENCE_DIFFER_XML } from './bots/repeated-digit-recu
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'recurring-pattern-differ-v1',
-        title: 'Recurring Pattern Differ',
+        id: 'missing-digit-return-differ-v1',
+        title: 'Missing Digit Return DIFFER',
         description:
-            'ACTIVE Differ strategy: when a recurring digit pattern (default length 3) completes, Differ the historically most frequent next digit if ≥3 occurrences, target ≥15%, and advantage ≥5pp. Journal shows WHY NO TRADE. Set Signal Mode to strict for extra filters. Martingale 10.5.',
-        tags: ['Differs', 'Pattern', 'Conditional probability', 'Martingale', 'Active'],
-        xml: RECURRING_PATTERN_DIFFER_XML,
-    },
-    {
-        id: 'recurring-pattern-over2-v1',
-        title: 'Recurring Pattern Over 2 Consistency',
-        description:
-            'OVER 2 only. When a recurring digit pattern shows high Over 2 rate (≥75%) and high consistency (≥70) vs the 70% baseline, places Digit Over 2. Journal shows WHY NO TRADE. Strict mode raises thresholds. Martingale 10.5.',
-        tags: ['Over 2', 'Pattern', 'Consistency', 'Martingale', 'Active'],
-        xml: RECURRING_PATTERN_OVER2_XML,
-    },
-    {
-        id: 'recurring-pattern-under7-v1',
-        title: 'Recurring Pattern Under 7 Consistency',
-        description:
-            'UNDER 7 only. When a recurring digit pattern shows high Under 7 rate (≥75%) and high consistency (≥70) vs the 70% baseline, places Digit Under 7. Journal shows WHY NO TRADE. Strict mode raises thresholds. Martingale 10.5.',
-        tags: ['Under 7', 'Pattern', 'Consistency', 'Martingale', 'Active'],
-        xml: RECURRING_PATTERN_UNDER7_XML,
-    },
-    {
-        id: 'repeated-digit-recurrence-differ-v1',
-        title: 'Repeated Digit Recurrence DIFFER',
-        description:
-            'When a digit repeats N times (default 3) again after at least one prior occurrence, Differ that digit. First discovery is recorded only. Optional historical DIFFER % filter. Journal shows WHY NO TRADE. Martingale 10.5.',
-        tags: ['Differs', 'Repetition', 'Recurrence', 'Martingale', 'Active'],
-        xml: REPEATED_DIGIT_RECURRENCE_DIFFER_XML,
+            'When a digit reappears after being missing for a configurable period (default 15 tips), Differ that digit. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
+        tags: ['Differs', 'Missing digit', 'Absence', 'Martingale', 'Cooldown'],
+        xml: MISSING_DIGIT_RETURN_DIFFER_XML,
     },
 ];
