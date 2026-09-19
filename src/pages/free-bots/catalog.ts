@@ -1,6 +1,7 @@
 import type { FreeBot } from './types';
 import { RECURRING_PATTERN_DIFFER_XML } from './bots/recurring-pattern-differ';
 import { RECURRING_PATTERN_OVER2_XML } from './bots/recurring-pattern-over2';
+import { RECURRING_PATTERN_UNDER7_XML } from './bots/recurring-pattern-under7';
 
 /**
  * Free Bots catalog.
@@ -24,5 +25,13 @@ export const FREE_BOTS: FreeBot[] = [
             'OVER 2 only. When a recurring digit pattern shows high Over 2 rate (≥75%) and high consistency (≥70) vs the 70% baseline, places Digit Over 2. Journal shows WHY NO TRADE. Strict mode raises thresholds. Martingale 10.5.',
         tags: ['Over 2', 'Pattern', 'Consistency', 'Martingale', 'Active'],
         xml: RECURRING_PATTERN_OVER2_XML,
+    },
+    {
+        id: 'recurring-pattern-under7-v1',
+        title: 'Recurring Pattern Under 7 Consistency',
+        description:
+            'UNDER 7 only. When a recurring digit pattern shows high Under 7 rate (≥75%) and high consistency (≥70) vs the 70% baseline, places Digit Under 7. Journal shows WHY NO TRADE. Strict mode raises thresholds. Martingale 10.5.',
+        tags: ['Under 7', 'Pattern', 'Consistency', 'Martingale', 'Active'],
+        xml: RECURRING_PATTERN_UNDER7_XML,
     },
 ];

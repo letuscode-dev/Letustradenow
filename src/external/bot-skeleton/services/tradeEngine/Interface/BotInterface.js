@@ -48,6 +48,12 @@ import {
     resetRecurringPatternOver2State,
 } from '../utils/recurring-pattern-over2';
 import {
+    createRecurringPatternUnder7State,
+    evaluateRecurringPatternUnder7,
+    replayRecurringPatternUnder7,
+    resetRecurringPatternUnder7State,
+} from '../utils/recurring-pattern-under7';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -286,6 +292,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.recurringPatternOver2State) {
                 resetRecurringPatternOver2State(tradeEngine.recurringPatternOver2State);
                 tradeEngine.recurringPatternOver2State = null;
+            }
+            if (tradeEngine.recurringPatternUnder7State) {
+                resetRecurringPatternUnder7State(tradeEngine.recurringPatternUnder7State);
+                tradeEngine.recurringPatternUnder7State = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -625,6 +635,53 @@ const getBotInterface = tradeEngine => {
                       : [];
             if (!Array.isArray(digit_ticks)) digit_ticks = [];
             return replayRecurringPatternOver2(digit_ticks, opts);
+        },
+        /**
+         * Recurring Pattern Under 7 Consistency — UNDER 7 only when historical
+         * Under 7 rate AND consistency filters pass (ACTIVE defaults).
+         */
+        evaluateRecurringPatternUnder7: async options => {
+            const opts = options || {};
+            if (!tradeEngine.recurringPatternUnder7State) {
+                tradeEngine.recurringPatternUnder7State = createRecurringPatternUnder7State();
+            }
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateRecurringPatternUnder7(
+                digit_ticks,
+                opts,
+                tradeEngine.recurringPatternUnder7State
+            );
+        },
+        /**
+         * Recurring Pattern Under 7 Consistency replay/backtest (no look-ahead).
+         */
+        replayRecurringPatternUnder7: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayRecurringPatternUnder7(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

@@ -230,6 +230,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/recurring_pattern_over2_scan'));
     }
 
+    if (block_string.includes('recurring_pattern_under7_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/recurring_pattern_under7_scan'));
+    }
+
     await Promise.all(imports);
 };
 
