@@ -41,8 +41,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'recurring-pattern-differ-v1',
         title: 'Recurring Pattern Differ',
         description:
-            'When a recurring digit pattern completes, Differ the historically most frequent next digit if min occurrences, target %, advantage over 10%, and target gap filters pass. DIGITDIFF only; martingale 10.5 with optional Martingale Off When Profit > Stake.',
-        tags: ['Differs', 'Pattern', 'Conditional probability', 'Martingale'],
+            'ACTIVE Differ strategy: when a recurring digit pattern (default length 3) completes, Differ the historically most frequent next digit if ≥5 occurrences, target ≥15%, and advantage ≥5pp. Journal shows WHY NO TRADE. Set Signal Mode to strict for extra filters. Martingale 10.5.',
+        tags: ['Differs', 'Pattern', 'Conditional probability', 'Martingale', 'Active'],
         xml: RECURRING_PATTERN_DIFFER_XML,
     },
     {

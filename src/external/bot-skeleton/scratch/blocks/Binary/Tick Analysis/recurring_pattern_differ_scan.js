@@ -1,5 +1,6 @@
 /**
  * Recurring Pattern Differ — returns Differ prediction (0–9) or -1.
+ * ACTIVE defaults: length 3, min occ 5, target 15%, advantage 5%, gap optional.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -12,17 +13,16 @@ window.Blockly.Blocks.recurring_pattern_differ_scan = {
     definition() {
         return {
             message0: localize(
-                'recurring pattern differ minL %1 maxL %2 window %3 minOcc %4 min%% %5 minAdv %6 minGap %7 prefer %8 journal %9'
+                'recurring pattern differ len %1 window %2 minOcc %3 min%% %4 minAdv %5 minGap %6 mode %7 journal %8'
             ),
             args0: [
-                { type: 'input_value', name: 'MIN_LENGTH', check: 'Number' },
-                { type: 'input_value', name: 'MAX_LENGTH', check: 'Number' },
+                { type: 'input_value', name: 'PATTERN_LENGTH', check: 'Number' },
                 { type: 'input_value', name: 'ANALYSIS_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'MIN_OCCURRENCES', check: 'Number' },
                 { type: 'input_value', name: 'MIN_TARGET_PCT', check: 'Number' },
                 { type: 'input_value', name: 'MIN_ADVANTAGE', check: 'Number' },
                 { type: 'input_value', name: 'MIN_TARGET_GAP', check: 'Number' },
-                { type: 'input_value', name: 'CONFLICT_PREFERENCE', check: 'String' },
+                { type: 'input_value', name: 'MODE', check: 'String' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
             ],
             output: 'Number',
@@ -31,7 +31,7 @@ window.Blockly.Blocks.recurring_pattern_differ_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'When a recurring digit pattern completes, returns Digit Differs on the historically most frequent next digit if sample size, percentage, advantage, and gap filters pass.'
+                'ACTIVE Differ strategy: when a recurring digit pattern completes, Differ the historically most frequent next digit. Journal shows WHY NO TRADE when filters block.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -40,9 +40,9 @@ window.Blockly.Blocks.recurring_pattern_differ_scan = {
         return {
             display_name: localize('Recurring Pattern Differ scan'),
             description: localize(
-                'Trades Digit Differs against the historically most frequent next digit after a recurring pattern.'
+                'Trades Digit Differs against the historically most frequent next digit after a recurring pattern (ACTIVE defaults).'
             ),
-            key_words: localize('pattern, recurrence, conditional probability, differs'),
+            key_words: localize('pattern, recurrence, conditional probability, differs, active'),
         };
     },
     customContextMenu(menu) {
@@ -59,23 +59,30 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.recurring_pattern_differ_
         );
 
     const code = `(function () {
+        var BinaryBotPrivateRpdLen = ${read('PATTERN_LENGTH') || '3'};
+        var BinaryBotPrivateRpdMode = ${read('MODE') || '"active"'};
         var BinaryBotPrivateRpdResult = Bot.evaluateRecurringPatternDiffer({
-            min_pattern_length: ${read('MIN_LENGTH') || '2'},
-            max_pattern_length: ${read('MAX_LENGTH') || '6'},
+            pattern_length: BinaryBotPrivateRpdLen,
+            min_pattern_length: BinaryBotPrivateRpdLen,
+            max_pattern_length: BinaryBotPrivateRpdLen,
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
-            min_occurrences: ${read('MIN_OCCURRENCES') || '50'},
+            min_occurrences: ${read('MIN_OCCURRENCES') || '5'},
             min_target_pct: ${read('MIN_TARGET_PCT') || '15'},
-            min_advantage: ${read('MIN_ADVANTAGE') || '4'},
-            min_target_gap: ${read('MIN_TARGET_GAP') || '3'},
-            conflict_preference: ${read('CONFLICT_PREFERENCE') || '"longest"'},
-            journal_enabled: ${read('JOURNAL') || 'true'},
-            multi_window: true,
-            recency_weighting: false
+            min_advantage: ${read('MIN_ADVANTAGE') || '5'},
+            min_target_gap: ${read('MIN_TARGET_GAP') || '2'},
+            mode: BinaryBotPrivateRpdMode,
+            require_dominance_gap: String(BinaryBotPrivateRpdMode).toLowerCase() === 'strict',
+            multi_window: String(BinaryBotPrivateRpdMode).toLowerCase() === 'strict',
+            persistence: String(BinaryBotPrivateRpdMode).toLowerCase() === 'strict',
+            recency_weighting: false,
+            min_signal_score: 0,
+            signal_cooldown_tips: 1,
+            journal_enabled: ${read('JOURNAL') || 'true'}
         });
         var BinaryBotPrivateMsgs = BinaryBotPrivateRpdResult && BinaryBotPrivateRpdResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
             var BinaryBotPrivateMsgIndex;
-            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 10 ? 10 : BinaryBotPrivateMsgs.length;
+            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 14 ? 14 : BinaryBotPrivateMsgs.length;
             for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgLimit; BinaryBotPrivateMsgIndex++) {
                 var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({

@@ -1,0 +1,14 @@
+---
+description: Always commit and push completed code changes to origin
+alwaysApply: true
+---
+
+# Always commit and push
+
+When you finish implementing or modifying code in this repo:
+
+1. Commit the relevant changes with a concise message (follow the repo's git safety protocol).
+2. Push to the tracked remote branch immediately (`git push` / `git push -u origin HEAD` as needed).
+3. Do this without waiting for the user to ask again — treat "push when done" as standing policy for this project.
+
+Exceptions: do not commit secrets (`.env`, credentials). Do not force-push to main/master unless the user explicitly requests it.

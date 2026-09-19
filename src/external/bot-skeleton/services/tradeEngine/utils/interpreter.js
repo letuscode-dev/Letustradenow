@@ -236,6 +236,13 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateRecurringPatternDiffer)
             );
         }
+        if (typeof bot_interface.replayRecurringPatternDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayRecurringPatternDiffer',
+                createAsync(js_interpreter, bot_interface.replayRecurringPatternDiffer)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

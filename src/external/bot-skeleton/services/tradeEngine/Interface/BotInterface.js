@@ -38,6 +38,7 @@ import {
 import {
     createRecurringPatternDifferState,
     evaluateRecurringPatternDiffer,
+    replayRecurringPatternDiffer,
     resetRecurringPatternDifferState,
 } from '../utils/recurring-pattern-differ';
 import {
@@ -522,7 +523,7 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Recurring Pattern Differ — Differ the historically most frequent next digit
-         * after a recurring digit sequence that passes statistical filters.
+         * after a recurring digit sequence that passes statistical filters (ACTIVE defaults).
          */
         evaluateRecurringPatternDiffer: async options => {
             const opts = options || {};
@@ -545,6 +546,28 @@ const getBotInterface = tradeEngine => {
                 opts,
                 tradeEngine.recurringPatternDifferState
             );
+        },
+        /**
+         * Recurring Pattern Differ replay/backtest on cached (or provided) digit history.
+         * Uses the same no-look-ahead signal path as live trading.
+         */
+        replayRecurringPatternDiffer: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(
+                20,
+                Math.floor(Number(opts.analysis_window)) || 1000
+            );
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayRecurringPatternDiffer(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

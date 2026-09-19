@@ -1,9 +1,9 @@
 /**
- * Recurring Pattern Differ free bot.
+ * Recurring Pattern Differ free bot (ACTIVE defaults).
  *
- * When a recurring digit sequence completes, Differ the historically most
- * frequent next digit if sample / percentage / advantage / gap filters pass.
- * Risk management matches Digit Percentage Decrease – Differ (martingale 10.5).
+ * Pattern length 3, min 5 occurrences, target ≥15%, advantage ≥5%.
+ * Journal shows WHY NO TRADE when filters block. DIGITDIFF only.
+ * Risk matches Digit Percentage Decrease – Differ (martingale 10.5).
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
@@ -96,14 +96,13 @@ export const RECURRING_PATTERN_DIFFER_XML = `<xml xmlns="https://developers.goog
     <variable id="rpd_protect">Martingale Off When Profit > Stake</variable>
     <variable id="rpd_take_profit">Take Profit</variable>
     <variable id="rpd_stop_loss">Stop Loss</variable>
-    <variable id="rpd_min_len">Pattern Minimum Length</variable>
-    <variable id="rpd_max_len">Pattern Maximum Length</variable>
+    <variable id="rpd_len">Pattern Length</variable>
     <variable id="rpd_window">Analysis Tick Window</variable>
     <variable id="rpd_min_occ">Minimum Pattern Occurrences</variable>
     <variable id="rpd_min_pct">Minimum Target Digit Percentage</variable>
     <variable id="rpd_min_adv">Minimum Target Advantage</variable>
     <variable id="rpd_min_gap">Minimum Target Gap</variable>
-    <variable id="rpd_prefer">Conflict Preference</variable>
+    <variable id="rpd_mode">Signal Mode</variable>
     <variable id="rpd_cooldown_signal">Cooldown After Signal</variable>
     <variable id="rpd_cooldown_loss">Cooldown After Loss</variable>
     <variable id="rpd_cooldown_win">Cooldown After Win</variable>
@@ -152,22 +151,21 @@ export const RECURRING_PATTERN_DIFFER_XML = `<xml xmlns="https://developers.goog
               ['rpd_protect', 'Martingale Off When Profit > Stake', bool(false)],
               ['rpd_take_profit', 'Take Profit', num(20)],
               ['rpd_stop_loss', 'Stop Loss', num(50)],
-              ['rpd_min_len', 'Pattern Minimum Length', num(2)],
-              ['rpd_max_len', 'Pattern Maximum Length', num(6)],
+              ['rpd_len', 'Pattern Length', num(3)],
               ['rpd_window', 'Analysis Tick Window', num(1000)],
-              ['rpd_min_occ', 'Minimum Pattern Occurrences', num(50)],
+              ['rpd_min_occ', 'Minimum Pattern Occurrences', num(5)],
               ['rpd_min_pct', 'Minimum Target Digit Percentage', num(15)],
-              ['rpd_min_adv', 'Minimum Target Advantage', num(4)],
-              ['rpd_min_gap', 'Minimum Target Gap', num(3)],
-              ['rpd_prefer', 'Conflict Preference', text('longest')],
+              ['rpd_min_adv', 'Minimum Target Advantage', num(5)],
+              ['rpd_min_gap', 'Minimum Target Gap', num(2)],
+              ['rpd_mode', 'Signal Mode', text('active')],
           ],
           wrapCollapsedAdvancedInit(
               'rpd',
               chainSets([
                   ['rpd_base_stake', 'Base Stake', varGet('rpd_stake', 'Stake')],
-                  ['rpd_cooldown_signal', 'Cooldown After Signal', num(2)],
-                  ['rpd_cooldown_loss', 'Cooldown After Loss', num(5)],
-                  ['rpd_cooldown_win', 'Cooldown After Win', num(2)],
+                  ['rpd_cooldown_signal', 'Cooldown After Signal', num(1)],
+                  ['rpd_cooldown_loss', 'Cooldown After Loss', num(2)],
+                  ['rpd_cooldown_win', 'Cooldown After Win', num(1)],
                   ['rpd_signal', 'Entry Signal', bool(false)],
                   ['rpd_prediction', 'Prediction', num(-1)],
               ])
@@ -185,14 +183,13 @@ export const RECURRING_PATTERN_DIFFER_XML = `<xml xmlns="https://developers.goog
                 <field name="VAR" id="rpd_prediction">Prediction</field>
                 <value name="VALUE">
                   <block type="recurring_pattern_differ_scan" id="rpd_scan_block">
-                    <value name="MIN_LENGTH">${varGet('rpd_min_len', 'Pattern Minimum Length')}</value>
-                    <value name="MAX_LENGTH">${varGet('rpd_max_len', 'Pattern Maximum Length')}</value>
+                    <value name="PATTERN_LENGTH">${varGet('rpd_len', 'Pattern Length')}</value>
                     <value name="ANALYSIS_WINDOW">${varGet('rpd_window', 'Analysis Tick Window')}</value>
                     <value name="MIN_OCCURRENCES">${varGet('rpd_min_occ', 'Minimum Pattern Occurrences')}</value>
                     <value name="MIN_TARGET_PCT">${varGet('rpd_min_pct', 'Minimum Target Digit Percentage')}</value>
                     <value name="MIN_ADVANTAGE">${varGet('rpd_min_adv', 'Minimum Target Advantage')}</value>
                     <value name="MIN_TARGET_GAP">${varGet('rpd_min_gap', 'Minimum Target Gap')}</value>
-                    <value name="CONFLICT_PREFERENCE">${varGet('rpd_prefer', 'Conflict Preference')}</value>
+                    <value name="MODE">${varGet('rpd_mode', 'Signal Mode')}</value>
                     <value name="JOURNAL">${bool(true)}</value>
                   </block>
                 </value>

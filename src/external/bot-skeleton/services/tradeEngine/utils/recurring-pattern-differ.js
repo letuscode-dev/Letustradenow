@@ -1,38 +1,54 @@
 /**
  * Recurring Pattern Differ
  *
- * Discovers digit sequences of length min–max. When a pattern reappears,
- * Differ the historically most frequent NEXT digit (prior occurrences only).
+ * Sliding-window digit patterns. When a pattern recurs, Differ the historically
+ * most frequent NEXT digit (prior occurrences only — no look-ahead).
+ *
+ * ACTIVE mode (default): min occurrences + target % + advantage.
+ * STRICT mode: also gap / multi-window / persistence / min score when enabled.
  */
 
 const BASELINE_PCT = 10;
 
-const CONFLICT_PREFERENCES = {
-    LONGEST: 'longest',
-    HIGHEST_PCT: 'highest_pct',
-    HIGHEST_ADVANTAGE: 'highest_advantage',
-    HIGHEST_SAMPLE: 'highest_sample',
-    HIGHEST_LIVE_WR: 'highest_live_wr',
+export const STATUS = {
+    NO_COMPLETE_PATTERN: 'NO_COMPLETE_PATTERN',
+    INSUFFICIENT_OCCURRENCES: 'INSUFFICIENT_OCCURRENCES',
+    TARGET_BELOW_THRESHOLD: 'TARGET_BELOW_THRESHOLD',
+    ADVANTAGE_TOO_LOW: 'ADVANTAGE_TOO_LOW',
+    DOMINANCE_GAP_TOO_LOW: 'DOMINANCE_GAP_TOO_LOW',
+    MULTI_WINDOW_DISAGREEMENT: 'MULTI_WINDOW_DISAGREEMENT',
+    PERSISTENCE_NOT_CONFIRMED: 'PERSISTENCE_NOT_CONFIRMED',
+    TARGET_DIGIT_DISABLED: 'TARGET_DIGIT_DISABLED',
+    SCORE_TOO_LOW: 'SCORE_TOO_LOW',
+    COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
+    VALID_SIGNAL: 'VALID_SIGNAL',
+    WATCHING: 'WATCHING',
 };
 
 export const DEFAULT_OPTIONS = {
-    min_pattern_length: 2,
-    max_pattern_length: 6,
+    pattern_length: 3,
+    min_pattern_length: 3,
+    max_pattern_length: 3,
     analysis_window: 1000,
-    min_occurrences: 50,
+    min_occurrences: 5,
     min_target_pct: 15,
-    min_advantage: 4,
-    min_target_gap: 3,
+    min_advantage: 5,
+    min_target_gap: 2,
+    require_dominance_gap: false,
+    mode: 'active', // active | strict
     recency_weighting: false,
-    multi_window: true,
-    short_window: 50,
-    medium_window: 200,
-    long_window: 500,
-    max_pattern_age: 0, // 0 = disabled
-    conflict_preference: CONFLICT_PREFERENCES.LONGEST,
+    multi_window: false,
+    multi_window_require_agree: true,
+    short_window: 100,
+    medium_window: 500,
+    long_window: 1000,
+    persistence: false,
+    persistence_count: 2,
+    min_signal_score: 0,
+    max_pattern_age: 0,
     allowed_digits: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
     journal_enabled: true,
-    min_signal_score: 0,
+    signal_cooldown_tips: 1,
 };
 
 const toDigit = value => {
@@ -74,63 +90,89 @@ const parseAllowedDigits = value => {
     return [...DEFAULT_OPTIONS.allowed_digits];
 };
 
-const normalizeConflictPreference = value => {
+const normalizeMode = value => {
     const raw = String(value || '')
         .trim()
-        .toLowerCase()
-        .replace(/[\s-]+/g, '_');
-    if (raw === 'highest_pct' || raw === 'highest_percentage' || raw === 'percentage') {
-        return CONFLICT_PREFERENCES.HIGHEST_PCT;
-    }
-    if (raw === 'highest_advantage' || raw === 'advantage') {
-        return CONFLICT_PREFERENCES.HIGHEST_ADVANTAGE;
-    }
-    if (raw === 'highest_sample' || raw === 'sample' || raw === 'occurrences') {
-        return CONFLICT_PREFERENCES.HIGHEST_SAMPLE;
-    }
-    if (raw === 'highest_live_wr' || raw === 'live_wr' || raw === 'win_rate') {
-        return CONFLICT_PREFERENCES.HIGHEST_LIVE_WR;
-    }
-    return CONFLICT_PREFERENCES.LONGEST;
+        .toLowerCase();
+    return raw === 'strict' ? 'strict' : 'active';
 };
 
 export const normalizeRecurringPatternDifferOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
-    let min_len = toPositiveInt(options.min_pattern_length, d.min_pattern_length, 2, 10);
-    let max_len = toPositiveInt(options.max_pattern_length, d.max_pattern_length, 2, 10);
+    const mode = normalizeMode(options.mode ?? options.signal_mode);
+
+    // Single length preferred; fall back to min/max if provided.
+    let length = toPositiveInt(
+        options.pattern_length ?? options.min_pattern_length ?? options.max_pattern_length,
+        d.pattern_length,
+        2,
+        6
+    );
+    let min_len = toPositiveInt(options.min_pattern_length, length, 2, 6);
+    let max_len = toPositiveInt(options.max_pattern_length, length, 2, 6);
+    if (options.pattern_length != null && options.pattern_length !== '') {
+        min_len = length;
+        max_len = length;
+    }
     if (max_len < min_len) {
         const tmp = min_len;
         min_len = max_len;
         max_len = tmp;
     }
+
+    const strict = mode === 'strict';
+    const require_gap = toBool(
+        options.require_dominance_gap,
+        strict ? true : d.require_dominance_gap
+    );
+
     const allowed = parseAllowedDigits(options.allowed_digits);
     return {
+        pattern_length: min_len === max_len ? min_len : length,
         min_pattern_length: min_len,
         max_pattern_length: max_len,
-        analysis_window: toPositiveInt(options.analysis_window, d.analysis_window, 20, 5000),
+        analysis_window: toPositiveInt(options.analysis_window, d.analysis_window, 20, 10000),
         min_occurrences: toPositiveInt(options.min_occurrences, d.min_occurrences, 1, 100000),
         min_target_pct: toNonNegNumber(options.min_target_pct, d.min_target_pct),
         min_advantage: toNonNegNumber(options.min_advantage, d.min_advantage),
         min_target_gap: toNonNegNumber(options.min_target_gap, d.min_target_gap),
+        require_dominance_gap: require_gap,
+        mode,
         recency_weighting: toBool(options.recency_weighting, d.recency_weighting),
-        multi_window: toBool(options.multi_window, d.multi_window),
+        multi_window: toBool(options.multi_window, strict ? true : d.multi_window),
+        multi_window_require_agree: toBool(
+            options.multi_window_require_agree,
+            d.multi_window_require_agree
+        ),
         short_window: toPositiveInt(options.short_window, d.short_window, 5, 10000),
         medium_window: toPositiveInt(options.medium_window, d.medium_window, 5, 10000),
         long_window: toPositiveInt(options.long_window, d.long_window, 5, 10000),
+        persistence: toBool(options.persistence, strict ? true : d.persistence),
+        persistence_count: toPositiveInt(options.persistence_count, d.persistence_count, 1, 20),
+        min_signal_score: toNonNegNumber(
+            options.min_signal_score,
+            strict ? Math.max(d.min_signal_score, 40) : d.min_signal_score
+        ),
         max_pattern_age: toPositiveInt(options.max_pattern_age, d.max_pattern_age, 0, 1000000),
-        conflict_preference: normalizeConflictPreference(options.conflict_preference),
         allowed_digits: allowed.length ? allowed : [...d.allowed_digits],
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
-        min_signal_score: toNonNegNumber(options.min_signal_score, d.min_signal_score),
+        signal_cooldown_tips: toPositiveInt(
+            options.signal_cooldown_tips,
+            d.signal_cooldown_tips,
+            0,
+            100
+        ),
     };
 };
 
 const patternKey = digits => digits.join('-');
 
 const createPatternRecord = () => ({
-    next_digits: [], // chronological followers (prior occurrences only)
+    next_digits: [],
     occurrence_indices: [],
     live: { signals: 0, wins: 0, losses: 0 },
+    persistence_hits: 0,
+    last_dominant: -1,
 });
 
 export const createRecurringPatternDifferState = () => ({
@@ -141,9 +183,14 @@ export const createRecurringPatternDifferState = () => ({
     last_plain_fingerprint: null,
     last_processed_epoch: null,
     last_signal_key: null,
+    last_signal_abs: -1,
     last_result: null,
     last_result_fp: '',
     tick_index: -1,
+    last_status: STATUS.WATCHING,
+    last_rejection: '',
+    patterns_evaluated: 0,
+    valid_signals: 0,
     live: {
         signals: 0,
         wins: 0,
@@ -166,9 +213,7 @@ export const resetRecurringPatternDifferState = (state = null) => {
 };
 
 const getPatternRecord = (state, key) => {
-    if (!state.patterns[key]) {
-        state.patterns[key] = createPatternRecord();
-    }
+    if (!state.patterns[key]) state.patterns[key] = createPatternRecord();
     return state.patterns[key];
 };
 
@@ -209,6 +254,7 @@ const selectTicksToProcess = (ticks, state) => {
         state.bootstrapped = false;
         state.digits = [];
         state.patterns = {};
+        state.absolute_index = -1;
         start = 0;
     }
     state.last_plain_fingerprint = fingerprint;
@@ -277,6 +323,20 @@ const distributionFromFollowers = (followers, options) => {
     };
 };
 
+const windowDominant = (followers, window) => {
+    if (!followers.length) return -1;
+    const slice = followers.slice(-Math.max(1, window));
+    const counts = Array.from({ length: 10 }, () => 0);
+    slice.forEach(d => {
+        counts[d] += 1;
+    });
+    let best = 0;
+    for (let d = 1; d <= 9; d++) {
+        if (counts[d] > counts[best]) best = d;
+    }
+    return best;
+};
+
 const windowPct = (followers, digit, window) => {
     if (!followers.length) return 0;
     const slice = followers.slice(-Math.max(1, window));
@@ -288,7 +348,6 @@ const windowPct = (followers, digit, window) => {
 };
 
 const computeSignalScore = ({ total, target_pct, advantage, gap, live_wr }) => {
-    // Soft 0–100 strength metric — not a win probability.
     const sample = Math.min(40, (Math.log10(Math.max(1, total)) / Math.log10(1000)) * 40);
     const pct = Math.min(25, Math.max(0, (target_pct - 10) * 2.5));
     const adv = Math.min(15, Math.max(0, advantage * 2));
@@ -297,7 +356,7 @@ const computeSignalScore = ({ total, target_pct, advantage, gap, live_wr }) => {
     return Math.round(Math.min(100, Math.max(0, sample + pct + adv + gap_score + live)));
 };
 
-const evaluatePatternCandidate = (state, pattern_digits, tip_index, options) => {
+const evaluatePatternCandidate = (state, pattern_digits, tip_abs, options) => {
     const key = patternKey(pattern_digits);
     const record = getPatternRecord(state, key);
     const dist = distributionFromFollowers(record.next_digits, options);
@@ -306,37 +365,80 @@ const evaluatePatternCandidate = (state, pattern_digits, tip_index, options) => 
         record.occurrence_indices.length > 0
             ? record.occurrence_indices[record.occurrence_indices.length - 1]
             : -1;
-    const age = last_idx >= 0 ? tip_index - last_idx : Number.POSITIVE_INFINITY;
+    const age = last_idx >= 0 ? tip_abs - last_idx : Number.POSITIVE_INFINITY;
 
     const live_total = record.live.wins + record.live.losses;
     const live_wr = live_total > 0 ? (record.live.wins / live_total) * 100 : 0;
 
-    const multi = options.multi_window
-        ? {
-              short: windowPct(record.next_digits, dist.target, options.short_window),
-              medium: windowPct(record.next_digits, dist.target, options.medium_window),
-              long: windowPct(record.next_digits, dist.target, options.long_window),
-          }
-        : null;
+    const multi = {
+        short: windowPct(record.next_digits, dist.target, options.short_window),
+        medium: windowPct(record.next_digits, dist.target, options.medium_window),
+        long: windowPct(record.next_digits, dist.target, options.long_window),
+        short_dom: windowDominant(record.next_digits, options.short_window),
+        medium_dom: windowDominant(record.next_digits, options.medium_window),
+        long_dom: windowDominant(record.next_digits, options.long_window),
+    };
 
     const reasons = [];
+    let status = STATUS.VALID_SIGNAL;
+
     if (dist.total < options.min_occurrences) {
-        reasons.push(`occurrences ${dist.total}<${options.min_occurrences}`);
+        reasons.push(
+            `WAITING: Pattern occurrences = ${dist.total} | Required = ${options.min_occurrences}`
+        );
+        status = STATUS.INSUFFICIENT_OCCURRENCES;
+    } else if (!options.allowed_digits.includes(dist.target)) {
+        reasons.push(`REJECTED: Target digit ${dist.target} disabled`);
+        status = STATUS.TARGET_DIGIT_DISABLED;
+    } else if (dist.target_pct + 1e-9 < options.min_target_pct) {
+        reasons.push(
+            `REJECTED: Target percentage = ${dist.target_pct.toFixed(2)}% | Required = ${options.min_target_pct}%`
+        );
+        status = STATUS.TARGET_BELOW_THRESHOLD;
+    } else if (dist.advantage + 1e-9 < options.min_advantage) {
+        reasons.push(
+            `REJECTED: Target advantage = ${dist.advantage.toFixed(2)}% | Required = ${options.min_advantage}%`
+        );
+        status = STATUS.ADVANTAGE_TOO_LOW;
+    } else if (
+        options.require_dominance_gap &&
+        dist.gap + 1e-9 < options.min_target_gap
+    ) {
+        reasons.push(
+            `REJECTED: Dominance gap = ${dist.gap.toFixed(2)}% | Required = ${options.min_target_gap}%`
+        );
+        status = STATUS.DOMINANCE_GAP_TOO_LOW;
+    } else if (
+        options.multi_window &&
+        options.multi_window_require_agree &&
+        !(
+            multi.short_dom === dist.target &&
+            multi.medium_dom === dist.target &&
+            multi.long_dom === dist.target
+        )
+    ) {
+        reasons.push(
+            `REJECTED: Multi-window disagreement (S=${multi.short_dom} M=${multi.medium_dom} L=${multi.long_dom} vs ${dist.target})`
+        );
+        status = STATUS.MULTI_WINDOW_DISAGREEMENT;
+    } else if (options.persistence) {
+        if (record.last_dominant === dist.target) {
+            record.persistence_hits += 1;
+        } else {
+            record.last_dominant = dist.target;
+            record.persistence_hits = 1;
+        }
+        if (record.persistence_hits < options.persistence_count) {
+            reasons.push(
+                `REJECTED: Persistence ${record.persistence_hits}/${options.persistence_count} for target ${dist.target}`
+            );
+            status = STATUS.PERSISTENCE_NOT_CONFIRMED;
+        }
     }
-    if (!options.allowed_digits.includes(dist.target)) {
-        reasons.push(`target ${dist.target} disabled`);
-    }
-    if (dist.target_pct + 1e-9 < options.min_target_pct) {
-        reasons.push(`pct ${dist.target_pct.toFixed(2)}<${options.min_target_pct}`);
-    }
-    if (dist.advantage + 1e-9 < options.min_advantage) {
-        reasons.push(`adv ${dist.advantage.toFixed(2)}<${options.min_advantage}`);
-    }
-    if (dist.gap + 1e-9 < options.min_target_gap) {
-        reasons.push(`gap ${dist.gap.toFixed(2)}<${options.min_target_gap}`);
-    }
+
     if (options.max_pattern_age > 0 && Number.isFinite(age) && age > options.max_pattern_age) {
-        reasons.push(`age ${age}>${options.max_pattern_age}`);
+        reasons.push(`REJECTED: Pattern age ${age} > ${options.max_pattern_age}`);
+        if (status === STATUS.VALID_SIGNAL) status = STATUS.WATCHING;
     }
 
     const score = computeSignalScore({
@@ -347,10 +449,12 @@ const evaluatePatternCandidate = (state, pattern_digits, tip_index, options) => 
         live_wr,
     });
     if (score + 1e-9 < options.min_signal_score) {
-        reasons.push(`score ${score}<${options.min_signal_score}`);
+        reasons.push(`REJECTED: Signal score ${score} < ${options.min_signal_score}`);
+        status = STATUS.SCORE_TOO_LOW;
     }
 
     const qualified = reasons.length === 0 && dist.target >= 0 && dist.total > 0;
+    if (qualified) status = STATUS.VALID_SIGNAL;
 
     return {
         pattern: key,
@@ -365,59 +469,59 @@ const evaluatePatternCandidate = (state, pattern_digits, tip_index, options) => 
         score,
         qualified,
         reasons,
+        status,
         prediction: qualified ? dist.target : -1,
+        rejection: reasons[0] || '',
     };
 };
 
-const pickBestCandidate = (candidates, preference) => {
+const pickBestCandidate = candidates => {
     const qualified = candidates.filter(c => c.qualified);
     if (!qualified.length) return null;
-
-    const ranked = [...qualified];
-    ranked.sort((a, b) => {
-        switch (preference) {
-            case CONFLICT_PREFERENCES.HIGHEST_PCT:
-                return (
-                    b.distribution.target_pct - a.distribution.target_pct ||
-                    b.length - a.length ||
-                    b.occurrences - a.occurrences
-                );
-            case CONFLICT_PREFERENCES.HIGHEST_ADVANTAGE:
-                return (
-                    b.distribution.advantage - a.distribution.advantage ||
-                    b.length - a.length ||
-                    b.occurrences - a.occurrences
-                );
-            case CONFLICT_PREFERENCES.HIGHEST_SAMPLE:
-                return b.occurrences - a.occurrences || b.length - a.length;
-            case CONFLICT_PREFERENCES.HIGHEST_LIVE_WR:
-                return b.live_wr - a.live_wr || b.length - a.length || b.occurrences - a.occurrences;
-            case CONFLICT_PREFERENCES.LONGEST:
-            default:
-                return b.length - a.length || b.distribution.target_pct - a.distribution.target_pct;
-        }
-    });
-    return ranked[0];
+    return [...qualified].sort(
+        (a, b) =>
+            b.length - a.length ||
+            b.distribution.target_pct - a.distribution.target_pct ||
+            b.occurrences - a.occurrences
+    )[0];
 };
 
-const recordFollower = (state, pattern_digits, follower, end_index) => {
+const recordFollower = (state, pattern_digits, follower, end_abs) => {
     const key = patternKey(pattern_digits);
     const record = getPatternRecord(state, key);
     record.next_digits.push(follower);
-    record.occurrence_indices.push(end_index);
-    // Cap memory for very long sessions
+    record.occurrence_indices.push(end_abs);
     if (record.next_digits.length > 5000) {
         record.next_digits = record.next_digits.slice(-5000);
         record.occurrence_indices = record.occurrence_indices.slice(-5000);
     }
 };
 
-const buildJournal = (best, candidates, options, matched) => {
+const buildJournal = ({
+    best,
+    candidates,
+    options,
+    matched,
+    status,
+    rejection,
+    patterns_evaluated,
+    valid_signals,
+    cooldown,
+}) => {
     const messages = [];
+    messages.push({
+        className: 'journal__text',
+        message: `══ RECURRING PATTERN DIFFER (${String(options.mode).toUpperCase()}) ══`,
+    });
+
     if (!best) {
         messages.push({
             className: 'journal__text',
-            message: 'Recurring Pattern Differ: watching for qualifying patterns…',
+            message: `WHY NO TRADE? ${STATUS.NO_COMPLETE_PATTERN} — waiting for a full ${options.min_pattern_length}-digit pattern.`,
+        });
+        messages.push({
+            className: 'journal__text',
+            message: `Patterns evaluated: ${patterns_evaluated} | Valid signals: ${valid_signals}`,
         });
         return messages;
     }
@@ -425,59 +529,62 @@ const buildJournal = (best, candidates, options, matched) => {
     const dist = best.distribution;
     messages.push({
         className: 'journal__text',
-        message: `RECURRING PATTERN — ${best.pattern} (len ${best.length}) | occ ${best.occurrences} | ${dist.mode}`,
+        message: `Current Pattern: ${best.pattern} | Length: ${best.length} | Occurrences: ${best.occurrences} | ${dist.mode}`,
     });
 
-    const top = [...dist.percentages]
+    const rows = dist.percentages
         .map((pct, digit) => ({ digit, pct, count: dist.counts[digit] }))
-        .sort((a, b) => b.pct - a.pct || a.digit - b.digit)
-        .slice(0, 5);
-    top.forEach(row => {
+        .sort((a, b) => b.pct - a.pct || a.digit - b.digit);
+    rows.slice(0, 10).forEach(row => {
         const mark = row.digit === dist.target ? ' ← TARGET' : '';
         messages.push({
             className: row.digit === dist.target ? 'journal__text--success' : 'journal__text',
-            message: `Digit ${row.digit}: ${row.count} = ${row.pct.toFixed(2)}%${mark}`,
+            message: `${row.digit}: ${row.count} = ${row.pct.toFixed(1)}%${mark}`,
         });
     });
 
     messages.push({
         className: 'journal__text',
-        message: `Target ${dist.target} | ${dist.target_pct.toFixed(2)}% | adv +${dist.advantage.toFixed(2)}pp | 2nd ${dist.second}=${dist.second_pct.toFixed(2)}% | gap +${dist.gap.toFixed(2)}pp | score ${best.score}/100`,
+        message: `Target: ${dist.target} | Historical freq: ${dist.target_pct.toFixed(2)}% | Baseline: ${BASELINE_PCT}% | Advantage: +${dist.advantage.toFixed(2)}pp | Gap: +${dist.gap.toFixed(2)}pp | Score: ${best.score}/100`,
     });
 
-    if (best.multi) {
+    if (options.multi_window) {
         messages.push({
             className: 'journal__text',
             message: `Multi-window digit ${dist.target}: short ${best.multi.short.toFixed(1)}% | med ${best.multi.medium.toFixed(1)}% | long ${best.multi.long.toFixed(1)}%`,
         });
     }
 
-    if (matched) {
-        messages.push({
-            className: 'journal__text--success',
-            message: `SIGNAL — DIFFER ${dist.target} on pattern ${best.pattern}`,
-        });
-    } else if (best.reasons?.length) {
+    if (cooldown) {
         messages.push({
             className: 'journal__text',
-            message: `NO SIGNAL — ${best.reasons.join('; ')}`,
+            message: `WHY NO TRADE? ${STATUS.COOLDOWN_ACTIVE} — waiting ${options.signal_cooldown_tips} tip(s) after last signal.`,
+        });
+    } else if (matched) {
+        messages.push({
+            className: 'journal__text--success',
+            message: `STATUS: VALID SIGNAL — ACTION: DIFFER ${dist.target}`,
         });
     } else {
-        const near = candidates.filter(c => !c.qualified).slice(0, 2);
-        if (near.length) {
-            messages.push({
-                className: 'journal__text',
-                message: `NO SIGNAL — best near-miss: ${near[0].pattern} (${near[0].reasons.join('; ')})`,
-            });
-        }
+        const reason =
+            rejection ||
+            best.rejection ||
+            (best.reasons && best.reasons[0]) ||
+            'No qualifying pattern';
+        messages.push({
+            className: 'journal__text',
+            message: `WHY NO TRADE? ${status || best.status} — ${reason}`,
+        });
     }
+
+    messages.push({
+        className: 'journal__text',
+        message: `Patterns evaluated: ${patterns_evaluated} | Near/valid this tip: ${candidates.filter(c => c.occurrences > 0).length} | Qualified: ${valid_signals}`,
+    });
 
     return messages;
 };
 
-/**
- * Record actual next digit for the last fired signal (call when tip advances after a trade).
- */
 export const recordRecurringPatternDifferOutcome = (state, actual_digit) => {
     if (!state?.pending_outcome) return null;
     const digit = toDigit(actual_digit);
@@ -509,12 +616,12 @@ export const recordRecurringPatternDifferOutcome = (state, actual_digit) => {
         historical_pct: pending.target_pct,
         score: pending.score,
     });
-    if (state.live.history.length > 200) {
-        state.live.history = state.live.history.slice(-200);
-    }
+    if (state.live.history.length > 200) state.live.history = state.live.history.slice(-200);
     state.pending_outcome = null;
     return { won, actual: digit, target: pending.target, pattern: pending.pattern };
 };
+
+const patternDigitsFrom = (state, idx, L) => state.digits.slice(idx - L + 1, idx + 1);
 
 export const evaluateRecurringPatternDiffer = (
     raw_ticks,
@@ -528,6 +635,11 @@ export const evaluateRecurringPatternDiffer = (
     let prediction = -1;
     let best = null;
     let all_candidates = [];
+    let status = STATUS.WATCHING;
+    let rejection = '';
+    let patterns_evaluated = 0;
+    let valid_signals = 0;
+    let cooldown = false;
 
     const tip = window_ticks.length ? window_ticks[window_ticks.length - 1] : null;
     const result_fp = tip
@@ -554,7 +666,6 @@ export const evaluateRecurringPatternDiffer = (
                 return;
             }
 
-            // Resolve pending outcome from previous signal using this tip.
             if (state.pending_outcome) {
                 recordRecurringPatternDifferOutcome(state, tick.digit);
             }
@@ -570,7 +681,7 @@ export const evaluateRecurringPatternDiffer = (
 
             const idx = state.digits.length - 1;
 
-            // 1) Patterns that ended on previous tip now get this tip as follower.
+            // 1) Prior patterns ending at previous tip get this tip as follower.
             if (idx >= 1) {
                 const end_abs = abs - 1;
                 for (let L = options.min_pattern_length; L <= options.max_pattern_length; L++) {
@@ -580,53 +691,91 @@ export const evaluateRecurringPatternDiffer = (
                 }
             }
 
-            // 2) Evaluate patterns that complete on this tip (using prior stats only).
+            // 2) Evaluate patterns completing on this tip (prior stats only).
             const candidates = [];
             for (let L = options.min_pattern_length; L <= options.max_pattern_length; L++) {
                 if (idx - L + 1 < 0) continue;
-                const pattern_digits = state.digits.slice(idx - L + 1, idx + 1);
-                candidates.push(evaluatePatternCandidate(state, pattern_digits, abs, options));
+                patterns_evaluated += 1;
+                candidates.push(evaluatePatternCandidate(state, patternDigitsFrom(state, idx, L), abs, options));
             }
             all_candidates = candidates;
-            const picked = pickBestCandidate(candidates, options.conflict_preference);
-            // Prefer showing the best candidate even if unqualified (for journal).
+            valid_signals = candidates.filter(c => c.qualified).length;
+
+            const picked = pickBestCandidate(candidates);
             best =
                 picked ||
                 [...candidates].sort(
                     (a, b) =>
                         Number(b.qualified) - Number(a.qualified) ||
-                        b.length - a.length ||
+                        b.occurrences - a.occurrences ||
                         b.distribution.target_pct - a.distribution.target_pct
                 )[0] ||
                 null;
 
+            cooldown =
+                options.signal_cooldown_tips > 0 &&
+                state.last_signal_abs >= 0 &&
+                abs - state.last_signal_abs <= options.signal_cooldown_tips;
+
             if (!bootstrapping && picked && picked.prediction >= 0) {
-                const signal_key = `${tick.epoch ?? state.tick_index}:${picked.pattern}->${picked.prediction}`;
-                if (state.last_signal_key !== signal_key) {
-                    state.last_signal_key = signal_key;
-                    prediction = picked.prediction;
-                    best = picked;
-                    state.pending_outcome = {
-                        pattern: picked.pattern,
-                        target: picked.prediction,
-                        target_pct: picked.distribution.target_pct,
-                        score: picked.score,
-                        tip_index: idx,
-                    };
+                if (cooldown) {
+                    status = STATUS.COOLDOWN_ACTIVE;
+                    rejection = `Cooldown active (${abs - state.last_signal_abs}/${options.signal_cooldown_tips})`;
+                } else {
+                    const signal_key = `${tick.epoch ?? state.tick_index}:${picked.pattern}->${picked.prediction}`;
+                    if (state.last_signal_key !== signal_key) {
+                        state.last_signal_key = signal_key;
+                        state.last_signal_abs = abs;
+                        prediction = picked.prediction;
+                        best = picked;
+                        status = STATUS.VALID_SIGNAL;
+                        rejection = '';
+                        state.pending_outcome = {
+                            pattern: picked.pattern,
+                            target: picked.prediction,
+                            target_pct: picked.distribution.target_pct,
+                            score: picked.score,
+                            tip_index: abs,
+                        };
+                    }
                 }
+            } else if (best) {
+                status = best.status || STATUS.WATCHING;
+                rejection = best.rejection || (best.reasons && best.reasons[0]) || '';
+            } else {
+                status = STATUS.NO_COMPLETE_PATTERN;
+                rejection = `Need ${options.min_pattern_length} digits for a complete pattern`;
             }
 
             if (tick.epoch !== null) state.last_processed_epoch = tick.epoch;
         });
         state.bootstrapped = true;
+    } else if (state.digits.length < options.min_pattern_length) {
+        status = STATUS.NO_COMPLETE_PATTERN;
+        rejection = `Need ${options.min_pattern_length} digits for a complete pattern`;
     }
+
+    state.last_status = status;
+    state.last_rejection = rejection;
+    state.patterns_evaluated = patterns_evaluated;
+    state.valid_signals = valid_signals;
 
     if (options.journal_enabled) {
         journal_messages.push(
-            ...buildJournal(best, all_candidates, options, prediction >= 0)
+            ...buildJournal({
+                best,
+                candidates: all_candidates,
+                options,
+                matched: prediction >= 0,
+                status,
+                rejection,
+                patterns_evaluated,
+                valid_signals,
+                cooldown: status === STATUS.COOLDOWN_ACTIVE,
+            })
         );
-        if (journal_messages.length > 12) {
-            journal_messages.splice(0, journal_messages.length - 12);
+        if (journal_messages.length > 16) {
+            journal_messages.splice(0, journal_messages.length - 16);
         }
     }
 
@@ -643,6 +792,11 @@ export const evaluateRecurringPatternDiffer = (
         gap: best?.distribution?.gap ?? 0,
         score: best?.score ?? 0,
         occurrences: best?.occurrences ?? 0,
+        status,
+        rejection,
+        why_no_trade: prediction >= 0 ? '' : rejection || status,
+        patterns_evaluated,
+        valid_signals,
         candidates: all_candidates,
         best,
         live: {
@@ -658,4 +812,63 @@ export const evaluateRecurringPatternDiffer = (
     return result;
 };
 
-export { CONFLICT_PREFERENCES, BASELINE_PCT };
+/**
+ * Replay / backtest: walk ticks one-at-a-time with the same live logic
+ * (no look-ahead — each signal uses only prior pattern occurrences).
+ */
+export const replayRecurringPatternDiffer = (raw_ticks, raw_options = {}) => {
+    const options = normalizeRecurringPatternDifferOptions({
+        ...raw_options,
+        journal_enabled: false,
+    });
+    const state = createRecurringPatternDifferState();
+    const ticks = normalizeTicks(raw_ticks);
+    const digits = ticks.map(t => t.digit);
+    const signals = [];
+    let patterns_detected = 0;
+    let valid_signals = 0;
+    let target_pct_sum = 0;
+    let occ_sum = 0;
+
+    for (let i = 0; i < digits.length; i++) {
+        const result = evaluateRecurringPatternDiffer(digits.slice(0, i + 1), options, state);
+        if (result.pattern) patterns_detected += 1;
+        if (result.matched) {
+            valid_signals += 1;
+            target_pct_sum += result.target_pct || 0;
+            occ_sum += result.occurrences || 0;
+            signals.push({
+                tip: i,
+                pattern: result.pattern,
+                target: result.prediction,
+                target_pct: result.target_pct,
+                occurrences: result.occurrences,
+                score: result.score,
+            });
+        }
+    }
+
+    // Settle any pending open signal with a synthetic no-op if history ended mid-trade.
+    const wins = state.live.wins;
+    const losses = state.live.losses;
+    const trades = wins + losses;
+
+    return {
+        total_ticks: digits.length,
+        patterns_detected,
+        valid_signals,
+        trades,
+        wins,
+        losses,
+        win_rate: trades > 0 ? (wins / trades) * 100 : 0,
+        profit_loss_units: wins - losses,
+        max_losing_streak: state.live.max_loss_streak,
+        average_target_pct: valid_signals > 0 ? target_pct_sum / valid_signals : 0,
+        average_occurrences: valid_signals > 0 ? occ_sum / valid_signals : 0,
+        signals,
+        live: { ...state.live },
+        options,
+    };
+};
+
+export { BASELINE_PCT };
