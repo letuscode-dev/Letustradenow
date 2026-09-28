@@ -299,6 +299,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayMissingDigitReturn)
             );
         }
+        if (typeof bot_interface.evaluateTopTwoDigitGap === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateTopTwoDigitGap',
+                createAsync(js_interpreter, bot_interface.evaluateTopTwoDigitGap)
+            );
+        }
+        if (typeof bot_interface.replayTopTwoDigitGap === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayTopTwoDigitGap',
+                createAsync(js_interpreter, bot_interface.replayTopTwoDigitGap)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

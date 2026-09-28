@@ -66,6 +66,12 @@ import {
     resetMissingDigitReturnState,
 } from '../utils/missing-digit-return-differ';
 import {
+    createTopTwoDigitGapState,
+    evaluateTopTwoDigitGap,
+    replayTopTwoDigitGap,
+    resetTopTwoDigitGapState,
+} from '../utils/top-two-digit-gap-differ';
+import {
     evaluateSymbolTripleDigitSignal,
     isTripleDigitSignalConsumed,
     makeTripleDigitSignalKey,
@@ -316,6 +322,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.missingDigitReturnState) {
                 resetMissingDigitReturnState(tradeEngine.missingDigitReturnState);
                 tradeEngine.missingDigitReturnState = null;
+            }
+            if (tradeEngine.topTwoDigitGapState) {
+                resetTopTwoDigitGapState(tradeEngine.topTwoDigitGapState);
+                tradeEngine.topTwoDigitGapState = null;
             }
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -796,6 +806,43 @@ const getBotInterface = tradeEngine => {
                       : [];
             if (!Array.isArray(digit_ticks)) digit_ticks = [];
             return replayMissingDigitReturn(digit_ticks, opts);
+        },
+        /**
+         * Top Two Digit Gap DIFFER — when the gap between the two most appearing
+         * digits meets the threshold and the current digit is one of them, Differ the other.
+         */
+        evaluateTopTwoDigitGap: async options => {
+            const opts = options || {};
+            if (!tradeEngine.topTwoDigitGapState) {
+                tradeEngine.topTwoDigitGapState = createTopTwoDigitGapState();
+            }
+            const tick_window = Math.max(50, Math.floor(Number(opts.analysis_window)) || 1000);
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
+            if (!Array.isArray(digit_ticks)) {
+                digit_ticks = [];
+            }
+            return evaluateTopTwoDigitGap(digit_ticks, opts, tradeEngine.topTwoDigitGapState);
+        },
+        /**
+         * Top Two Digit Gap DIFFER replay/backtest (no look-ahead).
+         */
+        replayTopTwoDigitGap: async options => {
+            const opts = options || {};
+            const tick_window = Math.max(50, Math.floor(Number(opts.analysis_window)) || 1000);
+            if (typeof tradeEngine.ensureTickHistory === 'function') {
+                await tradeEngine.ensureTickHistory(tick_window);
+            }
+            let digit_ticks =
+                Array.isArray(opts.ticks) && opts.ticks.length
+                    ? opts.ticks
+                    : tradeEngine.getCachedDigitTicks
+                      ? tradeEngine.getCachedDigitTicks()
+                      : [];
+            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            return replayTopTwoDigitGap(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
