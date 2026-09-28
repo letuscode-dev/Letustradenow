@@ -2,7 +2,7 @@
  * Top Two Digit Gap DIFFER free bot.
  *
  * Over the last N ticks (default 1000), when the gap between the most and
- * second-most appearing digits is greater than the threshold (default 0.5pp)
+ * second-most appearing digits is greater than the threshold (default 0.3pp)
  * and the current digit is one of them, Differ the other one.
  * Gap Mode: 'min' (gap > threshold, default), 'max' (gap ≤ threshold), 'exact'.
  * Risk: martingale 10.5 with optional Martingale Off When Profit > Stake + cooldown.
@@ -150,7 +150,7 @@ export const TOP_TWO_DIGIT_GAP_DIFFER_XML = `<xml xmlns="https://developers.goog
               ['ttg_take_profit', 'Take Profit', num(20)],
               ['ttg_stop_loss', 'Stop Loss', num(50)],
               ['ttg_window', 'Analysis Tick Window', num(1000)],
-              ['ttg_gap', 'Gap Threshold', num(0.5)],
+              ['ttg_gap', 'Gap Threshold', num(0.3)],
               ['ttg_gap_mode', 'Gap Mode', text('min')],
           ],
           wrapCollapsedAdvancedInit(

@@ -44,10 +44,10 @@ const buildWindow = (counts: Record<number, number>, last_digit: number) => {
 const BASE = { 0: 18, 1: 18, 2: 18, 3: 30, 4: 18, 5: 29, 6: 18, 7: 18, 8: 18, 9: 15 };
 
 describe('top two digit gap differ', () => {
-    it('defaults to 1000-tick window, 0.5 gap, cooldown 1', () => {
+    it('defaults to 1000-tick window, gap > 0.3, cooldown 1', () => {
         const o = normalizeTopTwoDigitGapOptions({});
         expect(o.analysis_window).toBe(1000);
-        expect(o.gap_threshold).toBe(0.5);
+        expect(o.gap_threshold).toBe(0.3);
         expect(o.gap_mode).toBe('min');
         expect(o.signal_cooldown_tips).toBe(1);
     });
@@ -61,6 +61,17 @@ describe('top two digit gap differ', () => {
         const equal = evaluateTopTwoDigitGap(buildWindow(BASE, 3), opts({ gap_mode: 'min' }), createTopTwoDigitGapState());
         expect(equal.status).toBe(STATUS.GAP_NOT_MET);
         expect(equal.why_no_trade).toMatch(/must be > 0.5pp/);
+    });
+
+    it('default 0.3 threshold trades a 0.5pp gap and rejects a tie', () => {
+        const defaults = { gap_mode: undefined, gap_threshold: undefined };
+        const hit = evaluateTopTwoDigitGap(buildWindow(BASE, 3), opts(defaults), createTopTwoDigitGapState());
+        expect(hit.prediction).toBe(5);
+
+        const tied = { ...BASE, 5: 30, 9: 14 }; // gap 0
+        const miss = evaluateTopTwoDigitGap(buildWindow(tied, 3), opts(defaults), createTopTwoDigitGapState());
+        expect(miss.status).toBe(STATUS.GAP_NOT_MET);
+        expect(miss.why_no_trade).toMatch(/must be > 0.3pp/);
     });
 
     it('Differs the second digit when the current digit is the most appearing', () => {

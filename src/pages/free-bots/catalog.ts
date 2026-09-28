@@ -21,7 +21,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'top-two-digit-gap-differ-v1',
         title: 'Top Two Digit Gap DIFFER',
         description:
-            'Ranks digits 0–9 over the last N ticks (default 1000). When the gap between the most and second-most appearing digits is greater than 0.5% (configurable) and the current digit is one of them, Differ the other. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
+            'Ranks digits 0–9 over the last N ticks (default 1000). When the gap between the most and second-most appearing digits is greater than 0.3% (configurable) and the current digit is one of them, Differ the other. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
         tags: ['Differs', 'Top digits', 'Frequency gap', 'Martingale', 'Cooldown'],
         xml: TOP_TWO_DIGIT_GAP_DIFFER_XML,
     },

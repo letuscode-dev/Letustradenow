@@ -35,7 +35,7 @@ window.Blockly.Blocks.top_two_digit_gap_differ_scan = {
         return {
             display_name: localize('Top Two Digit Gap DIFFER scan'),
             description: localize(
-                'Places Digit Differs on the other top-two digit when their percentage gap meets the threshold (default 0.5 over 1000 ticks).'
+                'Places Digit Differs on the other top-two digit when their percentage gap is greater than the threshold (default 0.3 over 1000 ticks).'
             ),
             key_words: localize('top, most, frequent, gap, differs'),
         };
@@ -56,7 +56,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.top_two_digit_gap_differ_
     const code = `(function () {
         var BinaryBotPrivateTtgResult = Bot.evaluateTopTwoDigitGap({
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
-            gap_threshold: ${read('GAP_THRESHOLD') || '0.5'},
+            gap_threshold: ${read('GAP_THRESHOLD') || '0.3'},
             gap_mode: ${read('GAP_MODE') || '"min"'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'}

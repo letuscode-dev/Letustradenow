@@ -3,7 +3,7 @@
  *
  * Over the last `analysis_window` ticks (default 1000), rank digits 0–9 by
  * appearance %. When the gap between the most and second-most appearing digit
- * meets `gap_threshold` (default 0.5pp) and the current digit is one of those
+ * meets `gap_threshold` (default 0.3pp) and the current digit is one of those
  * two, Differ the OTHER one on the next tick.
  *
  * gap_mode 'min'   → gap >  threshold (default: top digit leads by more than the threshold)
@@ -21,7 +21,7 @@ export const STATUS = {
 
 export const DEFAULT_OPTIONS = {
     analysis_window: 1000,
-    gap_threshold: 0.5,
+    gap_threshold: 0.3,
     gap_mode: 'min',
     signal_cooldown_tips: 1,
     journal_enabled: true,
