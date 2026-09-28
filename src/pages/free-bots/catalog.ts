@@ -1,6 +1,7 @@
-import type { FreeBot } from './types';
+import { ASCENDING_RANK_NEXT_DIFFER_XML } from './bots/ascending-rank-next-differ';
 import { MISSING_DIGIT_RETURN_DIFFER_XML } from './bots/missing-digit-return-differ';
 import { TOP_TWO_DIGIT_GAP_DIFFER_XML } from './bots/top-two-digit-gap-differ';
+import type { FreeBot } from './types';
 
 /**
  * Free Bots catalog.
@@ -24,5 +25,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Ranks digits 0–9 over the last N ticks (default 1000). When the gap between the most and second-most appearing digits is greater than 0.3% (configurable) and the current digit is one of them, Differ the other. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
         tags: ['Differs', 'Top digits', 'Frequency gap', 'Martingale', 'Cooldown'],
         xml: TOP_TWO_DIGIT_GAP_DIFFER_XML,
+    },
+    {
+        id: 'ascending-rank-next-differ-v1',
+        title: 'Ascending Rank Next Digit DIFFER',
+        description:
+            'Ranks digits 0–9 by appearance % over the last N ticks (default 1000) in ascending order, updating on every tick. Differs the digit ranked just above the current digit. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
+        tags: ['Differs', 'Ranking', 'Percentages', 'Martingale', 'Cooldown'],
+        xml: ASCENDING_RANK_NEXT_DIFFER_XML,
     },
 ];

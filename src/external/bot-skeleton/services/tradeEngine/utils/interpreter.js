@@ -313,6 +313,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayTopTwoDigitGap)
             );
         }
+        if (typeof bot_interface.evaluateAscendingRankNext === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateAscendingRankNext',
+                createAsync(js_interpreter, bot_interface.evaluateAscendingRankNext)
+            );
+        }
+        if (typeof bot_interface.replayAscendingRankNext === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayAscendingRankNext',
+                createAsync(js_interpreter, bot_interface.replayAscendingRankNext)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

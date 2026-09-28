@@ -2,6 +2,13 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
+    createAscendingRankNextState,
+    evaluateAscendingRankNext,
+    normalizeAscendingRankNextOptions,
+    replayAscendingRankNext,
+    resetAscendingRankNextState,
+} from '../utils/ascending-rank-next-differ';
+import {
     consumeColdDigitSignal,
     createColdDigitState,
     evaluateColdDigit,
@@ -213,24 +220,26 @@ import {
     resetWindowIndexDiffersState,
 } from '../utils/window-index-differs';
 
-const TOP_TWO_GAP_HISTORY_RETRY_MS = 5000;
+const WINDOW_HISTORY_RETRY_MS = 5000;
 
 /**
- * Top Two Digit Gap tick buffer: one ticks_history request for the full window,
+ * Per-bot analysis tick buffer: one ticks_history request for the full window,
  * then every live tick is merged in so the window slides with the stream.
+ * `key` isolates each bot's buffer; switching symbol clears it.
  */
-const loadTopTwoDigitGapTicks = async (tradeEngine, window_size) => {
-    if (tradeEngine.topTwoDigitGapSymbol !== tradeEngine.symbol) {
-        tradeEngine.topTwoDigitGapSymbol = tradeEngine.symbol;
-        tradeEngine.topTwoDigitGapTicks = null;
-        tradeEngine.topTwoDigitGapFetchAt = 0;
+const loadWindowDigitTicks = async (tradeEngine, window_size, key) => {
+    if (!tradeEngine.windowTickBuffers) tradeEngine.windowTickBuffers = {};
+    let slot = tradeEngine.windowTickBuffers[key];
+    if (!slot || slot.symbol !== tradeEngine.symbol) {
+        slot = { symbol: tradeEngine.symbol, ticks: [], fetch_at: 0 };
+        tradeEngine.windowTickBuffers[key] = slot;
     }
     const live = typeof tradeEngine.getCachedDigitTicks === 'function' ? tradeEngine.getCachedDigitTicks() : [];
-    let buffer = mergeDigitTicks(tradeEngine.topTwoDigitGapTicks, live, window_size);
+    let buffer = mergeDigitTicks(slot.ticks, live, window_size);
 
-    const can_retry = Date.now() - (tradeEngine.topTwoDigitGapFetchAt || 0) >= TOP_TWO_GAP_HISTORY_RETRY_MS;
+    const can_retry = Date.now() - slot.fetch_at >= WINDOW_HISTORY_RETRY_MS;
     if (buffer.length < window_size && can_retry && tradeEngine.symbol && api_base?.api) {
-        tradeEngine.topTwoDigitGapFetchAt = Date.now();
+        slot.fetch_at = Date.now();
         try {
             const response = await api_base.api.send({
                 ticks_history: tradeEngine.symbol,
@@ -253,7 +262,7 @@ const loadTopTwoDigitGapTicks = async (tradeEngine, window_size) => {
         }
     }
 
-    tradeEngine.topTwoDigitGapTicks = buffer;
+    slot.ticks = buffer;
     return buffer;
 };
 
@@ -374,9 +383,11 @@ const getBotInterface = tradeEngine => {
                 resetTopTwoDigitGapState(tradeEngine.topTwoDigitGapState);
                 tradeEngine.topTwoDigitGapState = null;
             }
-            tradeEngine.topTwoDigitGapTicks = null;
-            tradeEngine.topTwoDigitGapFetchAt = 0;
-            tradeEngine.topTwoDigitGapSymbol = null;
+            if (tradeEngine.ascendingRankNextState) {
+                resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
+                tradeEngine.ascendingRankNextState = null;
+            }
+            tradeEngine.windowTickBuffers = null;
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
             tradeEngine._parityRunConsumedKey = null;
@@ -867,7 +878,7 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.topTwoDigitGapState = createTopTwoDigitGapState();
             }
             const { analysis_window } = normalizeTopTwoDigitGapOptions(opts);
-            const digit_ticks = await loadTopTwoDigitGapTicks(tradeEngine, analysis_window);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'top_two_gap');
             return evaluateTopTwoDigitGap(digit_ticks, opts, tradeEngine.topTwoDigitGapState);
         },
         /**
@@ -879,8 +890,33 @@ const getBotInterface = tradeEngine => {
                 return replayTopTwoDigitGap(opts.ticks, opts);
             }
             const { analysis_window } = normalizeTopTwoDigitGapOptions(opts);
-            const digit_ticks = await loadTopTwoDigitGapTicks(tradeEngine, analysis_window);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'top_two_gap');
             return replayTopTwoDigitGap(digit_ticks, opts);
+        },
+        /**
+         * Ascending Rank Next Digit DIFFER — rank digits by % ascending and
+         * Differ the digit ranked just above the current digit.
+         */
+        evaluateAscendingRankNext: async options => {
+            const opts = options || {};
+            if (!tradeEngine.ascendingRankNextState) {
+                tradeEngine.ascendingRankNextState = createAscendingRankNextState();
+            }
+            const { analysis_window } = normalizeAscendingRankNextOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'ascending_rank_next');
+            return evaluateAscendingRankNext(digit_ticks, opts, tradeEngine.ascendingRankNextState);
+        },
+        /**
+         * Ascending Rank Next Digit DIFFER replay/backtest (no look-ahead).
+         */
+        replayAscendingRankNext: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayAscendingRankNext(opts.ticks, opts);
+            }
+            const { analysis_window } = normalizeAscendingRankNextOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'ascending_rank_next');
+            return replayAscendingRankNext(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

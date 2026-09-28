@@ -246,6 +246,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/top_two_digit_gap_differ_scan'));
     }
 
+    if (block_string.includes('ascending_rank_next_differ_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/ascending_rank_next_differ_scan'));
+    }
+
     await Promise.all(imports);
 };
 

@@ -40,6 +40,7 @@ import './recurring_pattern_under7_scan';
 import './repeated_digit_recurrence_differ_scan';
 import './missing_digit_return_differ_scan';
 import './top_two_digit_gap_differ_scan';
+import './ascending_rank_next_differ_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';
