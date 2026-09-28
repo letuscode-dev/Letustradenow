@@ -249,7 +249,12 @@ const loadWindowDigitTicks = async (tradeEngine, window_size, key) => {
             });
             const prices = response?.history?.prices || [];
             const times = response?.history?.times || [];
-            const pip_size = typeof tradeEngine.getPipSize === 'function' ? tradeEngine.getPipSize() : 0;
+            const response_pip = Number(response?.pip_size);
+            const pip_size = Number.isFinite(response_pip)
+                ? response_pip
+                : typeof tradeEngine.getPipSize === 'function'
+                  ? tradeEngine.getPipSize()
+                  : 0;
             const history = prices.map((price, i) => ({
                 epoch: Number(times[i]),
                 digit: Number(getLastDigit(Number(price).toFixed(pip_size))),

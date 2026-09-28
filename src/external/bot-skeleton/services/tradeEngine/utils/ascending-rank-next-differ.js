@@ -6,8 +6,9 @@
  * digit in that ranking and Differ the digit ranked immediately above it
  * (the next digit "in power") on the next tick.
  *
- * No trade when the current digit is already the strongest, or when the
- * ranking around it is tied (the next digit would be ambiguous).
+ * "Next in power" is the first digit with a strictly higher % than the current
+ * digit; digits tied at that level are ordered by digit value. No trade when
+ * the current digit already has the highest %.
  */
 
 import { MAX_ANALYSIS_WINDOW } from './top-two-digit-gap-differ';
@@ -15,7 +16,6 @@ import { MAX_ANALYSIS_WINDOW } from './top-two-digit-gap-differ';
 export const STATUS = {
     COLLECTING: 'COLLECTING',
     CURRENT_IS_STRONGEST: 'CURRENT_IS_STRONGEST',
-    RANK_TIED: 'RANK_TIED',
     COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
     SIGNAL_CONSUMED: 'SIGNAL_CONSUMED',
     VALID_SIGNAL: 'VALID_SIGNAL',
@@ -150,7 +150,7 @@ const buildJournal = ({ options, window_size, ranked, current, status, rejection
     if (status === STATUS.VALID_SIGNAL) {
         messages.push({
             className: 'journal__text--success',
-            message: `STATUS: VALID SIGNAL — next above ${current} is ${target}. ACTION: DIFFER ${target}`,
+            message: `STATUS: VALID SIGNAL — next stronger than ${current} is ${target}. ACTION: DIFFER ${target}`,
         });
     } else {
         messages.push({ className: 'journal__text', message: `WHY NO TRADE? ${status} — ${rejection}` });
@@ -219,29 +219,18 @@ export const evaluateAscendingRankNext = (raw_ticks, raw_options = {}, state = c
         rejection = `Loading tick history ${window_ticks.length}/${options.analysis_window}.`;
     } else {
         ranked = rankDigitsAscending(window_ticks.map(t => t.digit));
-        const index = ranked.findIndex(r => r.digit === current);
-        const prev = ranked[index - 1];
-        const self = ranked[index];
-        const next = ranked[index + 1];
-        const after_next = ranked[index + 2];
+        const self = ranked.find(r => r.digit === current);
+        // Equal-weight digits are not "in power" over the current digit — skip past them.
+        const next = ranked.find(r => r.count > self.count);
 
         const cooldown =
             options.signal_cooldown_tips > 0 &&
             state.last_signal_tip >= 0 &&
             state.tip_index - state.last_signal_tip <= options.signal_cooldown_tips;
 
-        if (prev && prev.count === self.count) {
-            status = STATUS.RANK_TIED;
-            rejection = `Current ${current} is tied with ${prev.digit} at ${formatPct(self.pct)} — rank is ambiguous.`;
-        } else if (!next) {
+        if (!next) {
             status = STATUS.CURRENT_IS_STRONGEST;
-            rejection = `Current digit ${current} is the strongest (${formatPct(self.pct)}) — no digit above it.`;
-        } else if (next.count === self.count) {
-            status = STATUS.RANK_TIED;
-            rejection = `Current ${current} and next ${next.digit} are tied at ${formatPct(self.pct)}.`;
-        } else if (after_next && after_next.count === next.count) {
-            status = STATUS.RANK_TIED;
-            rejection = `Next rank is tied (${next.digit} and ${after_next.digit} both ${formatPct(next.pct)}).`;
+            rejection = `Current digit ${current} has the highest weight (${formatPct(self.pct)}) — no stronger digit above it.`;
         } else if (cooldown) {
             status = STATUS.COOLDOWN_ACTIVE;
             rejection = `Cooldown active (${state.tip_index - state.last_signal_tip}/${options.signal_cooldown_tips} tips).`;

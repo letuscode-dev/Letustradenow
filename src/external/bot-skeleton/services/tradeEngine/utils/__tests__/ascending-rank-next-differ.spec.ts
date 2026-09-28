@@ -72,16 +72,24 @@ describe('ascending rank next digit differ', () => {
         expect(result.matched).toBe(false);
     });
 
-    it.each([2, 7])('skips when the current digit %i is tied with a neighbour', current => {
-        const tie = { ...DISTINCT, 7: 19, 0: 15 }; // 7 ties 2 at 19
-        const result = evaluateAscendingRankNext(buildWindow(tie, current), opts(), createAscendingRankNextState());
-        expect(result.status).toBe(STATUS.RANK_TIED);
+    // Ascending: 9(11) < 4(14) < 0(15) < 2(19) = 7(19) < 6(21) < 1(23) < 8(24) < 3(26) < 5(28)
+    const TIED = { ...DISTINCT, 7: 19, 0: 15 };
+
+    it.each([2, 7])('skips equal-weight digits: current %i (tied at 19) → Differ 6', current => {
+        const result = evaluateAscendingRankNext(buildWindow(TIED, current), opts(), createAscendingRankNextState());
+        expect(result.status).toBe(STATUS.VALID_SIGNAL);
+        expect(result.prediction).toBe(6);
     });
 
-    it('skips when the next rank is tied', () => {
-        const tie = { ...DISTINCT, 7: 19, 0: 15 }; // 2 and 7 tied above 0
-        const result = evaluateAscendingRankNext(buildWindow(tie, 0), opts(), createAscendingRankNextState());
-        expect(result.status).toBe(STATUS.RANK_TIED);
+    it('when the next weight level is tied, picks the lower digit of that level', () => {
+        const result = evaluateAscendingRankNext(buildWindow(TIED, 0), opts(), createAscendingRankNextState());
+        expect(result.prediction).toBe(2);
+    });
+
+    it('does not trade when the current digit shares the highest weight', () => {
+        const top_tie = { ...DISTINCT, 3: 28, 9: 9 }; // 3 and 5 both 28
+        const result = evaluateAscendingRankNext(buildWindow(top_tie, 3), opts(), createAscendingRankNextState());
+        expect(result.status).toBe(STATUS.CURRENT_IS_STRONGEST);
     });
 
     it('calculates on a partial window instead of waiting for it to fill', () => {
