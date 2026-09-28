@@ -1,4 +1,5 @@
 import { observer as globalObserver } from '../../../utils/observer';
+import { api_base } from '../../api/api-base';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
     consumeColdDigitSignal,
@@ -20,66 +21,31 @@ import {
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
 import { analyzeDigitFrequency } from '../utils/digit-frequency-analysis';
 import {
+    createDigitPairReturnState,
+    evaluateDigitPairReturnDiffers,
+    resetDigitPairReturnState,
+} from '../utils/digit-pair-return-differs';
+import {
     clampDigitPercentageWindow,
     getDigitPercentageValue,
     getSlidingDigitWindow,
 } from '../utils/digit-percentage-condition';
+import {
+    createDigitPercentageDecreaseRuntime,
+    evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
+    getDigitPercentageDecreaseSymbolState,
+    isDigitPercentageDecreaseSignalConsumed,
+    makeDigitPercentageDecreaseSignalKey,
+    normalizeDigitPercentageDecreaseOptions,
+    pickBestDigitPercentageDecreaseMatch,
+    resetDigitPercentageDecreaseState,
+} from '../utils/digit-percentage-decrease';
 import { getDigitTransitionPrediction } from '../utils/digit-transition';
 import {
     createDoubleDigitReturnState,
     evaluateDoubleDigitReturnDiffers,
     resetDoubleDigitReturnState,
 } from '../utils/double-digit-return-differs';
-import {
-    createDigitPairReturnState,
-    evaluateDigitPairReturnDiffers,
-    resetDigitPairReturnState,
-} from '../utils/digit-pair-return-differs';
-import {
-    createRecurringPatternDifferState,
-    evaluateRecurringPatternDiffer,
-    replayRecurringPatternDiffer,
-    resetRecurringPatternDifferState,
-} from '../utils/recurring-pattern-differ';
-import {
-    createRecurringPatternOver2State,
-    evaluateRecurringPatternOver2,
-    replayRecurringPatternOver2,
-    resetRecurringPatternOver2State,
-} from '../utils/recurring-pattern-over2';
-import {
-    createRecurringPatternUnder7State,
-    evaluateRecurringPatternUnder7,
-    replayRecurringPatternUnder7,
-    resetRecurringPatternUnder7State,
-} from '../utils/recurring-pattern-under7';
-import {
-    createRepeatedDigitRecurrenceState,
-    evaluateRepeatedDigitRecurrence,
-    replayRepeatedDigitRecurrence,
-    resetRepeatedDigitRecurrenceState,
-} from '../utils/repeated-digit-recurrence-differ';
-import {
-    createMissingDigitReturnState,
-    evaluateMissingDigitReturn,
-    replayMissingDigitReturn,
-    resetMissingDigitReturnState,
-} from '../utils/missing-digit-return-differ';
-import {
-    createTopTwoDigitGapState,
-    evaluateTopTwoDigitGap,
-    replayTopTwoDigitGap,
-    resetTopTwoDigitGapState,
-} from '../utils/top-two-digit-gap-differ';
-import {
-    evaluateSymbolTripleDigitSignal,
-    isTripleDigitSignalConsumed,
-    makeTripleDigitSignalKey,
-    normalizeTripleDigitMartingaleOptions,
-    orderSymbolsForScan as orderTripleDigitSymbols,
-    pickFirstTripleDigitMatch,
-    resolveScanSymbols as resolveTripleDigitSymbols,
-} from '../utils/triple-digit-martingale';
 import {
     applyEvenOddPairSettlement,
     armEvenOddPairPrediction,
@@ -92,7 +58,7 @@ import {
     toMarketSide,
 } from '../utils/even-odd-pair-over-under';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import { createDetails } from '../utils/helpers';
+import { createDetails, getLastDigit } from '../utils/helpers';
 import {
     applyHybridMultiScanSettlement,
     armHybridMultiScanPrediction,
@@ -114,6 +80,12 @@ import {
     evaluateLongAbsenceReturnDiffers,
     releaseLongAbsenceReturnActiveTrade,
 } from '../utils/long-absence-return-differs';
+import {
+    createMissingDigitReturnState,
+    evaluateMissingDigitReturn,
+    replayMissingDigitReturn,
+    resetMissingDigitReturnState,
+} from '../utils/missing-digit-return-differ';
 import {
     armHotOddEvenDiffersPrediction,
     buildHotOddEvenDiffersResult,
@@ -149,16 +121,6 @@ import {
 import { evaluatePatternSwitch as runPatternSwitch } from '../utils/pattern-switch';
 import { evaluatePercentageFilter } from '../utils/percentage-filter';
 import {
-    createDigitPercentageDecreaseRuntime,
-    evaluateDigitPercentageDecrease as runDigitPercentageDecrease,
-    getDigitPercentageDecreaseSymbolState,
-    isDigitPercentageDecreaseSignalConsumed,
-    makeDigitPercentageDecreaseSignalKey,
-    normalizeDigitPercentageDecreaseOptions,
-    pickBestDigitPercentageDecreaseMatch,
-    resetDigitPercentageDecreaseState,
-} from '../utils/digit-percentage-decrease';
-import {
     createRangeMomentumState,
     evaluateRangeMomentumOverOne,
     resetRangeMomentumState,
@@ -170,12 +132,36 @@ import {
     createRecoveryState,
 } from '../utils/recovery-stake';
 import {
+    createRecurringPatternDifferState,
+    evaluateRecurringPatternDiffer,
+    replayRecurringPatternDiffer,
+    resetRecurringPatternDifferState,
+} from '../utils/recurring-pattern-differ';
+import {
+    createRecurringPatternOver2State,
+    evaluateRecurringPatternOver2,
+    replayRecurringPatternOver2,
+    resetRecurringPatternOver2State,
+} from '../utils/recurring-pattern-over2';
+import {
+    createRecurringPatternUnder7State,
+    evaluateRecurringPatternUnder7,
+    replayRecurringPatternUnder7,
+    resetRecurringPatternUnder7State,
+} from '../utils/recurring-pattern-under7';
+import {
     applyRepeatReappearSettlement,
     createRepeatReappearState,
     evaluateRepeatReappearDiffers,
     releaseStaleRepeatReappearCommit,
     resetRepeatReappearState,
 } from '../utils/repeat-reappear-differs';
+import {
+    createRepeatedDigitRecurrenceState,
+    evaluateRepeatedDigitRecurrence,
+    replayRepeatedDigitRecurrence,
+    resetRepeatedDigitRecurrenceState,
+} from '../utils/repeated-digit-recurrence-differ';
 import {
     applySequentialDiffersTradeResult,
     armSequentialDiffersPrediction,
@@ -204,11 +190,72 @@ import {
     resetStrategyVotingState,
 } from '../utils/strategy-voting-engine';
 import {
+    createTopTwoDigitGapState,
+    evaluateTopTwoDigitGap,
+    mergeDigitTicks,
+    normalizeTopTwoDigitGapOptions,
+    replayTopTwoDigitGap,
+    resetTopTwoDigitGapState,
+} from '../utils/top-two-digit-gap-differ';
+import {
+    evaluateSymbolTripleDigitSignal,
+    isTripleDigitSignalConsumed,
+    makeTripleDigitSignalKey,
+    normalizeTripleDigitMartingaleOptions,
+    orderSymbolsForScan as orderTripleDigitSymbols,
+    pickFirstTripleDigitMatch,
+    resolveScanSymbols as resolveTripleDigitSymbols,
+} from '../utils/triple-digit-martingale';
+import {
     applyWindowIndexDiffersResult,
     createWindowIndexDiffersState,
     evaluateWindowIndexDiffers,
     resetWindowIndexDiffersState,
 } from '../utils/window-index-differs';
+
+const TOP_TWO_GAP_HISTORY_RETRY_MS = 5000;
+
+/**
+ * Top Two Digit Gap tick buffer: one ticks_history request for the full window,
+ * then every live tick is merged in so the window slides with the stream.
+ */
+const loadTopTwoDigitGapTicks = async (tradeEngine, window_size) => {
+    if (tradeEngine.topTwoDigitGapSymbol !== tradeEngine.symbol) {
+        tradeEngine.topTwoDigitGapSymbol = tradeEngine.symbol;
+        tradeEngine.topTwoDigitGapTicks = null;
+        tradeEngine.topTwoDigitGapFetchAt = 0;
+    }
+    const live = typeof tradeEngine.getCachedDigitTicks === 'function' ? tradeEngine.getCachedDigitTicks() : [];
+    let buffer = mergeDigitTicks(tradeEngine.topTwoDigitGapTicks, live, window_size);
+
+    const can_retry = Date.now() - (tradeEngine.topTwoDigitGapFetchAt || 0) >= TOP_TWO_GAP_HISTORY_RETRY_MS;
+    if (buffer.length < window_size && can_retry && tradeEngine.symbol && api_base?.api) {
+        tradeEngine.topTwoDigitGapFetchAt = Date.now();
+        try {
+            const response = await api_base.api.send({
+                ticks_history: tradeEngine.symbol,
+                end: 'latest',
+                count: window_size,
+                style: 'ticks',
+            });
+            const prices = response?.history?.prices || [];
+            const times = response?.history?.times || [];
+            const pip_size = typeof tradeEngine.getPipSize === 'function' ? tradeEngine.getPipSize() : 0;
+            const history = prices.map((price, i) => ({
+                epoch: Number(times[i]),
+                digit: Number(getLastDigit(Number(price).toFixed(pip_size))),
+            }));
+            const latest_live =
+                typeof tradeEngine.getCachedDigitTicks === 'function' ? tradeEngine.getCachedDigitTicks() : live;
+            buffer = mergeDigitTicks(mergeDigitTicks(buffer, history, window_size), latest_live, window_size);
+        } catch (e) {
+            // Keep the live buffer; the next scan retries after the cooldown.
+        }
+    }
+
+    tradeEngine.topTwoDigitGapTicks = buffer;
+    return buffer;
+};
 
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
@@ -327,6 +374,9 @@ const getBotInterface = tradeEngine => {
                 resetTopTwoDigitGapState(tradeEngine.topTwoDigitGapState);
                 tradeEngine.topTwoDigitGapState = null;
             }
+            tradeEngine.topTwoDigitGapTicks = null;
+            tradeEngine.topTwoDigitGapFetchAt = 0;
+            tradeEngine.topTwoDigitGapSymbol = null;
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
             tradeEngine._parityRunConsumedKey = null;
@@ -816,14 +866,8 @@ const getBotInterface = tradeEngine => {
             if (!tradeEngine.topTwoDigitGapState) {
                 tradeEngine.topTwoDigitGapState = createTopTwoDigitGapState();
             }
-            const tick_window = Math.max(50, Math.floor(Number(opts.analysis_window)) || 1000);
-            if (typeof tradeEngine.ensureTickHistory === 'function') {
-                await tradeEngine.ensureTickHistory(tick_window);
-            }
-            let digit_ticks = tradeEngine.getCachedDigitTicks ? tradeEngine.getCachedDigitTicks() : [];
-            if (!Array.isArray(digit_ticks)) {
-                digit_ticks = [];
-            }
+            const { analysis_window } = normalizeTopTwoDigitGapOptions(opts);
+            const digit_ticks = await loadTopTwoDigitGapTicks(tradeEngine, analysis_window);
             return evaluateTopTwoDigitGap(digit_ticks, opts, tradeEngine.topTwoDigitGapState);
         },
         /**
@@ -831,17 +875,11 @@ const getBotInterface = tradeEngine => {
          */
         replayTopTwoDigitGap: async options => {
             const opts = options || {};
-            const tick_window = Math.max(50, Math.floor(Number(opts.analysis_window)) || 1000);
-            if (typeof tradeEngine.ensureTickHistory === 'function') {
-                await tradeEngine.ensureTickHistory(tick_window);
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayTopTwoDigitGap(opts.ticks, opts);
             }
-            let digit_ticks =
-                Array.isArray(opts.ticks) && opts.ticks.length
-                    ? opts.ticks
-                    : tradeEngine.getCachedDigitTicks
-                      ? tradeEngine.getCachedDigitTicks()
-                      : [];
-            if (!Array.isArray(digit_ticks)) digit_ticks = [];
+            const { analysis_window } = normalizeTopTwoDigitGapOptions(opts);
+            const digit_ticks = await loadTopTwoDigitGapTicks(tradeEngine, analysis_window);
             return replayTopTwoDigitGap(digit_ticks, opts);
         },
         /**

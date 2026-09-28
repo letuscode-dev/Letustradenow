@@ -28,6 +28,12 @@ export const DEFAULT_OPTIONS = {
 
 const EPSILON = 1e-6;
 
+/** Deriv ticks_history returns at most 5000 ticks per request. */
+export const MAX_ANALYSIS_WINDOW = 5000;
+
+/** Below this many ticks the percentages are too noisy to trade on. */
+const MIN_TICKS_TO_TRADE = 100;
+
 const toDigit = value => {
     const digit = Number(value);
     return Number.isInteger(digit) && digit >= 0 && digit <= 9 ? digit : null;
@@ -60,7 +66,7 @@ const normalizeGapMode = value =>
 export const normalizeTopTwoDigitGapOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
     return {
-        analysis_window: toPositiveInt(options.analysis_window, d.analysis_window, 10, 100000),
+        analysis_window: toPositiveInt(options.analysis_window, d.analysis_window, 10, MAX_ANALYSIS_WINDOW),
         gap_threshold: toNonNegNumber(options.gap_threshold, d.gap_threshold),
         gap_mode: normalizeGapMode(options.gap_mode ?? d.gap_mode),
         signal_cooldown_tips: toPositiveInt(options.signal_cooldown_tips, d.signal_cooldown_tips, 0, 100),
@@ -97,6 +103,23 @@ const normalizeTicks = ticks =>
         const epoch = item && typeof item === 'object' ? Number(item.epoch) : NaN;
         return [{ digit, epoch: Number.isFinite(epoch) ? epoch : null }];
     });
+
+/**
+ * Merge digit-tick lists by epoch (oldest → newest), keeping the newest `cap`.
+ * Used to join a one-shot history request with the live tick stream.
+ */
+export const mergeDigitTicks = (existing, incoming, cap = DEFAULT_OPTIONS.analysis_window) => {
+    const by_epoch = new Map();
+    [existing, incoming].forEach(list => {
+        (Array.isArray(list) ? list : []).forEach(tick => {
+            const epoch = Number(tick?.epoch);
+            const digit = toDigit(tick?.digit);
+            if (!Number.isFinite(epoch) || digit === null) return;
+            by_epoch.set(epoch, { epoch, digit });
+        });
+    });
+    return [...by_epoch.values()].sort((a, b) => a.epoch - b.epoch).slice(-Math.max(1, cap));
+};
 
 const tipFingerprint = (all_ticks, window_ticks) => {
     const tip = window_ticks[window_ticks.length - 1];
@@ -165,7 +188,9 @@ const buildJournal = ({ options, window_size, top1, top2, gap, current, status, 
     const rule = options.gap_mode === 'exact' ? `= ${options.gap_threshold}` : `≤ ${options.gap_threshold}`;
     messages.push({
         className: 'journal__text',
-        message: `Window: ${window_size} ticks | Most: ${top1.digit} (${formatPct(top1.pct)}) | Second: ${top2.digit} (${formatPct(top2.pct)}) | Gap: ${gap.toFixed(2)}pp (required ${rule})`,
+        message: `Window: ${
+            window_size < options.analysis_window ? `${window_size}/${options.analysis_window}` : window_size
+        } ticks | Most: ${top1.digit} (${formatPct(top1.pct)}) | Second: ${top2.digit} (${formatPct(top2.pct)}) | Gap: ${gap.toFixed(2)}pp (required ${rule})`,
     });
     messages.push({
         className: 'journal__text',
@@ -226,9 +251,10 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
     let gap = 0;
     let target = null;
 
-    if (window_ticks.length < options.analysis_window) {
+    const min_ticks = Math.min(options.analysis_window, MIN_TICKS_TO_TRADE);
+    if (window_ticks.length < min_ticks) {
         status = STATUS.COLLECTING;
-        rejection = `Collecting ticks ${window_ticks.length}/${options.analysis_window}.`;
+        rejection = `Loading tick history ${window_ticks.length}/${options.analysis_window}.`;
     } else {
         const { ranked } = rankDigits(window_ticks.map(t => t.digit));
         [top1, top2] = ranked;

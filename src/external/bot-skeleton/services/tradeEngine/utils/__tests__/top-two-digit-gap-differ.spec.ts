@@ -1,7 +1,9 @@
 import {
+    MAX_ANALYSIS_WINDOW,
     STATUS,
     createTopTwoDigitGapState,
     evaluateTopTwoDigitGap,
+    mergeDigitTicks,
     normalizeTopTwoDigitGapOptions,
     replayTopTwoDigitGap,
 } from '../top-two-digit-gap-differ';
@@ -95,10 +97,48 @@ describe('top two digit gap differ', () => {
         expect(exactHit.prediction).toBe(5);
     });
 
-    it('waits until the window is full', () => {
+    it('only waits while history is still loading (fewer than 100 ticks)', () => {
         const result = evaluateTopTwoDigitGap([3, 3, 5], opts(), createTopTwoDigitGapState());
         expect(result.status).toBe(STATUS.COLLECTING);
         expect(result.why_no_trade).toMatch(/3\/200/);
+    });
+
+    it('calculates on a partial window instead of waiting for it to fill', () => {
+        const result = evaluateTopTwoDigitGap(
+            buildWindow(BASE, 3),
+            opts({ analysis_window: 1000 }),
+            createTopTwoDigitGapState()
+        );
+        expect(result.status).toBe(STATUS.VALID_SIGNAL);
+        expect(result.prediction).toBe(5);
+    });
+
+    it('caps the window at the 5000-tick history limit', () => {
+        expect(normalizeTopTwoDigitGapOptions({ analysis_window: 20000 }).analysis_window).toBe(MAX_ANALYSIS_WINDOW);
+    });
+
+    it('merges history with live ticks by epoch and keeps the newest window', () => {
+        const history = [1, 2, 3, 4].map((digit, i) => ({ epoch: 100 + i, digit }));
+        const live = [
+            { epoch: 102, digit: 3 },
+            { epoch: 103, digit: 4 },
+            { epoch: 104, digit: 9 },
+        ];
+        const merged = mergeDigitTicks(history, live, 4);
+        expect(merged.map(t => t.epoch)).toEqual([101, 102, 103, 104]);
+        expect(merged.map(t => t.digit)).toEqual([2, 3, 4, 9]);
+    });
+
+    it('recalculates percentages as each new tick slides the window', () => {
+        const state = createTopTwoDigitGapState();
+        let ticks = buildWindow(BASE, 3).map((digit, i) => ({ digit, epoch: i + 1 }));
+        const first = evaluateTopTwoDigitGap(ticks, opts(), state);
+        expect(first.top1.digit).toBe(3);
+        [5, 5, 5].forEach((digit, i) => {
+            ticks = mergeDigitTicks(ticks, [{ digit, epoch: WINDOW + 1 + i }], WINDOW);
+        });
+        const next = evaluateTopTwoDigitGap(ticks, opts(), state);
+        expect(next.top1.digit).toBe(5);
     });
 
     it('keeps the signal on a same-tip epoch re-poll and settles on the next tip', () => {
@@ -114,7 +154,10 @@ describe('top two digit gap differ', () => {
         const history = [...buildWindow(BASE, 3), 3, 5, 5, 3, 1];
         const report = replayTopTwoDigitGap(history, opts());
         expect(report.valid_signals).toBeGreaterThan(0);
-        expect(report.signals.every(s => [3, 5].includes(s.target) && s.target !== s.current)).toBe(true);
+        expect(report.signals.every(s => s.target !== s.current)).toBe(true);
+        const full_window = report.signals.filter(s => s.tip >= WINDOW - 1);
+        expect(full_window.length).toBeGreaterThan(0);
+        expect(full_window.every(s => [3, 5].includes(s.target))).toBe(true);
         expect(report.wins + report.losses).toBe(report.trades);
     });
 });
