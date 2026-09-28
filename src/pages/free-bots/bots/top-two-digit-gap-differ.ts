@@ -203,7 +203,7 @@ export const TOP_TWO_DIGIT_GAP_DIFFER_XML = `<xml xmlns="https://developers.goog
                 </next>
               </block>
             </statement>
-            <value name="SECONDS">${varGet('ttg_cooldown_signal', 'Cooldown After Signal')}</value>
+            <value name="SECONDS">${num(0.5)}</value>
           </block>
         </statement>
         <next>

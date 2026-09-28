@@ -163,13 +163,40 @@ describe('top two digit gap differ', () => {
         expect(next.top1.digit).toBe(5);
     });
 
-    it('keeps the signal on a same-tip epoch re-poll and settles on the next tip', () => {
+    it('never re-trades a signal on a same-tip re-poll and settles on the next tip', () => {
         const state = createTopTwoDigitGapState();
         const ticks = buildWindow(BASE, 3).map((digit, i) => ({ digit, epoch: i + 1 }));
-        expect(evaluateTopTwoDigitGap(ticks, opts(), state).prediction).toBe(5);
-        expect(evaluateTopTwoDigitGap(ticks, opts(), state).prediction).toBe(5);
+        const first = evaluateTopTwoDigitGap(ticks, opts({ journal_enabled: true }), state);
+        expect(first.prediction).toBe(5);
+        expect(first.journal_messages.length).toBeGreaterThan(0);
+
+        const repoll = evaluateTopTwoDigitGap(ticks, opts({ journal_enabled: true }), state);
+        expect(repoll.prediction).toBe(-1);
+        expect(repoll.status).toBe(STATUS.SIGNAL_CONSUMED);
+        expect(repoll.journal_messages).toEqual([]);
+
         evaluateTopTwoDigitGap([...ticks.slice(1), { digit: 8, epoch: ticks.length + 1 }], opts(), state);
         expect(state.live.wins).toBe(1);
+    });
+
+    it('settles on the tick right after the signal even when a poll skips ticks', () => {
+        const state = createTopTwoDigitGapState();
+        const ticks = buildWindow(BASE, 3).map((digit, i) => ({ digit, epoch: i + 1 }));
+        evaluateTopTwoDigitGap(ticks, opts(), state);
+        const n = ticks.length;
+        const later = [...ticks.slice(2), { digit: 5, epoch: n + 1 }, { digit: 1, epoch: n + 2 }];
+        evaluateTopTwoDigitGap(later, opts(), state);
+        expect(state.live.losses).toBe(1);
+        expect(state.live.wins).toBe(0);
+    });
+
+    it('skips when second place is tied', () => {
+        const tie = { ...BASE, 5: 29, 7: 29, 0: 17, 9: 5 }; // 5 and 7 tied for second
+        const total = Object.values(tie).reduce((a, b) => a + b, 0);
+        expect(total).toBe(WINDOW);
+        const result = evaluateTopTwoDigitGap(buildWindow(tie, 3), opts(), createTopTwoDigitGapState());
+        expect(result.status).toBe(STATUS.TOP_TWO_AMBIGUOUS);
+        expect(result.matched).toBe(false);
     });
 
     it('replays sequentially and only Differs a top-two digit', () => {

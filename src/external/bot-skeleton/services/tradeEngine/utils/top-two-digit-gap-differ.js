@@ -14,6 +14,8 @@
 export const STATUS = {
     COLLECTING: 'COLLECTING',
     GAP_NOT_MET: 'GAP_NOT_MET',
+    TOP_TWO_AMBIGUOUS: 'TOP_TWO_AMBIGUOUS',
+    SIGNAL_CONSUMED: 'SIGNAL_CONSUMED',
     CURRENT_NOT_TOP_TWO: 'CURRENT_NOT_TOP_TWO',
     COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
     VALID_SIGNAL: 'VALID_SIGNAL',
@@ -236,15 +238,31 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
 
     const fp = tipFingerprint(all_ticks, window_ticks);
     if (fp === state.last_tip_fp && state.last_result) {
-        return {
-            ...state.last_result,
-            journal_messages: options.journal_enabled ? state.last_result.journal_messages || [] : [],
-        };
+        // The first poll of a tip already handed out its signal; re-polls must not re-trade it.
+        if (state.last_result.matched) {
+            state.last_result = {
+                ...state.last_result,
+                prediction: -1,
+                barrier: -1,
+                matched: false,
+                contract_type: null,
+                status: STATUS.SIGNAL_CONSUMED,
+                rejection: 'Signal on this tick already traded — waiting for the next tick.',
+                why_no_trade: 'Signal on this tick already traded — waiting for the next tick.',
+            };
+        }
+        return { ...state.last_result, journal_messages: [] };
     }
 
-    const current = window_ticks[window_ticks.length - 1].digit;
+    const tip = window_ticks[window_ticks.length - 1];
+    const current = tip.digit;
     if (state.last_tip_fp !== null && state.pending_outcome) {
-        recordTopTwoDigitGapOutcome(state, current);
+        const { epoch: signal_epoch } = state.pending_outcome;
+        const settle_tick =
+            signal_epoch !== null && tip.epoch !== null
+                ? all_ticks.find(t => t.epoch !== null && t.epoch > signal_epoch)
+                : tip;
+        if (settle_tick) recordTopTwoDigitGapOutcome(state, settle_tick.digit);
     }
     state.last_tip_fp = fp;
     state.tip_index += 1;
@@ -264,7 +282,9 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
     } else {
         const { ranked } = rankDigits(window_ticks.map(t => t.digit));
         [top1, top2] = ranked;
+        const third = ranked[2];
         gap = top1.pct - top2.pct;
+        const second_tied = top2.count === third.count;
 
         const cooldown =
             options.signal_cooldown_tips > 0 &&
@@ -276,6 +296,9 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
             rejection = `Gap ${gap.toFixed(2)}pp must be ${GAP_RULE_SYMBOL[options.gap_mode]} ${
                 options.gap_threshold
             }pp.`;
+        } else if (second_tied) {
+            status = STATUS.TOP_TWO_AMBIGUOUS;
+            rejection = `Second place is tied (${top2.digit} and ${third.digit} both ${formatPct(top2.pct)}).`;
         } else if (current !== top1.digit && current !== top2.digit) {
             status = STATUS.CURRENT_NOT_TOP_TWO;
             rejection = `Current digit ${current} is not ${top1.digit} or ${top2.digit}.`;
@@ -287,7 +310,7 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
             prediction = target;
             status = STATUS.VALID_SIGNAL;
             state.last_signal_tip = state.tip_index;
-            state.pending_outcome = { target, current, gap };
+            state.pending_outcome = { target, current, gap, epoch: tip.epoch };
         }
     }
 
