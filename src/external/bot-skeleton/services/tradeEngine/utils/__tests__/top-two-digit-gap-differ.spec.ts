@@ -48,8 +48,19 @@ describe('top two digit gap differ', () => {
         const o = normalizeTopTwoDigitGapOptions({});
         expect(o.analysis_window).toBe(1000);
         expect(o.gap_threshold).toBe(0.5);
-        expect(o.gap_mode).toBe('max');
+        expect(o.gap_mode).toBe('min');
         expect(o.signal_cooldown_tips).toBe(1);
+    });
+
+    it('default min mode trades only when the gap is greater than the threshold', () => {
+        const wide = { ...BASE, 3: 34, 9: 11 }; // gap 2.5pp
+        const hit = evaluateTopTwoDigitGap(buildWindow(wide, 3), opts({ gap_mode: 'min' }), createTopTwoDigitGapState());
+        expect(hit.status).toBe(STATUS.VALID_SIGNAL);
+        expect(hit.prediction).toBe(5);
+
+        const equal = evaluateTopTwoDigitGap(buildWindow(BASE, 3), opts({ gap_mode: 'min' }), createTopTwoDigitGapState());
+        expect(equal.status).toBe(STATUS.GAP_NOT_MET);
+        expect(equal.why_no_trade).toMatch(/must be > 0.5pp/);
     });
 
     it('Differs the second digit when the current digit is the most appearing', () => {

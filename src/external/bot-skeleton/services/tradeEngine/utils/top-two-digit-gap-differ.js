@@ -6,6 +6,7 @@
  * meets `gap_threshold` (default 0.5pp) and the current digit is one of those
  * two, Differ the OTHER one on the next tick.
  *
+ * gap_mode 'min'   → gap >  threshold (default: top digit leads by more than the threshold)
  * gap_mode 'max'   → gap <= threshold (top two are within the threshold)
  * gap_mode 'exact' → gap === threshold
  */
@@ -21,7 +22,7 @@ export const STATUS = {
 export const DEFAULT_OPTIONS = {
     analysis_window: 1000,
     gap_threshold: 0.5,
-    gap_mode: 'max',
+    gap_mode: 'min',
     signal_cooldown_tips: 1,
     journal_enabled: true,
 };
@@ -56,12 +57,16 @@ const toNonNegNumber = (value, fallback) => {
     return n;
 };
 
-const normalizeGapMode = value =>
-    String(value || '')
+const GAP_MODES = ['min', 'max', 'exact'];
+
+const normalizeGapMode = value => {
+    const mode = String(value || '')
         .trim()
-        .toLowerCase() === 'exact'
-        ? 'exact'
-        : 'max';
+        .toLowerCase();
+    return GAP_MODES.includes(mode) ? mode : DEFAULT_OPTIONS.gap_mode;
+};
+
+const GAP_RULE_SYMBOL = { min: '>', max: '≤', exact: '=' };
 
 export const normalizeTopTwoDigitGapOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
@@ -144,10 +149,11 @@ export const rankDigits = digits => {
     return { counts, percentages, ranked, total };
 };
 
-export const gapMeetsThreshold = (gap, options) =>
-    options.gap_mode === 'exact'
-        ? Math.abs(gap - options.gap_threshold) < EPSILON
-        : gap <= options.gap_threshold + EPSILON;
+export const gapMeetsThreshold = (gap, options) => {
+    if (options.gap_mode === 'exact') return Math.abs(gap - options.gap_threshold) < EPSILON;
+    if (options.gap_mode === 'max') return gap <= options.gap_threshold + EPSILON;
+    return gap > options.gap_threshold + EPSILON;
+};
 
 export const recordTopTwoDigitGapOutcome = (state, actual_digit) => {
     if (!state?.pending_outcome) return null;
@@ -185,7 +191,7 @@ const buildJournal = ({ options, window_size, top1, top2, gap, current, status, 
         return messages;
     }
 
-    const rule = options.gap_mode === 'exact' ? `= ${options.gap_threshold}` : `≤ ${options.gap_threshold}`;
+    const rule = `${GAP_RULE_SYMBOL[options.gap_mode]} ${options.gap_threshold}`;
     messages.push({
         className: 'journal__text',
         message: `Window: ${
@@ -267,9 +273,9 @@ export const evaluateTopTwoDigitGap = (raw_ticks, raw_options = {}, state = crea
 
         if (!gapMeetsThreshold(gap, options)) {
             status = STATUS.GAP_NOT_MET;
-            rejection = `Gap ${gap.toFixed(2)}pp does not meet ${
-                options.gap_mode === 'exact' ? '=' : '≤'
-            } ${options.gap_threshold}pp.`;
+            rejection = `Gap ${gap.toFixed(2)}pp must be ${GAP_RULE_SYMBOL[options.gap_mode]} ${
+                options.gap_threshold
+            }pp.`;
         } else if (current !== top1.digit && current !== top2.digit) {
             status = STATUS.CURRENT_NOT_TOP_TWO;
             rejection = `Current digit ${current} is not ${top1.digit} or ${top2.digit}.`;

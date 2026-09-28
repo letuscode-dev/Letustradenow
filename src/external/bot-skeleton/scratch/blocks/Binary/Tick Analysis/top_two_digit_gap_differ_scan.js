@@ -26,7 +26,7 @@ window.Blockly.Blocks.top_two_digit_gap_differ_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'When the gap between the most and second-most appearing digits meets the threshold and the current digit is one of them, Differ the other. Journal shows WHY NO TRADE.'
+                'When the gap between the most and second-most appearing digits is greater than the threshold and the current digit is one of them, Differ the other. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -57,7 +57,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.top_two_digit_gap_differ_
         var BinaryBotPrivateTtgResult = Bot.evaluateTopTwoDigitGap({
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
             gap_threshold: ${read('GAP_THRESHOLD') || '0.5'},
-            gap_mode: ${read('GAP_MODE') || '"max"'},
+            gap_mode: ${read('GAP_MODE') || '"min"'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'}
         });
