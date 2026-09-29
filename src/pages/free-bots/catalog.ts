@@ -39,8 +39,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'zero-one-rise-over-v1',
         title: 'Zero/One Rise OVER 1',
         description:
-            'Tracks the % of digits 0 and 1 over the last N ticks (default 1000), updating on every tick. When either % increases, enters OVER 1. After a loss, recovers with OVER 2 and stake × 2.5 until a win. Journal shows WHY NO TRADE.',
-        tags: ['Over 1', 'Over 2 recovery', 'Percentages', 'Martingale 2.5', 'Cooldown'],
+            'Tracks the % of digits 0 and 1 over the last N ticks (default 1000), updating on every tick. When either % increases, enters OVER 1. After a loss, recovers with OVER 2, sizing the stake so one win pays back every unrecovered loss (uses the real Over 2 payout rate). Journal shows WHY NO TRADE.',
+        tags: ['Over 1', 'Over 2 recovery', 'Percentages', 'Full loss recovery', 'Cooldown'],
         xml: ZERO_ONE_RISE_OVER_XML,
     },
 ];
