@@ -1,0 +1,35 @@
+import { FREE_BOTS } from '../catalog';
+
+const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
+
+describe('free bot catalog XML', () => {
+    it.each(FREE_BOTS.map(bot => [bot.title, bot.xml]))('%s is well-formed', (_title, xml) => {
+        const doc = parse(xml as string);
+        expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        expect(doc.querySelector('block[type="trade_definition"]')).not.toBeNull();
+        expect(doc.querySelector('block[type="purchase"]')).not.toBeNull();
+    });
+
+    it('Zero/One Rise OVER 1: Over 1 entry, Over 2 recovery with martingale 2.5', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'zero-one-rise-over-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('TRADETYPE_LIST')).toBe('overunder');
+        expect(field('PURCHASE_LIST')).toBe('DIGITOVER');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        expect(setValue('zor_martingale')).toEqual(['2.5']);
+        expect(setValue('zor_entry_barrier')).toEqual(['1']);
+        expect(setValue('zor_recovery_barrier')).toEqual(['2']);
+        // Barrier: init + win (entry) + loss (recovery).
+        expect(setValue('zor_barrier')).toEqual(['Entry Over Barrier', 'Entry Over Barrier', 'Recovery Over Barrier']);
+
+        const scan = doc.querySelector('block[type="zero_one_rise_over_scan"]');
+        expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
+        expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
+    });
+});

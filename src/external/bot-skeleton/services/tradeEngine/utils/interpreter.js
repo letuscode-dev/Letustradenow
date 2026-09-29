@@ -327,6 +327,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayAscendingRankNext)
             );
         }
+        if (typeof bot_interface.evaluateZeroOneRise === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateZeroOneRise',
+                createAsync(js_interpreter, bot_interface.evaluateZeroOneRise)
+            );
+        }
+        if (typeof bot_interface.replayZeroOneRise === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayZeroOneRise',
+                createAsync(js_interpreter, bot_interface.replayZeroOneRise)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

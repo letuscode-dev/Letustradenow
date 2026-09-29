@@ -250,6 +250,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/ascending_rank_next_differ_scan'));
     }
 
+    if (block_string.includes('zero_one_rise_over_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/zero_one_rise_over_scan'));
+    }
+
     await Promise.all(imports);
 };
 

@@ -219,6 +219,13 @@ import {
     evaluateWindowIndexDiffers,
     resetWindowIndexDiffersState,
 } from '../utils/window-index-differs';
+import {
+    createZeroOneRiseState,
+    evaluateZeroOneRise,
+    normalizeZeroOneRiseOptions,
+    replayZeroOneRise,
+    resetZeroOneRiseState,
+} from '../utils/zero-one-rise-over';
 
 const WINDOW_HISTORY_RETRY_MS = 5000;
 
@@ -391,6 +398,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
                 tradeEngine.ascendingRankNextState = null;
+            }
+            if (tradeEngine.zeroOneRiseState) {
+                resetZeroOneRiseState(tradeEngine.zeroOneRiseState);
+                tradeEngine.zeroOneRiseState = null;
             }
             tradeEngine.windowTickBuffers = null;
             tradeEngine.parityRunDiffersSnapshot = null;
@@ -922,6 +933,39 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeAscendingRankNextOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'ascending_rank_next');
             return replayAscendingRankNext(digit_ticks, opts);
+        },
+        /**
+         * Zero/One Rise OVER — enter Over (barrier from risk management) when
+         * digit 0 or 1 increases in appearance %.
+         */
+        evaluateZeroOneRise: async options => {
+            const opts = options || {};
+            if (!tradeEngine.zeroOneRiseState) {
+                tradeEngine.zeroOneRiseState = createZeroOneRiseState();
+            }
+            const { analysis_window, compare_lookback } = normalizeZeroOneRiseOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                analysis_window + compare_lookback,
+                'zero_one_rise'
+            );
+            return evaluateZeroOneRise(digit_ticks, opts, tradeEngine.zeroOneRiseState);
+        },
+        /**
+         * Zero/One Rise OVER replay/backtest with Over 1 → Over 2 recovery (no look-ahead).
+         */
+        replayZeroOneRise: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayZeroOneRise(opts.ticks, opts);
+            }
+            const { analysis_window, compare_lookback } = normalizeZeroOneRiseOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                analysis_window + compare_lookback,
+                'zero_one_rise'
+            );
+            return replayZeroOneRise(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.
