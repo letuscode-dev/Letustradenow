@@ -2,7 +2,7 @@
  * Digit Rise OVER 1 free bot.
  *
  * Tracks the appearance % of the user's Target Digits (comma-separated, at most
- * 9, default "0") over the last N ticks (default 1000). When any target %
+ * 9, default "0") over the last N ticks (default 120). When any target %
  * increases on a new tick, enter DIGITOVER.
  * Risk: Over 1 normally; after a loss, recover with Over 2 until a win resets
  * to Over 1 at Base Stake. The recovery stake is sized so one Over 2 win pays
@@ -263,7 +263,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
               ['zor_take_profit', 'Take Profit', num(20)],
               ['zor_stop_loss', 'Stop Loss', num(50)],
               ['zor_targets', 'Target Digits', text('0')],
-              ['zor_window', 'Analysis Tick Window', num(1000)],
+              ['zor_window', 'Analysis Tick Window', num(120)],
               ['zor_lookback', 'Compare Lookback Ticks', num(1)],
               ['zor_entry_barrier', 'Entry Over Barrier', num(1)],
               ['zor_recovery_barrier', 'Recovery Over Barrier', num(2)],

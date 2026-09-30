@@ -1,7 +1,7 @@
 /**
  * Digit Rise OVER
  *
- * Over the last `analysis_window` ticks (default 1000), track the appearance %
+ * Over the last `analysis_window` ticks (default 120), track the appearance %
  * of the user's target digits (comma-separated, at most 9, default "0"). When
  * any target % increases versus the window `compare_lookback` ticks earlier
  * (default 1), enter DIGITOVER.
@@ -25,7 +25,7 @@ export const MAX_TARGET_DIGITS = 9;
 
 export const DEFAULT_OPTIONS = {
     target_digits: DEFAULT_TARGET_DIGITS,
-    analysis_window: 1000,
+    analysis_window: 120,
     compare_lookback: 1,
     barrier: 1,
     signal_cooldown_tips: 1,

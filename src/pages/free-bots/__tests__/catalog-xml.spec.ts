@@ -23,6 +23,7 @@ describe('free bot catalog XML', () => {
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
 
         expect(setValue('zor_targets')).toEqual(['0']);
+        expect(setValue('zor_window')).toEqual(['120']);
         expect(setValue('zor_recovery_rate')[0]).toBe('0.36');
         expect(setValue('zor_entry_barrier')).toEqual(['1']);
         expect(setValue('zor_recovery_barrier')).toEqual(['2']);

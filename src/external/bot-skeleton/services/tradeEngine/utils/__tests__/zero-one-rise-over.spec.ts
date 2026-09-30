@@ -30,10 +30,10 @@ const base = () => {
 const withTip = (digit: number) => [...base(), digit];
 
 describe('zero/one rise over', () => {
-    it('defaults: target digit 0, 1000-tick window, compare 1 tick back, Over 1', () => {
+    it('defaults: target digit 0, 120-tick window, compare 1 tick back, Over 1', () => {
         const o = normalizeZeroOneRiseOptions({});
         expect(o.target_digits).toEqual([0]);
-        expect(o.analysis_window).toBe(1000);
+        expect(o.analysis_window).toBe(120);
         expect(o.compare_lookback).toBe(1);
         expect(o.barrier).toBe(1);
     });

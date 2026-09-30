@@ -38,7 +38,7 @@ window.Blockly.Blocks.zero_one_rise_over_scan = {
         return {
             display_name: localize('Digit Rise OVER scan'),
             description: localize(
-                'Signals Digit Over when any target digit gains in appearance % over the analysis window (default 1000 ticks).'
+                'Signals Digit Over when any target digit gains in appearance % over the analysis window (default 120 ticks).'
             ),
             key_words: localize('digit, target, rise, percentage, over'),
         };
@@ -59,7 +59,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.zero_one_rise_over_scan =
     const code = `(function () {
         var BinaryBotPrivateZorResult = Bot.evaluateZeroOneRise({
             target_digits: String(${read('TARGET_DIGITS') || '"0"'}),
-            analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
+            analysis_window: ${read('ANALYSIS_WINDOW') || '120'},
             compare_lookback: ${read('COMPARE_LOOKBACK') || '1'},
             barrier: ${read('BARRIER') || '1'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
