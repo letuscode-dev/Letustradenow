@@ -1,11 +1,11 @@
 /**
  * Low-High Flip OVER
  *
- * On the last four digits (previous_3, previous_2, previous_1, current):
- *   previous_3 < 4, previous_2 < 4, previous_1 > 5 and current > 5
+ * On the last three digits (previous_2, previous_1, current):
+ *   previous_2 < 4, previous_1 < 5 and current > 5
  * → enter DIGITOVER at the barrier owned by the bot's risk management
  * (Over 1 normally, Over 2 in loss recovery). The barrier is returned as the
- * prediction on a signal. Both thresholds are user-configurable.
+ * prediction on a signal. All three thresholds are user-configurable.
  * `evaluateLowHighFlipScan` runs the same check across several markets.
  */
 
@@ -18,12 +18,13 @@ export const STATUS = {
     VALID_SIGNAL: 'VALID_SIGNAL',
 };
 
-export const PATTERN_LENGTH = 4;
+export const PATTERN_LENGTH = 3;
 export const HISTORY_TICKS = 10;
 
 export const DEFAULT_OPTIONS = {
-    low_below: 4,
-    high_above: 5,
+    prev2_below: 4,
+    prev1_below: 5,
+    current_above: 5,
     barrier: 1,
     signal_cooldown_tips: 1,
     journal_enabled: true,
@@ -48,8 +49,9 @@ const toInt = (value, fallback, min, max) => {
 export const normalizeLowHighFlipOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
     return {
-        low_below: toInt(options.low_below, d.low_below, 1, 9),
-        high_above: toInt(options.high_above, d.high_above, 0, 8),
+        prev2_below: toInt(options.prev2_below, d.prev2_below, 1, 9),
+        prev1_below: toInt(options.prev1_below, d.prev1_below, 1, 9),
+        current_above: toInt(options.current_above, d.current_above, 0, 8),
         barrier: toInt(options.barrier, d.barrier, 0, 8),
         signal_cooldown_tips: toInt(options.signal_cooldown_tips, d.signal_cooldown_tips, 0, 100),
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
@@ -96,14 +98,13 @@ const tipFingerprint = all_ticks => {
     return `n:${all_ticks.length}:${tail}`;
 };
 
-/** Which of the four pattern conditions hold for [previous_3, previous_2, previous_1, current]. */
+/** Which of the three pattern conditions hold for [previous_2, previous_1, current]. */
 export const checkLowHighFlip = (digits, options = DEFAULT_OPTIONS) => {
-    const [p3, p2, p1, current] = digits;
+    const [p2, p1, current] = digits;
     const checks = [
-        { label: `previous_3 (${p3}) < ${options.low_below}`, ok: p3 < options.low_below },
-        { label: `previous_2 (${p2}) < ${options.low_below}`, ok: p2 < options.low_below },
-        { label: `previous_1 (${p1}) > ${options.high_above}`, ok: p1 > options.high_above },
-        { label: `current (${current}) > ${options.high_above}`, ok: current > options.high_above },
+        { label: `previous_2 (${p2}) < ${options.prev2_below}`, ok: p2 < options.prev2_below },
+        { label: `previous_1 (${p1}) < ${options.prev1_below}`, ok: p1 < options.prev1_below },
+        { label: `current (${current}) > ${options.current_above}`, ok: current > options.current_above },
     ];
     return { matched: checks.every(c => c.ok), checks };
 };
@@ -127,7 +128,7 @@ const buildJournal = ({ options, recent, checks, status, rejection }) => {
     const messages = [
         {
             className: 'journal__text',
-            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
+            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | p2 < ${options.prev2_below} · p1 < ${options.prev1_below} · current > ${options.current_above} ══`,
         },
     ];
     if (recent.length) {
@@ -142,7 +143,7 @@ const buildJournal = ({ options, recent, checks, status, rejection }) => {
     if (status === STATUS.VALID_SIGNAL) {
         messages.push({
             className: 'journal__text--success',
-            message: `STATUS: VALID SIGNAL — low, low, high, high pattern. ACTION: OVER ${options.barrier}`,
+            message: `STATUS: VALID SIGNAL — low, low, high pattern. ACTION: OVER ${options.barrier}`,
         });
     } else {
         messages.push({ className: 'journal__text', message: `WHY NO TRADE? ${status} — ${rejection}` });
@@ -341,7 +342,7 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
     if (options.journal_enabled && any_new_tip) {
         journal_messages.push({
             className: 'journal__text',
-            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | ${list.length} markets | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
+            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | ${list.length} markets | p2 < ${options.prev2_below} · p1 < ${options.prev1_below} · current > ${options.current_above} ══`,
         });
         journal_messages.push({
             className: 'journal__text',

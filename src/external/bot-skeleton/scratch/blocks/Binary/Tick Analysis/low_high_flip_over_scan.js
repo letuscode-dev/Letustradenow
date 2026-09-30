@@ -1,6 +1,6 @@
 /**
  * Low-High Flip OVER — returns the Over barrier on a signal, or -1.
- * Signals when previous_3 < low, previous_2 < low, previous_1 > high and current > high.
+ * Signals when previous_2 < prev2 below, previous_1 < prev1 below and current > current above.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -13,11 +13,12 @@ window.Blockly.Blocks.low_high_flip_over_scan = {
     definition() {
         return {
             message0: localize(
-                'low-high flip over low below %1 high above %2 barrier %3 cooldown %4 journal %5 scan markets %6 market group %7 custom symbols %8'
+                'low-high flip over previous_2 below %1 previous_1 below %2 current above %3 barrier %4 cooldown %5 journal %6 scan markets %7 market group %8 custom symbols %9'
             ),
             args0: [
-                { type: 'input_value', name: 'LOW_BELOW', check: 'Number' },
-                { type: 'input_value', name: 'HIGH_ABOVE', check: 'Number' },
+                { type: 'input_value', name: 'PREV2_BELOW', check: 'Number' },
+                { type: 'input_value', name: 'PREV1_BELOW', check: 'Number' },
+                { type: 'input_value', name: 'CURRENT_ABOVE', check: 'Number' },
                 { type: 'input_value', name: 'BARRIER', check: 'Number' },
                 { type: 'input_value', name: 'COOLDOWN', check: 'Number' },
                 { type: 'input_value', name: 'JOURNAL', check: 'Boolean' },
@@ -31,7 +32,7 @@ window.Blockly.Blocks.low_high_flip_over_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Returns the Over barrier when previous_3 and previous_2 are below "low below" and previous_1 and the current digit are above "high above", otherwise -1. With scan markets on, checks every market in the group (1S / STANDARD / ALL) or the custom symbol list and switches to the market that fires. Journal shows WHY NO TRADE.'
+                'Returns the Over barrier when previous_2 < "previous_2 below", previous_1 < "previous_1 below" and the current digit > "current above", otherwise -1. With scan markets on, checks every market in the group (1S / STANDARD / ALL) or the custom symbol list and switches to the market that fires. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -40,7 +41,7 @@ window.Blockly.Blocks.low_high_flip_over_scan = {
         return {
             display_name: localize('Low-High Flip OVER scan'),
             description: localize(
-                'Signals Digit Over after two low digits (< 4) are followed by two high digits (> 5).'
+                'Signals Digit Over when previous_2 < 4, previous_1 < 5 and the current digit > 5.'
             ),
             key_words: localize('digit, over, low, high, pattern'),
         };
@@ -60,8 +61,9 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.low_high_flip_over_scan =
 
     const code = `(function () {
         var BinaryBotPrivateLhfResult = Bot.evaluateLowHighFlipOver({
-            low_below: ${read('LOW_BELOW') || '4'},
-            high_above: ${read('HIGH_ABOVE') || '5'},
+            prev2_below: ${read('PREV2_BELOW') || '4'},
+            prev1_below: ${read('PREV1_BELOW') || '5'},
+            current_above: ${read('CURRENT_ABOVE') || '5'},
             barrier: ${read('BARRIER') || '1'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'},

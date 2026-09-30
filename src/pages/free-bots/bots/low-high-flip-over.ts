@@ -1,8 +1,8 @@
 /**
  * Low-High Flip OVER 1 free bot.
  *
- * On the last four digits: previous_3 < 4, previous_2 < 4, previous_1 > 5 and
- * current > 5 → enter DIGITOVER. Both thresholds are user-configurable.
+ * On the last three digits: previous_2 < 4, previous_1 < 5 and current > 5
+ * → enter DIGITOVER. All three thresholds are user-configurable.
  * Multi-market scanner (on by default): checks every market in the Market Group
  * (1S / STANDARD / ALL) or the Custom Symbols list and switches to the market
  * that fires.
@@ -219,8 +219,9 @@ export const LOW_HIGH_FLIP_OVER_XML = `<xml xmlns="https://developers.google.com
     <variable id="lhf_protect">Recovery Off When Profit > Stake</variable>
     <variable id="lhf_take_profit">Take Profit</variable>
     <variable id="lhf_stop_loss">Stop Loss</variable>
-    <variable id="lhf_low_below">Low Digits Below</variable>
-    <variable id="lhf_high_above">High Digits Above</variable>
+    <variable id="lhf_prev2_below">Previous_2 Below</variable>
+    <variable id="lhf_prev1_below">Previous_1 Below</variable>
+    <variable id="lhf_current_above">Current Above</variable>
     <variable id="lhf_scan_markets">Scan Multiple Markets</variable>
     <variable id="lhf_market_group">Market Group (1S / STANDARD / ALL)</variable>
     <variable id="lhf_symbols">Custom Symbols</variable>
@@ -275,8 +276,9 @@ export const LOW_HIGH_FLIP_OVER_XML = `<xml xmlns="https://developers.google.com
               ['lhf_protect', 'Recovery Off When Profit > Stake', bool(false)],
               ['lhf_take_profit', 'Take Profit', num(20)],
               ['lhf_stop_loss', 'Stop Loss', num(50)],
-              ['lhf_low_below', 'Low Digits Below', num(4)],
-              ['lhf_high_above', 'High Digits Above', num(5)],
+              ['lhf_prev2_below', 'Previous_2 Below', num(4)],
+              ['lhf_prev1_below', 'Previous_1 Below', num(5)],
+              ['lhf_current_above', 'Current Above', num(5)],
               ['lhf_scan_markets', 'Scan Multiple Markets', bool(true)],
               ['lhf_market_group', 'Market Group (1S / STANDARD / ALL)', text('1S')],
               ['lhf_symbols', 'Custom Symbols', text('')],
@@ -309,8 +311,9 @@ export const LOW_HIGH_FLIP_OVER_XML = `<xml xmlns="https://developers.google.com
                 <field name="VAR" id="lhf_prediction">Prediction</field>
                 <value name="VALUE">
                   <block type="low_high_flip_over_scan" id="lhf_scan_block">
-                    <value name="LOW_BELOW">${varGet('lhf_low_below', 'Low Digits Below')}</value>
-                    <value name="HIGH_ABOVE">${varGet('lhf_high_above', 'High Digits Above')}</value>
+                    <value name="PREV2_BELOW">${varGet('lhf_prev2_below', 'Previous_2 Below')}</value>
+                    <value name="PREV1_BELOW">${varGet('lhf_prev1_below', 'Previous_1 Below')}</value>
+                    <value name="CURRENT_ABOVE">${varGet('lhf_current_above', 'Current Above')}</value>
                     <value name="BARRIER">${varGet('lhf_barrier', 'Barrier')}</value>
                     <value name="COOLDOWN">${varGet('lhf_cooldown_signal', 'Cooldown After Signal')}</value>
                     <value name="JOURNAL">${bool(true)}</value>

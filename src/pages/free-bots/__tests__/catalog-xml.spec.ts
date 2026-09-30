@@ -107,8 +107,9 @@ describe('free bot catalog XML', () => {
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
 
-        expect(setValue('lhf_low_below')).toEqual(['4']);
-        expect(setValue('lhf_high_above')).toEqual(['5']);
+        expect(setValue('lhf_prev2_below')).toEqual(['4']);
+        expect(setValue('lhf_prev1_below')).toEqual(['5']);
+        expect(setValue('lhf_current_above')).toEqual(['5']);
         expect(setValue('lhf_entry_barrier')).toEqual(['1']);
         expect(setValue('lhf_recovery_barrier')).toEqual(['2']);
         expect(setValue('lhf_stake')[0]).toBe('0.5');
@@ -130,8 +131,9 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelectorAll('block[type="timeout"] value[name="IF1"]')).toHaveLength(2);
 
         const scan = doc.querySelector('block[type="low_high_flip_over_scan"]');
-        expect(scan?.querySelector('value[name="LOW_BELOW"] field')?.textContent).toBe('Low Digits Below');
-        expect(scan?.querySelector('value[name="HIGH_ABOVE"] field')?.textContent).toBe('High Digits Above');
+        expect(scan?.querySelector('value[name="PREV2_BELOW"] field')?.textContent).toBe('Previous_2 Below');
+        expect(scan?.querySelector('value[name="PREV1_BELOW"] field')?.textContent).toBe('Previous_1 Below');
+        expect(scan?.querySelector('value[name="CURRENT_ABOVE"] field')?.textContent).toBe('Current Above');
         expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
 

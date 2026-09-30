@@ -57,7 +57,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'low-high-flip-over-v1',
         title: 'Low-High Flip OVER 1',
         description:
-            'Scans multiple markets (1s volatilities by default; STANDARD, ALL or your own symbol list) on every tick. When previous_3 < 4, previous_2 < 4, previous_1 > 5 and the current digit > 5 (thresholds configurable) on any market, switches to it and enters OVER 1. After a loss, recovers with OVER 2, sizing the stake so one win pays back every unrecovered loss (uses the real Over 2 payout rate). Journal shows WHY NO TRADE.',
+            'Scans multiple markets (1s volatilities by default; STANDARD, ALL or your own symbol list) on every tick. When previous_2 < 4, previous_1 < 5 and the current digit > 5 (thresholds configurable) on any market, switches to it and enters OVER 1. After a loss, recovers with OVER 2, sizing the stake so one win pays back every unrecovered loss (uses the real Over 2 payout rate). Journal shows WHY NO TRADE.',
         tags: ['Over 1', 'Multi-market scanner', 'Digit pattern', 'Over 2 recovery', 'Full loss recovery'],
         xml: LOW_HIGH_FLIP_OVER_XML,
     },
