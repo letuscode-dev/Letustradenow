@@ -51,7 +51,15 @@ describe('free bot catalog XML', () => {
         });
 
         const win_branch = doc.querySelector('block#zor_ap_win > statement[name="DO0"]');
-        expect(win_branch?.querySelectorAll('block[type="read_details"]').length).toBe(2);
+        // Rate learning (profit ÷ price) + carried-over shortfall (loss − profit, twice in the ternary).
+        expect(win_branch?.querySelectorAll('block[type="read_details"]').length).toBe(4);
+        const win_loss_set = [...(win_branch?.querySelectorAll('block[type="variables_set"]') ?? [])].find(
+            b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === 'zor_recovery_loss'
+        );
+        expect(win_loss_set?.querySelector(':scope > value[name="VALUE"] > block')?.getAttribute('type')).toBe(
+            'logic_ternary'
+        );
+        expect(doc.querySelector('variable#zor_protect')?.textContent).toBe('Recovery Off When Profit > Stake');
 
         const scan = doc.querySelector('block[type="zero_one_rise_over_scan"]');
         expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');

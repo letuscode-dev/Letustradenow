@@ -7,7 +7,8 @@
  * Risk: Over 1 normally; after a loss, recover with Over 2 until a win resets
  * to Over 1 at Base Stake. The recovery stake is sized so one Over 2 win pays
  * back every unrecovered loss: Recovery Loss ÷ Recovery Profit Rate (rounded up
- * to the cent). The rate starts at 0.36 and is re-measured from each Over 2 win.
+ * to the cent). The rate starts at 0.36 and is re-measured from each Over 2 win;
+ * any shortfall a win leaves is carried into the next recovery.
  * Stop Loss is checked against the next stake, so no trade can take the session
  * past it.
  */
@@ -106,17 +107,28 @@ const recoveryStakeXml = () =>
 
 const protectActiveXml = () =>
     `<block type="logic_operation"><field name="OP">AND</field>
-      <value name="A">${varGet('zor_protect', 'Martingale Off When Profit > Stake')}</value>
+      <value name="A">${varGet('zor_protect', 'Recovery Off When Profit > Stake')}</value>
       <value name="B">${compare('GT', '<block type="total_profit"></block>', get(BASE_STAKE))}</value>
     </block>`;
 
 const endOfTrade = () => [set(['zor_prediction', 'Prediction'], num(-1)), set(['zor_signal', 'Entry Signal'], bool(false))];
 
-const backToEntry = () => [
-    set(RECOVERY_LOSS, num(0)),
+const entryStakeAndBarrier = () => [
     set(STAKE, get(BASE_STAKE)),
     set(BARRIER, varGet('zor_entry_barrier', 'Entry Over Barrier')),
 ];
+
+const backToEntry = () => [set(RECOVERY_LOSS, num(0)), ...entryStakeAndBarrier()];
+
+/** Recovery Loss after a win: whatever the profit did not cover (never below 0). */
+const remainingLossXml = () => {
+    const remaining = arithmetic('MINUS', get(RECOVERY_LOSS), PROFIT);
+    return `<block type="logic_ternary">
+      <value name="IF">${compare('GT', remaining, num(0))}</value>
+      <value name="THEN">${remaining}</value>
+      <value name="ELSE">${num(0)}</value>
+    </block>`;
+};
 
 const afterPurchaseXml = () => {
     const onWin = chain(
@@ -126,7 +138,9 @@ const afterPurchaseXml = () => {
                 compare('EQ', get(BARRIER), varGet('zor_recovery_barrier', 'Recovery Over Barrier')),
                 chain([set(RECOVERY_RATE, arithmetic('DIVIDE', PROFIT, PURCHASE_PRICE))])
             ),
-            ...backToEntry(),
+            // Any shortfall (e.g. before the real rate was known) carries into the next recovery.
+            set(RECOVERY_LOSS, remainingLossXml()),
+            ...entryStakeAndBarrier(),
             ...endOfTrade(),
         ],
         tpSlThenTradeAgain('zor_win_cd', varGet('zor_cooldown_win', 'Cooldown After Win'))
@@ -205,7 +219,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
     <variable id="zor_base_stake">Base Stake</variable>
     <variable id="zor_recovery_rate">Recovery Profit Rate</variable>
     <variable id="zor_recovery_loss">Recovery Loss</variable>
-    <variable id="zor_protect">Martingale Off When Profit > Stake</variable>
+    <variable id="zor_protect">Recovery Off When Profit > Stake</variable>
     <variable id="zor_take_profit">Take Profit</variable>
     <variable id="zor_stop_loss">Stop Loss</variable>
     <variable id="zor_targets">Target Digits</variable>
@@ -259,7 +273,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
           [
               ['zor_stake', 'Stake', num(0.5)],
               ['zor_recovery_rate', 'Recovery Profit Rate', num(0.36)],
-              ['zor_protect', 'Martingale Off When Profit > Stake', bool(false)],
+              ['zor_protect', 'Recovery Off When Profit > Stake', bool(false)],
               ['zor_take_profit', 'Take Profit', num(20)],
               ['zor_stop_loss', 'Stop Loss', num(50)],
               ['zor_targets', 'Target Digits', text('0')],
