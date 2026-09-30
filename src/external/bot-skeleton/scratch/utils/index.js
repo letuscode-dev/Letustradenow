@@ -254,6 +254,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/zero_one_rise_over_scan'));
     }
 
+    if (block_string.includes('digit_rise_differ_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/digit_rise_differ_scan'));
+    }
+
     await Promise.all(imports);
 };
 

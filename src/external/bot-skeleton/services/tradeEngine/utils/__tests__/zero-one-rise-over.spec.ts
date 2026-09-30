@@ -59,6 +59,48 @@ describe('zero/one rise over', () => {
         expect(result.why_no_trade).toMatch(/\(0\)/);
     });
 
+    describe('differ mode', () => {
+        const differ = (overrides = {}) => opts({ trade_mode: 'differ', ...overrides });
+
+        it('Differs the current digit when a target digit rises', () => {
+            const result = evaluateZeroOneRise(withTip(0), differ(), createZeroOneRiseState());
+            expect(result.status).toBe(STATUS.VALID_SIGNAL);
+            expect(result.prediction).toBe(0);
+            expect(result.contract_type).toBe('DIGITDIFF');
+        });
+
+        it('uses the user targets and ignores other digits', () => {
+            const hit = evaluateZeroOneRise(withTip(7), differ({ target_digits: '3,7' }), createZeroOneRiseState());
+            expect(hit.prediction).toBe(7);
+            const miss = evaluateZeroOneRise(withTip(8), differ({ target_digits: '3,7' }), createZeroOneRiseState());
+            expect(miss.status).toBe(STATUS.NO_RISE);
+        });
+
+        it('settles as a Differs contract (win when the next digit is different)', () => {
+            const state = createZeroOneRiseState();
+            const ticks = withTip(0).map((digit, i) => ({ digit, epoch: i + 1 }));
+            evaluateZeroOneRise(ticks, differ(), state);
+            evaluateZeroOneRise([...ticks, { digit: 1, epoch: ticks.length + 1 }], differ(), state);
+            expect(state.live.wins).toBe(1);
+
+            const state2 = createZeroOneRiseState();
+            evaluateZeroOneRise(ticks, differ(), state2);
+            evaluateZeroOneRise([...ticks, { digit: 0, epoch: ticks.length + 1 }], differ(), state2);
+            expect(state2.live.losses).toBe(1);
+        });
+
+        it('replay always Differs the digit that just appeared', () => {
+            const report = replayZeroOneRise([...withTip(0), 1, 0, 5, 1, 0], differ());
+            expect(report.valid_signals).toBeGreaterThan(0);
+            expect(report.signals.every(s => s.prediction === s.current)).toBe(true);
+        });
+    });
+
+    it('over mode stays the default', () => {
+        expect(normalizeZeroOneRiseOptions({}).trade_mode).toBe('over');
+        expect(normalizeZeroOneRiseOptions({ trade_mode: 'nonsense' }).trade_mode).toBe('over');
+    });
+
     it('trades on any user target digit rising', () => {
         const result = evaluateZeroOneRise(withTip(7), opts({ target_digits: '3,7' }), createZeroOneRiseState());
         expect(result.status).toBe(STATUS.VALID_SIGNAL);

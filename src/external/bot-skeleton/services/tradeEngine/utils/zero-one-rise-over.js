@@ -1,5 +1,8 @@
 /**
- * Digit Rise OVER
+ * Digit Rise OVER / DIFFER
+ *
+ * trade_mode 'over' (default): DIGITOVER at the barrier from risk management.
+ * trade_mode 'differ': DIGITDIFF on the current digit.
  *
  * Over the last `analysis_window` ticks (default 120), track the appearance %
  * of the user's target digits (comma-separated, at most 9, default "0"). When
@@ -23,7 +26,11 @@ export const STATUS = {
 export const DEFAULT_TARGET_DIGITS = [0];
 export const MAX_TARGET_DIGITS = 9;
 
+/** 'over': DIGITOVER at `barrier`. 'differ': DIGITDIFF on the current digit. */
+export const TRADE_MODES = { OVER: 'over', DIFFER: 'differ' };
+
 export const DEFAULT_OPTIONS = {
+    trade_mode: TRADE_MODES.OVER,
     target_digits: DEFAULT_TARGET_DIGITS,
     analysis_window: 120,
     compare_lookback: 1,
@@ -72,6 +79,7 @@ export const parseTargetDigits = value => {
 export const normalizeZeroOneRiseOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
     return {
+        trade_mode: options.trade_mode === TRADE_MODES.DIFFER ? TRADE_MODES.DIFFER : TRADE_MODES.OVER,
         target_digits: parseTargetDigits(options.target_digits ?? d.target_digits),
         analysis_window: toInt(
             options.analysis_window,
@@ -140,15 +148,23 @@ export const recordZeroOneRiseOutcome = (state, actual_digit) => {
     const digit = toDigit(actual_digit);
     if (digit === null) return null;
     const pending = state.pending_outcome;
-    const won = digit > pending.barrier;
+    const won = pending.differ !== undefined ? digit !== pending.differ : digit > pending.barrier;
     if (won) state.live.wins += 1;
     else state.live.losses += 1;
     state.live.signals += 1;
-    state.live.history.push({ barrier: pending.barrier, actual: digit, result: won ? 'WIN' : 'LOSS' });
+    state.live.history.push({
+        barrier: pending.barrier,
+        differ: pending.differ,
+        actual: digit,
+        result: won ? 'WIN' : 'LOSS',
+    });
     if (state.live.history.length > 200) state.live.history = state.live.history.slice(-200);
     state.pending_outcome = null;
-    return { won, actual: digit, barrier: pending.barrier };
+    return { won, actual: digit, barrier: pending.barrier, differ: pending.differ };
 };
+
+const tradeLabel = (options, current) =>
+    options.trade_mode === TRADE_MODES.DIFFER ? `DIFFER ${current}` : `OVER ${options.barrier}`;
 
 const arrow = (now, prev) => {
     if (now > prev + EPSILON) return '↑';
@@ -160,7 +176,9 @@ const buildJournal = ({ options, window_size, now, prev, current, status, reject
     const messages = [
         {
             className: 'journal__text',
-            message: `══ DIGIT RISE OVER ${options.barrier} | Targets: ${options.target_digits.join(',')} ══`,
+            message: `══ DIGIT RISE ${
+                options.trade_mode === TRADE_MODES.DIFFER ? 'DIFFER' : `OVER ${options.barrier}`
+            } | Targets: ${options.target_digits.join(',')} ══`,
         },
     ];
 
@@ -185,7 +203,7 @@ const buildJournal = ({ options, window_size, now, prev, current, status, reject
     if (status === STATUS.VALID_SIGNAL) {
         messages.push({
             className: 'journal__text--success',
-            message: `STATUS: VALID SIGNAL — digit ${rising.join(' & ')} % increased. ACTION: OVER ${options.barrier}`,
+            message: `STATUS: VALID SIGNAL — digit ${rising.join(' & ')} % increased. ACTION: ${tradeLabel(options, current)}`,
         });
     } else {
         messages.push({ className: 'journal__text', message: `WHY NO TRADE? ${status} — ${rejection}` });
@@ -273,10 +291,15 @@ export const evaluateZeroOneRise = (raw_ticks, raw_options = {}, state = createZ
             status = STATUS.COOLDOWN_ACTIVE;
             rejection = `Cooldown active (${state.tip_index - state.last_signal_tip}/${options.signal_cooldown_tips} tips).`;
         } else {
-            prediction = options.barrier;
             status = STATUS.VALID_SIGNAL;
             state.last_signal_tip = state.tip_index;
-            state.pending_outcome = { barrier: options.barrier, epoch: tip.epoch };
+            if (options.trade_mode === TRADE_MODES.DIFFER) {
+                prediction = current;
+                state.pending_outcome = { differ: current, epoch: tip.epoch };
+            } else {
+                prediction = options.barrier;
+                state.pending_outcome = { barrier: options.barrier, epoch: tip.epoch };
+            }
         }
     }
 
@@ -297,7 +320,7 @@ export const evaluateZeroOneRise = (raw_ticks, raw_options = {}, state = createZ
     const result = {
         prediction,
         matched: prediction >= 0,
-        contract_type: prediction >= 0 ? 'DIGITOVER' : null,
+        contract_type: prediction >= 0 ? (options.trade_mode === TRADE_MODES.DIFFER ? 'DIGITDIFF' : 'DIGITOVER') : null,
         barrier: options.barrier,
         current,
         now,
@@ -331,7 +354,7 @@ export const replayZeroOneRise = (raw_ticks, raw_options = {}) => {
 
     for (let i = 0; i < digits.length; i++) {
         // The previous trade settles on this tick, before this tick's signal is evaluated.
-        if (state.pending_outcome) {
+        if (state.pending_outcome && state.pending_outcome.differ === undefined) {
             barrier = digits[i] > state.pending_outcome.barrier ? entry_barrier : recovery_barrier;
         }
         const result = evaluateZeroOneRise(
@@ -339,7 +362,15 @@ export const replayZeroOneRise = (raw_ticks, raw_options = {}) => {
             { ...raw_options, barrier, journal_enabled: false },
             state
         );
-        if (result.matched) signals.push({ tip: i, barrier: result.barrier, rising: result.rising });
+        if (result.matched) {
+            signals.push({
+                tip: i,
+                barrier: result.barrier,
+                prediction: result.prediction,
+                current: result.current,
+                rising: result.rising,
+            });
+        }
     }
 
     const { wins, losses } = state.live;

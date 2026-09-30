@@ -10,6 +10,34 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelector('block[type="purchase"]')).not.toBeNull();
     });
 
+    it('Digit Rise DIFFER: Differs risk management with target digits and 120-tick window', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'digit-rise-differ-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+        expect(field('PURCHASE_LIST')).toBe('DIGITDIFF');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+        expect(setValue('drd_targets')).toEqual(['0']);
+        expect(setValue('drd_window')).toEqual(['120']);
+        expect(setValue('drd_lookback')).toEqual(['1']);
+        expect(setValue('drd_stake')[0]).toBe('0.5');
+        expect(setValue('drd_martingale')).toEqual(['10.5']);
+        expect(setValue('drd_take_profit')).toEqual(['20']);
+        expect(setValue('drd_stop_loss')).toEqual(['50']);
+        expect(setValue('drd_cooldown_loss')).toEqual(['2']);
+
+        const scan = doc.querySelector('block[type="digit_rise_differ_scan"]');
+        expect(scan?.querySelector('value[name="TARGET_DIGITS"] field')?.textContent).toBe('Target Digits');
+        expect(scan?.querySelector('value[name="COMPARE_LOOKBACK"] field')?.textContent).toBe(
+            'Compare Lookback Ticks'
+        );
+        expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
+    });
+
     it('Zero/One Rise OVER 1: Over 1 entry, Over 2 recovery sized to repay the losses', () => {
         const bot = FREE_BOTS.find(b => b.id === 'zero-one-rise-over-v1');
         const doc = parse(bot!.xml);

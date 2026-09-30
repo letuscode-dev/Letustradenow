@@ -341,6 +341,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayZeroOneRise)
             );
         }
+        if (typeof bot_interface.evaluateDigitRiseDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateDigitRiseDiffer',
+                createAsync(js_interpreter, bot_interface.evaluateDigitRiseDiffer)
+            );
+        }
+        if (typeof bot_interface.replayDigitRiseDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayDigitRiseDiffer',
+                createAsync(js_interpreter, bot_interface.replayDigitRiseDiffer)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

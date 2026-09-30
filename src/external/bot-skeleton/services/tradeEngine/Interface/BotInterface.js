@@ -403,6 +403,10 @@ const getBotInterface = tradeEngine => {
                 resetZeroOneRiseState(tradeEngine.zeroOneRiseState);
                 tradeEngine.zeroOneRiseState = null;
             }
+            if (tradeEngine.digitRiseDifferState) {
+                resetZeroOneRiseState(tradeEngine.digitRiseDifferState);
+                tradeEngine.digitRiseDifferState = null;
+            }
             tradeEngine.windowTickBuffers = null;
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -964,6 +968,39 @@ const getBotInterface = tradeEngine => {
                 tradeEngine,
                 analysis_window + compare_lookback,
                 'zero_one_rise'
+            );
+            return replayZeroOneRise(digit_ticks, opts);
+        },
+        /**
+         * Digit Rise DIFFER — Differ the current digit when any target digit
+         * increases in appearance %.
+         */
+        evaluateDigitRiseDiffer: async options => {
+            const opts = { ...(options || {}), trade_mode: 'differ' };
+            if (!tradeEngine.digitRiseDifferState) {
+                tradeEngine.digitRiseDifferState = createZeroOneRiseState();
+            }
+            const { analysis_window, compare_lookback } = normalizeZeroOneRiseOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                analysis_window + compare_lookback,
+                'digit_rise_differ'
+            );
+            return evaluateZeroOneRise(digit_ticks, opts, tradeEngine.digitRiseDifferState);
+        },
+        /**
+         * Digit Rise DIFFER replay/backtest (no look-ahead).
+         */
+        replayDigitRiseDiffer: async options => {
+            const opts = { ...(options || {}), trade_mode: 'differ' };
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayZeroOneRise(opts.ticks, opts);
+            }
+            const { analysis_window, compare_lookback } = normalizeZeroOneRiseOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                analysis_window + compare_lookback,
+                'digit_rise_differ'
             );
             return replayZeroOneRise(digit_ticks, opts);
         },

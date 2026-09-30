@@ -1,4 +1,5 @@
 import { ASCENDING_RANK_NEXT_DIFFER_XML } from './bots/ascending-rank-next-differ';
+import { DIGIT_RISE_DIFFER_XML } from './bots/digit-rise-differ';
 import { MISSING_DIGIT_RETURN_DIFFER_XML } from './bots/missing-digit-return-differ';
 import { TOP_TWO_DIGIT_GAP_DIFFER_XML } from './bots/top-two-digit-gap-differ';
 import { ZERO_ONE_RISE_OVER_XML } from './bots/zero-one-rise-over';
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Tracks the % of your Target Digits (comma-separated, up to 9, default 0) over the last N ticks (default 120), updating on every tick. When any target % increases, enters OVER 1. After a loss, recovers with OVER 2, sizing the stake so one win pays back every unrecovered loss (uses the real Over 2 payout rate). Journal shows WHY NO TRADE.',
         tags: ['Over 1', 'Target digits', 'Over 2 recovery', 'Percentages', 'Full loss recovery', 'Cooldown'],
         xml: ZERO_ONE_RISE_OVER_XML,
+    },
+    {
+        id: 'digit-rise-differ-v1',
+        title: 'Digit Rise DIFFER',
+        description:
+            'Tracks the % of your Target Digits (comma-separated, up to 9, default 0) over the last N ticks (default 120), updating on every tick. When any target % increases, Differs the current digit. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.',
+        tags: ['Differs', 'Target digits', 'Percentages', 'Martingale', 'Cooldown'],
+        xml: DIGIT_RISE_DIFFER_XML,
     },
 ];
