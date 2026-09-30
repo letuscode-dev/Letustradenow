@@ -6,6 +6,7 @@
  * → enter DIGITUNDER at the barrier owned by the bot's risk management
  * (Under 8 normally, Under 7 in loss recovery). The barrier is returned as the
  * prediction on a signal. Both thresholds are user-configurable.
+ * `evaluateLowHighFlipScan` runs the same check across several markets.
  */
 
 export const STATUS = {
@@ -257,6 +258,100 @@ export const evaluateLowHighFlip = (raw_ticks, raw_options = {}, state = createL
     };
     state.last_result = result;
     return result;
+};
+
+export const createLowHighFlipScanState = () => ({ symbols: {} });
+
+const describeSymbol = (symbol, result) => {
+    const digits = (result.recent || []).slice(-PATTERN_LENGTH).join(' ');
+    if (result.status === STATUS.VALID_SIGNAL) return `${symbol}: ${digits} ✓ pattern`;
+    if (result.status === STATUS.NO_PATTERN) {
+        const failed = (result.checks || []).filter(c => !c.ok).map(c => c.label.split(' ')[0]);
+        return `${symbol}: ${digits} ✗ ${failed.join(', ')}`;
+    }
+    return `${symbol}: ${digits || '—'} ${result.status}${result.rejection ? ` (${result.rejection})` : ''}`;
+};
+
+/**
+ * Multi-market scan. `markets` is [{ symbol, ticks }] in priority order (active
+ * market first); each market keeps its own state so tips, re-polls and cooldowns
+ * never mix. The first market with a valid signal is picked; other markets that
+ * matched on the same poll are released without a pending outcome.
+ */
+export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = createLowHighFlipScanState()) => {
+    const options = normalizeLowHighFlipOptions(raw_options);
+    const list = (Array.isArray(markets) ? markets : []).filter(m => m && m.symbol);
+    let any_new_tip = false;
+
+    const evaluations = list.map(({ symbol, ticks }) => {
+        if (!scan_state.symbols[symbol]) scan_state.symbols[symbol] = createLowHighFlipState();
+        const state = scan_state.symbols[symbol];
+        const tip_before = state.tip_index;
+        const signal_before = state.last_signal_tip;
+        const result = evaluateLowHighFlip(ticks, { ...options, journal_enabled: false }, state);
+        if (state.tip_index !== tip_before) any_new_tip = true;
+        return { symbol, result, state, signal_before };
+    });
+
+    const picked = evaluations.find(e => e.result.matched) || null;
+    evaluations.forEach(e => {
+        if (e !== picked && e.result.matched) {
+            e.state.pending_outcome = null;
+            e.state.last_signal_tip = e.signal_before;
+        }
+    });
+
+    let rejection = '';
+    if (!list.length) rejection = 'No markets to scan.';
+    else if (!picked) {
+        const collecting = evaluations.filter(e => e.result.status === STATUS.COLLECTING).length;
+        rejection =
+            collecting === evaluations.length
+                ? 'Loading ticks for all markets.'
+                : `No market matched the pattern (${evaluations.length} scanned).`;
+    }
+
+    const journal_messages = [];
+    if (options.journal_enabled && any_new_tip) {
+        journal_messages.push({
+            className: 'journal__text',
+            message: `══ LOW-HIGH FLIP UNDER ${options.barrier} | ${list.length} markets | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
+        });
+        evaluations.forEach(e => {
+            journal_messages.push({ className: 'journal__text', message: describeSymbol(e.symbol, e.result) });
+        });
+        journal_messages.push(
+            picked
+                ? {
+                      className: 'journal__text--success',
+                      message: `STATUS: VALID SIGNAL on ${picked.symbol}. ACTION: UNDER ${options.barrier}`,
+                  }
+                : { className: 'journal__text', message: `WHY NO TRADE? ${rejection}` }
+        );
+    }
+
+    return {
+        prediction: picked ? picked.result.prediction : -1,
+        matched: Boolean(picked),
+        contract_type: picked ? 'DIGITUNDER' : null,
+        barrier: options.barrier,
+        symbol: picked ? picked.symbol : null,
+        evaluations: evaluations.map(e => ({
+            symbol: e.symbol,
+            status: e.result.status,
+            recent: e.result.recent || [],
+            why_no_trade: e.result.why_no_trade,
+        })),
+        why_no_trade: picked ? '' : rejection,
+        options,
+        journal_messages,
+    };
+};
+
+/** Drop the pending outcome of a market whose signal could not be traded (e.g. switch failed). */
+export const releaseLowHighFlipScanSignal = (scan_state, symbol) => {
+    const state = scan_state?.symbols?.[symbol];
+    if (state) state.pending_outcome = null;
 };
 
 /**

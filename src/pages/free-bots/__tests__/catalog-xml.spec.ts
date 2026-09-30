@@ -134,5 +134,13 @@ describe('free bot catalog XML', () => {
         expect(scan?.querySelector('value[name="HIGH_ABOVE"] field')?.textContent).toBe('High Digits Above');
         expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
+
+        expect(setValue('lhf_scan_markets')).toEqual(['TRUE']);
+        expect(setValue('lhf_market_group')).toEqual(['1S']);
+        expect(scan?.querySelector('value[name="SCAN_MARKETS"] field')?.textContent).toBe('Scan Multiple Markets');
+        expect(scan?.querySelector('value[name="MARKET_GROUP"] field')?.textContent).toBe(
+            'Market Group (1S / STANDARD / ALL)'
+        );
+        expect(scan?.querySelector('value[name="SYMBOLS"] field')?.textContent).toBe('Custom Symbols');
     });
 });

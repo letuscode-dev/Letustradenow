@@ -3,6 +3,9 @@
  *
  * On the last four digits: previous_3 < 4, previous_2 < 4, previous_1 > 5 and
  * current > 5 → enter DIGITUNDER. Both thresholds are user-configurable.
+ * Multi-market scanner (on by default): checks every market in the Market Group
+ * (1S / STANDARD / ALL) or the Custom Symbols list and switches to the market
+ * that fires.
  * Risk: Under 8 normally; after a loss, recover with Under 7 until a win resets
  * to Under 8 at Base Stake. The recovery stake is sized so one Under 7 win pays
  * back every unrecovered loss: Recovery Loss ÷ Recovery Profit Rate (rounded up
@@ -21,6 +24,8 @@ const num = n => `<block type="math_number"><field name="NUM">${n}</field></bloc
 
 const bool = v =>
     `<block type="logic_boolean"><field name="BOOL">${v ? 'TRUE' : 'FALSE'}</field></block>`;
+
+const text = value => `<block type="text"><field name="TEXT">${value}</field></block>`;
 
 const setVar = (id, name, valueXml, nextXml = '') =>
     `<block type="variables_set" id="lhf_set_${id}">
@@ -216,6 +221,9 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
     <variable id="lhf_stop_loss">Stop Loss</variable>
     <variable id="lhf_low_below">Low Digits Below</variable>
     <variable id="lhf_high_above">High Digits Above</variable>
+    <variable id="lhf_scan_markets">Scan Multiple Markets</variable>
+    <variable id="lhf_market_group">Market Group (1S / STANDARD / ALL)</variable>
+    <variable id="lhf_symbols">Custom Symbols</variable>
     <variable id="lhf_entry_barrier">Entry Under Barrier</variable>
     <variable id="lhf_recovery_barrier">Recovery Under Barrier</variable>
     <variable id="lhf_barrier">Barrier</variable>
@@ -269,6 +277,9 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
               ['lhf_stop_loss', 'Stop Loss', num(50)],
               ['lhf_low_below', 'Low Digits Below', num(4)],
               ['lhf_high_above', 'High Digits Above', num(5)],
+              ['lhf_scan_markets', 'Scan Multiple Markets', bool(true)],
+              ['lhf_market_group', 'Market Group (1S / STANDARD / ALL)', text('1S')],
+              ['lhf_symbols', 'Custom Symbols', text('')],
               ['lhf_entry_barrier', 'Entry Under Barrier', num(8)],
               ['lhf_recovery_barrier', 'Recovery Under Barrier', num(7)],
           ],
@@ -303,6 +314,9 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
                     <value name="BARRIER">${varGet('lhf_barrier', 'Barrier')}</value>
                     <value name="COOLDOWN">${varGet('lhf_cooldown_signal', 'Cooldown After Signal')}</value>
                     <value name="JOURNAL">${bool(true)}</value>
+                    <value name="SCAN_MARKETS">${varGet('lhf_scan_markets', 'Scan Multiple Markets')}</value>
+                    <value name="MARKET_GROUP">${varGet('lhf_market_group', 'Market Group (1S / STANDARD / ALL)')}</value>
+                    <value name="SYMBOLS">${varGet('lhf_symbols', 'Custom Symbols')}</value>
                   </block>
                 </value>
                 <next>

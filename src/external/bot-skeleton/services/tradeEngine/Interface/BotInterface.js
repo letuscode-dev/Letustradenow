@@ -88,9 +88,12 @@ import {
     releaseLongAbsenceReturnActiveTrade,
 } from '../utils/long-absence-return-differs';
 import {
+    createLowHighFlipScanState,
     createLowHighFlipState,
     evaluateLowHighFlip,
+    evaluateLowHighFlipScan,
     HISTORY_TICKS as LOW_HIGH_FLIP_HISTORY_TICKS,
+    releaseLowHighFlipScanSignal,
     replayLowHighFlip,
     resetLowHighFlipState,
 } from '../utils/low-high-flip-under';
@@ -418,6 +421,7 @@ const getBotInterface = tradeEngine => {
                 resetLowHighFlipState(tradeEngine.lowHighFlipState);
                 tradeEngine.lowHighFlipState = null;
             }
+            tradeEngine.lowHighFlipScanState = null;
             tradeEngine.windowTickBuffers = null;
             tradeEngine.parityRunDiffersSnapshot = null;
             tradeEngine._parityRunLastJournalFp = null;
@@ -1021,6 +1025,78 @@ const getBotInterface = tradeEngine => {
          */
         evaluateLowHighFlipUnder: async options => {
             const opts = options || {};
+            const scan_markets =
+                opts.scan_markets === true || opts.scan_markets === 'true' || opts.scan_markets === 'TRUE';
+            if (scan_markets) {
+                if (!tradeEngine.lowHighFlipScanState) {
+                    tradeEngine.lowHighFlipScanState = createLowHighFlipScanState();
+                }
+                const scan_state = tradeEngine.lowHighFlipScanState;
+                const active_symbol = tradeEngine.options?.symbol || tradeEngine.symbol || '';
+                const symbols = orderSymbolsForScan(
+                    resolveScanSymbols({
+                        market_group: opts.market_group,
+                        symbols: String(opts.symbols || '').toUpperCase(),
+                    }),
+                    active_symbol
+                );
+                const ticks_service = tradeEngine.$scope?.ticksService;
+                if (ticks_service?.warmScanStreams) {
+                    ticks_service.warmScanStreams(symbols).catch(() => {});
+                }
+                if (ticks_service?.pickAndRefreshStaleScanSymbol) {
+                    try {
+                        await ticks_service.pickAndRefreshStaleScanSymbol(symbols, active_symbol);
+                    } catch (e) {
+                        // Keep prior caches.
+                    }
+                }
+
+                const n = LOW_HIGH_FLIP_HISTORY_TICKS;
+                const markets = await Promise.all(
+                    symbols.map(async symbol => {
+                        if (symbol === tradeEngine.symbol) {
+                            return { symbol, ticks: await loadWindowDigitTicks(tradeEngine, n, 'low_high_flip_under') };
+                        }
+                        const raw = ticks_service?.getCachedTicks ? (ticks_service.getCachedTicks(symbol) || []).slice(-n) : [];
+                        const digits = tradeEngine.getCachedDigitsForSymbol
+                            ? tradeEngine.getCachedDigitsForSymbol(symbol, n)
+                            : [];
+                        const offset = raw.length - digits.length;
+                        const ticks = digits.map((digit, i) => ({ digit, epoch: Number(raw[i + offset]?.epoch) }));
+                        return { symbol, ticks };
+                    })
+                );
+
+                const result = evaluateLowHighFlipScan(markets, opts, scan_state);
+                if (result.matched && result.symbol !== active_symbol) {
+                    let switched = false;
+                    try {
+                        if (typeof tradeEngine.switchTradeSymbol === 'function') {
+                            await tradeEngine.switchTradeSymbol(result.symbol);
+                            switched = (tradeEngine.options?.symbol || tradeEngine.symbol) === result.symbol;
+                        }
+                    } catch (e) {
+                        switched = false;
+                    }
+                    if (!switched) {
+                        releaseLowHighFlipScanSignal(scan_state, result.symbol);
+                        const reason = `Signal on ${result.symbol} but the market switch failed — skipping trade.`;
+                        return {
+                            ...result,
+                            prediction: -1,
+                            matched: false,
+                            contract_type: null,
+                            why_no_trade: reason,
+                            journal_messages: [
+                                ...result.journal_messages.slice(0, -1),
+                                { className: 'journal__text--error', message: `WHY NO TRADE? ${reason}` },
+                            ],
+                        };
+                    }
+                }
+                return result;
+            }
             if (!tradeEngine.lowHighFlipState) {
                 tradeEngine.lowHighFlipState = createLowHighFlipState();
             }

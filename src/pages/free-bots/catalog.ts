@@ -57,8 +57,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'low-high-flip-under-v1',
         title: 'Low-High Flip UNDER 8',
         description:
-            'Watches the last four digits on every tick. When previous_3 < 4, previous_2 < 4, previous_1 > 5 and the current digit > 5 (thresholds configurable), enters UNDER 8. After a loss, recovers with UNDER 7, sizing the stake so one win pays back every unrecovered loss (uses the real Under 7 payout rate). Journal shows WHY NO TRADE.',
-        tags: ['Under 8', 'Digit pattern', 'Under 7 recovery', 'Full loss recovery', 'Cooldown'],
+            'Scans multiple markets (1s volatilities by default; STANDARD, ALL or your own symbol list) on every tick. When previous_3 < 4, previous_2 < 4, previous_1 > 5 and the current digit > 5 (thresholds configurable) on any market, switches to it and enters UNDER 8. After a loss, recovers with UNDER 7, sizing the stake so one win pays back every unrecovered loss (uses the real Under 7 payout rate). Journal shows WHY NO TRADE.',
+        tags: ['Under 8', 'Multi-market scanner', 'Digit pattern', 'Under 7 recovery', 'Full loss recovery'],
         xml: LOW_HIGH_FLIP_UNDER_XML,
     },
 ];
