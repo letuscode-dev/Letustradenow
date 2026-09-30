@@ -39,6 +39,16 @@ describe('free bot catalog XML', () => {
         expect(loss_xml).toContain('Recovery Loss');
         expect(loss_xml).toContain('ROUNDUP');
         expect(loss_xml).toContain('Recovery Profit Rate');
+        // Stop Loss guards the next stake: total_profit - Stake < -Stop Loss → stop.
+        const stop_checks = [...doc.querySelectorAll('block[type="timeout"] value[name="IF1"]')];
+        expect(stop_checks).toHaveLength(2);
+        stop_checks.forEach(check => {
+            expect(check.querySelector('field[name="OP"]')?.textContent).toBe('LT');
+            expect(check.querySelector('block[type="math_arithmetic"] field[name="OP"]')?.textContent).toBe('MINUS');
+            expect(check.innerHTML).toContain('Stake');
+            expect(check.innerHTML).toContain('Stop Loss');
+        });
+
         const win_branch = doc.querySelector('block#zor_ap_win > statement[name="DO0"]');
         expect(win_branch?.querySelectorAll('block[type="read_details"]').length).toBe(2);
 

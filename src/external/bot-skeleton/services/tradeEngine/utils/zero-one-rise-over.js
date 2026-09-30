@@ -157,11 +157,10 @@ const arrow = (now, prev) => {
 };
 
 const buildJournal = ({ options, window_size, now, prev, current, status, rejection, rising }) => {
-    const mode = options.barrier === DEFAULT_OPTIONS.barrier ? 'Entry' : 'Recovery';
     const messages = [
         {
             className: 'journal__text',
-            message: `══ DIGIT RISE OVER ${options.barrier} (${mode}) | Targets: ${options.target_digits.join(',')} ══`,
+            message: `══ DIGIT RISE OVER ${options.barrier} | Targets: ${options.target_digits.join(',')} ══`,
         },
     ];
 

@@ -8,6 +8,8 @@
  * to Over 1 at Base Stake. The recovery stake is sized so one Over 2 win pays
  * back every unrecovered loss: Recovery Loss ÷ Recovery Profit Rate (rounded up
  * to the cent). The rate starts at 0.36 and is re-measured from each Over 2 win.
+ * Stop Loss is checked against the next stake, so no trade can take the session
+ * past it.
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';
@@ -176,8 +178,8 @@ const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
                           </block>
                         </statement>
                         <value name="IF1">
-                          <block type="logic_compare"><field name="OP">LTE</field>
-                            <value name="A"><block type="total_profit"></block></value>
+                          <block type="logic_compare"><field name="OP">LT</field>
+                            <value name="A">${arithmetic('MINUS', '<block type="total_profit"></block>', varGet('zor_stake', 'Stake'))}</value>
                             <value name="B">
                               <block type="math_single"><field name="OP">NEG</field>
                                 <value name="NUM">${varGet('zor_stop_loss', 'Stop Loss')}</value>
