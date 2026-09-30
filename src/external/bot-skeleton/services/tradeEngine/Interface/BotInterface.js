@@ -1064,7 +1064,12 @@ const getBotInterface = tradeEngine => {
                             : [];
                         const offset = raw.length - digits.length;
                         const ticks = digits.map((digit, i) => ({ digit, epoch: Number(raw[i + offset]?.epoch) }));
-                        return { symbol, ticks };
+                        // 1s markets tick every second, standard ones every 2s.
+                        const max_age_ms = symbol.startsWith('1HZ') ? 2500 : 4500;
+                        const stale =
+                            typeof ticks_service?.isScanTipFresh === 'function' &&
+                            !ticks_service.isScanTipFresh(symbol, max_age_ms);
+                        return { symbol, ticks, stale };
                     })
                 );
 

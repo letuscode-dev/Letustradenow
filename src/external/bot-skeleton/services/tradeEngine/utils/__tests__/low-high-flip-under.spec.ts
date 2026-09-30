@@ -109,7 +109,7 @@ describe('low-high-flip-under', () => {
             expect(state.symbols['1HZ50V'].pending_outcome).toBeNull();
             const text = r.journal_messages.map((m: { message: string }) => m.message).join('\n');
             expect(text).toContain('3 markets');
-            expect(text).toContain('1HZ10V: 1 5 7 8 ✗ previous_2');
+            expect(text).toContain('1HZ10V 1578 ✗p2 | 1HZ25V 1278 ✓ | 1HZ50V 0369 ✓');
             expect(text).toContain('VALID SIGNAL on 1HZ25V');
         });
 
@@ -120,7 +120,7 @@ describe('low-high-flip-under', () => {
             expect(r.matched).toBe(false);
             expect(r.why_no_trade).toContain('No market matched');
             expect(r.journal_messages.map((m: { message: string }) => m.message).join('\n')).toContain(
-                'R_25: 9 9 COLLECTING'
+                'R_25 99 COLLECTING'
             );
             expect(evaluateLowHighFlipScan(markets, {}, state).journal_messages).toEqual([]);
         });
@@ -133,6 +133,26 @@ describe('low-high-flip-under', () => {
             evaluateLowHighFlipScan([market('A', [1, 2, 7, 8, 3]), market('B', [5, 5, 5, 5, 9])], {}, state);
             expect(state.symbols.A.live).toMatchObject({ wins: 1, losses: 0 });
             expect(state.symbols.B.live.signals).toBe(0);
+        });
+
+        it('never trades a stale market, and trades it once its stream is fresh', () => {
+            const state = createLowHighFlipScanState();
+            const stale = evaluateLowHighFlipScan(
+                [market('1HZ10V', [5, 5, 5, 5]), { ...market('1HZ25V', [1, 2, 7, 8]), stale: true }],
+                {},
+                state
+            );
+            expect(stale.matched).toBe(false);
+            expect(stale.evaluations[1].status).toBe(STATUS.STALE_MARKET);
+            expect(stale.why_no_trade).toContain('1 stale');
+            expect(state.symbols['1HZ25V'].tip_index).toBe(-1);
+
+            const live = evaluateLowHighFlipScan(
+                [market('1HZ10V', [5, 5, 5, 5, 5]), market('1HZ25V', [1, 2, 7, 8])],
+                {},
+                state
+            );
+            expect(live.symbol).toBe('1HZ25V');
         });
 
         it('releases a signal that could not be traded', () => {

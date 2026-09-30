@@ -13,6 +13,7 @@ export const STATUS = {
     COLLECTING: 'COLLECTING',
     NO_PATTERN: 'NO_PATTERN',
     COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
+    STALE_MARKET: 'STALE_MARKET',
     SIGNAL_CONSUMED: 'SIGNAL_CONSUMED',
     VALID_SIGNAL: 'VALID_SIGNAL',
 };
@@ -263,29 +264,50 @@ export const evaluateLowHighFlip = (raw_ticks, raw_options = {}, state = createL
 export const createLowHighFlipScanState = () => ({ symbols: {} });
 
 const describeSymbol = (symbol, result) => {
-    const digits = (result.recent || []).slice(-PATTERN_LENGTH).join(' ');
-    if (result.status === STATUS.VALID_SIGNAL) return `${symbol}: ${digits} ✓ pattern`;
+    const digits = (result.recent || []).slice(-PATTERN_LENGTH).join('');
+    if (result.status === STATUS.VALID_SIGNAL) return `${symbol} ${digits} ✓`;
     if (result.status === STATUS.NO_PATTERN) {
-        const failed = (result.checks || []).filter(c => !c.ok).map(c => c.label.split(' ')[0]);
-        return `${symbol}: ${digits} ✗ ${failed.join(', ')}`;
+        const failed = (result.checks || []).filter(c => !c.ok).map(c => c.label.split(' ')[0].replace('previous_', 'p'));
+        return `${symbol} ${digits} ✗${failed.join(',')}`;
     }
-    return `${symbol}: ${digits || '—'} ${result.status}${result.rejection ? ` (${result.rejection})` : ''}`;
+    return `${symbol} ${digits || '—'} ${result.status}`;
+};
+
+const staleResult = ticks => {
+    const recent = normalizeTicks(ticks)
+        .slice(-HISTORY_TICKS)
+        .map(t => t.digit);
+    const rejection = 'Tick stream not updating — skipped until it moves again.';
+    return {
+        prediction: -1,
+        matched: false,
+        status: STATUS.STALE_MARKET,
+        recent,
+        checks: [],
+        rejection,
+        why_no_trade: rejection,
+    };
 };
 
 /**
  * Multi-market scan. `markets` is [{ symbol, ticks }] in priority order (active
  * market first); each market keeps its own state so tips, re-polls and cooldowns
  * never mix. The first market with a valid signal is picked; other markets that
- * matched on the same poll are released without a pending outcome.
+ * matched on the same poll are released without a pending outcome. A market
+ * flagged `stale` (frozen stream) is reported but never evaluated, so an old tip
+ * cannot fire a trade.
  */
 export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = createLowHighFlipScanState()) => {
     const options = normalizeLowHighFlipOptions(raw_options);
     const list = (Array.isArray(markets) ? markets : []).filter(m => m && m.symbol);
     let any_new_tip = false;
 
-    const evaluations = list.map(({ symbol, ticks }) => {
+    const evaluations = list.map(({ symbol, ticks, stale }) => {
         if (!scan_state.symbols[symbol]) scan_state.symbols[symbol] = createLowHighFlipState();
         const state = scan_state.symbols[symbol];
+        if (stale) {
+            return { symbol, result: staleResult(ticks), state, signal_before: state.last_signal_tip };
+        }
         const tip_before = state.tip_index;
         const signal_before = state.last_signal_tip;
         const result = evaluateLowHighFlip(ticks, { ...options, journal_enabled: false }, state);
@@ -304,11 +326,15 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
     let rejection = '';
     if (!list.length) rejection = 'No markets to scan.';
     else if (!picked) {
-        const collecting = evaluations.filter(e => e.result.status === STATUS.COLLECTING).length;
-        rejection =
-            collecting === evaluations.length
-                ? 'Loading ticks for all markets.'
-                : `No market matched the pattern (${evaluations.length} scanned).`;
+        const count = status => evaluations.filter(e => e.result.status === status).length;
+        const stale = count(STATUS.STALE_MARKET);
+        if (count(STATUS.COLLECTING) === evaluations.length) rejection = 'Loading ticks for all markets.';
+        else if (stale === evaluations.length) rejection = 'No market stream is updating.';
+        else {
+            rejection = `No market matched the pattern (${evaluations.length} scanned${
+                stale ? `, ${stale} stale` : ''
+            }).`;
+        }
     }
 
     const journal_messages = [];
@@ -317,8 +343,9 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
             className: 'journal__text',
             message: `══ LOW-HIGH FLIP UNDER ${options.barrier} | ${list.length} markets | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
         });
-        evaluations.forEach(e => {
-            journal_messages.push({ className: 'journal__text', message: describeSymbol(e.symbol, e.result) });
+        journal_messages.push({
+            className: 'journal__text',
+            message: evaluations.map(e => describeSymbol(e.symbol, e.result)).join(' | '),
         });
         journal_messages.push(
             picked
