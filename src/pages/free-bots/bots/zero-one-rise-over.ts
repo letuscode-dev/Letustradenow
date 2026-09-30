@@ -1,8 +1,9 @@
 /**
- * Zero/One Rise OVER 1 free bot.
+ * Digit Rise OVER 1 free bot.
  *
- * Tracks the appearance % of digits 0 and 1 over the last N ticks (default 1000).
- * When either % increases on a new tick, enter DIGITOVER.
+ * Tracks the appearance % of the user's Target Digits (comma-separated, at most
+ * 9, default "0") over the last N ticks (default 1000). When any target %
+ * increases on a new tick, enter DIGITOVER.
  * Risk: Over 1 normally; after a loss, recover with Over 2 until a win resets
  * to Over 1 at Base Stake. The recovery stake is sized so one Over 2 win pays
  * back every unrecovered loss: Recovery Loss ÷ Recovery Profit Rate (rounded up
@@ -18,6 +19,13 @@ const num = n => `<block type="math_number"><field name="NUM">${n}</field></bloc
 
 const bool = v =>
     `<block type="logic_boolean"><field name="BOOL">${v ? 'TRUE' : 'FALSE'}</field></block>`;
+
+const text = value =>
+    `<block type="text"><field name="TEXT">${String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')}</field></block>`;
 
 const setVar = (id, name, valueXml, nextXml = '') =>
     `<block type="variables_set" id="zor_set_${id}">
@@ -198,6 +206,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
     <variable id="zor_protect">Martingale Off When Profit > Stake</variable>
     <variable id="zor_take_profit">Take Profit</variable>
     <variable id="zor_stop_loss">Stop Loss</variable>
+    <variable id="zor_targets">Target Digits</variable>
     <variable id="zor_window">Analysis Tick Window</variable>
     <variable id="zor_lookback">Compare Lookback Ticks</variable>
     <variable id="zor_entry_barrier">Entry Over Barrier</variable>
@@ -251,6 +260,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
               ['zor_protect', 'Martingale Off When Profit > Stake', bool(false)],
               ['zor_take_profit', 'Take Profit', num(20)],
               ['zor_stop_loss', 'Stop Loss', num(50)],
+              ['zor_targets', 'Target Digits', text('0')],
               ['zor_window', 'Analysis Tick Window', num(1000)],
               ['zor_lookback', 'Compare Lookback Ticks', num(1)],
               ['zor_entry_barrier', 'Entry Over Barrier', num(1)],
@@ -282,6 +292,7 @@ export const ZERO_ONE_RISE_OVER_XML = `<xml xmlns="https://developers.google.com
                 <field name="VAR" id="zor_prediction">Prediction</field>
                 <value name="VALUE">
                   <block type="zero_one_rise_over_scan" id="zor_scan_block">
+                    <value name="TARGET_DIGITS">${varGet('zor_targets', 'Target Digits')}</value>
                     <value name="ANALYSIS_WINDOW">${varGet('zor_window', 'Analysis Tick Window')}</value>
                     <value name="COMPARE_LOOKBACK">${varGet('zor_lookback', 'Compare Lookback Ticks')}</value>
                     <value name="BARRIER">${varGet('zor_barrier', 'Barrier')}</value>

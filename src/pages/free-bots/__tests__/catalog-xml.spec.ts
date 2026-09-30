@@ -22,6 +22,7 @@ describe('free bot catalog XML', () => {
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
 
+        expect(setValue('zor_targets')).toEqual(['0']);
         expect(setValue('zor_recovery_rate')[0]).toBe('0.36');
         expect(setValue('zor_entry_barrier')).toEqual(['1']);
         expect(setValue('zor_recovery_barrier')).toEqual(['2']);
@@ -43,6 +44,7 @@ describe('free bot catalog XML', () => {
 
         const scan = doc.querySelector('block[type="zero_one_rise_over_scan"]');
         expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
+        expect(scan?.querySelector('value[name="TARGET_DIGITS"] field')?.textContent).toBe('Target Digits');
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
     });
 });

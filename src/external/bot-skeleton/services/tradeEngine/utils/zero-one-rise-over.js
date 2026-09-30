@@ -1,9 +1,10 @@
 /**
- * Zero/One Rise OVER
+ * Digit Rise OVER
  *
  * Over the last `analysis_window` ticks (default 1000), track the appearance %
- * of digits 0 and 1. When either % increases versus the window
- * `compare_lookback` ticks earlier (default 1), enter DIGITOVER.
+ * of the user's target digits (comma-separated, at most 9, default "0"). When
+ * any target % increases versus the window `compare_lookback` ticks earlier
+ * (default 1), enter DIGITOVER.
  *
  * The barrier (1 normally, 2 in loss recovery) is owned by the bot's risk
  * management and passed in; it is returned as the prediction on a signal.
@@ -19,9 +20,11 @@ export const STATUS = {
     VALID_SIGNAL: 'VALID_SIGNAL',
 };
 
-export const WATCH_DIGITS = [0, 1];
+export const DEFAULT_TARGET_DIGITS = [0];
+export const MAX_TARGET_DIGITS = 9;
 
 export const DEFAULT_OPTIONS = {
+    target_digits: DEFAULT_TARGET_DIGITS,
     analysis_window: 1000,
     compare_lookback: 1,
     barrier: 1,
@@ -49,9 +52,27 @@ const toInt = (value, fallback, min, max) => {
     return Math.min(max, Math.max(min, n));
 };
 
+/**
+ * Parse "0,1,5" (or a number / array) into unique digits, in entry order.
+ * Non-digit entries are dropped; only the first 9 digits are kept; an empty
+ * result falls back to the default.
+ */
+export const parseTargetDigits = value => {
+    const tokens = Array.isArray(value) ? value : String(value ?? '').split(/[,\s;]+/);
+    const digits = [];
+    tokens.forEach(token => {
+        const text = String(token).trim();
+        if (!/^\d$/.test(text)) return;
+        const digit = Number(text);
+        if (!digits.includes(digit)) digits.push(digit);
+    });
+    return digits.length ? digits.slice(0, MAX_TARGET_DIGITS) : [...DEFAULT_TARGET_DIGITS];
+};
+
 export const normalizeZeroOneRiseOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
     return {
+        target_digits: parseTargetDigits(options.target_digits ?? d.target_digits),
         analysis_window: toInt(
             options.analysis_window,
             d.analysis_window,
@@ -105,10 +126,10 @@ const tipFingerprint = all_ticks => {
     return `n:${all_ticks.length}:${tail}`;
 };
 
-/** % of each watched digit within `ticks`. */
-export const watchedPercentages = ticks => {
+/** % of each target digit within `ticks`. */
+export const watchedPercentages = (ticks, digits = DEFAULT_TARGET_DIGITS) => {
     const total = ticks.length;
-    return WATCH_DIGITS.map(digit => {
+    return digits.map(digit => {
         const count = ticks.reduce((n, t) => n + (t.digit === digit ? 1 : 0), 0);
         return { digit, count, pct: total ? (count / total) * 100 : 0 };
     });
@@ -138,7 +159,10 @@ const arrow = (now, prev) => {
 const buildJournal = ({ options, window_size, now, prev, current, status, rejection, rising }) => {
     const mode = options.barrier === DEFAULT_OPTIONS.barrier ? 'Entry' : 'Recovery';
     const messages = [
-        { className: 'journal__text', message: `══ ZERO/ONE RISE OVER ${options.barrier} (${mode}) ══` },
+        {
+            className: 'journal__text',
+            message: `══ DIGIT RISE OVER ${options.barrier} (${mode}) | Targets: ${options.target_digits.join(',')} ══`,
+        },
     ];
 
     if (status === STATUS.COLLECTING) {
@@ -152,7 +176,11 @@ const buildJournal = ({ options, window_size, now, prev, current, status, reject
         className: 'journal__text',
         message: `Window: ${
             window_size < options.analysis_window ? `${window_size}/${options.analysis_window}` : window_size
-        } ticks | ${describe(0)} | ${describe(1)} | Current digit: ${current}`,
+        } ticks | Current digit: ${current}`,
+    });
+    messages.push({
+        className: 'journal__text',
+        message: now.map((_, i) => describe(i)).join(' | '),
     });
 
     if (status === STATUS.VALID_SIGNAL) {
@@ -230,8 +258,8 @@ export const evaluateZeroOneRise = (raw_ticks, raw_options = {}, state = createZ
         status = STATUS.COLLECTING;
         rejection = `Loading tick history ${all_ticks.length}/${analysis_window + compare_lookback}.`;
     } else {
-        now = watchedPercentages(window_ticks);
-        prev = watchedPercentages(prev_ticks);
+        now = watchedPercentages(window_ticks, options.target_digits);
+        prev = watchedPercentages(prev_ticks, options.target_digits);
         rising = now.filter((n, i) => n.pct > prev[i].pct + EPSILON).map(n => n.digit);
 
         const cooldown =
@@ -241,7 +269,7 @@ export const evaluateZeroOneRise = (raw_ticks, raw_options = {}, state = createZ
 
         if (!rising.length) {
             status = STATUS.NO_RISE;
-            rejection = `Neither digit 0 nor 1 increased in % over the last ${compare_lookback} tick(s).`;
+            rejection = `No target digit (${options.target_digits.join(',')}) increased in % over the last ${compare_lookback} tick(s).`;
         } else if (cooldown) {
             status = STATUS.COOLDOWN_ACTIVE;
             rejection = `Cooldown active (${state.tip_index - state.last_signal_tip}/${options.signal_cooldown_tips} tips).`;

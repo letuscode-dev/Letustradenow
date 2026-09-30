@@ -1,6 +1,6 @@
 /**
- * Zero/One Rise OVER — returns the Over barrier on a signal, or -1.
- * Signals when the appearance % of digit 0 or 1 increases on a new tick.
+ * Digit Rise OVER — returns the Over barrier on a signal, or -1.
+ * Signals when the appearance % of any target digit (comma-separated, max 9) increases.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -12,8 +12,11 @@ window.Blockly.Blocks.zero_one_rise_over_scan = {
     },
     definition() {
         return {
-            message0: localize('zero/one rise over window %1 lookback %2 barrier %3 cooldown %4 journal %5'),
+            message0: localize(
+                'digit rise over targets %1 window %2 lookback %3 barrier %4 cooldown %5 journal %6'
+            ),
             args0: [
+                { type: 'input_value', name: 'TARGET_DIGITS' },
                 { type: 'input_value', name: 'ANALYSIS_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'COMPARE_LOOKBACK', check: 'Number' },
                 { type: 'input_value', name: 'BARRIER', check: 'Number' },
@@ -26,18 +29,18 @@ window.Blockly.Blocks.zero_one_rise_over_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Returns the Over barrier when the appearance % of digit 0 or 1 increases on a new tick, otherwise -1. Journal shows WHY NO TRADE.'
+                'Returns the Over barrier when the appearance % of any target digit (e.g. "0,1,5", max 9) increases on a new tick, otherwise -1. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
     },
     meta() {
         return {
-            display_name: localize('Zero/One Rise OVER scan'),
+            display_name: localize('Digit Rise OVER scan'),
             description: localize(
-                'Signals Digit Over when digit 0 or 1 gains in appearance % over the analysis window (default 1000 ticks).'
+                'Signals Digit Over when any target digit gains in appearance % over the analysis window (default 1000 ticks).'
             ),
-            key_words: localize('zero, one, rise, percentage, over'),
+            key_words: localize('digit, target, rise, percentage, over'),
         };
     },
     customContextMenu(menu) {
@@ -55,6 +58,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.zero_one_rise_over_scan =
 
     const code = `(function () {
         var BinaryBotPrivateZorResult = Bot.evaluateZeroOneRise({
+            target_digits: String(${read('TARGET_DIGITS') || '"0"'}),
             analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
             compare_lookback: ${read('COMPARE_LOOKBACK') || '1'},
             barrier: ${read('BARRIER') || '1'},

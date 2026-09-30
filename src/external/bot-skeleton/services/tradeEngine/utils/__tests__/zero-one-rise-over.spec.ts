@@ -1,15 +1,17 @@
 import {
-    STATUS,
     createZeroOneRiseState,
     evaluateZeroOneRise,
     normalizeZeroOneRiseOptions,
+    parseTargetDigits,
     replayZeroOneRise,
+    STATUS,
 } from '../zero-one-rise-over';
 
 const WINDOW = 200;
 
 const opts = (overrides = {}) =>
     normalizeZeroOneRiseOptions({
+        target_digits: '0,1',
         analysis_window: WINDOW,
         compare_lookback: 1,
         barrier: 1,
@@ -28,11 +30,40 @@ const base = () => {
 const withTip = (digit: number) => [...base(), digit];
 
 describe('zero/one rise over', () => {
-    it('defaults: 1000-tick window, compare 1 tick back, Over 1', () => {
+    it('defaults: target digit 0, 1000-tick window, compare 1 tick back, Over 1', () => {
         const o = normalizeZeroOneRiseOptions({});
+        expect(o.target_digits).toEqual([0]);
         expect(o.analysis_window).toBe(1000);
         expect(o.compare_lookback).toBe(1);
         expect(o.barrier).toBe(1);
+    });
+
+    it.each([
+        ['0,1,5', [0, 1, 5]],
+        [' 7 , 3 ', [7, 3]],
+        ['1,1,2', [1, 2]],
+        ['0,x,12,4', [0, 4]],
+        ['', [0]],
+        ['abc', [0]],
+        [5, [5]],
+        ['0,1,2,3,4,5,6,7,8,9', [0, 1, 2, 3, 4, 5, 6, 7, 8]],
+    ])('parses target digits %p → %p', (input, expected) => {
+        expect(parseTargetDigits(input)).toEqual(expected);
+    });
+
+    it('default target 0 ignores digit 1 rising', () => {
+        const defaults = { target_digits: undefined };
+        expect(evaluateZeroOneRise(withTip(0), opts(defaults), createZeroOneRiseState()).matched).toBe(true);
+        const result = evaluateZeroOneRise(withTip(1), opts(defaults), createZeroOneRiseState());
+        expect(result.status).toBe(STATUS.NO_RISE);
+        expect(result.why_no_trade).toMatch(/\(0\)/);
+    });
+
+    it('trades on any user target digit rising', () => {
+        const result = evaluateZeroOneRise(withTip(7), opts({ target_digits: '3,7' }), createZeroOneRiseState());
+        expect(result.status).toBe(STATUS.VALID_SIGNAL);
+        expect(result.rising).toEqual([7]);
+        expect(result.now.map(n => n.digit)).toEqual([3, 7]);
     });
 
     it.each([0, 1])('enters OVER 1 when digit %i rises in %', digit => {
