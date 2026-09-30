@@ -355,18 +355,18 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayDigitRiseDiffer)
             );
         }
-        if (typeof bot_interface.evaluateLowHighFlipUnder === 'function') {
+        if (typeof bot_interface.evaluateLowHighFlipOver === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
-                'evaluateLowHighFlipUnder',
-                createAsync(js_interpreter, bot_interface.evaluateLowHighFlipUnder)
+                'evaluateLowHighFlipOver',
+                createAsync(js_interpreter, bot_interface.evaluateLowHighFlipOver)
             );
         }
-        if (typeof bot_interface.replayLowHighFlipUnder === 'function') {
+        if (typeof bot_interface.replayLowHighFlipOver === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
-                'replayLowHighFlipUnder',
-                createAsync(js_interpreter, bot_interface.replayLowHighFlipUnder)
+                'replayLowHighFlipOver',
+                createAsync(js_interpreter, bot_interface.replayLowHighFlipOver)
             );
         }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {

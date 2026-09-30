@@ -258,8 +258,8 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/digit_rise_differ_scan'));
     }
 
-    if (block_string.includes('low_high_flip_under_scan')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/low_high_flip_under_scan'));
+    if (block_string.includes('low_high_flip_over_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/low_high_flip_over_scan'));
     }
 
     await Promise.all(imports);

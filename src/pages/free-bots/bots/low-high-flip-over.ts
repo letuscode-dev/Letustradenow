@@ -1,15 +1,15 @@
 /**
- * Low-High Flip UNDER 8 free bot.
+ * Low-High Flip OVER 1 free bot.
  *
  * On the last four digits: previous_3 < 4, previous_2 < 4, previous_1 > 5 and
- * current > 5 → enter DIGITUNDER. Both thresholds are user-configurable.
+ * current > 5 → enter DIGITOVER. Both thresholds are user-configurable.
  * Multi-market scanner (on by default): checks every market in the Market Group
  * (1S / STANDARD / ALL) or the Custom Symbols list and switches to the market
  * that fires.
- * Risk: Under 8 normally; after a loss, recover with Under 7 until a win resets
- * to Under 8 at Base Stake. The recovery stake is sized so one Under 7 win pays
+ * Risk: Over 1 normally; after a loss, recover with Over 2 until a win resets
+ * to Over 1 at Base Stake. The recovery stake is sized so one Over 2 win pays
  * back every unrecovered loss: Recovery Loss ÷ Recovery Profit Rate (rounded up
- * to the cent). The rate starts at 0.36 and is re-measured from each Under 7 win;
+ * to the cent). The rate starts at 0.36 and is re-measured from each Over 2 win;
  * any shortfall a win leaves is carried into the next recovery.
  * Stop Loss is checked against the next stake, so no trade can take the session
  * past it.
@@ -88,7 +88,7 @@ const RECOVERY_RATE = ['lhf_recovery_rate', 'Recovery Profit Rate'];
 const get = ([id, name]) => varGet(id, name);
 const set = ([id, name], valueXml) => assign(id, name, valueXml);
 
-/** Stake that makes one Under-7 win repay Recovery Loss: ceil(loss / rate × 100) / 100. */
+/** Stake that makes one Over-2 win repay Recovery Loss: ceil(loss / rate × 100) / 100. */
 const recoveryStakeXml = () =>
     arithmetic(
         'DIVIDE',
@@ -112,7 +112,7 @@ const endOfTrade = () => [set(['lhf_prediction', 'Prediction'], num(-1)), set(['
 
 const entryStakeAndBarrier = () => [
     set(STAKE, get(BASE_STAKE)),
-    set(BARRIER, varGet('lhf_entry_barrier', 'Entry Under Barrier')),
+    set(BARRIER, varGet('lhf_entry_barrier', 'Entry Over Barrier')),
 ];
 
 const backToEntry = () => [set(RECOVERY_LOSS, num(0)), ...entryStakeAndBarrier()];
@@ -130,9 +130,9 @@ const remainingLossXml = () => {
 const afterPurchaseXml = () => {
     const onWin = chain(
         [
-            // Learn the real Under-7 profit rate from Deriv's payout.
+            // Learn the real Over-2 profit rate from Deriv's payout.
             ifElse(
-                compare('EQ', get(BARRIER), varGet('lhf_recovery_barrier', 'Recovery Under Barrier')),
+                compare('EQ', get(BARRIER), varGet('lhf_recovery_barrier', 'Recovery Over Barrier')),
                 chain([set(RECOVERY_RATE, arithmetic('DIVIDE', PROFIT, PURCHASE_PRICE))])
             ),
             // Any shortfall (e.g. before the real rate was known) carries into the next recovery.
@@ -151,7 +151,7 @@ const afterPurchaseXml = () => {
                 chain(backToEntry()),
                 chain([
                     set(STAKE, recoveryStakeXml()),
-                    set(BARRIER, varGet('lhf_recovery_barrier', 'Recovery Under Barrier')),
+                    set(BARRIER, varGet('lhf_recovery_barrier', 'Recovery Over Barrier')),
                 ])
             ),
             ...endOfTrade(),
@@ -210,7 +210,7 @@ const tpSlThenTradeAgain = (timeoutId, secondsXml) => `
                     <value name="SECONDS">${secondsXml}</value>
                   </block>`;
 
-export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+export const LOW_HIGH_FLIP_OVER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
     <variable id="lhf_stake">Stake</variable>
     <variable id="lhf_base_stake">Base Stake</variable>
@@ -224,8 +224,8 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
     <variable id="lhf_scan_markets">Scan Multiple Markets</variable>
     <variable id="lhf_market_group">Market Group (1S / STANDARD / ALL)</variable>
     <variable id="lhf_symbols">Custom Symbols</variable>
-    <variable id="lhf_entry_barrier">Entry Under Barrier</variable>
-    <variable id="lhf_recovery_barrier">Recovery Under Barrier</variable>
+    <variable id="lhf_entry_barrier">Entry Over Barrier</variable>
+    <variable id="lhf_recovery_barrier">Recovery Over Barrier</variable>
     <variable id="lhf_barrier">Barrier</variable>
     <variable id="lhf_cooldown_signal">Cooldown After Signal</variable>
     <variable id="lhf_cooldown_loss">Cooldown After Loss</variable>
@@ -280,14 +280,14 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
               ['lhf_scan_markets', 'Scan Multiple Markets', bool(true)],
               ['lhf_market_group', 'Market Group (1S / STANDARD / ALL)', text('1S')],
               ['lhf_symbols', 'Custom Symbols', text('')],
-              ['lhf_entry_barrier', 'Entry Under Barrier', num(8)],
-              ['lhf_recovery_barrier', 'Recovery Under Barrier', num(7)],
+              ['lhf_entry_barrier', 'Entry Over Barrier', num(1)],
+              ['lhf_recovery_barrier', 'Recovery Over Barrier', num(2)],
           ],
           wrapCollapsedAdvancedInit(
               'lhf',
               chainSets([
                   ['lhf_base_stake', 'Base Stake', varGet('lhf_stake', 'Stake')],
-                  ['lhf_barrier', 'Barrier', varGet('lhf_entry_barrier', 'Entry Under Barrier')],
+                  ['lhf_barrier', 'Barrier', varGet('lhf_entry_barrier', 'Entry Over Barrier')],
                   ['lhf_recovery_loss', 'Recovery Loss', num(0)],
                   ['lhf_cooldown_signal', 'Cooldown After Signal', num(1)],
                   ['lhf_cooldown_loss', 'Cooldown After Loss', num(2)],
@@ -308,7 +308,7 @@ export const LOW_HIGH_FLIP_UNDER_XML = `<xml xmlns="https://developers.google.co
               <block type="variables_set" id="lhf_scan_pred">
                 <field name="VAR" id="lhf_prediction">Prediction</field>
                 <value name="VALUE">
-                  <block type="low_high_flip_under_scan" id="lhf_scan_block">
+                  <block type="low_high_flip_over_scan" id="lhf_scan_block">
                     <value name="LOW_BELOW">${varGet('lhf_low_below', 'Low Digits Below')}</value>
                     <value name="HIGH_ABOVE">${varGet('lhf_high_above', 'High Digits Above')}</value>
                     <value name="BARRIER">${varGet('lhf_barrier', 'Barrier')}</value>
@@ -357,7 +357,7 @@ ${afterPurchaseXml()}
   <block type="before_purchase" id="lhf_before" deletable="false" collapsed="true" x="0" y="1100">
     <statement name="BEFOREPURCHASE_STACK">
       <block type="purchase" id="lhf_buy">
-        <field name="PURCHASE_LIST">DIGITUNDER</field>
+        <field name="PURCHASE_LIST">DIGITOVER</field>
       </block>
     </statement>
   </block>

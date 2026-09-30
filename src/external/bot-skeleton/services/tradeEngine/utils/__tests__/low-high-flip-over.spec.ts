@@ -9,14 +9,14 @@ import {
     releaseLowHighFlipScanSignal,
     replayLowHighFlip,
     STATUS,
-} from '../low-high-flip-under';
+} from '../low-high-flip-over';
 
 const withEpochs = (digits: number[], start = 1000) => digits.map((digit, i) => ({ digit, epoch: start + i }));
 
-describe('low-high-flip-under', () => {
-    it('defaults to p3,p2 < 4, p1,current > 5, Under 8', () => {
+describe('low-high-flip-over', () => {
+    it('defaults to p3,p2 < 4, p1,current > 5, Over 1', () => {
         expect(normalizeLowHighFlipOptions({})).toEqual(DEFAULT_OPTIONS);
-        expect(DEFAULT_OPTIONS).toMatchObject({ low_below: 4, high_above: 5, barrier: 8 });
+        expect(DEFAULT_OPTIONS).toMatchObject({ low_below: 4, high_above: 5, barrier: 1 });
     });
 
     it('checks the four conditions with strict inequalities', () => {
@@ -33,13 +33,15 @@ describe('low-high-flip-under', () => {
         expect(r.prediction).toBe(-1);
     });
 
-    it('fires Under at the passed barrier on the pattern', () => {
-        const r = evaluateLowHighFlip(withEpochs([5, 5, 1, 2, 7, 8]), { barrier: 8 }, createLowHighFlipState());
+    it('fires Over at the passed barrier on the pattern', () => {
+        const r = evaluateLowHighFlip(withEpochs([5, 5, 1, 2, 7, 8]), { barrier: 1 }, createLowHighFlipState());
         expect(r.status).toBe(STATUS.VALID_SIGNAL);
-        expect(r.prediction).toBe(8);
-        expect(r.contract_type).toBe('DIGITUNDER');
-        const recovery = evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 7 }, createLowHighFlipState());
-        expect(recovery.prediction).toBe(7);
+        expect(r.prediction).toBe(1);
+        expect(r.contract_type).toBe('DIGITOVER');
+        const text = r.journal_messages.map((m: { message: string }) => m.message).join('\n');
+        expect(text).toContain('ACTION: OVER 1');
+        const recovery = evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 2 }, createLowHighFlipState());
+        expect(recovery.prediction).toBe(2);
     });
 
     it('explains WHY NO TRADE with the failed conditions', () => {
@@ -59,16 +61,16 @@ describe('low-high-flip-under', () => {
         expect(again.status).toBe(STATUS.SIGNAL_CONSUMED);
     });
 
-    it('settles on the first tick after the signal epoch (win if digit < barrier)', () => {
+    it('settles on the first tick after the signal epoch (win if digit > barrier)', () => {
         const state = createLowHighFlipState();
-        evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 8 }, state);
-        evaluateLowHighFlip(withEpochs([1, 2, 7, 8, 9]), { barrier: 8 }, state);
+        evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 1 }, state);
+        evaluateLowHighFlip(withEpochs([1, 2, 7, 8, 1]), { barrier: 1 }, state);
         expect(state.live).toMatchObject({ wins: 0, losses: 1 });
 
         const s2 = createLowHighFlipState();
-        evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 8 }, s2);
+        evaluateLowHighFlip(withEpochs([1, 2, 7, 8]), { barrier: 1 }, s2);
         // Two ticks arrive between polls: the first one after the signal decides.
-        evaluateLowHighFlip(withEpochs([1, 2, 7, 8, 3, 9]), { barrier: 8 }, s2);
+        evaluateLowHighFlip(withEpochs([1, 2, 7, 8, 3, 0]), { barrier: 1 }, s2);
         expect(s2.live).toMatchObject({ wins: 1, losses: 0 });
     });
 
@@ -93,12 +95,13 @@ describe('low-high-flip-under', () => {
             const state = createLowHighFlipScanState();
             const r = evaluateLowHighFlipScan(
                 [market('1HZ10V', [1, 5, 7, 8]), market('1HZ25V', [1, 2, 7, 8]), market('1HZ50V', [0, 3, 6, 9])],
-                { barrier: 8 },
+                { barrier: 1 },
                 state
             );
             expect(r.matched).toBe(true);
             expect(r.symbol).toBe('1HZ25V');
-            expect(r.prediction).toBe(8);
+            expect(r.prediction).toBe(1);
+            expect(r.contract_type).toBe('DIGITOVER');
             expect(r.evaluations.map((e: { status: string }) => e.status)).toEqual([
                 STATUS.NO_PATTERN,
                 STATUS.VALID_SIGNAL,
@@ -163,13 +166,13 @@ describe('low-high-flip-under', () => {
         });
     });
 
-    it('replays with Under 8 → Under 7 recovery after a loss', () => {
-        // Signal at index 3 (Under 8) loses on 9; next signal at index 8 must use Under 7.
-        const digits = [1, 2, 7, 8, 9, 1, 2, 7, 8, 0];
-        const r = replayLowHighFlip(digits, { barrier: 8, recovery_barrier: 7, signal_cooldown_tips: 1 });
+    it('replays with Over 1 → Over 2 recovery after a loss', () => {
+        // Signal at index 3 (Over 1) loses on 1; next signal at index 8 must use Over 2 and wins on 5.
+        const digits = [1, 2, 7, 8, 1, 1, 2, 7, 8, 5];
+        const r = replayLowHighFlip(digits, { barrier: 1, recovery_barrier: 2, signal_cooldown_tips: 1 });
         expect(r.signals.map((s: { tip: number; barrier: number }) => [s.tip, s.barrier])).toEqual([
-            [3, 8],
-            [8, 7],
+            [3, 1],
+            [8, 2],
         ]);
         expect(r.losses).toBe(1);
         expect(r.wins).toBe(1);

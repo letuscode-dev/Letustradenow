@@ -1,11 +1,11 @@
 /**
- * Low-High Flip UNDER — returns the Under barrier on a signal, or -1.
+ * Low-High Flip OVER — returns the Over barrier on a signal, or -1.
  * Signals when previous_3 < low, previous_2 < low, previous_1 > high and current > high.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
 
-window.Blockly.Blocks.low_high_flip_under_scan = {
+window.Blockly.Blocks.low_high_flip_over_scan = {
     init() {
         this.jsonInit(this.definition());
         this.setInputsInline(true);
@@ -13,7 +13,7 @@ window.Blockly.Blocks.low_high_flip_under_scan = {
     definition() {
         return {
             message0: localize(
-                'low-high flip under low below %1 high above %2 barrier %3 cooldown %4 journal %5 scan markets %6 market group %7 custom symbols %8'
+                'low-high flip over low below %1 high above %2 barrier %3 cooldown %4 journal %5 scan markets %6 market group %7 custom symbols %8'
             ),
             args0: [
                 { type: 'input_value', name: 'LOW_BELOW', check: 'Number' },
@@ -31,18 +31,18 @@ window.Blockly.Blocks.low_high_flip_under_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Returns the Under barrier when previous_3 and previous_2 are below "low below" and previous_1 and the current digit are above "high above", otherwise -1. With scan markets on, checks every market in the group (1S / STANDARD / ALL) or the custom symbol list and switches to the market that fires. Journal shows WHY NO TRADE.'
+                'Returns the Over barrier when previous_3 and previous_2 are below "low below" and previous_1 and the current digit are above "high above", otherwise -1. With scan markets on, checks every market in the group (1S / STANDARD / ALL) or the custom symbol list and switches to the market that fires. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
     },
     meta() {
         return {
-            display_name: localize('Low-High Flip UNDER scan'),
+            display_name: localize('Low-High Flip OVER scan'),
             description: localize(
-                'Signals Digit Under after two low digits (< 4) are followed by two high digits (> 5).'
+                'Signals Digit Over after two low digits (< 4) are followed by two high digits (> 5).'
             ),
-            key_words: localize('digit, under, low, high, pattern'),
+            key_words: localize('digit, over, low, high, pattern'),
         };
     },
     customContextMenu(menu) {
@@ -50,7 +50,7 @@ window.Blockly.Blocks.low_high_flip_under_scan = {
     },
 };
 
-window.Blockly.JavaScript.javascriptGenerator.forBlock.low_high_flip_under_scan = block => {
+window.Blockly.JavaScript.javascriptGenerator.forBlock.low_high_flip_over_scan = block => {
     const read = name =>
         window.Blockly.JavaScript.javascriptGenerator.valueToCode(
             block,
@@ -59,10 +59,10 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.low_high_flip_under_scan 
         );
 
     const code = `(function () {
-        var BinaryBotPrivateLhfResult = Bot.evaluateLowHighFlipUnder({
+        var BinaryBotPrivateLhfResult = Bot.evaluateLowHighFlipOver({
             low_below: ${read('LOW_BELOW') || '4'},
             high_above: ${read('HIGH_ABOVE') || '5'},
-            barrier: ${read('BARRIER') || '8'},
+            barrier: ${read('BARRIER') || '1'},
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
             journal_enabled: ${read('JOURNAL') || 'true'},
             scan_markets: ${read('SCAN_MARKETS') || 'false'},

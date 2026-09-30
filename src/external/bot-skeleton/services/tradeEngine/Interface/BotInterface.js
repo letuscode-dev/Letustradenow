@@ -96,7 +96,7 @@ import {
     releaseLowHighFlipScanSignal,
     replayLowHighFlip,
     resetLowHighFlipState,
-} from '../utils/low-high-flip-under';
+} from '../utils/low-high-flip-over';
 import {
     createMissingDigitReturnState,
     evaluateMissingDigitReturn,
@@ -1020,10 +1020,10 @@ const getBotInterface = tradeEngine => {
             return replayZeroOneRise(digit_ticks, opts);
         },
         /**
-         * Low-High Flip UNDER — Under (barrier from risk management) when
+         * Low-High Flip OVER — Over (barrier from risk management) when
          * previous_3, previous_2 are low and previous_1, current are high.
          */
-        evaluateLowHighFlipUnder: async options => {
+        evaluateLowHighFlipOver: async options => {
             const opts = options || {};
             const scan_markets =
                 opts.scan_markets === true || opts.scan_markets === 'true' || opts.scan_markets === 'TRUE';
@@ -1056,7 +1056,7 @@ const getBotInterface = tradeEngine => {
                 const markets = await Promise.all(
                     symbols.map(async symbol => {
                         if (symbol === tradeEngine.symbol) {
-                            return { symbol, ticks: await loadWindowDigitTicks(tradeEngine, n, 'low_high_flip_under') };
+                            return { symbol, ticks: await loadWindowDigitTicks(tradeEngine, n, 'low_high_flip_over') };
                         }
                         const raw = ticks_service?.getCachedTicks ? (ticks_service.getCachedTicks(symbol) || []).slice(-n) : [];
                         const digits = tradeEngine.getCachedDigitsForSymbol
@@ -1108,14 +1108,14 @@ const getBotInterface = tradeEngine => {
             const digit_ticks = await loadWindowDigitTicks(
                 tradeEngine,
                 LOW_HIGH_FLIP_HISTORY_TICKS,
-                'low_high_flip_under'
+                'low_high_flip_over'
             );
             return evaluateLowHighFlip(digit_ticks, opts, tradeEngine.lowHighFlipState);
         },
         /**
-         * Low-High Flip UNDER replay/backtest with Under 8 → Under 7 recovery (no look-ahead).
+         * Low-High Flip OVER replay/backtest with Over 1 → Over 2 recovery (no look-ahead).
          */
-        replayLowHighFlipUnder: async options => {
+        replayLowHighFlipOver: async options => {
             const opts = options || {};
             if (Array.isArray(opts.ticks) && opts.ticks.length) {
                 return replayLowHighFlip(opts.ticks, opts);
@@ -1123,7 +1123,7 @@ const getBotInterface = tradeEngine => {
             const digit_ticks = await loadWindowDigitTicks(
                 tradeEngine,
                 LOW_HIGH_FLIP_HISTORY_TICKS,
-                'low_high_flip_under'
+                'low_high_flip_over'
             );
             return replayLowHighFlip(digit_ticks, opts);
         },

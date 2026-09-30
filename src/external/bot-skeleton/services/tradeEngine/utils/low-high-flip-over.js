@@ -1,10 +1,10 @@
 /**
- * Low-High Flip UNDER
+ * Low-High Flip OVER
  *
  * On the last four digits (previous_3, previous_2, previous_1, current):
  *   previous_3 < 4, previous_2 < 4, previous_1 > 5 and current > 5
- * → enter DIGITUNDER at the barrier owned by the bot's risk management
- * (Under 8 normally, Under 7 in loss recovery). The barrier is returned as the
+ * → enter DIGITOVER at the barrier owned by the bot's risk management
+ * (Over 1 normally, Over 2 in loss recovery). The barrier is returned as the
  * prediction on a signal. Both thresholds are user-configurable.
  * `evaluateLowHighFlipScan` runs the same check across several markets.
  */
@@ -24,7 +24,7 @@ export const HISTORY_TICKS = 10;
 export const DEFAULT_OPTIONS = {
     low_below: 4,
     high_above: 5,
-    barrier: 8,
+    barrier: 1,
     signal_cooldown_tips: 1,
     journal_enabled: true,
 };
@@ -50,7 +50,7 @@ export const normalizeLowHighFlipOptions = (options = {}) => {
     return {
         low_below: toInt(options.low_below, d.low_below, 1, 9),
         high_above: toInt(options.high_above, d.high_above, 0, 8),
-        barrier: toInt(options.barrier, d.barrier, 1, 9),
+        barrier: toInt(options.barrier, d.barrier, 0, 8),
         signal_cooldown_tips: toInt(options.signal_cooldown_tips, d.signal_cooldown_tips, 0, 100),
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
     };
@@ -113,7 +113,7 @@ export const recordLowHighFlipOutcome = (state, actual_digit) => {
     const digit = toDigit(actual_digit);
     if (digit === null) return null;
     const { barrier } = state.pending_outcome;
-    const won = digit < barrier;
+    const won = digit > barrier;
     if (won) state.live.wins += 1;
     else state.live.losses += 1;
     state.live.signals += 1;
@@ -127,7 +127,7 @@ const buildJournal = ({ options, recent, checks, status, rejection }) => {
     const messages = [
         {
             className: 'journal__text',
-            message: `══ LOW-HIGH FLIP UNDER ${options.barrier} | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
+            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
         },
     ];
     if (recent.length) {
@@ -142,7 +142,7 @@ const buildJournal = ({ options, recent, checks, status, rejection }) => {
     if (status === STATUS.VALID_SIGNAL) {
         messages.push({
             className: 'journal__text--success',
-            message: `STATUS: VALID SIGNAL — low, low, high, high pattern. ACTION: UNDER ${options.barrier}`,
+            message: `STATUS: VALID SIGNAL — low, low, high, high pattern. ACTION: OVER ${options.barrier}`,
         });
     } else {
         messages.push({ className: 'journal__text', message: `WHY NO TRADE? ${status} — ${rejection}` });
@@ -242,7 +242,7 @@ export const evaluateLowHighFlip = (raw_ticks, raw_options = {}, state = createL
     const result = {
         prediction,
         matched: prediction >= 0,
-        contract_type: prediction >= 0 ? 'DIGITUNDER' : null,
+        contract_type: prediction >= 0 ? 'DIGITOVER' : null,
         barrier: options.barrier,
         current,
         recent,
@@ -341,7 +341,7 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
     if (options.journal_enabled && any_new_tip) {
         journal_messages.push({
             className: 'journal__text',
-            message: `══ LOW-HIGH FLIP UNDER ${options.barrier} | ${list.length} markets | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
+            message: `══ LOW-HIGH FLIP OVER ${options.barrier} | ${list.length} markets | p3,p2 < ${options.low_below} · p1,current > ${options.high_above} ══`,
         });
         journal_messages.push({
             className: 'journal__text',
@@ -351,7 +351,7 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
             picked
                 ? {
                       className: 'journal__text--success',
-                      message: `STATUS: VALID SIGNAL on ${picked.symbol}. ACTION: UNDER ${options.barrier}`,
+                      message: `STATUS: VALID SIGNAL on ${picked.symbol}. ACTION: OVER ${options.barrier}`,
                   }
                 : { className: 'journal__text', message: `WHY NO TRADE? ${rejection}` }
         );
@@ -360,7 +360,7 @@ export const evaluateLowHighFlipScan = (markets, raw_options = {}, scan_state = 
     return {
         prediction: picked ? picked.result.prediction : -1,
         matched: Boolean(picked),
-        contract_type: picked ? 'DIGITUNDER' : null,
+        contract_type: picked ? 'DIGITOVER' : null,
         barrier: options.barrier,
         symbol: picked ? picked.symbol : null,
         evaluations: evaluations.map(e => ({
@@ -382,12 +382,12 @@ export const releaseLowHighFlipScanSignal = (scan_state, symbol) => {
 };
 
 /**
- * Sequential replay with the bot's risk rule: Under `barrier` normally, switch to
+ * Sequential replay with the bot's risk rule: Over `barrier` normally, switch to
  * `recovery_barrier` after a loss until the next win.
  */
 export const replayLowHighFlip = (raw_ticks, raw_options = {}) => {
     const entry_barrier = normalizeLowHighFlipOptions(raw_options).barrier;
-    const recovery_barrier = toInt(raw_options.recovery_barrier, 7, 1, 9);
+    const recovery_barrier = toInt(raw_options.recovery_barrier, 2, 0, 8);
     const state = createLowHighFlipState();
     const digits = normalizeTicks(raw_ticks).map(t => t.digit);
     const signals = [];
@@ -396,7 +396,7 @@ export const replayLowHighFlip = (raw_ticks, raw_options = {}) => {
     for (let i = 0; i < digits.length; i++) {
         // The previous trade settles on this tick, before this tick's signal is evaluated.
         if (state.pending_outcome) {
-            barrier = digits[i] < state.pending_outcome.barrier ? entry_barrier : recovery_barrier;
+            barrier = digits[i] > state.pending_outcome.barrier ? entry_barrier : recovery_barrier;
         }
         const result = evaluateLowHighFlip(
             digits.slice(0, i + 1),

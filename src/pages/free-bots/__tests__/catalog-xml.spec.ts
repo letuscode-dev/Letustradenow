@@ -95,12 +95,12 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
     });
 
-    it('Low-High Flip UNDER 8: Under 8 entry, Under 7 recovery sized to repay the losses', () => {
-        const bot = FREE_BOTS.find(b => b.id === 'low-high-flip-under-v1');
+    it('Low-High Flip OVER 1: Over 1 entry, Over 2 recovery sized to repay the losses', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'low-high-flip-over-v1');
         const doc = parse(bot!.xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         expect(field('TRADETYPE_LIST')).toBe('overunder');
-        expect(field('PURCHASE_LIST')).toBe('DIGITUNDER');
+        expect(field('PURCHASE_LIST')).toBe('DIGITOVER');
 
         const setValue = (var_id: string) =>
             [...doc.querySelectorAll('block[type="variables_set"]')]
@@ -109,17 +109,17 @@ describe('free bot catalog XML', () => {
 
         expect(setValue('lhf_low_below')).toEqual(['4']);
         expect(setValue('lhf_high_above')).toEqual(['5']);
-        expect(setValue('lhf_entry_barrier')).toEqual(['8']);
-        expect(setValue('lhf_recovery_barrier')).toEqual(['7']);
+        expect(setValue('lhf_entry_barrier')).toEqual(['1']);
+        expect(setValue('lhf_recovery_barrier')).toEqual(['2']);
         expect(setValue('lhf_stake')[0]).toBe('0.5');
         expect(setValue('lhf_recovery_rate')[0]).toBe('0.36');
         expect(setValue('lhf_take_profit')).toEqual(['20']);
         expect(setValue('lhf_stop_loss')).toEqual(['50']);
         expect(setValue('lhf_barrier')).toEqual([
-            'Entry Under Barrier',
-            'Entry Under Barrier',
-            'Entry Under Barrier',
-            'Recovery Under Barrier',
+            'Entry Over Barrier',
+            'Entry Over Barrier',
+            'Entry Over Barrier',
+            'Recovery Over Barrier',
         ]);
 
         const loss_xml = doc.querySelector('block#lhf_ap_win > statement[name="ELSE"]')?.innerHTML ?? '';
@@ -129,7 +129,7 @@ describe('free bot catalog XML', () => {
         expect(win_branch?.querySelectorAll('block[type="read_details"]').length).toBe(4);
         expect(doc.querySelectorAll('block[type="timeout"] value[name="IF1"]')).toHaveLength(2);
 
-        const scan = doc.querySelector('block[type="low_high_flip_under_scan"]');
+        const scan = doc.querySelector('block[type="low_high_flip_over_scan"]');
         expect(scan?.querySelector('value[name="LOW_BELOW"] field')?.textContent).toBe('Low Digits Below');
         expect(scan?.querySelector('value[name="HIGH_ABOVE"] field')?.textContent).toBe('High Digits Above');
         expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
