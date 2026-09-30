@@ -88,6 +88,13 @@ import {
     releaseLongAbsenceReturnActiveTrade,
 } from '../utils/long-absence-return-differs';
 import {
+    createLowHighFlipState,
+    evaluateLowHighFlip,
+    HISTORY_TICKS as LOW_HIGH_FLIP_HISTORY_TICKS,
+    replayLowHighFlip,
+    resetLowHighFlipState,
+} from '../utils/low-high-flip-under';
+import {
     createMissingDigitReturnState,
     evaluateMissingDigitReturn,
     replayMissingDigitReturn,
@@ -406,6 +413,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.digitRiseDifferState) {
                 resetZeroOneRiseState(tradeEngine.digitRiseDifferState);
                 tradeEngine.digitRiseDifferState = null;
+            }
+            if (tradeEngine.lowHighFlipState) {
+                resetLowHighFlipState(tradeEngine.lowHighFlipState);
+                tradeEngine.lowHighFlipState = null;
             }
             tradeEngine.windowTickBuffers = null;
             tradeEngine.parityRunDiffersSnapshot = null;
@@ -1003,6 +1014,37 @@ const getBotInterface = tradeEngine => {
                 'digit_rise_differ'
             );
             return replayZeroOneRise(digit_ticks, opts);
+        },
+        /**
+         * Low-High Flip UNDER — Under (barrier from risk management) when
+         * previous_3, previous_2 are low and previous_1, current are high.
+         */
+        evaluateLowHighFlipUnder: async options => {
+            const opts = options || {};
+            if (!tradeEngine.lowHighFlipState) {
+                tradeEngine.lowHighFlipState = createLowHighFlipState();
+            }
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                LOW_HIGH_FLIP_HISTORY_TICKS,
+                'low_high_flip_under'
+            );
+            return evaluateLowHighFlip(digit_ticks, opts, tradeEngine.lowHighFlipState);
+        },
+        /**
+         * Low-High Flip UNDER replay/backtest with Under 8 → Under 7 recovery (no look-ahead).
+         */
+        replayLowHighFlipUnder: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayLowHighFlip(opts.ticks, opts);
+            }
+            const digit_ticks = await loadWindowDigitTicks(
+                tradeEngine,
+                LOW_HIGH_FLIP_HISTORY_TICKS,
+                'low_high_flip_under'
+            );
+            return replayLowHighFlip(digit_ticks, opts);
         },
         /**
          * Pattern Switch — last-digit windows → Even / Odd / Over 4 / Under 5.

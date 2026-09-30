@@ -94,4 +94,45 @@ describe('free bot catalog XML', () => {
         expect(scan?.querySelector('value[name="TARGET_DIGITS"] field')?.textContent).toBe('Target Digits');
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
     });
+
+    it('Low-High Flip UNDER 8: Under 8 entry, Under 7 recovery sized to repay the losses', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'low-high-flip-under-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('TRADETYPE_LIST')).toBe('overunder');
+        expect(field('PURCHASE_LIST')).toBe('DIGITUNDER');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        expect(setValue('lhf_low_below')).toEqual(['4']);
+        expect(setValue('lhf_high_above')).toEqual(['5']);
+        expect(setValue('lhf_entry_barrier')).toEqual(['8']);
+        expect(setValue('lhf_recovery_barrier')).toEqual(['7']);
+        expect(setValue('lhf_stake')[0]).toBe('0.5');
+        expect(setValue('lhf_recovery_rate')[0]).toBe('0.36');
+        expect(setValue('lhf_take_profit')).toEqual(['20']);
+        expect(setValue('lhf_stop_loss')).toEqual(['50']);
+        expect(setValue('lhf_barrier')).toEqual([
+            'Entry Under Barrier',
+            'Entry Under Barrier',
+            'Entry Under Barrier',
+            'Recovery Under Barrier',
+        ]);
+
+        const loss_xml = doc.querySelector('block#lhf_ap_win > statement[name="ELSE"]')?.innerHTML ?? '';
+        expect(loss_xml).toContain('ROUNDUP');
+        expect(loss_xml).toContain('Recovery Profit Rate');
+        const win_branch = doc.querySelector('block#lhf_ap_win > statement[name="DO0"]');
+        expect(win_branch?.querySelectorAll('block[type="read_details"]').length).toBe(4);
+        expect(doc.querySelectorAll('block[type="timeout"] value[name="IF1"]')).toHaveLength(2);
+
+        const scan = doc.querySelector('block[type="low_high_flip_under_scan"]');
+        expect(scan?.querySelector('value[name="LOW_BELOW"] field')?.textContent).toBe('Low Digits Below');
+        expect(scan?.querySelector('value[name="HIGH_ABOVE"] field')?.textContent).toBe('High Digits Above');
+        expect(scan?.querySelector('value[name="BARRIER"] field')?.textContent).toBe('Barrier');
+        expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
+    });
 });

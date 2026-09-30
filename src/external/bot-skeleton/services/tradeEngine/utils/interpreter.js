@@ -355,6 +355,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayDigitRiseDiffer)
             );
         }
+        if (typeof bot_interface.evaluateLowHighFlipUnder === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateLowHighFlipUnder',
+                createAsync(js_interpreter, bot_interface.evaluateLowHighFlipUnder)
+            );
+        }
+        if (typeof bot_interface.replayLowHighFlipUnder === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayLowHighFlipUnder',
+                createAsync(js_interpreter, bot_interface.replayLowHighFlipUnder)
+            );
+        }
         if (typeof bot_interface.evaluateTripleDigitMartingaleScan === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,
