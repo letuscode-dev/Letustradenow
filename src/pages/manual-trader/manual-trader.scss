@@ -1,4 +1,4 @@
-@use 'components/shared/styles/mixins' as *;
+﻿@use 'components/shared/styles/mixins' as *;
 
 .manual-trader {
     --mt-most: var(--status-success);
@@ -567,10 +567,13 @@
         }
 
         &--selected .manual-trader__column-digit {
-            background: var(--mt-accent);
-            border-color: var(--mt-accent);
-            box-shadow: 0 3px 10px color-mix(in srgb, var(--mt-accent) 40%, transparent);
+            background: var(--mt-accent) content-box;
             color: #ffffff;
+            padding: 0.25rem;
+
+            @include mobile-screen {
+                padding: 0.2rem;
+            }
         }
 
         &--current .manual-trader__column-caret {
