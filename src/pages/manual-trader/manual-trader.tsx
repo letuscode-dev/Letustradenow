@@ -339,6 +339,7 @@ const ManualTrader = () => {
                                         />
                                     </span>
                                     <span className='manual-trader__column-digit'>{stat.digit}</span>
+                                    <span className='manual-trader__column-caret' aria-hidden='true' />
                                     <span
                                         className={classNames('manual-trader__column-dev', {
                                             'is-up': deviation > 0.05,
