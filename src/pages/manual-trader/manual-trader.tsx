@@ -156,9 +156,6 @@ const ManualTrader = () => {
     const digits = useMemo(() => ticks.map(t => t.digit), [ticks]);
     const stats = useMemo(() => getDigitStats(digits, tick_window), [digits, tick_window]);
     const ranks = useMemo(() => getDigitRanks(stats), [stats]);
-    const most = stats.find(s => ranks[s.digit] === 'most');
-    const least = stats.find(s => ranks[s.digit] === 'least');
-    const even_pct = stats.filter(s => s.digit % 2 === 0).reduce((total, s) => total + s.pct, 0);
     const last_tick = ticks.length ? ticks[ticks.length - 1] : null;
     const previous_tick = ticks.length > 1 ? ticks[ticks.length - 2] : null;
     const current_digit = last_tick ? last_tick.digit : null;
@@ -274,29 +271,6 @@ const ManualTrader = () => {
                     </div>
 
                     {error && <p className='manual-trader__error'>{error}</p>}
-
-                    <div className='manual-trader__overview'>
-                        <div className='manual-trader__overview-item manual-trader__overview-item--most'>
-                            <span>{localize('Most')}</span>
-                            <strong>{most ? most.digit : '—'}</strong>
-                            <small>{most ? `${most.pct.toFixed(1)}%` : ''}</small>
-                        </div>
-                        <div className='manual-trader__overview-item manual-trader__overview-item--least'>
-                            <span>{localize('Least')}</span>
-                            <strong>{least ? least.digit : '—'}</strong>
-                            <small>{least ? `${least.pct.toFixed(1)}%` : ''}</small>
-                        </div>
-                        <div className='manual-trader__overview-item'>
-                            <span>{localize('Even')}</span>
-                            <strong>{`${even_pct.toFixed(1)}%`}</strong>
-                            <i style={{ width: `${even_pct}%` }} />
-                        </div>
-                        <div className='manual-trader__overview-item'>
-                            <span>{localize('Odd')}</span>
-                            <strong>{`${(sample_size ? 100 - even_pct : 0).toFixed(1)}%`}</strong>
-                            <i style={{ width: `${sample_size ? 100 - even_pct : 0}%` }} />
-                        </div>
-                    </div>
 
                     <div className='manual-trader__chart' role='group' aria-label={localize('Digit percentages')}>
                         {stats.map(stat => {
