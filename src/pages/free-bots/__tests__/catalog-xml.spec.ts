@@ -38,6 +38,29 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
     });
 
+    it('Tie Digit DIFFER: Differs risk management with a configurable 120-tick window', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'tie-digit-differ-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+        expect(field('PURCHASE_LIST')).toBe('DIGITDIFF');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+        expect(setValue('tdd_window')).toEqual(['120']);
+        expect(setValue('tdd_stake')[0]).toBe('0.5');
+        expect(setValue('tdd_martingale')).toEqual(['10.5']);
+        expect(setValue('tdd_take_profit')).toEqual(['20']);
+        expect(setValue('tdd_stop_loss')).toEqual(['50']);
+        expect(setValue('tdd_cooldown_loss')).toEqual(['2']);
+
+        const scan = doc.querySelector('block[type="tie_digit_differ_scan"]');
+        expect(scan?.querySelector('value[name="ANALYSIS_WINDOW"] field')?.textContent).toBe('Analysis Tick Window');
+        expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');
+    });
+
     it('Zero/One Rise OVER 1: Over 1 entry, Over 2 recovery sized to repay the losses', () => {
         const bot = FREE_BOTS.find(b => b.id === 'zero-one-rise-over-v1');
         const doc = parse(bot!.xml);

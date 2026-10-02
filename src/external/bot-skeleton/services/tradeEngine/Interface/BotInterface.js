@@ -207,6 +207,13 @@ import {
     resetStrategyVotingState,
 } from '../utils/strategy-voting-engine';
 import {
+    createTieDigitState,
+    evaluateTieDigit,
+    normalizeTieDigitOptions,
+    replayTieDigit,
+    resetTieDigitState,
+} from '../utils/tie-digit-differ';
+import {
     createTopTwoDigitGapState,
     evaluateTopTwoDigitGap,
     mergeDigitTicks,
@@ -404,6 +411,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.topTwoDigitGapState) {
                 resetTopTwoDigitGapState(tradeEngine.topTwoDigitGapState);
                 tradeEngine.topTwoDigitGapState = null;
+            }
+            if (tradeEngine.tieDigitState) {
+                resetTieDigitState(tradeEngine.tieDigitState);
+                tradeEngine.tieDigitState = null;
             }
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
@@ -927,6 +938,31 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeTopTwoDigitGapOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'top_two_gap');
             return replayTopTwoDigitGap(digit_ticks, opts);
+        },
+        /**
+         * Tie Digit DIFFER — when the current digit's % ties with exactly one
+         * other digit over the window, Differ that other digit.
+         */
+        evaluateTieDigitDiffer: async options => {
+            const opts = options || {};
+            if (!tradeEngine.tieDigitState) {
+                tradeEngine.tieDigitState = createTieDigitState();
+            }
+            const { analysis_window } = normalizeTieDigitOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'tie_digit');
+            return evaluateTieDigit(digit_ticks, opts, tradeEngine.tieDigitState);
+        },
+        /**
+         * Tie Digit DIFFER replay/backtest (no look-ahead).
+         */
+        replayTieDigitDiffer: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayTieDigit(opts.ticks, opts);
+            }
+            const { analysis_window } = normalizeTieDigitOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'tie_digit');
+            return replayTieDigit(digit_ticks, opts);
         },
         /**
          * Ascending Rank Next Digit DIFFER — rank digits by % ascending and

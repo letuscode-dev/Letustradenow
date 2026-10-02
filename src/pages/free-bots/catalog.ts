@@ -2,6 +2,7 @@ import { ASCENDING_RANK_NEXT_DIFFER_XML } from './bots/ascending-rank-next-diffe
 import { DIGIT_RISE_DIFFER_XML } from './bots/digit-rise-differ';
 import { LOW_HIGH_FLIP_OVER_XML } from './bots/low-high-flip-over';
 import { MISSING_DIGIT_RETURN_DIFFER_XML } from './bots/missing-digit-return-differ';
+import { TIE_DIGIT_DIFFER_XML } from './bots/tie-digit-differ';
 import { TOP_TWO_DIGIT_GAP_DIFFER_XML } from './bots/top-two-digit-gap-differ';
 import { ZERO_ONE_RISE_OVER_XML } from './bots/zero-one-rise-over';
 import type { FreeBot } from './types';
@@ -60,5 +61,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Scans multiple markets (1s volatilities by default; STANDARD, ALL or your own symbol list) on every tick. When previous_2 < 4, previous_1 < 5 and the current digit > 5 (thresholds configurable) on any market, switches to it and enters OVER 1. After a loss, recovers with OVER 2, sizing the stake so one win pays back every unrecovered loss (uses the real Over 2 payout rate). Journal shows WHY NO TRADE.',
         tags: ['Over 1', 'Multi-market scanner', 'Digit pattern', 'Over 2 recovery', 'Full loss recovery'],
         xml: LOW_HIGH_FLIP_OVER_XML,
+    },
+    {
+        id: 'tie-digit-differ-v1',
+        title: 'Tie Digit DIFFER',
+        description:
+            "Calculates digit 0–9 appearance % over the last N ticks (default 120, configurable), updating on every tick. When the current digit's % ties with exactly one other digit, Differs that other digit — never the current one. Journal shows WHY NO TRADE. Martingale 10.5 with cooldown.",
+        tags: ['Differs', 'Tie', 'Percentages', 'Martingale', 'Cooldown'],
+        xml: TIE_DIGIT_DIFFER_XML,
     },
 ];
