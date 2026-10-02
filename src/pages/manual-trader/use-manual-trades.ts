@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api_base } from '@/external/bot-skeleton';
+import { api_base, LogTypes } from '@/external/bot-skeleton';
+import { useStore } from '@/hooks/useStore';
+import type RootStore from '@/stores/root-store';
 import { buildProposalRequest } from './manual-trader-utils';
 
 export type Quote = { payout?: number; ask_price?: number; error?: string; loading?: boolean };
@@ -33,12 +35,22 @@ type TradeParams = {
 type ApiResponse = {
     error?: { code?: string; message?: string };
     proposal?: { id: string; ask_price: number | string; payout: number | string };
-    buy?: { contract_id: number; buy_price: number | string; payout: number | string };
+    buy?: {
+        contract_id: number;
+        buy_price: number | string;
+        payout: number | string;
+        longcode?: string;
+        shortcode?: string;
+        start_time?: number;
+        transaction_id?: number;
+    };
     proposal_open_contract?: OpenContract;
 };
 
 type OpenContract = {
+    [key: string]: unknown;
     contract_id?: number;
+    currency?: string;
     buy_price?: number | string;
     payout?: number | string;
     profit?: number | string;
@@ -46,6 +58,9 @@ type OpenContract = {
     status?: string;
     exit_tick_display_value?: string;
 };
+
+type StoreContract = Parameters<RootStore['transactions']['onBotContractEvent']>[0];
+type JournalExtra = Parameters<RootStore['journal']['onLogSuccess']>[0]['extra'];
 
 type PooledProposal = { id: string; ask_price: number; payout: number; key: string; fetched_at: number };
 
@@ -83,6 +98,10 @@ const requestProposal = async (contract_type: string, params: TradeParams, key: 
     };
 };
 
+/** Contracts bought here, and the ones whose result was already journaled (kept across tab switches). */
+const manual_contract_ids = new Set<number>();
+const journaled_contract_ids = new Set<number>();
+
 const lastDigit = (value?: string) => {
     const digit = Number(String(value ?? '').slice(-1));
     return Number.isInteger(digit) ? digit : undefined;
@@ -103,6 +122,7 @@ export const useManualTrades = ({
     params: TradeParams;
     pool_size: number;
 }) => {
+    const { journal, summary_card, transactions } = useStore();
     const [quotes, setQuotes] = useState<Record<string, Quote>>({});
     const [trades, setTrades] = useState<ManualTrade[]>([]);
     const trades_ref = useRef<ManualTrade[]>([]);
@@ -176,8 +196,29 @@ export const useManualTrades = ({
         setTrades(current => current.map(t => (t.key === key ? { ...t, ...patch } : t)));
     }, []);
 
+    const syncRunPanel = useCallback(
+        (poc: OpenContract) => {
+            const id = Number(poc.contract_id);
+            if (!manual_contract_ids.has(id)) return;
+            const contract = poc as unknown as StoreContract;
+            transactions.onBotContractEvent(contract);
+            summary_card.onBotContractEvent(contract);
+            const is_sold = Boolean(poc.is_sold) || poc.status === 'won' || poc.status === 'lost';
+            if (is_sold && !journaled_contract_ids.has(id)) {
+                journaled_contract_ids.add(id);
+                const profit = Number(poc.profit) || 0;
+                journal.onLogSuccess({
+                    log_type: profit > 0 ? LogTypes.PROFIT : LogTypes.LOST,
+                    extra: { currency: poc.currency, profit },
+                });
+            }
+        },
+        [journal, summary_card, transactions]
+    );
+
     const applyContract = useCallback((poc?: OpenContract) => {
         if (!poc?.contract_id) return;
+        syncRunPanel(poc);
         setTrades(current =>
             current.map(t => {
                 if (t.contract_id !== poc.contract_id) return t;
@@ -193,7 +234,7 @@ export const useManualTrades = ({
                 };
             })
         );
-    }, []);
+    }, [syncRunPanel]);
 
     useEffect(() => {
         if (!enabled || !api_base.api) return undefined;
@@ -203,13 +244,19 @@ export const useManualTrades = ({
                 if (data?.msg_type === 'proposal_open_contract') applyContract(data.proposal_open_contract);
             });
         const poll = window.setInterval(() => {
-            trades_ref.current
-                .filter(t => t.status === 'open' && t.contract_id && Date.now() - t.time > POLL_INTERVAL_MS)
-                .forEach(t => {
-                    send({ proposal_open_contract: 1, contract_id: t.contract_id })
-                        .then(r => applyContract(r?.proposal_open_contract))
-                        .catch(() => undefined);
-                });
+            const open_ids = new Set(
+                trades_ref.current
+                    .filter(t => t.status === 'open' && t.contract_id && Date.now() - t.time > POLL_INTERVAL_MS)
+                    .map(t => t.contract_id as number)
+            );
+            manual_contract_ids.forEach(id => {
+                if (!journaled_contract_ids.has(id)) open_ids.add(id);
+            });
+            open_ids.forEach(contract_id => {
+                send({ proposal_open_contract: 1, contract_id })
+                    .then(r => applyContract(r?.proposal_open_contract))
+                    .catch(() => undefined);
+            });
         }, POLL_INTERVAL_MS);
         return () => {
             subscription?.unsubscribe?.();
@@ -258,6 +305,33 @@ export const useManualTrades = ({
                             response = await buyWith(await requestProposal(contract_type, params_now, key));
                         }
                         if (!response.buy) throw new Error('Purchase was not confirmed.');
+                        const bought = response.buy;
+                        manual_contract_ids.add(bought.contract_id);
+                        journal.onLogSuccess({
+                            log_type: LogTypes.PURCHASE,
+                            extra: {
+                                longcode: bought.longcode,
+                                transaction_id: bought.transaction_id,
+                            } as unknown as JournalExtra,
+                        });
+                        transactions.onBotContractEvent({
+                            contract_id: bought.contract_id,
+                            contract_type,
+                            currency: params_now.currency,
+                            underlying: params_now.symbol,
+                            underlying_symbol: params_now.symbol,
+                            buy_price: Number(bought.buy_price),
+                            payout: Number(bought.payout),
+                            longcode: bought.longcode,
+                            shortcode: bought.shortcode,
+                            date_start: bought.start_time,
+                            purchase_time: bought.start_time,
+                            transaction_ids: { buy: bought.transaction_id },
+                            barrier: params_now.prediction === undefined ? undefined : String(params_now.prediction),
+                            profit: 0,
+                            is_sold: 0,
+                            status: 'open',
+                        } as unknown as StoreContract);
                         updateTrade(trade.key, {
                             status: 'open',
                             contract_id: response.buy.contract_id,
@@ -267,14 +341,16 @@ export const useManualTrades = ({
                             latency_ms: Date.now() - started,
                         });
                     } catch (e) {
-                        updateTrade(trade.key, { status: 'error', message: errorMessage(e) });
+                        const message = errorMessage(e);
+                        updateTrade(trade.key, { status: 'error', message });
+                        journal.onError(`${label}: ${message}`);
                     }
                 })
             );
             refill(contract_type);
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [refill, updateTrade]
+        [refill, updateTrade, journal, transactions]
     );
 
     const clearTrades = useCallback(() => {
