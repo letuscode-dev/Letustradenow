@@ -3,7 +3,9 @@ import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import { api_base } from '@/external/bot-skeleton';
 import { useApiBase } from '@/hooks/useApiBase';
+import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
+import { useDevice } from '@deriv-com/ui';
 import {
     clampInt,
     DEFAULT_TICK_WINDOW,
@@ -28,8 +30,6 @@ const MIN_STAKE = 0.35;
 const WINDOW_PRESETS = [50, 120, 500, 1000];
 const STAKE_PRESETS = [0.5, 1, 2, 5, 10];
 const RECENT_DIGITS = 24;
-const RING_RADIUS = 26;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 const RANK_LABELS = {
     most: 'Most',
@@ -133,6 +133,8 @@ const TradeRow = ({ trade, currency }: { trade: ManualTrade; currency: string })
 
 const ManualTrader = () => {
     const { isAuthorized, authData } = useApiBase();
+    const { run_panel } = useStore();
+    const { isDesktop } = useDevice();
     const { symbols, symbol, setSymbol, symbol_info, ticks, status, error } = useManualTraderTicks();
 
     const [window_input, setWindowInput] = useState(String(DEFAULT_TICK_WINDOW));
@@ -155,6 +157,11 @@ const ManualTrader = () => {
     const stats = useMemo(() => getDigitStats(digits, tick_window), [digits, tick_window]);
     const ranks = useMemo(() => getDigitRanks(stats), [stats]);
     const max_pct = Math.max(...stats.map(s => s.pct), 1);
+    const chart_max = Math.max(15, Math.ceil((max_pct * 1.15) / 5) * 5);
+    const fair_level = 10 / chart_max;
+    const most = stats.find(s => ranks[s.digit] === 'most');
+    const least = stats.find(s => ranks[s.digit] === 'least');
+    const even_pct = stats.filter(s => s.digit % 2 === 0).reduce((total, s) => total + s.pct, 0);
     const last_tick = ticks.length ? ticks[ticks.length - 1] : null;
     const previous_tick = ticks.length > 1 ? ticks[ticks.length - 2] : null;
     const current_digit = last_tick ? last_tick.digit : null;
@@ -194,7 +201,11 @@ const ManualTrader = () => {
     };
 
     return (
-        <div className='manual-trader'>
+        <div
+            className={classNames('manual-trader', {
+                'manual-trader--with-panel': run_panel.is_drawer_open && isDesktop,
+            })}
+        >
             <header className='manual-trader__hero'>
                 <div className='manual-trader__hero-text'>
                     <h2 className='manual-trader__title'>
@@ -267,38 +278,76 @@ const ManualTrader = () => {
 
                     {error && <p className='manual-trader__error'>{error}</p>}
 
-                    <div className='manual-trader__digits' role='group' aria-label={localize('Digit percentages')}>
+                    <div className='manual-trader__overview'>
+                        <div className='manual-trader__overview-item manual-trader__overview-item--most'>
+                            <span>{localize('Most')}</span>
+                            <strong>{most ? most.digit : '—'}</strong>
+                            <small>{most ? `${most.pct.toFixed(1)}%` : ''}</small>
+                        </div>
+                        <div className='manual-trader__overview-item manual-trader__overview-item--least'>
+                            <span>{localize('Least')}</span>
+                            <strong>{least ? least.digit : '—'}</strong>
+                            <small>{least ? `${least.pct.toFixed(1)}%` : ''}</small>
+                        </div>
+                        <div className='manual-trader__overview-item'>
+                            <span>{localize('Even')}</span>
+                            <strong>{`${even_pct.toFixed(1)}%`}</strong>
+                            <i style={{ width: `${even_pct}%` }} />
+                        </div>
+                        <div className='manual-trader__overview-item'>
+                            <span>{localize('Odd')}</span>
+                            <strong>{`${(sample_size ? 100 - even_pct : 0).toFixed(1)}%`}</strong>
+                            <i style={{ width: `${sample_size ? 100 - even_pct : 0}%` }} />
+                        </div>
+                    </div>
+
+                    <div
+                        className='manual-trader__chart'
+                        role='group'
+                        aria-label={localize('Digit percentages')}
+                        style={{ '--mt-fair': fair_level } as React.CSSProperties}
+                    >
+                        <span className='manual-trader__chart-fair'>
+                            <em>10%</em>
+                        </span>
                         {stats.map(stat => {
                             const rank = ranks[stat.digit];
                             const is_selected = trade_type.uses_prediction && stat.digit === prediction;
-                            const fill = (stat.pct / max_pct) * RING_LENGTH;
+                            const deviation = sample_size ? stat.pct - 10 : 0;
                             return (
                                 <button
                                     key={stat.digit}
                                     type='button'
-                                    className={classNames('manual-trader__digit', {
-                                        [`manual-trader__digit--${rank}`]: rank,
-                                        'manual-trader__digit--selected': is_selected,
-                                        'manual-trader__digit--current': stat.digit === current_digit,
+                                    className={classNames('manual-trader__column', {
+                                        [`manual-trader__column--${rank}`]: rank,
+                                        'manual-trader__column--selected': is_selected,
+                                        'manual-trader__column--current': stat.digit === current_digit,
                                     })}
-                                    title={rank ? localize(RANK_LABELS[rank]) : undefined}
+                                    title={
+                                        rank
+                                            ? `${localize(RANK_LABELS[rank])} · ${stat.count}/${sample_size}`
+                                            : `${stat.count}/${sample_size}`
+                                    }
                                     aria-pressed={is_selected}
                                     onClick={() => onDigitClick(stat.digit)}
                                 >
-                                    <span className='manual-trader__ring'>
-                                        <svg viewBox='0 0 64 64' aria-hidden='true'>
-                                            <circle className='manual-trader__ring-track' cx='32' cy='32' r={RING_RADIUS} />
-                                            <circle
-                                                className='manual-trader__ring-fill'
-                                                cx='32'
-                                                cy='32'
-                                                r={RING_RADIUS}
-                                                strokeDasharray={`${fill} ${RING_LENGTH}`}
-                                            />
-                                        </svg>
-                                        <span className='manual-trader__digit-value'>{stat.digit}</span>
+                                    <span className='manual-trader__column-pct'>{stat.pct.toFixed(1)}</span>
+                                    <span className='manual-trader__column-track'>
+                                        <span
+                                            className='manual-trader__column-bar'
+                                            style={{ height: `${Math.min(100, (stat.pct / chart_max) * 100)}%` }}
+                                        />
                                     </span>
-                                    <span className='manual-trader__digit-pct'>{stat.pct.toFixed(1)}%</span>
+                                    <span className='manual-trader__column-digit'>{stat.digit}</span>
+                                    <span
+                                        className={classNames('manual-trader__column-dev', {
+                                            'is-up': deviation > 0.05,
+                                            'is-down': deviation < -0.05,
+                                        })}
+                                    >
+                                        {deviation > 0 ? '+' : ''}
+                                        {deviation.toFixed(1)}
+                                    </span>
                                 </button>
                             );
                         })}
@@ -313,6 +362,11 @@ const ManualTrader = () => {
                         <li className='manual-trader__legend-item manual-trader__legend-item--current'>
                             {localize('Current')}
                         </li>
+                        {trade_type.uses_prediction && (
+                            <li className='manual-trader__legend-item manual-trader__legend-item--selected'>
+                                {localize('Prediction')}
+                            </li>
+                        )}
                     </ul>
 
                     <div className='manual-trader__recent'>
