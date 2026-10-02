@@ -156,6 +156,7 @@ const ManualTrader = () => {
     const digits = useMemo(() => ticks.map(t => t.digit), [ticks]);
     const stats = useMemo(() => getDigitStats(digits, tick_window), [digits, tick_window]);
     const ranks = useMemo(() => getDigitRanks(stats), [stats]);
+    const sorted_stats = useMemo(() => [...stats].sort((a, b) => a.pct - b.pct || a.digit - b.digit), [stats]);
     const last_tick = ticks.length ? ticks[ticks.length - 1] : null;
     const previous_tick = ticks.length > 1 ? ticks[ticks.length - 2] : null;
     const current_digit = last_tick ? last_tick.digit : null;
@@ -273,7 +274,7 @@ const ManualTrader = () => {
                     {error && <p className='manual-trader__error'>{error}</p>}
 
                     <div className='manual-trader__chart' role='group' aria-label={localize('Digit percentages')}>
-                        {stats.map(stat => {
+                        {sorted_stats.map(stat => {
                             const rank = ranks[stat.digit];
                             const is_selected = trade_type.uses_prediction && stat.digit === prediction;
                             const deviation = sample_size ? stat.pct - 10 : 0;
