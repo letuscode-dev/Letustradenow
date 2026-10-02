@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react';
 import React from 'react';
 import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider } from 'react-router-dom';
-import { cleanupUrl, handleOAuthCallback } from '@/external/deriv-core';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import LocalStorageSyncWrapper from '@/components/localStorage-sync-wrapper';
 import RoutePromptDialog from '@/components/route-prompt-dialog';
+import { cleanupUrl, handleOAuthCallback } from '@/external/deriv-core';
 import { useAccountSwitching } from '@/hooks/useAccountSwitching';
 import { useLanguageFromURL } from '@/hooks/useLanguageFromURL';
 import { StoreProvider } from '@/hooks/useStore';
@@ -17,7 +17,15 @@ import './app-root.scss';
 const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
 
-const TAB_HASHES = new Set(['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots']);
+const TAB_HASHES = new Set([
+    'dashboard',
+    'bot_builder',
+    'chart',
+    'analysis',
+    'tutorial',
+    'free_bots',
+    'manual_trader',
+]);
 
 const redirectInitialTabHashToMainUrl = () => {
     if (isPreviewMode() || typeof window === 'undefined') return;

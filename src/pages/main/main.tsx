@@ -37,7 +37,7 @@ import {
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
 } from '@deriv/quill-icons/LabelPaired';
-import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyGuide1pxIcon, LegacyOpenPositionIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
@@ -50,6 +50,7 @@ const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const Tutorial = lazy(() => import('../tutorials'));
 const Analysis = lazy(() => import('../analysis'));
 const FreeBots = lazy(() => import('../free-bots'));
+const ManualTrader = lazy(() => import('../manual-trader'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -82,7 +83,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots', 'manual_trader'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -492,6 +493,28 @@ const AppWrapper = observer(() => {
                                     fallback={<ChunkLoader message={localize('Please wait, loading free bots...')} />}
                                 >
                                     <FreeBots />
+                                </Suspense>
+                            </div>
+                            <div
+                                label={
+                                    <>
+                                        <LegacyOpenPositionIcon
+                                            height='16px'
+                                            width='16px'
+                                            fill='var(--text-general)'
+                                            className='icon-general-fill-g-path'
+                                        />
+                                        <Localize i18n_default_text='Manual Trader' />
+                                    </>
+                                }
+                                id='id-manual-trader'
+                            >
+                                <Suspense
+                                    fallback={
+                                        <ChunkLoader message={localize('Please wait, loading manual trader...')} />
+                                    }
+                                >
+                                    <ManualTrader />
                                 </Suspense>
                             </div>
                         </Tabs>

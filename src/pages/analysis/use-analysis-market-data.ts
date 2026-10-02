@@ -47,7 +47,7 @@ const getLastDigit = (quote: number | string, pip?: number) => {
     return Number(digits[digits.length - 1] ?? 0);
 };
 
-const parseTick = (raw: any, pip?: number): AnalysisTick => ({
+export const parseTick = (raw: any, pip?: number): AnalysisTick => ({
     digit: getLastDigit(raw.quote, pip),
     epoch: Number(raw.epoch),
     quote: Number(raw.quote),
@@ -73,7 +73,7 @@ const normalizeSymbol = (symbol: RawSymbol): AnalysisSymbol | null => {
 
     return {
         displayName: symbol.display_name || symbolCode,
-        exchangeIsOpen: Boolean(symbol.exchange_is_open) && !Boolean(symbol.is_trading_suspended),
+        exchangeIsOpen: Boolean(symbol.exchange_is_open) && !symbol.is_trading_suspended,
         market: symbol.market || '',
         marketDisplayName: symbol.market_display_name || 'Market',
         pip: symbol.pip ?? symbol.pip_size,
@@ -83,7 +83,7 @@ const normalizeSymbol = (symbol: RawSymbol): AnalysisSymbol | null => {
     };
 };
 
-const waitForChartApi = async () => {
+export const waitForChartApi = async () => {
     if (!chart_api.api) {
         await chart_api.init();
     }
@@ -202,7 +202,11 @@ const subscribeToCandles = async (
     };
 };
 
-const subscribeToTicks = async (symbol: string, pip: number | undefined, onTick: (tick: AnalysisTick) => void) => {
+export const subscribeToTicks = async (
+    symbol: string,
+    pip: number | undefined,
+    onTick: (tick: AnalysisTick) => void
+) => {
     const api = await waitForChartApi();
     let subscriptionId = '';
 
@@ -239,7 +243,7 @@ const subscribeToTicks = async (symbol: string, pip: number | undefined, onTick:
     };
 };
 
-const loadSymbols = async (): Promise<AnalysisSymbol[]> => {
+export const loadSymbols = async (): Promise<AnalysisSymbol[]> => {
     let rawSymbols = api_base.active_symbols;
 
     if (!rawSymbols?.length) {
