@@ -10,8 +10,45 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelector('block[type="purchase"]')).not.toBeNull();
     });
 
-    it('ships the High-Low Tie Differs and Frequency Gap Differs bots', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['high-low-tie-differ-v1', 'frequency-gap-differ-v1']);
+    it('ships the High-Low Tie, Frequency Gap and Rank Drop Differs bots', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual([
+            'high-low-tie-differ-v1',
+            'frequency-gap-differ-v1',
+            'rank-drop-differ-v1',
+        ]);
+    });
+
+    it('Rank Drop Differs: same risk management as High-Low Tie Differs and its own settings', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'rank-drop-differ-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+        expect(field('PURCHASE_LIST')).toBe('DIGITDIFF');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+        expect(setValue('rdd_window')).toEqual(['1000']);
+        expect(setValue('rdd_lookback')).toEqual(['100']);
+        expect(setValue('rdd_min_drop')).toEqual(['3']);
+        expect(setValue('rdd_enabled')).toEqual(['TRUE']);
+        expect(setValue('rdd_confirm')).toEqual(['TRUE']);
+        expect(setValue('rdd_stake')[0]).toBe('0.5');
+        expect(setValue('rdd_martingale')).toEqual(['1']);
+        expect(setValue('rdd_take_profit')).toEqual(['20']);
+        expect(setValue('rdd_stop_loss')).toEqual(['50']);
+
+        const hlt = FREE_BOTS.find(b => b.id === 'high-low-tie-differ-v1')!.xml;
+        const afterPurchase = (xml: string) =>
+            xml.slice(xml.indexOf('<block type="after_purchase"')).replace(/hlt_|rdd_/g, 'x_');
+        expect(afterPurchase(bot!.xml)).toBe(afterPurchase(hlt));
+
+        const scan = doc.querySelector('block[type="rank_drop_differ_scan"]');
+        expect(scan?.querySelector('value[name="ANALYSIS_WINDOW"] field')?.textContent).toBe('Analysis Window');
+        expect(scan?.querySelector('value[name="LOOKBACK"] field')?.textContent).toBe('Lookback Ticks');
+        expect(scan?.querySelector('value[name="MIN_DROP"] field')?.textContent).toBe('Minimum Rank Drop');
+        expect(bot!.xml).not.toContain('frequency_gap_differ_scan');
     });
 
     it('Frequency Gap Differs: same risk management as High-Low Tie Differs and a single Analysis Window', () => {

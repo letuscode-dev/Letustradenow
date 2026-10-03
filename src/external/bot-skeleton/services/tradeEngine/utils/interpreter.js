@@ -348,6 +348,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayFrequencyGapDiffer)
             );
         }
+        if (typeof bot_interface.evaluateRankDropDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateRankDropDiffer',
+                createAsync(js_interpreter, bot_interface.evaluateRankDropDiffer)
+            );
+        }
+        if (typeof bot_interface.replayRankDropDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayRankDropDiffer',
+                createAsync(js_interpreter, bot_interface.replayRankDropDiffer)
+            );
+        }
         if (typeof bot_interface.replayTieDigitDiffer === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

@@ -159,6 +159,14 @@ import {
     resetRangeMomentumState,
 } from '../utils/range-momentum';
 import {
+    createRankDropState,
+    evaluateRankDrop,
+    normalizeRankDropOptions,
+    recordRankDropContract,
+    replayRankDrop,
+    resetRankDropState,
+} from '../utils/rank-drop-differ';
+import {
     applyRecoveryResult,
     calculateRecoveryStake,
     configureRecoveryState,
@@ -439,6 +447,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.frequencyGapState) {
                 resetFrequencyGapState(tradeEngine.frequencyGapState);
                 tradeEngine.frequencyGapState = null;
+            }
+            if (tradeEngine.rankDropState) {
+                resetRankDropState(tradeEngine.rankDropState);
+                tradeEngine.rankDropState = null;
             }
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
@@ -1039,6 +1051,32 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeFrequencyGapOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'frequency_gap');
             return replayFrequencyGap(digit_ticks, opts);
+        },
+        /**
+         * Rank Drop Differs — Differ the digit with the biggest frequency-rank
+         * deterioration between the window Lookback Ticks ago and now.
+         */
+        evaluateRankDropDiffer: async options => {
+            const opts = options || {};
+            if (!tradeEngine.rankDropState) {
+                tradeEngine.rankDropState = createRankDropState();
+            }
+            recordRankDropContract(tradeEngine.rankDropState, tradeEngine.data?.contract);
+            const { analysis_window, lookback_ticks } = normalizeRankDropOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window + lookback_ticks, 'rank_drop');
+            return evaluateRankDrop(digit_ticks, opts, tradeEngine.rankDropState);
+        },
+        /**
+         * Rank Drop Differs replay/backtest (no look-ahead).
+         */
+        replayRankDropDiffer: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayRankDrop(opts.ticks, opts);
+            }
+            const { analysis_window, lookback_ticks } = normalizeRankDropOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window + lookback_ticks, 'rank_drop');
+            return replayRankDrop(digit_ticks, opts);
         },
         /**
          * Ascending Rank Next Digit DIFFER — rank digits by % ascending and

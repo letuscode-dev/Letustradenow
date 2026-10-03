@@ -1,5 +1,6 @@
 import { FREQUENCY_GAP_DIFFER_XML } from './bots/frequency-gap-differ';
 import { HIGH_LOW_TIE_DIFFER_XML } from './bots/high-low-tie-differ';
+import { RANK_DROP_DIFFER_XML } from './bots/rank-drop-differ';
 import type { FreeBot } from './types';
 
 /**
@@ -24,5 +25,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Calculates digit 0–9 frequency % over a single Analysis Window (default 1000, min 50), finds the unique dominant (highest %) and unique weakest (lowest %) digit and Differs the dominant digit when dominant % − weakest % is at least the Minimum Frequency Gap (default 4%, inclusive). Tied dominant, tied weakest or all-equal digits mean no trade — never picks randomly. Optional new-tick confirmation and on/off switch. Journal shows dominant and weakest count and %, the gap, the condition and WHY NO TRADE. Take Profit / Stop Loss with the configurable Martingale.',
         tags: ['Differs', 'Frequency gap', 'Dominant digit', 'Percentages', 'Confirmation'],
         xml: FREQUENCY_GAP_DIFFER_XML,
+    },
+    {
+        id: 'rank-drop-differ-v1',
+        title: 'Rank Drop Differs',
+        description:
+            'Ranks digits 0–9 from highest to lowest frequency over the Analysis Window (default 1000) as it was Lookback Ticks ago (default 100) and as it is now, finds the digit whose rank deteriorated the most (e.g. #1 → #4) and Differs it when the drop is at least the Minimum Rank Drop (default 3). Several digits sharing the biggest drop means no trade — never picks randomly. Optional new-tick confirmation and on/off switch. Journal shows both rankings, the biggest mover and WHY NO TRADE. Take Profit / Stop Loss with the configurable Martingale.',
+        tags: ['Differs', 'Rank drop', 'Biggest mover', 'Frequency ranking', 'Confirmation'],
+        xml: RANK_DROP_DIFFER_XML,
     },
 ];
