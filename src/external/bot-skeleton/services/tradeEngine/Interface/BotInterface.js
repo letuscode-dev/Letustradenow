@@ -207,6 +207,13 @@ import {
     resetStrategyVotingState,
 } from '../utils/strategy-voting-engine';
 import {
+    createHighLowTieState,
+    evaluateHighLowTie,
+    normalizeHighLowTieOptions,
+    replayHighLowTie,
+    resetHighLowTieState,
+} from '../utils/high-low-tie-differ';
+import {
     createTieDigitState,
     evaluateTieDigit,
     normalizeTieDigitOptions,
@@ -415,6 +422,10 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.tieDigitState) {
                 resetTieDigitState(tradeEngine.tieDigitState);
                 tradeEngine.tieDigitState = null;
+            }
+            if (tradeEngine.highLowTieState) {
+                resetHighLowTieState(tradeEngine.highLowTieState);
+                tradeEngine.highLowTieState = null;
             }
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
@@ -963,6 +974,31 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeTieDigitOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'tie_digit');
             return replayTieDigit(digit_ticks, opts);
+        },
+        /**
+         * High-Low Tie Differs — Differ one digit picked from the HIGH or LOW
+         * occurrence tie with deterministic tie-breakers.
+         */
+        evaluateHighLowTieDiffer: async options => {
+            const opts = options || {};
+            if (!tradeEngine.highLowTieState) {
+                tradeEngine.highLowTieState = createHighLowTieState();
+            }
+            const { analysis_window } = normalizeHighLowTieOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'high_low_tie');
+            return evaluateHighLowTie(digit_ticks, opts, tradeEngine.highLowTieState);
+        },
+        /**
+         * High-Low Tie Differs replay/backtest (no look-ahead).
+         */
+        replayHighLowTieDiffer: async options => {
+            const opts = options || {};
+            if (Array.isArray(opts.ticks) && opts.ticks.length) {
+                return replayHighLowTie(opts.ticks, opts);
+            }
+            const { analysis_window } = normalizeHighLowTieOptions(opts);
+            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'high_low_tie');
+            return replayHighLowTie(digit_ticks, opts);
         },
         /**
          * Ascending Rank Next Digit DIFFER — rank digits by % ascending and

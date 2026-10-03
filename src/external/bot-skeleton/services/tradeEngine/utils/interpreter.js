@@ -320,6 +320,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateTieDigitDiffer)
             );
         }
+        if (typeof bot_interface.evaluateHighLowTieDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateHighLowTieDiffer',
+                createAsync(js_interpreter, bot_interface.evaluateHighLowTieDiffer)
+            );
+        }
+        if (typeof bot_interface.replayHighLowTieDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayHighLowTieDiffer',
+                createAsync(js_interpreter, bot_interface.replayHighLowTieDiffer)
+            );
+        }
         if (typeof bot_interface.replayTieDigitDiffer === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

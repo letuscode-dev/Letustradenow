@@ -45,6 +45,7 @@ import './zero_one_rise_over_scan';
 import './digit_rise_differ_scan';
 import './low_high_flip_over_scan';
 import './tie_digit_differ_scan';
+import './high_low_tie_differ_scan';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';
