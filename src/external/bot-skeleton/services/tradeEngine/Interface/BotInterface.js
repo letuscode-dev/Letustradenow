@@ -210,6 +210,7 @@ import {
     createHighLowTieState,
     evaluateHighLowTie,
     normalizeHighLowTieOptions,
+    recordHighLowTieContract,
     replayHighLowTie,
     resetHighLowTieState,
 } from '../utils/high-low-tie-differ';
@@ -984,6 +985,7 @@ const getBotInterface = tradeEngine => {
             if (!tradeEngine.highLowTieState) {
                 tradeEngine.highLowTieState = createHighLowTieState();
             }
+            recordHighLowTieContract(tradeEngine.highLowTieState, tradeEngine.data?.contract);
             const { analysis_window } = normalizeHighLowTieOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'high_low_tie');
             return evaluateHighLowTie(digit_ticks, opts, tradeEngine.highLowTieState);

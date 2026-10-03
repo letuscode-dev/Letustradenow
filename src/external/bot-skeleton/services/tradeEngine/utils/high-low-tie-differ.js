@@ -3,23 +3,33 @@
  *
  * Over the last `analysis_window` ticks (min 100, default 200) compute digit 0–9
  * occurrence %. A HIGH TIE is two or more digits sharing the highest %, a LOW TIE
- * two or more digits sharing the lowest % (within `tie_tolerance` percentage points).
+ * two or more digits sharing the lowest % (within `tie_tolerance` percentage points
+ * of that extreme, inclusive). When every digit has the same % (HIGH and LOW groups
+ * overlap completely) there is no extreme and no trade.
  *
  * One candidate per tie is chosen deterministically — never randomly:
  *   1. higher Recent Window occurrence
  *   2. higher Micro Window occurrence
  *   3. more repetition/clustering (back-to-back repeats inside the Recent Window)
- *   4. appeared most recently
+ *   4. appeared most recently (within the Analysis Window)
  * If candidates are still equal after all four, there is no trade.
  *
- * MODE HIGH / LOW trades that tie only. AUTO trades whichever tie exists; when both
- * exist the candidate with the higher weighted score wins
- * (40% overall relationship, 30% recent, 20% micro, 10% repetition/recency).
+ * MODE HIGH / LOW trades that tie only. AUTO requires every qualifying tie to resolve
+ * (an unresolved tie blocks the trade); when both resolve the candidate with the
+ * higher weighted score wins and equal scores mean no trade:
+ *   score = 40 × clamp01(overall) + 30 × recent% / 100 + 20 × micro% / 100
+ *         + 10 × (0.5 × min(1, repeats / 3) + 0.5 × recency)
+ *   overall  = (pct − 10) / 10 for HIGH, (10 − pct) / 10 for LOW
+ *   recency  = 1 − min(ticks_since_seen, recent_window) / recent_window (0 if unseen)
+ * Scores are compared unrounded (with a float tolerance) and only rounded for display.
  *
  * New tick validation: a setup is armed on one tick and only traded when the next
- * tick recalculates to the same tie type and target; otherwise it is cancelled.
- * After a trade the same setup is not repeated until it changes, and a cooldown
- * of `signal_cooldown_tips` ticks applies.
+ * tick recalculates to the same tie type, tie digits and target; otherwise it is
+ * cancelled. After a trade the same setup is not repeated until it changes, and a
+ * cooldown of `signal_cooldown_tips` ticks applies.
+ *
+ * WIN/LOSS statistics come from the settled purchased contract
+ * (`recordHighLowTieContract`), never from a market tick.
  */
 
 import { MAX_ANALYSIS_WINDOW } from './top-two-digit-gap-differ';
@@ -27,6 +37,7 @@ import { MAX_ANALYSIS_WINDOW } from './top-two-digit-gap-differ';
 export const STATUS = {
     COLLECTING: 'COLLECTING',
     NO_TIE: 'NO_TIE',
+    NO_EXTREME_TIE: 'NO_EXTREME_TIE',
     TIE_UNRESOLVED: 'TIE_UNRESOLVED',
     AUTO_EQUAL: 'AUTO_EQUAL',
     COOLDOWN_ACTIVE: 'COOLDOWN_ACTIVE',
@@ -40,6 +51,9 @@ export const STATUS = {
 export const MODES = ['HIGH', 'LOW', 'AUTO'];
 
 export const MIN_ANALYSIS_WINDOW = 100;
+export const MIN_RECENT_WINDOW = 5;
+export const MIN_MICRO_WINDOW = 3;
+export const MAX_TIE_TOLERANCE = 10;
 
 export const DEFAULT_OPTIONS = {
     analysis_window: 200,
@@ -52,6 +66,7 @@ export const DEFAULT_OPTIONS = {
 };
 
 const EPSILON = 1e-9;
+const SCORE_EPSILON = 1e-6;
 
 const toDigit = value => {
     const digit = Number(value);
@@ -63,16 +78,30 @@ const toBool = (value, default_value = false) => {
     return value === true || value === 1 || value === 'TRUE' || value === 'true' || value === '1';
 };
 
-const toPositiveInt = (value, fallback, min = 1, max = 100000) => {
-    const n = Math.floor(Number(value));
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(max, Math.max(min, n));
-};
+const isProvided = value => value !== undefined && value !== null && value !== '';
 
-const toNumber = (value, fallback, min, max) => {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return fallback;
-    return Math.min(max, Math.max(min, n));
+/**
+ * Clamp a numeric setting and describe any adjustment so the journal can show
+ * "requested X → actual Y (reason)".
+ */
+const clampSetting = ({ label, value, fallback, min, max, integer, max_reason, adjustments }) => {
+    if (!isProvided(value)) return fallback;
+    const requested = Number(value);
+    if (!Number.isFinite(requested)) {
+        adjustments.push({ setting: label, requested: value, actual: fallback, reason: 'not a number, default used' });
+        return fallback;
+    }
+    let actual = integer ? Math.floor(requested) : requested;
+    let reason = integer && actual !== requested ? 'whole ticks only' : '';
+    if (actual < min) {
+        actual = min;
+        reason = `minimum allowed value is ${min}`;
+    } else if (actual > max) {
+        actual = max;
+        reason = max_reason || `maximum allowed value is ${max}`;
+    }
+    if (actual !== requested) adjustments.push({ setting: label, requested, actual, reason });
+    return actual;
 };
 
 export const normalizeMode = value => {
@@ -80,27 +109,80 @@ export const normalizeMode = value => {
     if (text.includes('AUTO')) return 'AUTO';
     if (text.includes('HIGH')) return 'HIGH';
     if (text.includes('LOW')) return 'LOW';
-    return DEFAULT_OPTIONS.mode;
+    return null;
 };
 
 export const normalizeHighLowTieOptions = (options = {}) => {
     const d = DEFAULT_OPTIONS;
-    const analysis_window = toPositiveInt(
-        options.analysis_window,
-        d.analysis_window,
-        MIN_ANALYSIS_WINDOW,
-        MAX_ANALYSIS_WINDOW
-    );
-    const recent_window = toPositiveInt(options.recent_window, d.recent_window, 5, analysis_window);
-    const micro_window = toPositiveInt(options.micro_window, d.micro_window, 3, recent_window);
+    const adjustments = [];
+    const analysis_window = clampSetting({
+        label: 'Analysis Window',
+        value: options.analysis_window,
+        fallback: d.analysis_window,
+        min: MIN_ANALYSIS_WINDOW,
+        max: MAX_ANALYSIS_WINDOW,
+        integer: true,
+        adjustments,
+    });
+    const recent_window = clampSetting({
+        label: 'Recent Window',
+        value: options.recent_window,
+        fallback: Math.min(d.recent_window, analysis_window),
+        min: MIN_RECENT_WINDOW,
+        max: analysis_window,
+        integer: true,
+        max_reason: `cannot exceed the Analysis Window (${analysis_window})`,
+        adjustments,
+    });
+    const micro_window = clampSetting({
+        label: 'Micro Window',
+        value: options.micro_window,
+        fallback: Math.min(d.micro_window, recent_window),
+        min: MIN_MICRO_WINDOW,
+        max: recent_window,
+        integer: true,
+        max_reason: `cannot exceed the Recent Window (${recent_window})`,
+        adjustments,
+    });
+    const tie_tolerance = clampSetting({
+        label: 'Tie Tolerance %',
+        value: options.tie_tolerance,
+        fallback: d.tie_tolerance,
+        min: 0,
+        max: MAX_TIE_TOLERANCE,
+        integer: false,
+        adjustments,
+    });
+    const signal_cooldown_tips = clampSetting({
+        label: 'Cooldown Ticks',
+        value: options.signal_cooldown_tips,
+        fallback: d.signal_cooldown_tips,
+        min: 0,
+        max: 100,
+        integer: true,
+        adjustments,
+    });
+    let mode = normalizeMode(options.mode);
+    if (mode === null) {
+        mode = d.mode;
+        if (isProvided(options.mode)) {
+            adjustments.push({
+                setting: 'Mode',
+                requested: options.mode,
+                actual: mode,
+                reason: 'use HIGH, LOW or AUTO',
+            });
+        }
+    }
     return {
         analysis_window,
         recent_window,
         micro_window,
-        tie_tolerance: toNumber(options.tie_tolerance, d.tie_tolerance, 0, 10),
-        mode: normalizeMode(options.mode),
-        signal_cooldown_tips: toPositiveInt(options.signal_cooldown_tips, d.signal_cooldown_tips, 0, 100),
+        tie_tolerance,
+        mode,
+        signal_cooldown_tips,
         journal_enabled: toBool(options.journal_enabled, d.journal_enabled),
+        adjustments,
     };
 };
 
@@ -112,6 +194,8 @@ export const createHighLowTieState = () => ({
     armed: null,
     last_result: null,
     pending_outcome: null,
+    last_settled_contract_id: null,
+    just_settled: null,
     live: {
         trades: 0,
         wins: 0,
@@ -177,22 +261,26 @@ const describeTicksAgo = n => (Number.isFinite(n) ? `${n} tick${n === 1 ? '' : '
 
 const TIE_BREAKERS = [
     {
-        label: 'Recent window',
+        label: 'Recent Window',
+        metric: 'RECENT',
         compare: (a, b) => b.recent_count - a.recent_count,
         describe: c => `${c.recent_pct.toFixed(1)}%`,
     },
     {
-        label: 'Micro window',
+        label: 'Micro Window',
+        metric: 'MICRO',
         compare: (a, b) => b.micro_count - a.micro_count,
         describe: c => `${c.micro_pct.toFixed(1)}%`,
     },
     {
         label: 'Repetition',
+        metric: 'REPETITION',
         compare: (a, b) => b.repeats - a.repeats,
         describe: c => `${c.repeats} repeat${c.repeats === 1 ? '' : 's'}`,
     },
     {
         label: 'Recency',
+        metric: 'RECENCY',
         compare: (a, b) => {
             if (a.last_seen === b.last_seen) return 0;
             return a.last_seen < b.last_seen ? -1 : 1;
@@ -202,8 +290,10 @@ const TIE_BREAKERS = [
 ];
 
 /**
- * Pick one candidate from a tie using the fixed tie-breaker priority.
- * Returns { selected, reason } or { selected: null, reason } when still equal.
+ * Pick one candidate from a tie using the fixed tie-breaker priority. The first
+ * breaker that separates the top two candidates decides; later breakers are never
+ * consulted. Returns { selected, reason, decider } or { selected: null, ... } when
+ * the top candidates are still equal.
  */
 export const breakTie = candidates => {
     const sorted = [...candidates].sort((a, b) => {
@@ -214,12 +304,13 @@ export const breakTie = candidates => {
         return 0;
     });
     const [first, second] = sorted;
-    if (!second) return { selected: first ?? null, reason: 'single candidate' };
+    if (!second) return { selected: first ?? null, reason: 'single candidate', decider: null };
     const decider = TIE_BREAKERS.find(breaker => breaker.compare(first, second) !== 0);
     if (!decider) {
         return {
             selected: null,
             reason: `${first.digit} and ${second.digit} equal on recent, micro, repetition and recency`,
+            decider: null,
         };
     }
     return {
@@ -227,36 +318,34 @@ export const breakTie = candidates => {
         reason: `${decider.label} ${first.digit}=${decider.describe(first)} vs ${second.digit}=${decider.describe(
             second
         )}`,
+        decider,
     };
 };
 
-/**
- * AUTO MODE score (0–100):
- *   40 × overall relationship (distance from the fair 10% toward the tie side)
- *   30 × Recent Window occurrence
- *   20 × Micro Window occurrence
- *   10 × repetition/recency
- */
-export const scoreCandidate = (candidate, type, options) => {
-    const overall =
-        type === 'HIGH' ? (candidate.pct - 10) / 10 : (10 - candidate.pct) / 10;
+/** Unrounded AUTO score (0–100); see the module comment for the formula. */
+export const rawScoreCandidate = (candidate, type, options) => {
+    const overall = type === 'HIGH' ? (candidate.pct - 10) / 10 : (10 - candidate.pct) / 10;
     const clamp = v => Math.min(1, Math.max(0, v));
     const recency = Number.isFinite(candidate.last_seen)
         ? 1 - Math.min(candidate.last_seen, options.recent_window) / options.recent_window
         : 0;
     const repetition = Math.min(1, candidate.repeats / 3);
-    const score =
+    return (
         40 * clamp(overall) +
         30 * clamp(candidate.recent_pct / 100) +
         20 * clamp(candidate.micro_pct / 100) +
-        10 * (0.5 * repetition + 0.5 * recency);
-    return Math.round(score * 100) / 100;
+        10 * (0.5 * repetition + 0.5 * recency)
+    );
 };
+
+/** AUTO score rounded to 2 decimals for display. */
+export const scoreCandidate = (candidate, type, options) =>
+    Math.round(rawScoreCandidate(candidate, type, options) * 100) / 100;
 
 const buildGroup = (type, digits_in_tie, features) => {
     if (digits_in_tie.length < 2) return { type, exists: false, digits: digits_in_tie };
     const candidates = digits_in_tie.map(d => features[d]);
-    const { selected, reason } = breakTie(candidates);
+    const { selected, reason, decider } = breakTie(candidates);
     const pcts = candidates.map(c => c.pct);
     return {
         type,
@@ -266,6 +355,104 @@ const buildGroup = (type, digits_in_tie, features) => {
         pct_max: Math.max(...pcts),
         selected: selected ? selected.digit : null,
         reason,
+        decider: decider ? decider.label : null,
+        decider_detail: decider
+            ? `${decider.metric}: ${candidates.map(c => `${c.digit} = ${decider.describe(c)}`).join(', ')}`
+            : null,
+    };
+};
+
+/**
+ * Decide the trade target from the HIGH / LOW groups (pure, no tick data).
+ * Every qualifying tie in scope must resolve; an unresolved tie blocks the trade.
+ */
+export const selectHighLowTarget = ({ high, low, features, options }) => {
+    const none = (status, rejection, auto = null) => ({
+        target: null,
+        target_type: null,
+        target_reason: '',
+        status,
+        rejection,
+        auto,
+    });
+
+    const all_digits_tied = high.exists && low.exists && high.digits.length === 10;
+    const same_groups =
+        high.exists && low.exists && high.digits.length === low.digits.length && high.digits.every(d => low.digits.includes(d));
+    if (all_digits_tied || same_groups) {
+        return none(
+            STATUS.NO_EXTREME_TIE,
+            `HIGH and LOW groups overlap completely (${high.digits.join(', ')}) — no distinct extreme.`
+        );
+    }
+
+    const groups = options.mode === 'HIGH' ? [high] : options.mode === 'LOW' ? [low] : [high, low];
+    const existing = groups.filter(g => g.exists);
+    if (!existing.length) {
+        return none(
+            STATUS.NO_TIE,
+            options.mode === 'AUTO'
+                ? 'No HIGH tie and no LOW tie in the analysis window.'
+                : `No ${options.mode} tie in the analysis window.`
+        );
+    }
+
+    const unresolved = existing.filter(g => g.selected === null);
+    if (unresolved.length) {
+        return none(
+            STATUS.TIE_UNRESOLVED,
+            `${unresolved.map(g => `${g.type} tie ${g.digits.join(', ')}: ${g.reason}`).join('; ')} — tie-breakers cannot pick one target.`
+        );
+    }
+
+    if (existing.length === 1) {
+        const [only] = existing;
+        return {
+            target: only.selected,
+            target_type: only.type,
+            target_reason: only.reason,
+            status: STATUS.VALID_SIGNAL,
+            rejection: '',
+            auto: null,
+        };
+    }
+
+    const high_raw = rawScoreCandidate(features[high.selected], 'HIGH', options);
+    const low_raw = rawScoreCandidate(features[low.selected], 'LOW', options);
+    const auto = {
+        high_digit: high.selected,
+        low_digit: low.selected,
+        high_score: Math.round(high_raw * 100) / 100,
+        low_score: Math.round(low_raw * 100) / 100,
+        target: null,
+    };
+    if (high.selected === low.selected) {
+        auto.target = high.selected;
+        return {
+            target: high.selected,
+            target_type: 'HIGH',
+            target_reason: high.reason,
+            status: STATUS.VALID_SIGNAL,
+            rejection: '',
+            auto,
+        };
+    }
+    if (Math.abs(high_raw - low_raw) < SCORE_EPSILON) {
+        return none(
+            STATUS.AUTO_EQUAL,
+            `AUTO scores equal (HIGH ${high.selected}=${auto.high_score} vs LOW ${low.selected}=${auto.low_score}).`,
+            auto
+        );
+    }
+    const pick = high_raw > low_raw ? high : low;
+    auto.target = pick.selected;
+    return {
+        target: pick.selected,
+        target_type: pick.type,
+        target_reason: pick.reason,
+        status: STATUS.VALID_SIGNAL,
+        rejection: '',
+        auto,
     };
 };
 
@@ -300,49 +487,8 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
 
     const high = buildGroup('HIGH', high_digits, features);
     const low = buildGroup('LOW', low_digits, features);
-
-    let target = null;
-    let target_type = null;
-    let target_reason = '';
-    let status = STATUS.VALID_SIGNAL;
-    let rejection = '';
-    let auto = null;
-
-    const usable = group => group.exists && group.selected !== null;
-    const groups = options.mode === 'HIGH' ? [high] : options.mode === 'LOW' ? [low] : [high, low];
-    const existing = groups.filter(g => g.exists);
-    const resolved = groups.filter(usable);
-
-    if (!existing.length) {
-        status = STATUS.NO_TIE;
-        rejection =
-            options.mode === 'AUTO'
-                ? 'No HIGH tie and no LOW tie in the analysis window.'
-                : `No ${options.mode} tie in the analysis window.`;
-    } else if (!resolved.length) {
-        status = STATUS.TIE_UNRESOLVED;
-        rejection = `Tie-breakers cannot pick a clear candidate (${existing.map(g => g.reason).join('; ')}).`;
-    } else if (resolved.length === 1) {
-        [{ selected: target, type: target_type, reason: target_reason }] = resolved;
-    } else {
-        const high_score = scoreCandidate(features[high.selected], 'HIGH', options);
-        const low_score = scoreCandidate(features[low.selected], 'LOW', options);
-        auto = { high_digit: high.selected, low_digit: low.selected, high_score, low_score };
-        if (high.selected === low.selected) {
-            target = high.selected;
-            target_type = 'HIGH';
-            target_reason = high.reason;
-        } else if (Math.abs(high_score - low_score) < EPSILON) {
-            status = STATUS.AUTO_EQUAL;
-            rejection = `AUTO scores equal (HIGH ${high.selected}=${high_score} vs LOW ${low.selected}=${low_score}).`;
-        } else {
-            const pick = high_score > low_score ? high : low;
-            target = pick.selected;
-            target_type = pick.type;
-            target_reason = pick.reason;
-        }
-        if (auto) auto.target = target;
-    }
+    const decision = selectHighLowTarget({ high, low, features, options });
+    const source = decision.target_type === 'HIGH' ? high : decision.target_type === 'LOW' ? low : null;
 
     return {
         options,
@@ -352,22 +498,48 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
         features,
         high,
         low,
-        auto,
-        target,
-        target_type,
-        target_reason,
-        setup_key: target !== null ? `${target_type}:${(target_type === 'HIGH' ? high : low).digits.join('')}:${target}` : null,
-        status: target !== null ? STATUS.VALID_SIGNAL : status,
-        rejection,
+        ...decision,
+        setup_key: source ? `${decision.target_type}:${source.digits.join('')}:${decision.target}` : null,
     };
 };
 
-export const recordHighLowTieOutcome = (state, actual_digit) => {
-    if (!state?.pending_outcome) return null;
-    const digit = toDigit(actual_digit);
-    if (digit === null) return null;
-    const pending = state.pending_outcome;
-    const won = digit !== pending.target;
+const contractId = contract => contract?.contract_id ?? contract?.transaction_ids?.buy ?? null;
+
+const isContractSettled = contract =>
+    Boolean(
+        contract &&
+            contract.status !== 'open' &&
+            (contract.is_sold || contract.status === 'won' || contract.status === 'lost' || contract.sell_price != null)
+    );
+
+const lastDigitOf = value => {
+    if (!isProvided(value)) return null;
+    const text = String(value).replace(/[^0-9]/g, '');
+    return text.length ? Number(text[text.length - 1]) : null;
+};
+
+/**
+ * Record the WIN/LOSS of the purchased contract for the pending signal.
+ * Only a settled contract bought for this signal (same target barrier, bought at or
+ * after the signal tick, not already recorded) is accepted.
+ */
+export const recordHighLowTieContract = (state, contract) => {
+    const pending = state?.pending_outcome;
+    if (!pending || !isContractSettled(contract)) return null;
+    const id = contractId(contract);
+    if (id === null || id === state.last_settled_contract_id) return null;
+    const purchase_time = Number(contract.purchase_time ?? contract.date_start);
+    if (pending.epoch !== null && Number.isFinite(purchase_time) && purchase_time < pending.epoch) return null;
+    const barrier = toDigit(contract.barrier);
+    if (barrier !== null && barrier !== pending.target) return null;
+
+    const profit = Number(contract.profit);
+    const won =
+        contract.status === 'won' || contract.status === 'lost'
+            ? contract.status === 'won'
+            : Number.isFinite(profit) && profit > 0;
+    const exit_digit = lastDigitOf(contract.exit_tick_display_value ?? contract.exit_tick);
+
     const live = state.live;
     live.trades += 1;
     if (won) {
@@ -377,11 +549,19 @@ export const recordHighLowTieOutcome = (state, actual_digit) => {
         live.losses += 1;
         live.streak = live.streak < 0 ? live.streak - 1 : -1;
     }
-    live.last_outcome = { target: pending.target, actual: digit, result: won ? 'WIN' : 'LOSS' };
+    live.last_outcome = {
+        target: pending.target,
+        actual: exit_digit,
+        result: won ? 'WIN' : 'LOSS',
+        contract_id: id,
+        profit: Number.isFinite(profit) ? profit : null,
+    };
     live.history.push({ ...live.last_outcome, type: pending.type });
     if (live.history.length > 200) live.history = live.history.slice(-200);
+    state.last_settled_contract_id = id;
     state.pending_outcome = null;
-    return { won, actual: digit, target: pending.target };
+    state.just_settled = live.last_outcome;
+    return live.last_outcome;
 };
 
 const formatPct = value => `${value.toFixed(2)}%`;
@@ -392,27 +572,58 @@ const formatStreak = streak => {
     return '0';
 };
 
+const formatTiePct = group =>
+    Math.abs(group.pct_max - group.pct_min) < EPSILON
+        ? formatPct(group.pct_max)
+        : `${formatPct(group.pct_min)}–${formatPct(group.pct_max)}`;
+
 const describeGroup = (label, group) => {
     if (!group.exists) return `${label}: none`;
-    const pct =
-        Math.abs(group.pct_max - group.pct_min) < EPSILON
-            ? formatPct(group.pct_max)
-            : `${formatPct(group.pct_min)}–${formatPct(group.pct_max)}`;
     const selected = group.selected === null ? 'no clear candidate' : `selected ${group.selected}`;
-    return `${label}: digits ${group.digits.join(', ')} @ ${pct} → ${selected} (${group.reason})`;
+    return `${label}: digits ${group.digits.join(', ')} @ ${formatTiePct(group)} → ${selected} (${group.reason})`;
+};
+
+const describeSettlement = settled => {
+    const parts = [`RESULT: ${settled.result} — DIFFERS ${settled.target}`, `contract ${settled.contract_id}`];
+    if (settled.actual !== null) parts.push(`exit digit ${settled.actual}`);
+    if (settled.profit !== null) parts.push(`profit ${settled.profit >= 0 ? '+' : ''}${settled.profit.toFixed(2)}`);
+    return parts.join(' | ');
+};
+
+const tradeDetailLines = analysis => {
+    const source = analysis.target_type === 'HIGH' ? analysis.high : analysis.low;
+    const lines = [
+        `SOURCE: ${analysis.target_type} TIE`,
+        `TIE CANDIDATES: ${source.digits.join(', ')}`,
+        `TIE PERCENTAGE: ${formatTiePct(source)}`,
+        `TIE-BREAK: ${source.decider || source.reason}`,
+    ];
+    if (source.decider_detail) lines.push(source.decider_detail);
+    if (analysis.auto) {
+        lines.push(`HIGH CANDIDATE: ${analysis.auto.high_digit}`);
+        lines.push(`HIGH SCORE: ${analysis.auto.high_score.toFixed(2)}`);
+        lines.push(`LOW CANDIDATE: ${analysis.auto.low_digit}`);
+        lines.push(`LOW SCORE: ${analysis.auto.low_score.toFixed(2)}`);
+    }
+    return lines;
 };
 
 const buildJournal = ({ options, analysis, status, rejection, target, settled, state, cooldown_left }) => {
-    const messages = [
-        { className: 'journal__text', message: `══ HIGH-LOW TIE DIFFERS (${options.mode}) ══` },
-    ];
+    const messages = [{ className: 'journal__text', message: `══ HIGH-LOW TIE DIFFERS (${options.mode}) ══` }];
 
     if (settled) {
         messages.push({
-            className: settled.won ? 'journal__text--success' : 'journal__text--error',
-            message: `RESULT: ${settled.won ? 'WIN' : 'LOSS'} — DIFFERS ${settled.target}, landed ${settled.actual}`,
+            className: settled.result === 'WIN' ? 'journal__text--success' : 'journal__text--error',
+            message: describeSettlement(settled),
         });
     }
+
+    options.adjustments.forEach(adj => {
+        messages.push({
+            className: 'journal__text--warn',
+            message: `SETTING ADJUSTED: ${adj.setting} requested ${adj.requested} → actual ${adj.actual} (${adj.reason})`,
+        });
+    });
 
     messages.push({
         className: 'journal__text',
@@ -423,34 +634,35 @@ const buildJournal = ({ options, analysis, status, rejection, target, settled, s
 
     if (analysis && status !== STATUS.COLLECTING) {
         const row = digits =>
-            digits
-                .map(d => `${d} | ${analysis.counts[d]} | ${analysis.percentages[d].toFixed(1)}%`)
-                .join('   ');
+            digits.map(d => `${d} | ${analysis.counts[d]} | ${analysis.percentages[d].toFixed(1)}%`).join('   ');
         messages.push({ className: 'journal__text', message: `Digit | Count | %: ${row([0, 1, 2, 3, 4])}` });
         messages.push({ className: 'journal__text', message: `Digit | Count | %: ${row([5, 6, 7, 8, 9])}` });
-        if (options.mode !== 'LOW') messages.push({ className: 'journal__text', message: describeGroup('HIGH TIE', analysis.high) });
-        if (options.mode !== 'HIGH') messages.push({ className: 'journal__text', message: describeGroup('LOW TIE', analysis.low) });
+        if (options.mode !== 'LOW')
+            messages.push({ className: 'journal__text', message: describeGroup('HIGH TIE', analysis.high) });
+        if (options.mode !== 'HIGH')
+            messages.push({ className: 'journal__text', message: describeGroup('LOW TIE', analysis.low) });
         if (analysis.auto) {
             const { high_digit, low_digit, high_score, low_score } = analysis.auto;
             messages.push({
                 className: 'journal__text',
-                message: `AUTO: High-Tie ${high_digit} score ${high_score} vs Low-Tie ${low_digit} score ${low_score} → ${
-                    analysis.target === null ? 'no target' : `target ${analysis.target}`
-                }`,
+                message: `AUTO: High-Tie ${high_digit} score ${high_score.toFixed(2)} vs Low-Tie ${low_digit} score ${low_score.toFixed(
+                    2
+                )} → ${analysis.target === null ? 'no target' : `target ${analysis.target}`}`,
             });
         }
     }
 
     if (status === STATUS.VALID_SIGNAL) {
         messages.push({ className: 'journal__text--success', message: `TRADE: DIFFERS ${target}` });
+        tradeDetailLines(analysis).forEach(message => messages.push({ className: 'journal__text', message }));
     } else {
         messages.push({ className: 'journal__text', message: `WHY NO TRADE? ${status} — ${rejection}` });
     }
 
-    const { trades, wins, losses, streak } = state.live;
+    const { trades, wins, losses, streak, last_outcome } = state.live;
     messages.push({
         className: 'journal__text',
-        message: `Trades: ${trades} | Wins: ${wins} | Losses: ${losses} | Win rate: ${
+        message: `Last Result: ${last_outcome ? last_outcome.result : '—'} | Trades: ${trades} | Wins: ${wins} | Losses: ${losses} | Win rate: ${
             trades ? ((wins / trades) * 100).toFixed(1) : '0.0'
         }% | Streak: ${formatStreak(streak)} | Cooldown: ${cooldown_left}/${options.signal_cooldown_tips}`,
     });
@@ -493,15 +705,8 @@ export const evaluateHighLowTie = (raw_ticks, raw_options = {}, state = createHi
     }
 
     const tip = window_ticks[window_ticks.length - 1];
-    let settled = null;
-    if (state.last_tip_fp !== null && state.pending_outcome) {
-        const { epoch: signal_epoch } = state.pending_outcome;
-        const settle_tick =
-            signal_epoch !== null && tip.epoch !== null
-                ? all_ticks.find(t => t.epoch !== null && t.epoch > signal_epoch)
-                : tip;
-        if (settle_tick) settled = recordHighLowTieOutcome(state, settle_tick.digit);
-    }
+    const settled = state.just_settled;
+    state.just_settled = null;
     state.last_tip_fp = fp;
     state.tip_index += 1;
 
@@ -546,7 +751,7 @@ export const evaluateHighLowTie = (raw_ticks, raw_options = {}, state = createHi
             status = STATUS.VALID_SIGNAL;
             state.last_signal_tip = state.tip_index;
             state.last_traded_key = analysis.setup_key;
-            state.pending_outcome = { target, type: analysis.target_type, epoch: tip.epoch };
+            state.pending_outcome = { target, type: analysis.target_type, epoch: tip.epoch, tip: state.tip_index };
         } else {
             state.armed = { key: analysis.setup_key, target: analysis.target, type: analysis.target_type };
             status = armed ? STATUS.SETUP_CANCELLED : STATUS.AWAITING_CONFIRMATION;
@@ -577,6 +782,7 @@ export const evaluateHighLowTie = (raw_ticks, raw_options = {}, state = createHi
         rejection,
         why_no_trade: prediction >= 0 ? '' : rejection || status,
         cooldown_left,
+        settled,
         live: {
             ...state.live,
             win_rate: trades > 0 ? (wins / trades) * 100 : 0,
@@ -588,6 +794,10 @@ export const evaluateHighLowTie = (raw_ticks, raw_options = {}, state = createHi
     return result;
 };
 
+/**
+ * Backtest without look-ahead. There is no purchased contract in a replay, so each
+ * signal is settled with a simulated 1-tick contract on the following tick.
+ */
 export const replayHighLowTie = (raw_ticks, raw_options = {}) => {
     const options = normalizeHighLowTieOptions({ ...raw_options, journal_enabled: false });
     const state = createHighLowTieState();
@@ -595,6 +805,15 @@ export const replayHighLowTie = (raw_ticks, raw_options = {}) => {
     const signals = [];
 
     for (let i = 0; i < digits.length; i++) {
+        const pending = state.pending_outcome;
+        if (pending) {
+            recordHighLowTieContract(state, {
+                contract_id: `replay-${i}`,
+                status: digits[i] !== pending.target ? 'won' : 'lost',
+                barrier: pending.target,
+                exit_tick: digits[i],
+            });
+        }
         const result = evaluateHighLowTie(digits.slice(0, i + 1), options, state);
         if (result.matched) signals.push({ tip: i, target: result.target, type: result.target_type });
     }

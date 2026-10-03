@@ -70,7 +70,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.high_low_tie_differ_scan 
         var BinaryBotPrivateMsgs = BinaryBotPrivateHltResult && BinaryBotPrivateHltResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
             var BinaryBotPrivateMsgIndex;
-            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 16 ? 16 : BinaryBotPrivateMsgs.length;
+            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 30 ? 30 : BinaryBotPrivateMsgs.length;
             for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgLimit; BinaryBotPrivateMsgIndex++) {
                 var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({
