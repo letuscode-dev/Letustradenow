@@ -7,20 +7,23 @@
  * of that extreme, inclusive). When every digit has the same % (HIGH and LOW groups
  * overlap completely) there is no extreme and no trade.
  *
+ * The Analysis Window is the ONLY tick window: counts, percentages, ties,
+ * tie-breakers and AUTO scores all come from it.
+ *
  * One candidate per tie is chosen deterministically — never randomly:
- *   1. higher Recent Window occurrence
- *   2. higher Micro Window occurrence
- *   3. more repetition/clustering (back-to-back repeats inside the Recent Window)
- *   4. appeared most recently (within the Analysis Window)
- * If candidates are still equal after all four, there is no trade.
+ *   1. occurrence count (only differs inside a tolerance tie): HIGH keeps the
+ *      higher count, LOW keeps the lower count — the digit at the true extreme
+ *   2. more repetition/clustering (back-to-back repeats inside the Analysis Window)
+ *   3. appeared most recently (inside the Analysis Window)
+ * If candidates are still equal after all three, there is no trade.
  *
  * MODE HIGH / LOW trades that tie only. AUTO requires every qualifying tie to resolve
  * (an unresolved tie blocks the trade); when both resolve the candidate with the
  * higher weighted score wins and equal scores mean no trade:
- *   score = 40 × clamp01(overall) + 30 × recent% / 100 + 20 × micro% / 100
- *         + 10 × (0.5 × min(1, repeats / 3) + 0.5 × recency)
- *   overall  = (pct − 10) / 10 for HIGH, (10 − pct) / 10 for LOW
- *   recency  = 1 − min(ticks_since_seen, recent_window) / recent_window (0 if unseen)
+ *   score = 80 × clamp01(overall) + 10 × repetition + 10 × recency
+ *   overall    = (pct − 10) / 10 for HIGH, (10 − pct) / 10 for LOW
+ *   repetition = repeats / (count − 1)   (share of occurrences that repeat back-to-back, 0 if count ≤ 1)
+ *   recency    = 1 − ticks_since_seen / window_size   (0 if unseen)
  * Scores are compared unrounded (with a float tolerance) and only rounded for display.
  *
  * New tick validation: a setup is armed on one tick and only traded when the next
@@ -51,14 +54,10 @@ export const STATUS = {
 export const MODES = ['HIGH', 'LOW', 'AUTO'];
 
 export const MIN_ANALYSIS_WINDOW = 100;
-export const MIN_RECENT_WINDOW = 5;
-export const MIN_MICRO_WINDOW = 3;
 export const MAX_TIE_TOLERANCE = 10;
 
 export const DEFAULT_OPTIONS = {
     analysis_window: 200,
-    recent_window: 20,
-    micro_window: 10,
     tie_tolerance: 0,
     mode: 'AUTO',
     signal_cooldown_tips: 1,
@@ -124,26 +123,6 @@ export const normalizeHighLowTieOptions = (options = {}) => {
         integer: true,
         adjustments,
     });
-    const recent_window = clampSetting({
-        label: 'Recent Window',
-        value: options.recent_window,
-        fallback: Math.min(d.recent_window, analysis_window),
-        min: MIN_RECENT_WINDOW,
-        max: analysis_window,
-        integer: true,
-        max_reason: `cannot exceed the Analysis Window (${analysis_window})`,
-        adjustments,
-    });
-    const micro_window = clampSetting({
-        label: 'Micro Window',
-        value: options.micro_window,
-        fallback: Math.min(d.micro_window, recent_window),
-        min: MIN_MICRO_WINDOW,
-        max: recent_window,
-        integer: true,
-        max_reason: `cannot exceed the Recent Window (${recent_window})`,
-        adjustments,
-    });
     const tie_tolerance = clampSetting({
         label: 'Tie Tolerance %',
         value: options.tie_tolerance,
@@ -176,8 +155,6 @@ export const normalizeHighLowTieOptions = (options = {}) => {
     }
     return {
         analysis_window,
-        recent_window,
-        micro_window,
         tie_tolerance,
         mode,
         signal_cooldown_tips,
@@ -259,18 +236,13 @@ export const ticksSinceSeen = (digits, digit) => {
 
 const describeTicksAgo = n => (Number.isFinite(n) ? `${n} tick${n === 1 ? '' : 's'} ago` : 'not seen');
 
-const TIE_BREAKERS = [
+/** Tie-breakers in priority order; `type` decides the count direction. */
+const tieBreakers = type => [
     {
-        label: 'Recent Window',
-        metric: 'RECENT',
-        compare: (a, b) => b.recent_count - a.recent_count,
-        describe: c => `${c.recent_pct.toFixed(1)}%`,
-    },
-    {
-        label: 'Micro Window',
-        metric: 'MICRO',
-        compare: (a, b) => b.micro_count - a.micro_count,
-        describe: c => `${c.micro_pct.toFixed(1)}%`,
+        label: 'Occurrence Count',
+        metric: 'COUNT',
+        compare: (a, b) => (type === 'LOW' ? a.count - b.count : b.count - a.count),
+        describe: c => `${c.count} (${c.pct.toFixed(2)}%)`,
     },
     {
         label: 'Repetition',
@@ -295,9 +267,10 @@ const TIE_BREAKERS = [
  * consulted. Returns { selected, reason, decider } or { selected: null, ... } when
  * the top candidates are still equal.
  */
-export const breakTie = candidates => {
+export const breakTie = (candidates, type = 'HIGH') => {
+    const breakers = tieBreakers(type);
     const sorted = [...candidates].sort((a, b) => {
-        for (const breaker of TIE_BREAKERS) {
+        for (const breaker of breakers) {
             const diff = breaker.compare(a, b);
             if (diff !== 0) return diff;
         }
@@ -305,11 +278,11 @@ export const breakTie = candidates => {
     });
     const [first, second] = sorted;
     if (!second) return { selected: first ?? null, reason: 'single candidate', decider: null };
-    const decider = TIE_BREAKERS.find(breaker => breaker.compare(first, second) !== 0);
+    const decider = breakers.find(breaker => breaker.compare(first, second) !== 0);
     if (!decider) {
         return {
             selected: null,
-            reason: `${first.digit} and ${second.digit} equal on recent, micro, repetition and recency`,
+            reason: `${first.digit} and ${second.digit} equal on count, repetition and recency`,
             decider: null,
         };
     }
@@ -323,29 +296,23 @@ export const breakTie = candidates => {
 };
 
 /** Unrounded AUTO score (0–100); see the module comment for the formula. */
-export const rawScoreCandidate = (candidate, type, options) => {
-    const overall = type === 'HIGH' ? (candidate.pct - 10) / 10 : (10 - candidate.pct) / 10;
+export const rawScoreCandidate = (candidate, type, window_size) => {
     const clamp = v => Math.min(1, Math.max(0, v));
-    const recency = Number.isFinite(candidate.last_seen)
-        ? 1 - Math.min(candidate.last_seen, options.recent_window) / options.recent_window
-        : 0;
-    const repetition = Math.min(1, candidate.repeats / 3);
-    return (
-        40 * clamp(overall) +
-        30 * clamp(candidate.recent_pct / 100) +
-        20 * clamp(candidate.micro_pct / 100) +
-        10 * (0.5 * repetition + 0.5 * recency)
-    );
+    const overall = type === 'HIGH' ? (candidate.pct - 10) / 10 : (10 - candidate.pct) / 10;
+    const repetition = candidate.count > 1 ? candidate.repeats / (candidate.count - 1) : 0;
+    const recency =
+        Number.isFinite(candidate.last_seen) && window_size > 0 ? 1 - candidate.last_seen / window_size : 0;
+    return 80 * clamp(overall) + 10 * clamp(repetition) + 10 * clamp(recency);
 };
 
 /** AUTO score rounded to 2 decimals for display. */
-export const scoreCandidate = (candidate, type, options) =>
-    Math.round(rawScoreCandidate(candidate, type, options) * 100) / 100;
+export const scoreCandidate = (candidate, type, window_size) =>
+    Math.round(rawScoreCandidate(candidate, type, window_size) * 100) / 100;
 
 const buildGroup = (type, digits_in_tie, features) => {
     if (digits_in_tie.length < 2) return { type, exists: false, digits: digits_in_tie };
     const candidates = digits_in_tie.map(d => features[d]);
-    const { selected, reason, decider } = breakTie(candidates);
+    const { selected, reason, decider } = breakTie(candidates, type);
     const pcts = candidates.map(c => c.pct);
     return {
         type,
@@ -366,7 +333,7 @@ const buildGroup = (type, digits_in_tie, features) => {
  * Decide the trade target from the HIGH / LOW groups (pure, no tick data).
  * Every qualifying tie in scope must resolve; an unresolved tie blocks the trade.
  */
-export const selectHighLowTarget = ({ high, low, features, options }) => {
+export const selectHighLowTarget = ({ high, low, features, options, window_size }) => {
     const none = (status, rejection, auto = null) => ({
         target: null,
         target_type: null,
@@ -417,8 +384,8 @@ export const selectHighLowTarget = ({ high, low, features, options }) => {
         };
     }
 
-    const high_raw = rawScoreCandidate(features[high.selected], 'HIGH', options);
-    const low_raw = rawScoreCandidate(features[low.selected], 'LOW', options);
+    const high_raw = rawScoreCandidate(features[high.selected], 'HIGH', window_size);
+    const low_raw = rawScoreCandidate(features[low.selected], 'LOW', window_size);
     const auto = {
         high_digit: high.selected,
         low_digit: low.selected,
@@ -460,22 +427,14 @@ export const selectHighLowTarget = ({ high, low, features, options }) => {
 export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
     const options = normalizeHighLowTieOptions(raw_options);
     const window = digits_all.slice(-options.analysis_window);
-    const recent = window.slice(-options.recent_window);
-    const micro = window.slice(-options.micro_window);
     const counts = countDigits(window);
-    const recent_counts = countDigits(recent);
-    const micro_counts = countDigits(micro);
     const total = window.length;
 
     const features = counts.map((count, digit) => ({
         digit,
         count,
         pct: pctOf(count, total),
-        recent_count: recent_counts[digit],
-        recent_pct: pctOf(recent_counts[digit], recent.length),
-        micro_count: micro_counts[digit],
-        micro_pct: pctOf(micro_counts[digit], micro.length),
-        repeats: countRepeats(recent, digit),
+        repeats: countRepeats(window, digit),
         last_seen: ticksSinceSeen(window, digit),
     }));
 
@@ -487,7 +446,7 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
 
     const high = buildGroup('HIGH', high_digits, features);
     const low = buildGroup('LOW', low_digits, features);
-    const decision = selectHighLowTarget({ high, low, features, options });
+    const decision = selectHighLowTarget({ high, low, features, options, window_size: total });
     const source = decision.target_type === 'HIGH' ? high : decision.target_type === 'LOW' ? low : null;
 
     return {
@@ -578,9 +537,15 @@ const formatTiePct = group =>
         : `${formatPct(group.pct_min)}–${formatPct(group.pct_max)}`;
 
 const describeGroup = (label, group) => {
-    if (!group.exists) return `${label}: none`;
-    const selected = group.selected === null ? 'no clear candidate' : `selected ${group.selected}`;
-    return `${label}: digits ${group.digits.join(', ')} @ ${formatTiePct(group)} → ${selected} (${group.reason})`;
+    if (!group.exists) return [`${label} TIE: none`];
+    const tie_break = group.decider
+        ? `${group.decider} (${group.decider_detail})`
+        : `unresolved — ${group.reason}`;
+    return [
+        `${label} TIE: ${group.digits.join(', ')} @ ${formatTiePct(group)}`,
+        `${label} TIE-BREAK: ${tie_break}`,
+        `${label} SELECTED: ${group.selected === null ? 'none (no clear candidate)' : group.selected}`,
+    ];
 };
 
 const describeSettlement = settled => {
@@ -625,22 +590,27 @@ const buildJournal = ({ options, analysis, status, rejection, target, settled, s
         });
     });
 
+    const loaded = analysis ? analysis.total : 0;
     messages.push({
         className: 'journal__text',
-        message: `Analysis Window: ${analysis ? analysis.total : 0}/${options.analysis_window} | Recent Window: ${
-            options.recent_window
-        } | Micro Window: ${options.micro_window} | Tie Tolerance: ${options.tie_tolerance}%`,
+        message: `ANALYSIS WINDOW: ${options.analysis_window} TICKS${
+            loaded < options.analysis_window ? ` (loaded ${loaded})` : ''
+        } | TIE TOLERANCE: ${options.tie_tolerance}%`,
     });
 
     if (analysis && status !== STATUS.COLLECTING) {
-        const row = digits =>
-            digits.map(d => `${d} | ${analysis.counts[d]} | ${analysis.percentages[d].toFixed(1)}%`).join('   ');
-        messages.push({ className: 'journal__text', message: `Digit | Count | %: ${row([0, 1, 2, 3, 4])}` });
-        messages.push({ className: 'journal__text', message: `Digit | Count | %: ${row([5, 6, 7, 8, 9])}` });
-        if (options.mode !== 'LOW')
-            messages.push({ className: 'journal__text', message: describeGroup('HIGH TIE', analysis.high) });
-        if (options.mode !== 'HIGH')
-            messages.push({ className: 'journal__text', message: describeGroup('LOW TIE', analysis.low) });
+        messages.push({ className: 'journal__text', message: 'DIGIT | COUNT | %' });
+        analysis.counts.forEach((count, digit) => {
+            messages.push({
+                className: 'journal__text',
+                message: `${digit} | ${count} | ${analysis.percentages[digit].toFixed(1)}%`,
+            });
+        });
+        const groupLines = [
+            ...(options.mode !== 'LOW' ? describeGroup('HIGH', analysis.high) : []),
+            ...(options.mode !== 'HIGH' ? describeGroup('LOW', analysis.low) : []),
+        ];
+        groupLines.forEach(message => messages.push({ className: 'journal__text', message }));
         if (analysis.auto) {
             const { high_digit, low_digit, high_score, low_score } = analysis.auto;
             messages.push({

@@ -14,7 +14,7 @@ describe('free bot catalog XML', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual(['high-low-tie-differ-v1']);
     });
 
-    it('High-Low Tie Differs: Differs risk management without martingale and configurable windows', () => {
+    it('High-Low Tie Differs: Differs risk management and a single configurable Analysis Window', () => {
         const bot = FREE_BOTS.find(b => b.id === 'high-low-tie-differ-v1');
         const doc = parse(bot!.xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
@@ -26,8 +26,6 @@ describe('free bot catalog XML', () => {
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
         expect(setValue('hlt_window')).toEqual(['200']);
-        expect(setValue('hlt_recent')).toEqual(['20']);
-        expect(setValue('hlt_micro')).toEqual(['10']);
         expect(setValue('hlt_tolerance')).toEqual(['0']);
         expect(setValue('hlt_mode')).toEqual(['AUTO']);
         expect(setValue('hlt_cooldown_signal')).toEqual(['1']);
@@ -38,8 +36,9 @@ describe('free bot catalog XML', () => {
 
         const scan = doc.querySelector('block[type="high_low_tie_differ_scan"]');
         expect(scan?.querySelector('value[name="ANALYSIS_WINDOW"] field')?.textContent).toBe('Analysis Window');
-        expect(scan?.querySelector('value[name="RECENT_WINDOW"] field')?.textContent).toBe('Recent Window');
-        expect(scan?.querySelector('value[name="MICRO_WINDOW"] field')?.textContent).toBe('Micro Window');
+        expect(scan?.querySelector('value[name="RECENT_WINDOW"]')).toBeNull();
+        expect(scan?.querySelector('value[name="MICRO_WINDOW"]')).toBeNull();
+        expect(bot!.xml).not.toMatch(/Recent Window|Micro Window/);
         expect(scan?.querySelector('value[name="TIE_TOLERANCE"] field')?.textContent).toBe('Tie Tolerance %');
         expect(scan?.querySelector('value[name="MODE"] field')?.textContent).toBe('Mode (HIGH / LOW / AUTO)');
         expect(doc.querySelector('value[name="PREDICTION"] field')?.textContent).toBe('Prediction');

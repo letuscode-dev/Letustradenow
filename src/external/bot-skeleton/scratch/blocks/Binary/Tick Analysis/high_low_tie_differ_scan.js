@@ -1,6 +1,7 @@
 /**
  * High-Low Tie Differs — returns Differ digit (0–9) or -1.
- * Picks one digit from the HIGH or LOW occurrence tie with deterministic tie-breakers.
+ * Picks one digit from the HIGH or LOW occurrence tie with deterministic tie-breakers,
+ * all computed from the single Analysis Window.
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -12,13 +13,9 @@ window.Blockly.Blocks.high_low_tie_differ_scan = {
     },
     definition() {
         return {
-            message0: localize(
-                'high-low tie differs window %1 recent %2 micro %3 tolerance % %4 mode %5 cooldown %6 journal %7'
-            ),
+            message0: localize('high-low tie differs window %1 tolerance % %2 mode %3 cooldown %4 journal %5'),
             args0: [
                 { type: 'input_value', name: 'ANALYSIS_WINDOW', check: 'Number' },
-                { type: 'input_value', name: 'RECENT_WINDOW', check: 'Number' },
-                { type: 'input_value', name: 'MICRO_WINDOW', check: 'Number' },
                 { type: 'input_value', name: 'TIE_TOLERANCE', check: 'Number' },
                 { type: 'input_value', name: 'MODE' },
                 { type: 'input_value', name: 'COOLDOWN', check: 'Number' },
@@ -30,7 +27,7 @@ window.Blockly.Blocks.high_low_tie_differ_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Finds digits tied at the highest or lowest occurrence % and picks one by recent, micro, repetition and recency tie-breakers. Confirms on the next tick before trading. Journal shows WHY NO TRADE.'
+                'Uses one Analysis Window: finds digits tied at the highest or lowest occurrence % and picks one by count, repetition and recency inside that window. Confirms on the next tick before trading. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -60,8 +57,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.high_low_tie_differ_scan 
     const code = `(function () {
         var BinaryBotPrivateHltResult = Bot.evaluateHighLowTieDiffer({
             analysis_window: ${read('ANALYSIS_WINDOW') || '200'},
-            recent_window: ${read('RECENT_WINDOW') || '20'},
-            micro_window: ${read('MICRO_WINDOW') || '10'},
             tie_tolerance: ${read('TIE_TOLERANCE') || '0'},
             mode: String(${read('MODE') || '"AUTO"'}),
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},
@@ -70,7 +65,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.high_low_tie_differ_scan 
         var BinaryBotPrivateMsgs = BinaryBotPrivateHltResult && BinaryBotPrivateHltResult.journal_messages;
         if (BinaryBotPrivateMsgs && BinaryBotPrivateMsgs.length) {
             var BinaryBotPrivateMsgIndex;
-            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 30 ? 30 : BinaryBotPrivateMsgs.length;
+            var BinaryBotPrivateMsgLimit = BinaryBotPrivateMsgs.length > 40 ? 40 : BinaryBotPrivateMsgs.length;
             for (BinaryBotPrivateMsgIndex = 0; BinaryBotPrivateMsgIndex < BinaryBotPrivateMsgLimit; BinaryBotPrivateMsgIndex++) {
                 var BinaryBotPrivateMsg = BinaryBotPrivateMsgs[BinaryBotPrivateMsgIndex];
                 Bot.notify({
