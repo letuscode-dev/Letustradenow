@@ -334,6 +334,20 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.replayHighLowTieDiffer)
             );
         }
+        if (typeof bot_interface.evaluateFrequencyGapDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'evaluateFrequencyGapDiffer',
+                createAsync(js_interpreter, bot_interface.evaluateFrequencyGapDiffer)
+            );
+        }
+        if (typeof bot_interface.replayFrequencyGapDiffer === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'replayFrequencyGapDiffer',
+                createAsync(js_interpreter, bot_interface.replayFrequencyGapDiffer)
+            );
+        }
         if (typeof bot_interface.replayTieDigitDiffer === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

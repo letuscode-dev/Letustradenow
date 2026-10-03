@@ -36,6 +36,7 @@
  * (`recordHighLowTieContract`), never from a market tick.
  */
 
+import { describeSettlement, formatStreak, recordSettledDiffersContract } from './differs-contract-settlement';
 import { MAX_ANALYSIS_WINDOW } from './top-two-digit-gap-differ';
 
 export const STATUS = {
@@ -484,74 +485,14 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
     };
 };
 
-const contractId = contract => contract?.contract_id ?? contract?.transaction_ids?.buy ?? null;
-
-const isContractSettled = contract =>
-    Boolean(
-        contract &&
-            contract.status !== 'open' &&
-            (contract.is_sold || contract.status === 'won' || contract.status === 'lost' || contract.sell_price != null)
-    );
-
-const lastDigitOf = value => {
-    if (!isProvided(value)) return null;
-    const text = String(value).replace(/[^0-9]/g, '');
-    return text.length ? Number(text[text.length - 1]) : null;
-};
-
 /**
  * Record the WIN/LOSS of the purchased contract for the pending signal.
  * Only a settled contract bought for this signal (same target barrier, bought at or
  * after the signal tick, not already recorded) is accepted.
  */
-export const recordHighLowTieContract = (state, contract) => {
-    const pending = state?.pending_outcome;
-    if (!pending || !isContractSettled(contract)) return null;
-    const id = contractId(contract);
-    if (id === null || id === state.last_settled_contract_id) return null;
-    const purchase_time = Number(contract.purchase_time ?? contract.date_start);
-    if (pending.epoch !== null && Number.isFinite(purchase_time) && purchase_time < pending.epoch) return null;
-    const barrier = toDigit(contract.barrier);
-    if (barrier !== null && barrier !== pending.target) return null;
-
-    const profit = Number(contract.profit);
-    const won =
-        contract.status === 'won' || contract.status === 'lost'
-            ? contract.status === 'won'
-            : Number.isFinite(profit) && profit > 0;
-    const exit_digit = lastDigitOf(contract.exit_tick_display_value ?? contract.exit_tick);
-
-    const live = state.live;
-    live.trades += 1;
-    if (won) {
-        live.wins += 1;
-        live.streak = live.streak > 0 ? live.streak + 1 : 1;
-    } else {
-        live.losses += 1;
-        live.streak = live.streak < 0 ? live.streak - 1 : -1;
-    }
-    live.last_outcome = {
-        target: pending.target,
-        actual: exit_digit,
-        result: won ? 'WIN' : 'LOSS',
-        contract_id: id,
-        profit: Number.isFinite(profit) ? profit : null,
-    };
-    live.history.push({ ...live.last_outcome, type: pending.type });
-    if (live.history.length > 200) live.history = live.history.slice(-200);
-    state.last_settled_contract_id = id;
-    state.pending_outcome = null;
-    state.just_settled = live.last_outcome;
-    return live.last_outcome;
-};
+export const recordHighLowTieContract = recordSettledDiffersContract;
 
 const formatPct = value => `${value.toFixed(2)}%`;
-
-const formatStreak = streak => {
-    if (streak > 0) return `${streak} win${streak === 1 ? '' : 's'}`;
-    if (streak < 0) return `${-streak} loss${streak === -1 ? '' : 'es'}`;
-    return '0';
-};
 
 const formatTiePct = group =>
     Math.abs(group.pct_max - group.pct_min) < EPSILON
@@ -568,13 +509,6 @@ const describeGroup = (label, group) => {
         `${label} TIE-BREAK: ${tie_break}`,
         `${label} SELECTED: ${group.selected === null ? 'none (no clear candidate)' : group.selected}`,
     ];
-};
-
-const describeSettlement = settled => {
-    const parts = [`RESULT: ${settled.result} — DIFFERS ${settled.target}`, `contract ${settled.contract_id}`];
-    if (settled.actual !== null) parts.push(`exit digit ${settled.actual}`);
-    if (settled.profit !== null) parts.push(`profit ${settled.profit >= 0 ? '+' : ''}${settled.profit.toFixed(2)}`);
-    return parts.join(' | ');
 };
 
 const tradeDetailLines = analysis => {

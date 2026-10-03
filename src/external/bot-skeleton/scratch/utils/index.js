@@ -246,6 +246,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/high_low_tie_differ_scan'));
     }
 
+    if (block_string.includes('frequency_gap_differ_scan')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/frequency_gap_differ_scan'));
+    }
+
     if (block_string.includes('tie_digit_differ_scan')) {
         imports.push(import('../blocks/Binary/Tick Analysis/tie_digit_differ_scan'));
     }
