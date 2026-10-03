@@ -26,6 +26,7 @@ describe('free bot catalog XML', () => {
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
         expect(setValue('hlt_window')).toEqual(['200']);
+        expect(setValue('hlt_recent_ticks')).toEqual(['50']);
         expect(setValue('hlt_tolerance')).toEqual(['0']);
         expect(setValue('hlt_mode')).toEqual(['AUTO']);
         expect(setValue('hlt_cooldown_signal')).toEqual(['1']);
@@ -36,6 +37,7 @@ describe('free bot catalog XML', () => {
 
         const scan = doc.querySelector('block[type="high_low_tie_differ_scan"]');
         expect(scan?.querySelector('value[name="ANALYSIS_WINDOW"] field')?.textContent).toBe('Analysis Window');
+        expect(scan?.querySelector('value[name="RECENT_TICKS"] field')?.textContent).toBe('Recent Ticks');
         expect(scan?.querySelector('value[name="RECENT_WINDOW"]')).toBeNull();
         expect(scan?.querySelector('value[name="MICRO_WINDOW"]')).toBeNull();
         expect(bot!.xml).not.toMatch(/Recent Window|Micro Window/);

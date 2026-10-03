@@ -7,15 +7,16 @@
  * of that extreme, inclusive). When every digit has the same % (HIGH and LOW groups
  * overlap completely) there is no extreme and no trade.
  *
- * The Analysis Window is the ONLY tick window: counts, percentages, ties,
- * tie-breakers and AUTO scores all come from it.
+ * All data comes from the Analysis Window. `recent_ticks` (default 50) is the newest
+ * part of that same window and is used only by the first tie-breaker.
  *
  * One candidate per tie is chosen deterministically — never randomly:
- *   1. occurrence count (only differs inside a tolerance tie): HIGH keeps the
+ *   1. appeared more often in the last `recent_ticks` ticks
+ *   2. occurrence count (only differs inside a tolerance tie): HIGH keeps the
  *      higher count, LOW keeps the lower count — the digit at the true extreme
- *   2. more repetition/clustering (back-to-back repeats inside the Analysis Window)
- *   3. appeared most recently (inside the Analysis Window)
- * If candidates are still equal after all three, there is no trade.
+ *   3. more repetition/clustering (back-to-back repeats inside the Analysis Window)
+ *   4. appeared most recently (inside the Analysis Window)
+ * If candidates are still equal after all four, there is no trade.
  *
  * MODE HIGH / LOW trades that tie only. AUTO requires every qualifying tie to resolve
  * (an unresolved tie blocks the trade); when both resolve the candidate with the
@@ -54,10 +55,12 @@ export const STATUS = {
 export const MODES = ['HIGH', 'LOW', 'AUTO'];
 
 export const MIN_ANALYSIS_WINDOW = 100;
+export const MIN_RECENT_TICKS = 5;
 export const MAX_TIE_TOLERANCE = 10;
 
 export const DEFAULT_OPTIONS = {
     analysis_window: 200,
+    recent_ticks: 50,
     tie_tolerance: 0,
     mode: 'AUTO',
     signal_cooldown_tips: 1,
@@ -123,6 +126,16 @@ export const normalizeHighLowTieOptions = (options = {}) => {
         integer: true,
         adjustments,
     });
+    const recent_ticks = clampSetting({
+        label: 'Recent Ticks',
+        value: options.recent_ticks,
+        fallback: Math.min(d.recent_ticks, analysis_window),
+        min: MIN_RECENT_TICKS,
+        max: analysis_window,
+        integer: true,
+        max_reason: `cannot exceed the Analysis Window (${analysis_window})`,
+        adjustments,
+    });
     const tie_tolerance = clampSetting({
         label: 'Tie Tolerance %',
         value: options.tie_tolerance,
@@ -155,6 +168,7 @@ export const normalizeHighLowTieOptions = (options = {}) => {
     }
     return {
         analysis_window,
+        recent_ticks,
         tie_tolerance,
         mode,
         signal_cooldown_tips,
@@ -237,7 +251,13 @@ export const ticksSinceSeen = (digits, digit) => {
 const describeTicksAgo = n => (Number.isFinite(n) ? `${n} tick${n === 1 ? '' : 's'} ago` : 'not seen');
 
 /** Tie-breakers in priority order; `type` decides the count direction. */
-const tieBreakers = type => [
+const tieBreakers = (type, recent_ticks) => [
+    {
+        label: 'Recent Appearances',
+        metric: `LAST ${recent_ticks}`,
+        compare: (a, b) => b.recent_count - a.recent_count,
+        describe: c => `${c.recent_count}`,
+    },
     {
         label: 'Occurrence Count',
         metric: 'COUNT',
@@ -267,8 +287,8 @@ const tieBreakers = type => [
  * consulted. Returns { selected, reason, decider } or { selected: null, ... } when
  * the top candidates are still equal.
  */
-export const breakTie = (candidates, type = 'HIGH') => {
-    const breakers = tieBreakers(type);
+export const breakTie = (candidates, type = 'HIGH', recent_ticks = DEFAULT_OPTIONS.recent_ticks) => {
+    const breakers = tieBreakers(type, recent_ticks);
     const sorted = [...candidates].sort((a, b) => {
         for (const breaker of breakers) {
             const diff = breaker.compare(a, b);
@@ -282,7 +302,7 @@ export const breakTie = (candidates, type = 'HIGH') => {
     if (!decider) {
         return {
             selected: null,
-            reason: `${first.digit} and ${second.digit} equal on count, repetition and recency`,
+            reason: `${first.digit} and ${second.digit} equal on recent appearances, count, repetition and recency`,
             decider: null,
         };
     }
@@ -309,10 +329,10 @@ export const rawScoreCandidate = (candidate, type, window_size) => {
 export const scoreCandidate = (candidate, type, window_size) =>
     Math.round(rawScoreCandidate(candidate, type, window_size) * 100) / 100;
 
-const buildGroup = (type, digits_in_tie, features) => {
+const buildGroup = (type, digits_in_tie, features, recent_ticks) => {
     if (digits_in_tie.length < 2) return { type, exists: false, digits: digits_in_tie };
     const candidates = digits_in_tie.map(d => features[d]);
-    const { selected, reason, decider } = breakTie(candidates, type);
+    const { selected, reason, decider } = breakTie(candidates, type, recent_ticks);
     const pcts = candidates.map(c => c.pct);
     return {
         type,
@@ -428,12 +448,14 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
     const options = normalizeHighLowTieOptions(raw_options);
     const window = digits_all.slice(-options.analysis_window);
     const counts = countDigits(window);
+    const recent_counts = countDigits(window.slice(-options.recent_ticks));
     const total = window.length;
 
     const features = counts.map((count, digit) => ({
         digit,
         count,
         pct: pctOf(count, total),
+        recent_count: recent_counts[digit],
         repeats: countRepeats(window, digit),
         last_seen: ticksSinceSeen(window, digit),
     }));
@@ -444,8 +466,8 @@ export const analyzeHighLowTie = (digits_all, raw_options = {}) => {
     const high_digits = features.filter(f => pctOf(max_count - f.count, total) <= tol).map(f => f.digit);
     const low_digits = features.filter(f => pctOf(f.count - min_count, total) <= tol).map(f => f.digit);
 
-    const high = buildGroup('HIGH', high_digits, features);
-    const low = buildGroup('LOW', low_digits, features);
+    const high = buildGroup('HIGH', high_digits, features, options.recent_ticks);
+    const low = buildGroup('LOW', low_digits, features, options.recent_ticks);
     const decision = selectHighLowTarget({ high, low, features, options, window_size: total });
     const source = decision.target_type === 'HIGH' ? high : decision.target_type === 'LOW' ? low : null;
 
@@ -595,15 +617,17 @@ const buildJournal = ({ options, analysis, status, rejection, target, settled, s
         className: 'journal__text',
         message: `ANALYSIS WINDOW: ${options.analysis_window} TICKS${
             loaded < options.analysis_window ? ` (loaded ${loaded})` : ''
-        } | TIE TOLERANCE: ${options.tie_tolerance}%`,
+        } | RECENT TICKS: ${options.recent_ticks} | TIE TOLERANCE: ${options.tie_tolerance}%`,
     });
 
     if (analysis && status !== STATUS.COLLECTING) {
-        messages.push({ className: 'journal__text', message: 'DIGIT | COUNT | %' });
+        messages.push({ className: 'journal__text', message: `DIGIT | COUNT | % | LAST ${options.recent_ticks}` });
         analysis.counts.forEach((count, digit) => {
             messages.push({
                 className: 'journal__text',
-                message: `${digit} | ${count} | ${analysis.percentages[digit].toFixed(1)}%`,
+                message: `${digit} | ${count} | ${analysis.percentages[digit].toFixed(1)}% | ${
+                    analysis.features[digit].recent_count
+                }`,
             });
         });
         const groupLines = [

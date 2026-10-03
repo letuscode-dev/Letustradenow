@@ -41,9 +41,12 @@ const buildWindow = (counts: Counts, tail: number[] = [], head: number[] = []) =
 
 const withEpochs = (digits: number[], start = 1000) => digits.map((digit, i) => ({ digit, epoch: start + i }));
 
+// recent_ticks = analysis_window by default so exact ties fall through to the later
+// tie-breakers; tests for the Recent Appearances breaker set it explicitly.
 const opts = (overrides = {}) =>
     normalizeHighLowTieOptions({
         analysis_window: 100,
+        recent_ticks: 100,
         tie_tolerance: 0,
         mode: 'AUTO',
         signal_cooldown_tips: 1,
@@ -73,10 +76,11 @@ const LOW_TOL: Counts = { 0: 70, 1: 73, 2: 105, 3: 106, 4: 107, 5: 107, 6: 107, 
 
 describe('High-Low Tie Differs (single Analysis Window)', () => {
     describe('options', () => {
-        it('has exactly one window setting with the documented defaults', () => {
+        it('has the documented defaults', () => {
             const o = normalizeHighLowTieOptions({});
             expect(o).toEqual({
                 analysis_window: 200,
+                recent_ticks: 50,
                 tie_tolerance: 0,
                 mode: 'AUTO',
                 signal_cooldown_tips: 1,
@@ -99,12 +103,21 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
         });
 
         it('reports adjusted settings with requested, actual and reason', () => {
-            const o = normalizeHighLowTieOptions({ analysis_window: 50, tie_tolerance: 20, mode: 'xyz' });
+            const o = normalizeHighLowTieOptions({
+                analysis_window: 50,
+                recent_ticks: 2,
+                tie_tolerance: 20,
+                mode: 'xyz',
+            });
             expect(o.adjustments).toEqual([
                 { setting: 'Analysis Window', requested: 50, actual: 100, reason: 'minimum allowed value is 100' },
+                { setting: 'Recent Ticks', requested: 2, actual: 5, reason: 'minimum allowed value is 5' },
                 { setting: 'Tie Tolerance %', requested: 20, actual: 10, reason: 'maximum allowed value is 10' },
                 { setting: 'Mode', requested: 'xyz', actual: 'AUTO', reason: 'use HIGH, LOW or AUTO' },
             ]);
+            const capped = normalizeHighLowTieOptions({ analysis_window: 100, recent_ticks: 500 });
+            expect(capped.recent_ticks).toBe(100);
+            expect(capped.adjustments[0].reason).toBe('cannot exceed the Analysis Window (100)');
             const result = evaluateHighLowTie(
                 buildWindow(HIGH, [1, 3, 3]),
                 { analysis_window: 50, journal_enabled: true },
@@ -149,6 +162,33 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
             expect(a.target).toBe(3);
             expect(a.target_type).toBe('HIGH');
             expect(a.high.decider).toBe('Repetition');
+        });
+
+        it('HIGH tie targets the digit appearing most in the last Recent Ticks', () => {
+            // Last 8 ticks: 6 appears 3 times, 3 twice — 3 has the repeat and was seen last, 6 still wins.
+            const a = analyzeHighLowTie(buildWindow(HIGH, [6, 1, 6, 2, 6, 4, 3, 3]), opts({ mode: 'HIGH', recent_ticks: 8 }));
+            expect(a.high.digits).toEqual([3, 6]);
+            expect(a.features[6].recent_count).toBe(3);
+            expect(a.features[3].recent_count).toBe(2);
+            expect(a.target).toBe(6);
+            expect(a.high.decider).toBe('Recent Appearances');
+            expect(a.high.decider_detail).toBe('LAST 8: 3 = 2, 6 = 3');
+        });
+
+        it('LOW tie targets the digit appearing most in the last Recent Ticks', () => {
+            const a = analyzeHighLowTie(buildWindow(LOW, [4, 1, 4, 2, 9]), opts({ mode: 'LOW', recent_ticks: 5 }));
+            expect(a.low.digits).toEqual([4, 9]);
+            expect(a.target).toBe(4);
+            expect(a.low.decider).toBe('Recent Appearances');
+        });
+
+        it('uses the default 50 recent ticks from the same window', () => {
+            const ticks = buildWindow(HIGH, [6, 1, 6, 2, 6, 4, 3, 3]);
+            const a = analyzeHighLowTie(ticks, opts({ mode: 'HIGH', recent_ticks: undefined }));
+            expect(a.options.recent_ticks).toBe(50);
+            const last50 = ticks.slice(-50);
+            expect(a.features[3].recent_count).toBe(last50.filter(d => d === 3).length);
+            expect(a.features[6].recent_count).toBe(last50.filter(d => d === 6).length);
         });
 
         it('two-way HIGH tie with equal repetition is broken by recency', () => {
@@ -227,9 +267,10 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
         });
 
         it('T: occurrence count decides a tolerance tie before repetition (HIGH keeps the higher count)', () => {
+            // Neither candidate appears in the last 5 ticks, so Recent Appearances does not decide.
             const a = analyzeHighLowTie(
-                buildWindow(HIGH_TOL, [1, 3, 3, 3]),
-                o1000({ mode: 'HIGH', tie_tolerance: 0.5 })
+                buildWindow(HIGH_TOL, [1, 3, 3, 3, 2, 4, 5, 7, 8]),
+                o1000({ mode: 'HIGH', tie_tolerance: 0.5, recent_ticks: 5 })
             );
             expect(a.features[3].repeats).toBeGreaterThan(a.features[6].repeats);
             expect(a.target).toBe(6);
@@ -237,7 +278,10 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
         });
 
         it('occurrence count decides a LOW tolerance tie (LOW keeps the lower count)', () => {
-            const a = analyzeHighLowTie(buildWindow(LOW_TOL, [2, 1, 1, 1]), o1000({ mode: 'LOW', tie_tolerance: 0.3 }));
+            const a = analyzeHighLowTie(
+                buildWindow(LOW_TOL, [2, 1, 1, 1, 3, 4, 5, 6, 7]),
+                o1000({ mode: 'LOW', tie_tolerance: 0.3, recent_ticks: 5 })
+            );
             expect(a.features[1].repeats).toBeGreaterThan(a.features[0].repeats);
             expect(a.target).toBe(0);
             expect(a.low.decider).toBe('Occurrence Count');
@@ -245,8 +289,20 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
     });
 
     describe('tie-breakers', () => {
-        it('applies count → repetition → recency in order', () => {
-            const base = { pct: 14, count: 14, repeats: 0, last_seen: 5 };
+        it('applies recent appearances → count → repetition → recency in order', () => {
+            const base = { pct: 14, count: 14, recent_count: 0, repeats: 0, last_seen: 5 };
+            const recent = breakTie(
+                [
+                    { ...base, digit: 3, recent_count: 4, count: 14, repeats: 0, last_seen: 9 },
+                    { ...base, digit: 6, recent_count: 6, count: 13, repeats: 5, last_seen: 0 },
+                ],
+                'HIGH',
+                50
+            );
+            expect(recent.selected?.digit).toBe(6);
+            expect(recent.decider?.label).toBe('Recent Appearances');
+            expect(recent.reason).toBe('Recent Appearances 6=6 vs 3=4');
+
             const count = breakTie(
                 [
                     { ...base, digit: 3, count: 14, repeats: 5 },
@@ -533,10 +589,10 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
             const ticks = buildWindow(HIGH, [1, 3, 3], HEAD);
             evaluateHighLowTie(ticks, o, state);
             const text = journalText(evaluateHighLowTie([...ticks, 0], o, state));
-            expect(text).toContain('ANALYSIS WINDOW: 100 TICKS | TIE TOLERANCE: 0%');
-            expect(text).toContain('DIGIT | COUNT | %');
-            expect(text).toContain('3 | 14 | 14.0%');
-            expect(text).toContain('9 | 13 | 13.0%');
+            expect(text).toContain('ANALYSIS WINDOW: 100 TICKS | RECENT TICKS: 100 | TIE TOLERANCE: 0%');
+            expect(text).toContain('DIGIT | COUNT | % | LAST 100');
+            expect(text).toContain('3 | 14 | 14.0% | 14');
+            expect(text).toContain('9 | 13 | 13.0% | 13');
             expect(text).toContain('HIGH TIE: 3, 6 @ 14.00%');
             expect(text).toContain('HIGH TIE-BREAK: Repetition (REPETITION: 3 = 1 repeat, 6 = 0 repeats)');
             expect(text).toContain('HIGH SELECTED: 3');
@@ -545,7 +601,16 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
             expect(text).toContain('TIE CANDIDATES: 3, 6');
             expect(text).toContain('TIE PERCENTAGE: 14.00%');
             expect(text).toContain('TIE-BREAK: Repetition');
-            expect(text).not.toMatch(/recent|micro/i);
+            expect(text).not.toMatch(/micro/i);
+        });
+
+        it('shows the Recent Appearances tie-break', () => {
+            const o = opts({ mode: 'HIGH', recent_ticks: 8, journal_enabled: true });
+            const ticks = buildWindow(HIGH, [6, 1, 6, 2, 6, 4, 3, 3]);
+            const text = journalText(evaluateHighLowTie(ticks, o, createHighLowTieState()));
+            expect(text).toContain('DIGIT | COUNT | % | LAST 8');
+            expect(text).toContain('HIGH TIE-BREAK: Recent Appearances (LAST 8: 3 = 2, 6 = 3)');
+            expect(text).toContain('HIGH SELECTED: 6');
         });
 
         it('shows both ties, AUTO scores, source and live stats for an AUTO trade', () => {
@@ -566,7 +631,7 @@ describe('High-Low Tie Differs (single Analysis Window)', () => {
             expect(text).toContain('LOW CANDIDATE: 9');
             expect(text).toMatch(/LOW SCORE: \d+\.\d\d/);
             expect(text).toContain('Last Result: — | Trades: 0 | Wins: 0 | Losses: 0 | Win rate: 0.0% | Streak: 0');
-            expect(text).not.toMatch(/recent|micro/i);
+            expect(text).not.toMatch(/micro/i);
         });
 
         it('explains NO_EXTREME_TIE and TIE_UNRESOLVED', () => {

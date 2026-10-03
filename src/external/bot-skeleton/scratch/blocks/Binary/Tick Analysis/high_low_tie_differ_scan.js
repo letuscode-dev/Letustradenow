@@ -13,9 +13,12 @@ window.Blockly.Blocks.high_low_tie_differ_scan = {
     },
     definition() {
         return {
-            message0: localize('high-low tie differs window %1 tolerance % %2 mode %3 cooldown %4 journal %5'),
+            message0: localize(
+                'high-low tie differs window %1 recent ticks %2 tolerance % %3 mode %4 cooldown %5 journal %6'
+            ),
             args0: [
                 { type: 'input_value', name: 'ANALYSIS_WINDOW', check: 'Number' },
+                { type: 'input_value', name: 'RECENT_TICKS', check: 'Number' },
                 { type: 'input_value', name: 'TIE_TOLERANCE', check: 'Number' },
                 { type: 'input_value', name: 'MODE' },
                 { type: 'input_value', name: 'COOLDOWN', check: 'Number' },
@@ -27,7 +30,7 @@ window.Blockly.Blocks.high_low_tie_differ_scan = {
             colourSecondary: window.Blockly.Colours.Base.colourSecondary,
             colourTertiary: window.Blockly.Colours.Base.colourTertiary,
             tooltip: localize(
-                'Uses one Analysis Window: finds digits tied at the highest or lowest occurrence % and picks one by count, repetition and recency inside that window. Confirms on the next tick before trading. Journal shows WHY NO TRADE.'
+                'Finds digits tied at the highest or lowest occurrence % over the Analysis Window and targets the one appearing most in the last Recent Ticks (then count, repetition, recency). Confirms on the next tick before trading. Journal shows WHY NO TRADE.'
             ),
             category: window.Blockly.Categories.Tick_Analysis,
         };
@@ -57,6 +60,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.high_low_tie_differ_scan 
     const code = `(function () {
         var BinaryBotPrivateHltResult = Bot.evaluateHighLowTieDiffer({
             analysis_window: ${read('ANALYSIS_WINDOW') || '200'},
+            recent_ticks: ${read('RECENT_TICKS') || '50'},
             tie_tolerance: ${read('TIE_TOLERANCE') || '0'},
             mode: String(${read('MODE') || '"AUTO"'}),
             signal_cooldown_tips: ${read('COOLDOWN') || '1'},

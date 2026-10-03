@@ -1,10 +1,10 @@
 /**
  * High-Low Tie Differs free bot.
  *
- * Uses ONE Analysis Window (min 100, default 200 ticks): finds digits tied at the
- * highest (HIGH TIE) or lowest (LOW TIE) occurrence %, picks one with deterministic
- * same-window tie-breakers (count → repetition → recency) and Differs it after
- * next-tick confirmation. Mode HIGH / LOW / AUTO.
+ * Over the Analysis Window (min 100, default 200 ticks) finds digits tied at the
+ * highest (HIGH TIE) or lowest (LOW TIE) occurrence %, targets the tied digit that
+ * appeared most in the last Recent Ticks (default 50; then count → repetition →
+ * recency) and Differs it after next-tick confirmation. Mode HIGH / LOW / AUTO.
  * Risk: Differs stake / take profit / stop loss / cooldown; Martingale 1 (flat stake).
  */
 
@@ -95,6 +95,7 @@ export const HIGH_LOW_TIE_DIFFER_XML = `<xml xmlns="https://developers.google.co
     <variable id="hlt_stop_loss">Stop Loss</variable>
     <variable id="hlt_mode">Mode (HIGH / LOW / AUTO)</variable>
     <variable id="hlt_window">Analysis Window</variable>
+    <variable id="hlt_recent_ticks">Recent Ticks</variable>
     <variable id="hlt_tolerance">Tie Tolerance %</variable>
     <variable id="hlt_cooldown_signal">Cooldown Ticks</variable>
     <variable id="hlt_cooldown_loss">Cooldown After Loss</variable>
@@ -146,6 +147,7 @@ export const HIGH_LOW_TIE_DIFFER_XML = `<xml xmlns="https://developers.google.co
               ['hlt_stop_loss', 'Stop Loss', num(50)],
               ['hlt_mode', 'Mode (HIGH / LOW / AUTO)', text('AUTO')],
               ['hlt_window', 'Analysis Window', num(200)],
+              ['hlt_recent_ticks', 'Recent Ticks', num(50)],
               ['hlt_tolerance', 'Tie Tolerance %', num(0)],
               ['hlt_cooldown_signal', 'Cooldown Ticks', num(1)],
           ],
@@ -173,6 +175,7 @@ export const HIGH_LOW_TIE_DIFFER_XML = `<xml xmlns="https://developers.google.co
                 <value name="VALUE">
                   <block type="high_low_tie_differ_scan" id="hlt_scan_block">
                     <value name="ANALYSIS_WINDOW">${varGet('hlt_window', 'Analysis Window')}</value>
+                    <value name="RECENT_TICKS">${varGet('hlt_recent_ticks', 'Recent Ticks')}</value>
                     <value name="TIE_TOLERANCE">${varGet('hlt_tolerance', 'Tie Tolerance %')}</value>
                     <value name="MODE">${varGet('hlt_mode', 'Mode (HIGH / LOW / AUTO)')}</value>
                     <value name="COOLDOWN">${varGet('hlt_cooldown_signal', 'Cooldown Ticks')}</value>
