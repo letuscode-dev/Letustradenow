@@ -177,6 +177,18 @@ export const rankDigits = counts => counts.map(c => 1 + counts.filter(other => o
 export const analyzeRankDrop = (digits_all, raw_options = {}) => {
     const options = normalizeRankDropOptions(raw_options);
     const { analysis_window: W, lookback_ticks: L } = options;
+    if (digits_all.length < W + L) {
+        return {
+            options,
+            status: STATUS.COLLECTING,
+            rejection: `Need ${W + L} ticks (window + lookback), have ${digits_all.length}.`,
+            target: null,
+            mover: null,
+            movers: [],
+            biggest_drop: 0,
+            condition_passed: false,
+        };
+    }
     const span = digits_all.slice(-(W + L));
     const initial_counts = countDigits(span.slice(0, W));
     const later_counts = countDigits(span.slice(L));

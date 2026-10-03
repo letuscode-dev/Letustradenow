@@ -91,6 +91,12 @@ describe('Rank Drop Differs — no trade', () => {
         expect(result.prediction).toBe(-1);
     });
 
+    it('analysis alone also refuses a short history', () => {
+        const analysis = analyzeRankDrop(SCENARIO.slice(1), opts);
+        expect(analysis.status).toBe(STATUS.COLLECTING);
+        expect(analysis.target).toBeNull();
+    });
+
     it('strategy disabled', () => {
         const result = run(SCENARIO, { enabled: false });
         expect(result.status).toBe(STATUS.DISABLED);
