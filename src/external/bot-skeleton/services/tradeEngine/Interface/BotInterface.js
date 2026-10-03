@@ -64,24 +64,8 @@ import {
     resetEvenOddPairRuntimeState,
     toMarketSide,
 } from '../utils/even-odd-pair-over-under';
-import {
-    createFrequencyGapState,
-    evaluateFrequencyGap,
-    normalizeFrequencyGapOptions,
-    recordFrequencyGapContract,
-    replayFrequencyGap,
-    resetFrequencyGapState,
-} from '../utils/frequency-gap-differ';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { createDetails, getLastDigit } from '../utils/helpers';
-import {
-    createHighLowTieState,
-    evaluateHighLowTie,
-    normalizeHighLowTieOptions,
-    recordHighLowTieContract,
-    replayHighLowTie,
-    resetHighLowTieState,
-} from '../utils/high-low-tie-differ';
 import {
     applyHybridMultiScanSettlement,
     armHybridMultiScanPrediction,
@@ -439,14 +423,6 @@ const getBotInterface = tradeEngine => {
             if (tradeEngine.tieDigitState) {
                 resetTieDigitState(tradeEngine.tieDigitState);
                 tradeEngine.tieDigitState = null;
-            }
-            if (tradeEngine.highLowTieState) {
-                resetHighLowTieState(tradeEngine.highLowTieState);
-                tradeEngine.highLowTieState = null;
-            }
-            if (tradeEngine.frequencyGapState) {
-                resetFrequencyGapState(tradeEngine.frequencyGapState);
-                tradeEngine.frequencyGapState = null;
             }
             if (tradeEngine.rankDropState) {
                 resetRankDropState(tradeEngine.rankDropState);
@@ -999,58 +975,6 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeTieDigitOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'tie_digit');
             return replayTieDigit(digit_ticks, opts);
-        },
-        /**
-         * High-Low Tie Differs — Differ one digit picked from the HIGH or LOW
-         * occurrence tie with deterministic tie-breakers.
-         */
-        evaluateHighLowTieDiffer: async options => {
-            const opts = options || {};
-            if (!tradeEngine.highLowTieState) {
-                tradeEngine.highLowTieState = createHighLowTieState();
-            }
-            recordHighLowTieContract(tradeEngine.highLowTieState, tradeEngine.data?.contract);
-            const { analysis_window } = normalizeHighLowTieOptions(opts);
-            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'high_low_tie');
-            return evaluateHighLowTie(digit_ticks, opts, tradeEngine.highLowTieState);
-        },
-        /**
-         * High-Low Tie Differs replay/backtest (no look-ahead).
-         */
-        replayHighLowTieDiffer: async options => {
-            const opts = options || {};
-            if (Array.isArray(opts.ticks) && opts.ticks.length) {
-                return replayHighLowTie(opts.ticks, opts);
-            }
-            const { analysis_window } = normalizeHighLowTieOptions(opts);
-            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'high_low_tie');
-            return replayHighLowTie(digit_ticks, opts);
-        },
-        /**
-         * Frequency Gap Differs — Differ the dominant digit when the dominant-to-weakest
-         * frequency gap over the single Analysis Window reaches the minimum.
-         */
-        evaluateFrequencyGapDiffer: async options => {
-            const opts = options || {};
-            if (!tradeEngine.frequencyGapState) {
-                tradeEngine.frequencyGapState = createFrequencyGapState();
-            }
-            recordFrequencyGapContract(tradeEngine.frequencyGapState, tradeEngine.data?.contract);
-            const { analysis_window } = normalizeFrequencyGapOptions(opts);
-            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'frequency_gap');
-            return evaluateFrequencyGap(digit_ticks, opts, tradeEngine.frequencyGapState);
-        },
-        /**
-         * Frequency Gap Differs replay/backtest (no look-ahead).
-         */
-        replayFrequencyGapDiffer: async options => {
-            const opts = options || {};
-            if (Array.isArray(opts.ticks) && opts.ticks.length) {
-                return replayFrequencyGap(opts.ticks, opts);
-            }
-            const { analysis_window } = normalizeFrequencyGapOptions(opts);
-            const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'frequency_gap');
-            return replayFrequencyGap(digit_ticks, opts);
         },
         /**
          * Rank Drop Differs — Differ the digit with the biggest frequency-rank

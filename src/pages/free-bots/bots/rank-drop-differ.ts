@@ -6,7 +6,7 @@
  * Differs the digit with the single biggest rank deterioration when the drop is at
  * least the Minimum Rank Drop (default 3, e.g. #1 → #4).
  * Optional new-tick confirmation. Tied biggest movers → no trade.
- * Risk: same Differs stake / take profit / stop loss / cooldown / Martingale as High-Low Tie Differs.
+ * Risk: Differs stake / take profit / stop loss / cooldown; Martingale 1 (flat stake).
  */
 
 import { wrapCollapsedAdvancedInit } from './collapsed-advanced-init';

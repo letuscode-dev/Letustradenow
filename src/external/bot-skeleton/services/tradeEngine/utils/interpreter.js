@@ -320,34 +320,6 @@ const Interpreter = () => {
                 createAsync(js_interpreter, bot_interface.evaluateTieDigitDiffer)
             );
         }
-        if (typeof bot_interface.evaluateHighLowTieDiffer === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluateHighLowTieDiffer',
-                createAsync(js_interpreter, bot_interface.evaluateHighLowTieDiffer)
-            );
-        }
-        if (typeof bot_interface.replayHighLowTieDiffer === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'replayHighLowTieDiffer',
-                createAsync(js_interpreter, bot_interface.replayHighLowTieDiffer)
-            );
-        }
-        if (typeof bot_interface.evaluateFrequencyGapDiffer === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'evaluateFrequencyGapDiffer',
-                createAsync(js_interpreter, bot_interface.evaluateFrequencyGapDiffer)
-            );
-        }
-        if (typeof bot_interface.replayFrequencyGapDiffer === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'replayFrequencyGapDiffer',
-                createAsync(js_interpreter, bot_interface.replayFrequencyGapDiffer)
-            );
-        }
         if (typeof bot_interface.evaluateRankDropDiffer === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

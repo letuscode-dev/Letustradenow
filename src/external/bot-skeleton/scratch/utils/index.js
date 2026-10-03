@@ -242,14 +242,6 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/missing_digit_return_differ_scan'));
     }
 
-    if (block_string.includes('high_low_tie_differ_scan')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/high_low_tie_differ_scan'));
-    }
-
-    if (block_string.includes('frequency_gap_differ_scan')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/frequency_gap_differ_scan'));
-    }
-
     if (block_string.includes('rank_drop_differ_scan')) {
         imports.push(import('../blocks/Binary/Tick Analysis/rank_drop_differ_scan'));
     }
