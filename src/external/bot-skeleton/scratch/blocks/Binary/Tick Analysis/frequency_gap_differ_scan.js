@@ -38,7 +38,7 @@ window.Blockly.Blocks.frequency_gap_differ_scan = {
         return {
             display_name: localize('Frequency Gap Differs scan'),
             description: localize(
-                'Places Digit Differs on the dominant digit when the dominant-to-weakest frequency gap reaches the minimum (default 200-tick window, 7% gap).'
+                'Places Digit Differs on the dominant digit when the dominant-to-weakest frequency gap reaches the minimum (default 1000-tick window, 4% gap).'
             ),
             key_words: localize('frequency, gap, dominant, weakest, differs'),
         };
@@ -58,8 +58,8 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.frequency_gap_differ_scan
 
     const code = `(function () {
         var BinaryBotPrivateFgdResult = Bot.evaluateFrequencyGapDiffer({
-            analysis_window: ${read('ANALYSIS_WINDOW') || '200'},
-            min_gap: ${read('MIN_GAP') || '7'},
+            analysis_window: ${read('ANALYSIS_WINDOW') || '1000'},
+            min_gap: ${read('MIN_GAP') || '4'},
             enabled: ${read('ENABLED') || 'true'},
             confirmation: ${read('CONFIRM') || 'true'},
             journal_enabled: ${read('JOURNAL') || 'true'}

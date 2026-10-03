@@ -1,9 +1,9 @@
 /**
  * Frequency Gap Differs free bot.
  *
- * Over the single Analysis Window (min 50, default 200 ticks) finds the unique
+ * Over the single Analysis Window (min 50, default 1000 ticks) finds the unique
  * dominant (highest %) and unique weakest (lowest %) digit and Differs the dominant
- * digit when dominant % − weakest % ≥ Minimum Frequency Gap (default 7%).
+ * digit when dominant % − weakest % ≥ Minimum Frequency Gap (default 4%).
  * Optional new-tick confirmation. Ties → no trade.
  * Risk: same Differs stake / take profit / stop loss / cooldown / Martingale as High-Low Tie Differs.
  */
@@ -142,8 +142,8 @@ export const FREQUENCY_GAP_DIFFER_XML = `<xml xmlns="https://developers.google.c
               ['fgd_protect', 'Martingale Off When Profit > Stake', bool(false)],
               ['fgd_take_profit', 'Take Profit', num(20)],
               ['fgd_stop_loss', 'Stop Loss', num(50)],
-              ['fgd_window', 'Analysis Window', num(200)],
-              ['fgd_min_gap', 'Minimum Frequency Gap %', num(7)],
+              ['fgd_window', 'Analysis Window', num(1000)],
+              ['fgd_min_gap', 'Minimum Frequency Gap %', num(4)],
               ['fgd_enabled', 'Strategy Enabled', bool(true)],
               ['fgd_confirm', 'New-Tick Confirmation', bool(true)],
           ],

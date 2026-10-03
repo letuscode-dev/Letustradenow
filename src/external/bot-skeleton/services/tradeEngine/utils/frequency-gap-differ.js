@@ -1,7 +1,7 @@
 /**
  * Frequency Gap Differs
  *
- * Uses exactly ONE tick window (the Analysis Window, min 50, default 200):
+ * Uses exactly ONE tick window (the Analysis Window, min 50, default 1000):
  *
  *   single Analysis Window → count digits 0–9 → % = count / window size × 100
  *   → unique highest (DOMINANT) → unique lowest (WEAKEST)
@@ -44,9 +44,13 @@ export const STATUS = {
 export const MIN_ANALYSIS_WINDOW = 50;
 export const MAX_MIN_GAP = 100;
 
+/**
+ * With fair digits over 1000 ticks the gap is ~3% at the median and ≥ 4% in only
+ * ~14% of windows (≥ 7% practically never), so 4% keeps entries selective.
+ */
 export const DEFAULT_OPTIONS = {
-    analysis_window: 200,
-    min_gap: 7,
+    analysis_window: 1000,
+    min_gap: 4,
     enabled: true,
     confirmation: true,
     journal_enabled: true,

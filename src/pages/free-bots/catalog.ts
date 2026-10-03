@@ -21,7 +21,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'frequency-gap-differ-v1',
         title: 'Frequency Gap Differs',
         description:
-            'Calculates digit 0–9 frequency % over a single Analysis Window (default 200, min 50), finds the unique dominant (highest %) and unique weakest (lowest %) digit and Differs the dominant digit when dominant % − weakest % is at least the Minimum Frequency Gap (default 7%, inclusive). Tied dominant, tied weakest or all-equal digits mean no trade — never picks randomly. Optional new-tick confirmation and on/off switch. Journal shows dominant and weakest count and %, the gap, the condition and WHY NO TRADE. Take Profit / Stop Loss with the configurable Martingale.',
+            'Calculates digit 0–9 frequency % over a single Analysis Window (default 1000, min 50), finds the unique dominant (highest %) and unique weakest (lowest %) digit and Differs the dominant digit when dominant % − weakest % is at least the Minimum Frequency Gap (default 4%, inclusive). Tied dominant, tied weakest or all-equal digits mean no trade — never picks randomly. Optional new-tick confirmation and on/off switch. Journal shows dominant and weakest count and %, the gap, the condition and WHY NO TRADE. Take Profit / Stop Loss with the configurable Martingale.',
         tags: ['Differs', 'Frequency gap', 'Dominant digit', 'Percentages', 'Confirmation'],
         xml: FREQUENCY_GAP_DIFFER_XML,
     },

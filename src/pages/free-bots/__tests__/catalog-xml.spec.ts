@@ -25,8 +25,8 @@ describe('free bot catalog XML', () => {
             [...doc.querySelectorAll('block[type="variables_set"]')]
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
-        expect(setValue('fgd_window')).toEqual(['200']);
-        expect(setValue('fgd_min_gap')).toEqual(['7']);
+        expect(setValue('fgd_window')).toEqual(['1000']);
+        expect(setValue('fgd_min_gap')).toEqual(['4']);
         expect(setValue('fgd_enabled')).toEqual(['TRUE']);
         expect(setValue('fgd_confirm')).toEqual(['TRUE']);
         expect(setValue('fgd_stake')[0]).toBe('0.5');

@@ -136,9 +136,19 @@ describe('Frequency Gap Differs — single window and settings', () => {
         expect(options.adjustments[0]).toMatchObject({ setting: 'Analysis Window', requested: 20, actual: 50 });
     });
 
-    it('defaults: window 200, minimum gap 7%, enabled, confirmation on', () => {
+    it('defaults: window 1000, minimum gap 4%, enabled, confirmation on', () => {
         const options = normalizeFrequencyGapOptions({});
-        expect(options).toMatchObject({ analysis_window: 200, min_gap: 7, enabled: true, confirmation: true });
+        expect(options).toMatchObject({ analysis_window: 1000, min_gap: 4, enabled: true, confirmation: true });
+    });
+
+    it('default settings trade a 1000-tick window with a 4.5% gap and skip a 3% gap', () => {
+        const wide = buildWindow({ 3: 125, 1: 80, 0: 100, 2: 100, 4: 99, 5: 99, 6: 99, 7: 99, 8: 99, 9: 100 });
+        const narrow = buildWindow({ 3: 115, 1: 85, 0: 100, 2: 100, 4: 100, 5: 100, 6: 100, 7: 100, 8: 101, 9: 99 });
+        expect(wide).toHaveLength(1000);
+        expect(narrow).toHaveLength(1000);
+        const defaults = { confirmation: false };
+        expect(evaluateFrequencyGap(wide, defaults, createFrequencyGapState()).prediction).toBe(3);
+        expect(evaluateFrequencyGap(narrow, defaults, createFrequencyGapState()).status).toBe(STATUS.GAP_TOO_SMALL);
     });
 
     it('disabled strategy never trades', () => {
