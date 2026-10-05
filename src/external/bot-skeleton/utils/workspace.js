@@ -5,6 +5,7 @@ const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'override_contract_type_purchase',
     'apollo_purchase',
     'apollo_purchase2',
+    'rise_fall_hedge_purchase',
 ];
 
 const isPurchaseSubstituteBlock = block => PURCHASE_SUBSTITUTE_BLOCK_TYPES.includes(block?.type);
