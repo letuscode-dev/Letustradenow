@@ -289,28 +289,20 @@ export const applyFddResult = (state, { profit, stake }) => {
 const money = v => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const signed = v => `${v >= 0 ? '+' : '-'}${money(Math.abs(v))}`;
 
-export const fddTickLines = ({ state, result, market, now }) => {
-    const head = `[${clock(now)}] NEW TICK #${state.tick_count} | Symbol: ${market} | Price: ${state.price ?? 'invalid'}`;
-    if (result.decision === 'ERROR') {
+export const fddTickLines = ({ state, result }) => {
+    const head = `#${state.tick_count} ${state.price ?? 'invalid price'}`;
+    if (result.decision === 'ERROR') return [`${head} · ERROR — Unable to read the last two decimal digits.`];
+    if (state.digit === null) return [`${head} → ${state.last_two} no match · WAITING`];
+    const signal = `${head} → ${state.last_two} match`;
+    if (result.decision === 'READY') {
         return [
-            head,
-            'ERROR — Unable to read the last two decimal digits.',
-            'Status: WAITING — invalid tick price (no trade; waiting for the next valid tick)',
+            `${signal} · READY — DIFFER ${state.barrier} · ${money(state.current_stake)} (recovery level ${
+                state.recovery_level
+            })`,
         ];
     }
-    const [first, second] = state.last_two;
-    const lines = [
-        head,
-        `Decimal Point Found. | Last Two Decimals: ${first} ${second} → ${
-            state.digit === null ? 'NOT THE SAME' : `SAME (${state.digit})`
-        } | Current Barrier: ${state.barrier ?? '— (no repeated pair)'} | Previous Barrier: ${state.previous_barrier ?? '—'}`,
-        `Recovery Level: ${state.recovery_level} | Current Stake: ${money(state.current_stake)}`,
-        `Analyzing entry conditions... ${result.checks.length ? result.checks.join(' · ') : '—'}`,
-    ];
-    if (result.decision === 'READY') lines.push('Status: READY — entry conditions satisfied');
-    else if (result.decision === 'STOPPED') lines.push(`STOPPED — ${result.reason}`);
-    else lines.push(`Status: WAITING — ${result.reason}`);
-    return lines;
+    if (result.decision === 'STOPPED') return [`${signal} · STOPPED — ${result.reason}`];
+    return [`${signal} · WAITING — ${result.reason}`];
 };
 
 export const fddTradeLines = ({ barrier, stake, duration, duration_unit, recovery_level }) => [

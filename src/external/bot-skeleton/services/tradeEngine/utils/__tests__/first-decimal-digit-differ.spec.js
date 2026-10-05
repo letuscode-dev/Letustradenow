@@ -112,10 +112,9 @@ describe('Double Decimal Digit Differ — tick decisions and journal', () => {
         const r = evaluateFddTick(state, tick('4681.33', 1), settings);
         expect(r.decision).toBe('READY');
         expect(state.barrier).toBe(3);
-        const lines = fddTickLines({ state, result: r, market: 'Volatility 75 (1s) Index', now: 0 }).join('\n');
-        expect(lines).toMatch(/Last Two Decimals: 3 3 → SAME \(3\) \| Current Barrier: 3/);
-        expect(lines).toMatch(/Recovery Level: 0 \| Current Stake: \$2.00/);
-        expect(lines).toMatch(/Status: READY — entry conditions satisfied/);
+        expect(fddTickLines({ state, result: r })).toEqual([
+            '#1 4681.33 → 33 match · READY — DIFFER 3 · $2.00 (recovery level 0)',
+        ]);
     });
 
     it('4681.35 → WAITING, no barrier', () => {
@@ -124,8 +123,14 @@ describe('Double Decimal Digit Differ — tick decisions and journal', () => {
         expect(r.decision).toBe('WAITING');
         expect(r.reason).toBe('entry conditions not satisfied (last two decimals 3 and 5 are not the same)');
         expect(state.barrier).toBeNull();
-        const lines = fddTickLines({ state, result: r, market: 'X', now: 0 }).join('\n');
-        expect(lines).toMatch(/Last Two Decimals: 3 5 → NOT THE SAME \| Current Barrier: — \(no repeated pair\)/);
+        expect(fddTickLines({ state, result: r })).toEqual(['#1 4681.35 → 35 no match · WAITING']);
+    });
+
+    it('a matching tick that cannot trade shows the reason', () => {
+        const state = createFddState(settings);
+        state.last_trade_at = 1000;
+        const r = evaluateFddTick(state, tick('4681.33', 2, 2000), settings);
+        expect(fddTickLines({ state, result: r })).toEqual(['#1 4681.33 → 33 match · WAITING — cooldown active (1s left)']);
     });
 
     it('previous barrier is the last repeated digit', () => {
@@ -141,9 +146,7 @@ describe('Double Decimal Digit Differ — tick decisions and journal', () => {
         const state = createFddState(settings);
         const r = evaluateFddTick(state, tick('4681', 1), settings);
         expect(r.decision).toBe('ERROR');
-        const lines = fddTickLines({ state, result: r, market: 'X', now: 0 }).join('\n');
-        expect(lines).toMatch(/ERROR — Unable to read the last two decimal digits\./);
-        expect(lines).toMatch(/WAITING — invalid tick price/);
+        expect(fddTickLines({ state, result: r })).toEqual(['#1 4681 · ERROR — Unable to read the last two decimal digits.']);
     });
 
     it('cooldown, duplicate signal and confirmation', () => {
