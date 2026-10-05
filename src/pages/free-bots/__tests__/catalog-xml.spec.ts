@@ -45,14 +45,14 @@ describe('free bot catalog XML', () => {
         expect(engine?.querySelector(':scope > next > block[type="controls_if"]')).not.toBeNull();
         expect(setValue('rfh_entry_enabled')).toEqual(['TRUE']);
         expect(setValue('rfh_entry_mode')).toEqual(['MULTI-CONFIRMATION']);
-        expect(setValue('rfh_entry_min_score')).toEqual(['8']);
-        expect(setValue('rfh_entry_bias')).toEqual(['65']);
+        expect(setValue('rfh_entry_min_score')).toEqual(['5']);
+        expect(setValue('rfh_entry_bias')).toEqual(['60']);
         expect(setValue('rfh_entry_lookback')).toEqual(['50']);
         expect(setValue('rfh_entry_short')).toEqual(['10']);
         expect(setValue('rfh_entry_medium')).toEqual(['20']);
         expect(setValue('rfh_entry_long')).toEqual(['50']);
-        expect(setValue('rfh_entry_pattern_len')).toEqual(['5']);
-        expect(setValue('rfh_entry_pattern_samples')).toEqual(['20']);
+        expect(setValue('rfh_entry_pattern_len')).toEqual(['4']);
+        expect(setValue('rfh_entry_pattern_samples')).toEqual(['10']);
         expect(setValue('rfh_entry_max_open')).toEqual(['1']);
         [
             'ENABLED',

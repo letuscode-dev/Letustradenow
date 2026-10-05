@@ -18,7 +18,7 @@ const MAX_HISTORY = 500;
 export const DEFAULT_SETTINGS = {
     mode: 'MANUAL',
     every_n_ticks: 10,
-    cooldown_seconds: 10,
+    cooldown_seconds: 5,
     max_daily_hedges: 50,
     max_stake_per_hedge: 10,
     max_daily_loss: 25,

@@ -34,17 +34,21 @@ const alternating = n => 'UD'.repeat(Math.ceil(n / 2)).slice(0, n);
 const PAYOUTS_OK = { rise: 3.9, fall: 3.88, available: true, problem: '' };
 
 describe('Entry Engine — settings', () => {
-    it('safe defaults', () => {
+    it('loosened defaults (fire about every 10 ticks on a random walk)', () => {
         expect(ENTRY_DEFAULTS).toMatchObject({
             mode: 'MULTI_CONFIRMATION',
-            min_score: 8,
-            min_bias: 65,
+            min_score: 5,
+            min_bias: 60,
             lookback: 50,
             short_window: 10,
             medium_window: 20,
             long_window: 50,
-            pattern_length: 5,
-            min_pattern_samples: 20,
+            acceleration_threshold: 15,
+            strength_ratio: 1.2,
+            pattern_length: 4,
+            min_pattern_samples: 10,
+            pattern_threshold: 58,
+            exhaustion_run: 4,
             max_simultaneous: 1,
         });
         expect(MAX_ENTRY_SCORE).toBe(13);
@@ -162,13 +166,13 @@ describe('Entry Engine — components', () => {
         expect(p.up).toBe(25);
         expect(p.down).toBe(0);
         expect(p.up_pct).toBe(100);
-        const a = analyzeHedgeEntry(pricesFrom(dirs), normalizeEntrySettings({ pattern_history: 1000 }));
+        const a = analyzeHedgeEntry(pricesFrom(dirs), normalizeEntrySettings({ pattern_history: 1000, pattern_length: 5, min_pattern_samples: 20 }));
         expect(a.components.pattern.score).toBe(3);
     });
 
     it('pattern with too few samples never scores', () => {
         const dirs = `${'UUDUDUU'.repeat(10)}UUDUD`;
-        const a = analyzeHedgeEntry(pricesFrom(dirs), normalizeEntrySettings({ pattern_history: 1000 }));
+        const a = analyzeHedgeEntry(pricesFrom(dirs), normalizeEntrySettings({ pattern_history: 1000, pattern_length: 5, min_pattern_samples: 20 }));
         expect(a.components.pattern.samples).toBe(10);
         expect(a.components.pattern.enough).toBe(false);
         expect(a.components.pattern.score).toBe(0);
@@ -317,10 +321,37 @@ describe('Entry Engine — approval', () => {
     it('Combined Adaptive raises the minimum score after losing adaptive hedges', () => {
         const adaptive = normalizeEntrySettings({ mode: 'ADAPTIVE' });
         const loss = i => ({ id: i, created_at: i, day: dayKey(i), net: -0.1, entry: { mode: 'ADAPTIVE' } });
-        expect(requiredEntryScore(adaptive, [])).toBe(8);
-        expect(requiredEntryScore(adaptive, [loss(1), loss(2)])).toBe(10);
-        expect(requiredEntryScore(adaptive, [1, 2, 3, 4, 5].map(loss))).toBe(11);
-        expect(requiredEntryScore(settings, [loss(1), loss(2)])).toBe(8);
+        expect(requiredEntryScore(adaptive, [])).toBe(5);
+        expect(requiredEntryScore(adaptive, [loss(1), loss(2)])).toBe(7);
+        expect(requiredEntryScore(adaptive, [1, 2, 3, 4, 5].map(loss))).toBe(8);
+        expect(requiredEntryScore(settings, [loss(1), loss(2)])).toBe(5);
+    });
+});
+
+describe('Entry Engine — trade frequency with default settings', () => {
+    const walk = (n, seed = 7) => {
+        let s = seed;
+        const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+        const prices = [8000];
+        for (let i = 1; i < n; i++) prices.push(Math.round((prices[i - 1] + (rnd() < 0.5 ? 0.1 : -0.1)) * 10) / 10);
+        return prices;
+    };
+
+    it('approves an entry roughly every 5–20 ticks on a Step-Index-like random walk', () => {
+        const settings = normalizeEntrySettings({});
+        const prices = walk(2000);
+        let checked = 0;
+        let fired = 0;
+        for (let i = 1001; i < prices.length; i++) {
+            const a = analyzeHedgeEntry(prices.slice(i - 1001, i), settings);
+            checked += 1;
+            if (decideHedgeEntry({ analysis: a, settings, required_score: settings.min_score, payouts: PAYOUTS_OK }).approved) {
+                fired += 1;
+            }
+        }
+        const ticks_per_entry = checked / fired;
+        expect(ticks_per_entry).toBeGreaterThan(5);
+        expect(ticks_per_entry).toBeLessThan(20);
     });
 });
 
