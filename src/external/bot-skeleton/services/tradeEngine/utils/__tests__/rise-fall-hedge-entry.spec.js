@@ -127,6 +127,26 @@ describe('Entry Engine — components', () => {
         expect(strong.components.strength.score).toBe(2);
     });
 
+    it('tick strength: a window with moves on only one side counts for that side (UP or DOWN)', () => {
+        const up = analyzeHedgeEntry(pricesFrom(`${alternating(50)}UUUUUUUUUU`), settings);
+        expect(up.components.strength).toMatchObject({ score: 2, dir: 'UP' });
+        const down = analyzeHedgeEntry(pricesFrom(`${alternating(50)}DDDDDDDDDD`), settings);
+        expect(down.components.strength).toMatchObject({ score: 2, dir: 'DOWN' });
+    });
+
+    it('side scores: UP points count for Rise, DOWN points for Fall, symmetrically', () => {
+        const up = analyzeHedgeEntry(pricesFrom(`${alternating(30)}${'UUUUUUUUUD'.repeat(2)}`), settings);
+        const flipped = `${alternating(30)}${'UUUUUUUUUD'.repeat(2)}`
+            .replace(/U/g, 'x')
+            .replace(/D/g, 'U')
+            .replace(/x/g, 'D');
+        const down = analyzeHedgeEntry(pricesFrom(flipped), settings);
+        expect(up.side_scores.RISE).toBeGreaterThan(0);
+        expect(down.side_scores.FALL).toBe(up.side_scores.RISE);
+        expect(down.side_scores.RISE).toBe(up.side_scores.FALL);
+        expect(down.score).toBe(up.score);
+    });
+
     it('tick strength is not scored without price data', () => {
         const prices = pricesFrom(alternating(60));
         prices[prices.length - 3] = Number.NaN;
@@ -221,7 +241,27 @@ describe('Entry Engine — approval', () => {
             required_score: 8,
             payouts: { rise: 4.7, fall: 4.68, available: true, problem: '' },
         });
-        expect(d.reason).toMatch(/Payout below threshold/);
+        expect(d.reason).toMatch(/Payout below threshold on both sides/);
+    });
+
+    it('fires when either side meets the payout minimum', () => {
+        const settings_min = normalizeEntrySettings({ min_payout: 3.89 });
+        const rise_only = decideHedgeEntry({
+            analysis: analysis(10),
+            settings: settings_min,
+            required_score: 8,
+            payouts: { rise: 3.9, fall: 3.85, available: true, problem: '' },
+        });
+        expect(rise_only.approved).toBe(true);
+        expect(rise_only.passed.join(' ')).toMatch(/\(Rise\)/);
+        const fall_only = decideHedgeEntry({
+            analysis: analysis(10),
+            settings: settings_min,
+            required_score: 8,
+            payouts: { rise: 3.8, fall: 3.95, available: true, problem: '' },
+        });
+        expect(fall_only.approved).toBe(true);
+        expect(fall_only.passed.join(' ')).toMatch(/\(Fall\)/);
     });
 
     it('NO TRADE: a contract is not available', () => {

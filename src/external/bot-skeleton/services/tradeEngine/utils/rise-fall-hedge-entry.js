@@ -220,8 +220,12 @@ const strengthComponent = (moves, s) => {
     const info = `avg UP ${f(avg_up)} | avg DOWN ${f(avg_down)} | strength ${f(strength)} | acceleration ${
         acceleration === null ? '—' : `${acceleration.toFixed(2)}x`
     }`;
+    if (avg_up === null && avg_down === null) {
+        return { ...base, score: 0, detail: `${info} — no movement` };
+    }
     if (avg_up === null || avg_down === null) {
-        return { ...base, score: 0, detail: `${info} — one-sided window, strength not compared` };
+        const dir = avg_up === null ? 'DOWN' : 'UP';
+        return { ...base, score: 2, dir, detail: `${info} | only ${dir} moves in the last ${recent.length} ticks` };
     }
     const ratio = Math.max(avg_up, avg_down) / Math.min(avg_up, avg_down);
     const dir = avg_up >= avg_down ? 'UP' : 'DOWN';
@@ -336,6 +340,7 @@ const reversalComponent = (dirs, moves, s, acceleration, strength) => {
     return {
         score,
         max: 2,
+        dir: opposite_word,
         confirmations,
         detail: `${prior_word} x${prev.length} then ${opposite_word} x${last.length} | ${
             confirmations.length ? `confirmed: ${confirmations.join(', ')}` : 'no confirmation — not scored'
@@ -376,7 +381,32 @@ export const analyzeHedgeEntry = (prices, settings) => {
     const multi_window = multiWindowComponent(dirs, s);
     const components = { momentum, acceleration, pattern, strength, reversal, multi_window };
     const score = Object.values(components).reduce((sum, c) => sum + c.score, 0);
-    return { status: 'READY', have: prices.length, need, components, score, bias: momentum.lean };
+    return {
+        status: 'READY',
+        have: prices.length,
+        need,
+        components,
+        score,
+        bias: momentum.lean,
+        side_scores: sideScores(components),
+    };
+};
+
+/** Points supporting each side (Rise = UP, Fall = DOWN). Reporting only — both legs are always bought. */
+export const sideScores = c => {
+    const sides = { RISE: 0, FALL: 0 };
+    const add = (dir, points) => {
+        if (!points) return;
+        if (dir === 'UP') sides.RISE += points;
+        if (dir === 'DOWN') sides.FALL += points;
+    };
+    add(c.momentum.lean?.dir, c.momentum.score);
+    add(c.acceleration.dir, c.acceleration.score);
+    add(c.pattern.lean?.dir, c.pattern.score);
+    add(c.strength.dir, c.strength.score);
+    add(c.reversal.dir, c.reversal.score);
+    add(c.multi_window.dir, c.multi_window.score);
+    return sides;
 };
 
 /** Combined Adaptive raises the minimum score by 1 per consecutive losing adaptive hedge (max +3). */
@@ -466,9 +496,16 @@ export const decideHedgeEntry = ({ analysis, settings, required_score, payouts, 
             reason: `Contracts not available (${payouts.problem}).`,
         },
         {
-            name: `Payout >= $${settings.min_payout.toFixed(2)}`,
-            ok: payouts.available && payouts.rise >= settings.min_payout && payouts.fall >= settings.min_payout,
-            reason: `Payout below threshold (Rise ${payouts.rise ?? '—'}, Fall ${payouts.fall ?? '—'}, minimum $${settings.min_payout.toFixed(2)}).`,
+            name: `Payout >= $${settings.min_payout.toFixed(2)} (${[
+                payouts.rise >= settings.min_payout && 'Rise',
+                payouts.fall >= settings.min_payout && 'Fall',
+            ]
+                .filter(Boolean)
+                .join(' + ')})`,
+            ok:
+                payouts.available &&
+                (payouts.rise >= settings.min_payout || payouts.fall >= settings.min_payout),
+            reason: `Payout below threshold on both sides (Rise ${payouts.rise ?? '—'}, Fall ${payouts.fall ?? '—'}, minimum $${settings.min_payout.toFixed(2)}).`,
         },
         { name: 'Cooldown expired', ok: !temporary_block, reason: temporary_block },
         {
@@ -510,6 +547,7 @@ export const entryRecord = ({ now, market, settings, analysis, required_score, p
             reversal: c.reversal.score,
             multi_window: c.multi_window.score,
         },
+        side_scores: analysis.side_scores ?? sideScores(c),
         bias: `${analysis.bias.dir} ${analysis.bias.pct.toFixed(1)}%`,
         pattern: c.pattern.pattern,
         pattern_samples: c.pattern.samples,
@@ -532,7 +570,7 @@ export const entryFiredLines = ({ record, analysis, stake, duration, economics }
         `Strength: ${signed(c.strength.score)}  — ${c.strength.detail}`,
         `Reversal: ${signed(c.reversal.score)}  — ${c.reversal.detail}`,
         `Multi-window: ${signed(c.multi_window.score)}  — ${c.multi_window.detail}`,
-        `ENTRY SCORE: ${record.score}/${MAX_ENTRY_SCORE} (minimum ${record.required_score}) | Directional bias: ${record.bias} (condition only — both sides are bought)`,
+        `ENTRY SCORE: ${record.score}/${MAX_ENTRY_SCORE} (minimum ${record.required_score}) | Rise side ${record.side_scores.RISE} | Fall side ${record.side_scores.FALL} | Directional bias: ${record.bias} (condition only — both sides are bought)`,
         `Rise payout: ${dollars(record.rise_payout)} | Fall payout: ${dollars(record.fall_payout)}`,
         `If Rise wins: ${money(economics.rise_wins)} | If Fall wins: ${money(economics.fall_wins)} | If both lose: ${money(
             economics.both_lose
@@ -549,7 +587,7 @@ export const entryNoTradeLine = record => {
         record.required_score
     }) [Mom ${s.momentum} Acc ${s.acceleration} Pat ${s.pattern} Str ${s.strength} Rev ${s.reversal} Win ${
         s.multi_window
-    }] | Rise ${dollars(record.rise_payout)} Fall ${dollars(record.fall_payout)} | NO TRADE — ${record.reason}`;
+    }] Rise side ${record.side_scores.RISE} / Fall side ${record.side_scores.FALL} | Rise ${dollars(record.rise_payout)} Fall ${dollars(record.fall_payout)} | NO TRADE — ${record.reason}`;
 };
 
 /** Hedge stats per entry strategy, so strategies can be compared. */
