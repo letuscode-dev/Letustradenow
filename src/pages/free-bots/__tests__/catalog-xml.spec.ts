@@ -26,7 +26,7 @@ describe('free bot catalog XML', () => {
         const bot = FREE_BOTS.find(b => b.id === 'last-tick-price-digit-differ-v1');
         const doc = parse(bot!.xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
-        expect(field('SYMBOL_LIST')).toBe('stpRNG');
+        expect(field('SYMBOL_LIST')).toBe('R_75');
         expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
         expect(field('TYPE_LIST')).toBe('DIGITDIFF');
         expect(field('DURATIONTYPE_LIST')).toBe('t');
@@ -57,12 +57,12 @@ describe('free bot catalog XML', () => {
         expect(bot!.xml).not.toMatch(/martingale/i);
     });
 
-    it('Rise/Fall Hedge: Step Index 100 Rise + Fall, $2 per leg, 2 ticks, flat stake', () => {
+    it('Rise/Fall Hedge: Volatility 75 Rise + Fall, $2 per leg, 2 ticks, flat stake', () => {
         const bot = FREE_BOTS.find(b => b.id === 'rise-fall-hedge-v1');
         const doc = parse(bot!.xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
-        expect(field('SUBMARKET_LIST')).toBe('step_index');
-        expect(field('SYMBOL_LIST')).toBe('stpRNG');
+        expect(field('SUBMARKET_LIST')).toBe('random_index');
+        expect(field('SYMBOL_LIST')).toBe('R_75');
         expect(field('TRADETYPECAT_LIST')).toBe('callput');
         expect(field('TRADETYPE_LIST')).toBe('callput');
         expect(field('TYPE_LIST')).toBe('both');
@@ -122,6 +122,7 @@ describe('free bot catalog XML', () => {
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
         expect(field('PURCHASE_LIST')).toBe('DIGITDIFF');
+        expect(field('SYMBOL_LIST')).toBe('R_75');
 
         const setValue = (var_id: string) =>
             [...doc.querySelectorAll('block[type="variables_set"]')]

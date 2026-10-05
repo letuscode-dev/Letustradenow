@@ -1,5 +1,5 @@
 /**
- * Rise/Fall Hedge free bot (Deriv Step Indices, default Step Index 100).
+ * Rise/Fall Hedge free bot (default Volatility 75 Index).
  *
  * Buys Rise and Fall at the same time with the same stake and duration and treats
  * them as one hedge. Combined P/L is computed from the actual Deriv payouts and
@@ -108,8 +108,8 @@ ${SETTINGS.map(([id, name]) => `    <variable id="${id}">${name}</variable>`).jo
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="rfh_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">step_index</field>
-        <field name="SYMBOL_LIST">stpRNG</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">R_75</field>
         <next>
           <block type="trade_definition_tradetype" id="rfh_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">callput</field>
