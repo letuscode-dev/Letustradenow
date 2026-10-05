@@ -138,6 +138,21 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
+            'readyRiseFallHedge',
+            createAsync(js_interpreter, bot_interface.readyRiseFallHedge)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
+            'purchaseRiseFallHedge',
+            createAsync(js_interpreter, bot_interface.purchaseRiseFallHedge)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
+            'settleRiseFallHedge',
+            createAsync(js_interpreter, bot_interface.settleRiseFallHedge)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
             'sellAtMarket',
             createAsync(js_interpreter, bot_interface.sellAtMarket)
         );

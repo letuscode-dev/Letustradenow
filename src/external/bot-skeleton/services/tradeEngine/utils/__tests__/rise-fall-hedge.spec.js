@@ -1,30 +1,24 @@
 import {
     applyContractToLeg,
-    checkRiskGates,
-    computeStats,
+    checkHedgeRiskGates,
+    computeHedgeStats,
+    createRiseFallHedgeState,
+    dashboardLines,
     dayKey,
     DEFAULT_SETTINGS,
     finalizeHedge,
     formatHedgeCard,
-    type Hedge,
-    isStepIndex,
+    hedgeResultLines,
     isTemporaryBlock,
-    type Leg,
-    normalizeSettings,
-    shouldAutoFire,
-} from '../hedge-utils';
+    newLeg,
+    normalizeHedgeSettings,
+} from '../rise-fall-hedge';
 
 const NOW = new Date(2026, 9, 5, 12, 0, 0).getTime();
 
-const leg = (side: Leg['side'], patch: Partial<Leg> = {}): Leg => ({
-    side,
-    contract_type: side === 'RISE' ? 'CALL' : 'PUT',
-    status: 'OPEN',
-    stake: 2,
-    ...patch,
-});
+const leg = (side, patch = {}) => ({ ...newLeg(side, 2), status: 'OPEN', ...patch });
 
-const won = (contract_id: number, payout: number, stake = 2) => ({
+const won = (contract_id, payout, stake = 2) => ({
     contract_id,
     buy_price: stake,
     payout,
@@ -36,7 +30,7 @@ const won = (contract_id: number, payout: number, stake = 2) => ({
     exit_tick_display_value: '8123.5',
 });
 
-const lost = (contract_id: number, payout = 3.8, stake = 2) => ({
+const lost = (contract_id, payout = 3.8, stake = 2) => ({
     contract_id,
     buy_price: stake,
     payout,
@@ -48,9 +42,8 @@ const lost = (contract_id: number, payout = 3.8, stake = 2) => ({
     exit_tick_display_value: '8123.5',
 });
 
-/** A settled hedge built through the same functions the live hook uses. */
-const settledHedge = (id: number, rise_payout: number | null, fall_payout: number | null, created_at = NOW): Hedge => {
-    const base: Hedge = {
+const settledHedge = (id, rise_payout, fall_payout, created_at = NOW) => {
+    const base = {
         id,
         symbol: 'stpRNG',
         day: dayKey(created_at),
@@ -66,22 +59,26 @@ const settledHedge = (id: number, rise_payout: number | null, fall_payout: numbe
 };
 
 describe('Rise/Fall Hedge — settings', () => {
-    it('defaults: Step Index 100, $2 per leg, 2 ticks, manual', () => {
-        expect(DEFAULT_SETTINGS).toMatchObject({ symbol: 'stpRNG', stake: 2, duration: 2, mode: 'MANUAL' });
+    it('defaults: manual mode, cancel incomplete hedges, no stake progression settings', () => {
+        expect(DEFAULT_SETTINGS).toMatchObject({ mode: 'MANUAL', incomplete_policy: 'CANCEL', every_n_ticks: 10 });
+        expect(Object.keys(DEFAULT_SETTINGS).some(k => /martingale|multiplier/i.test(k))).toBe(false);
     });
 
-    it('clamps stake, duration and limits', () => {
-        const s = normalizeSettings({ stake: 0.1, duration: 25, every_n_ticks: 0 });
-        expect(s.stake).toBe(0.35);
-        expect(s.duration).toBe(10);
+    it('normalizes mode, policy and limits', () => {
+        const s = normalizeHedgeSettings({ mode: 'auto', incomplete_policy: 'run', every_n_ticks: 0, max_trades: '' });
+        expect(s.mode).toBe('AUTO');
+        expect(s.incomplete_policy).toBe('RUN');
         expect(s.every_n_ticks).toBe(1);
+        expect(s.max_trades).toBe(DEFAULT_SETTINGS.max_trades);
+        expect(normalizeHedgeSettings({ mode: 'x', incomplete_policy: 'x' })).toMatchObject({
+            mode: 'MANUAL',
+            incomplete_policy: 'CANCEL',
+        });
     });
 
-    it('recognises Step Indices', () => {
-        expect(isStepIndex({ symbol: 'stpRNG' })).toBe(true);
-        expect(isStepIndex({ symbol: 'stpRNG3' })).toBe(true);
-        expect(isStepIndex({ symbol: 'X', displayName: 'Step Index 200' })).toBe(true);
-        expect(isStepIndex({ symbol: 'R_100', displayName: 'Volatility 100 Index' })).toBe(false);
+    it('new legs use CALL for Rise and PUT for Fall with the same stake', () => {
+        expect(newLeg('RISE', 2)).toMatchObject({ contract_type: 'CALL', stake: 2 });
+        expect(newLeg('FALL', 2)).toMatchObject({ contract_type: 'PUT', stake: 2 });
     });
 });
 
@@ -95,8 +92,7 @@ describe('Rise/Fall Hedge — P/L from actual Deriv payouts', () => {
     });
 
     it('does not assume a profit: a small winning payout gives a losing hedge', () => {
-        const h = settledHedge(1, 3.8, null);
-        expect(h.net).toBe(-0.2);
+        expect(settledHedge(1, 3.8, null).net).toBe(-0.2);
     });
 
     it('both legs lose (exit equals entry) → −total stake', () => {
@@ -155,6 +151,19 @@ describe('Rise/Fall Hedge — execution', () => {
         expect(h).toMatchObject({ status: 'INCOMPLETE', total_stake: 2, net: 3.63 });
     });
 
+    it('nothing bought → aborted', () => {
+        const h = finalizeHedge(
+            {
+                ...settledHedge(8, 5.63, null),
+                net: undefined,
+                rise: leg('RISE', { status: 'FAILED' }),
+                fall: leg('FALL', { status: 'FAILED' }),
+            },
+            500
+        );
+        expect(h.status).toBe('ABORTED');
+    });
+
     it('formats the HEDGE card', () => {
         expect(formatHedgeCard(settledHedge(123, 5.63, null))).toBe(
             ['HEDGE #123', 'Rise: WIN   +$3.63', 'Fall: LOSS  -$2.00', '--------------------', 'NET:       +$1.63'].join(
@@ -173,7 +182,7 @@ describe('Rise/Fall Hedge — statistics', () => {
             settledHedge(4, 4, null, NOW + 3), // 0
             settledHedge(5, 6, null, NOW + 4), // +2
         ];
-        const s = computeStats(hedges);
+        const s = computeHedgeStats(hedges);
         expect(s).toMatchObject({
             total: 5,
             profitable: 2,
@@ -192,79 +201,77 @@ describe('Rise/Fall Hedge — statistics', () => {
         expect(s.profit_factor).toBeCloseTo(3.63 / 4.2, 6);
     });
 
-    it('ignores aborted hedges and open hedges', () => {
-        const aborted: Hedge = { ...settledHedge(9, 5.63, null), status: 'ABORTED', net: undefined };
-        expect(computeStats([aborted]).total).toBe(0);
+    it('ignores aborted and open hedges', () => {
+        const aborted = { ...settledHedge(9, 5.63, null), status: 'ABORTED', net: undefined };
+        expect(computeHedgeStats([aborted]).total).toBe(0);
     });
 });
 
-describe('Rise/Fall Hedge — risk controls and triggers', () => {
-    const ctx = (patch: Record<string, unknown> = {}, hedges: Hedge[] = []) => ({
-        settings: normalizeSettings({ ...DEFAULT_SETTINGS, cooldown_seconds: 0, ...patch }),
+describe('Rise/Fall Hedge — risk controls', () => {
+    const ctx = (patch = {}, hedges = [], stake = 2) => ({
+        settings: normalizeHedgeSettings({ ...DEFAULT_SETTINGS, cooldown_seconds: 0, ...patch }),
+        stake,
         hedges,
         now: NOW + 10,
-        emergency_stopped: false,
     });
 
     it('allows a hedge when nothing blocks it', () => {
-        expect(checkRiskGates(ctx())).toBeNull();
+        expect(checkHedgeRiskGates(ctx())).toBeNull();
     });
 
-    it('emergency stop blocks everything', () => {
-        expect(checkRiskGates({ ...ctx(), emergency_stopped: true })).toMatch(/Emergency/);
-    });
-
-    it('max total stake per hedge', () => {
-        expect(checkRiskGates(ctx({ stake: 6, max_stake_per_hedge: 10 }))).toMatch(/exceeds the maximum/);
-    });
-
-    it('max simultaneous hedges (temporary)', () => {
-        const open: Hedge = { ...settledHedge(1, null, null), status: 'OPEN', net: undefined };
-        const reason = checkRiskGates(ctx({}, [open])) as string;
-        expect(reason).toMatch(/simultaneous/);
-        expect(isTemporaryBlock(reason)).toBe(true);
+    it('max total stake per hedge (both legs)', () => {
+        expect(checkHedgeRiskGates(ctx({ max_stake_per_hedge: 10 }, [], 6))).toMatch(/exceeds the maximum/);
+        expect(checkHedgeRiskGates(ctx({ max_stake_per_hedge: 10 }, [], 5))).toBeNull();
     });
 
     it('daily loss limit stops trading', () => {
         const losses = [1, 2, 3, 4, 5].map(i => settledHedge(i, null, null, NOW + i));
-        expect(checkRiskGates(ctx({ daily_loss_limit: 20, max_consecutive_losses: 99, max_daily_loss: 0 }, losses))).toMatch(
-            /Daily loss limit/
-        );
+        expect(
+            checkHedgeRiskGates(ctx({ daily_loss_limit: 20, max_consecutive_losses: 99, max_daily_loss: 0 }, losses))
+        ).toMatch(/Daily loss limit/);
     });
 
     it('max daily loss checks the worst case before firing', () => {
         const losses = [1, 2, 3, 4].map(i => settledHedge(i, null, null, NOW + i)); // -16
         expect(
-            checkRiskGates(ctx({ max_daily_loss: 18, daily_loss_limit: 0, max_consecutive_losses: 99 }, losses))
+            checkHedgeRiskGates(ctx({ max_daily_loss: 18, daily_loss_limit: 0, max_consecutive_losses: 99 }, losses))
         ).toMatch(/Maximum daily loss/);
     });
 
     it('daily profit target stops trading', () => {
         const wins = Array.from({ length: 13 }, (_, i) => settledHedge(i + 1, 5.63, null, NOW + i)); // +21.19
-        expect(checkRiskGates(ctx({ daily_profit_target: 20 }, wins))).toMatch(/profit target/);
+        expect(checkHedgeRiskGates(ctx({ daily_profit_target: 20 }, wins))).toMatch(/profit target/);
     });
 
     it('max consecutive losing hedges', () => {
         const losses = [1, 2, 3].map(i => settledHedge(i, 3.8, null, NOW + i));
-        expect(checkRiskGates(ctx({ max_consecutive_losses: 3 }, losses))).toMatch(/consecutive/);
+        expect(checkHedgeRiskGates(ctx({ max_consecutive_losses: 3 }, losses))).toMatch(/consecutive/);
     });
 
     it('max number of trades and max daily hedges', () => {
         const wins = [1, 2].map(i => settledHedge(i, 5.63, null, NOW + i));
-        expect(checkRiskGates(ctx({ max_trades: 2 }, wins))).toMatch(/number of trades/);
-        expect(checkRiskGates(ctx({ max_daily_hedges: 2 }, wins))).toMatch(/daily hedge count/);
+        expect(checkHedgeRiskGates(ctx({ max_trades: 2 }, wins))).toMatch(/number of trades/);
+        expect(checkHedgeRiskGates(ctx({ max_daily_hedges: 2 }, wins))).toMatch(/daily hedge count/);
     });
 
-    it('cooldown (temporary)', () => {
-        const reason = checkRiskGates({ ...ctx({ cooldown_seconds: 10 }), last_hedge_at: NOW + 5 }) as string;
+    it('cooldown is temporary, hard limits are not', () => {
+        const reason = checkHedgeRiskGates({ ...ctx({ cooldown_seconds: 10 }), last_hedge_at: NOW + 5 });
         expect(reason).toMatch(/Cooldown/);
         expect(isTemporaryBlock(reason)).toBe(true);
+        expect(isTemporaryBlock('Daily loss limit reached (-20.00).')).toBe(false);
     });
+});
 
-    it('automatic mode fires every N ticks only', () => {
-        const auto = normalizeSettings({ mode: 'AUTO', every_n_ticks: 5 });
-        expect(shouldAutoFire(4, auto)).toBe(false);
-        expect(shouldAutoFire(5, auto)).toBe(true);
-        expect(shouldAutoFire(5, normalizeSettings({ mode: 'MANUAL', every_n_ticks: 5 }))).toBe(false);
+describe('Rise/Fall Hedge — journal output', () => {
+    it('dashboard and result lines include the hedge details', () => {
+        const state = createRiseFallHedgeState(false);
+        const h = settledHedge(1, 5.63, null);
+        state.hedges = [h];
+        expect(dashboardLines({ symbol_name: 'Step Index 100', stake: 2, duration: 2, state }).join('\n')).toMatch(
+            /STEP INDEX 100[\s\S]*Total Risk: \$4\.00/
+        );
+        const text = hedgeResultLines(h, state).join('\n');
+        expect(text).toMatch(/HEDGE #1/);
+        expect(text).toMatch(/1\.63/);
     });
 });

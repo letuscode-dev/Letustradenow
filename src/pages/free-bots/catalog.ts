@@ -1,4 +1,5 @@
 import { RANK_DROP_DIFFER_XML } from './bots/rank-drop-differ';
+import { RISE_FALL_HEDGE_XML } from './bots/rise-fall-hedge';
 import type { FreeBot } from './types';
 
 /**
@@ -20,8 +21,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'rise-fall-hedge-v1',
         title: 'Rise/Fall Hedge (Step Indices)',
         description:
-            'Buys a Rise and a Fall contract together on Step Index 100 (or any Step Index) with the same stake (default $2 each) and duration (default 2 ticks), treated as one hedge. Manual START HEDGE or automatic every N ticks with cooldown, simultaneous and daily limits. Combined P/L from the actual Deriv payouts, execution timestamps with an ASYMMETRIC EXECUTION flag, incomplete-hedge policy, risk limits, emergency STOP and full statistics. Flat stake — no martingale.',
+            'Buys a Rise and a Fall contract at the same time on Step Index 100 (change the symbol for any Step Index) with the same stake (default $2 each) and duration (default 2 ticks), treated as one hedge. Mode MANUAL fires one hedge per Run; AUTO fires every N ticks with cooldown and daily hedge limit. Journal shows each leg, the combined stake/payout/P/L and % return from the actual Deriv payouts, execution gap with an ASYMMETRIC EXECUTION flag, incomplete-hedge handling (CANCEL or RUN) and full statistics. Risk limits stop the bot automatically; Stop is the emergency stop. Flat stake — no martingale.',
         tags: ['Rise/Fall', 'Hedge', 'Step Index', 'Manual & Auto', 'Risk controls'],
-        panel: 'rise_fall_hedge',
+        xml: RISE_FALL_HEDGE_XML,
     },
 ];

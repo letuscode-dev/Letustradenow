@@ -1,6 +1,20 @@
+import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
 import { LogTypes } from '../../../constants/messages';
+import { createError } from '../../../utils/error';
 import { api_base } from '../../api/api-base';
+import {
+    openAdaptiveDigitGapActiveTrade,
+    releaseAdaptiveDigitGapActiveTrade,
+} from '../utils/adaptive-digit-gap';
 import { contractStatus, info, log } from '../utils/broadcast';
+import {
+    openConditionalEvenOddActiveTrade,
+    releaseConditionalEvenOddActiveTrade,
+} from '../utils/conditional-even-odd-differs';
+import {
+    openConditionalHighLowActiveTrade,
+    releaseConditionalHighLowActiveTrade,
+} from '../utils/conditional-high-low-differs';
 import {
     doUntilDone,
     getUUID,
@@ -10,34 +24,28 @@ import {
     tradeOptionToOverrideBuy,
     tradeOptionToOverrideProposal,
 } from '../utils/helpers';
-import { purchaseSuccessful } from './state/actions';
-import { BEFORE_PURCHASE } from './state/constants';
-import { createError } from '../../../utils/error';
-import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
-import {
-    openAdaptiveDigitGapActiveTrade,
-    releaseAdaptiveDigitGapActiveTrade,
-} from '../utils/adaptive-digit-gap';
 import {
     openIncreasingDigitGapActiveTrade,
     releaseIncreasingDigitGapActiveTrade,
 } from '../utils/increasing-digit-gap';
 import {
-    openSignalScoreDiffersActiveTrade,
-    releaseSignalScoreDiffersActiveTrade,
-} from '../utils/signal-score-differs';
-import {
     openLongAbsenceReturnActiveTrade,
     releaseLongAbsenceReturnActiveTrade,
 } from '../utils/long-absence-return-differs';
 import {
-    openConditionalEvenOddActiveTrade,
-    releaseConditionalEvenOddActiveTrade,
-} from '../utils/conditional-even-odd-differs';
+    createRiseFallHedgeState,
+    dayKey,
+    FALL,
+    newLeg,
+    RISE,
+} from '../utils/rise-fall-hedge';
+import { notifyHedge, settleHedgeInBackground } from '../utils/rise-fall-hedge-runtime';
 import {
-    openConditionalHighLowActiveTrade,
-    releaseConditionalHighLowActiveTrade,
-} from '../utils/conditional-high-low-differs';
+    openSignalScoreDiffersActiveTrade,
+    releaseSignalScoreDiffersActiveTrade,
+} from '../utils/signal-score-differs';
+import { purchaseSuccessful } from './state/actions';
+import { BEFORE_PURCHASE } from './state/constants';
 
 let delayIndex = 0;
 let purchase_reference;
@@ -112,6 +120,7 @@ export default Engine =>
             });
 
             this.contractId = buy.contract_id;
+            this.last_buy = buy;
             this.store.dispatch(purchaseSuccessful());
             openAdaptiveDigitGapActiveTrade(this.adaptiveDigitGapState);
             openIncreasingDigitGapActiveTrade(this.increasingDigitGapState);
@@ -377,6 +386,142 @@ export default Engine =>
 
             return this.purchaseDirect(contract_type);
         }
+        /**
+         * Rise/Fall Hedge: Rise goes through the normal purchase (tracked by the engine,
+         * After Purchase runs when it settles) and Fall is bought from the live PUT
+         * proposal in the same instant. Neither order waits for the other.
+         */
+        purchaseRiseFallHedge() {
+            if (!this.canAttemptPurchase(RISE)) {
+                return Promise.resolve();
+            }
+            if (!this.riseFallHedgeState) this.riseFallHedgeState = createRiseFallHedgeState();
+            const state = this.riseFallHedgeState;
+            const stake = Number(this.tradeOptions?.amount);
+
+            let fall_proposal;
+            try {
+                this.selectProposal(RISE);
+                fall_proposal = this.selectProposal(FALL);
+            } catch (error) {
+                return Promise.reject(error);
+            }
+            const quote = type =>
+                Number(
+                    this.data.proposals.find(
+                        p => p.contract_type === type && p.purchase_reference === this.getPurchaseReference()
+                    )?.payout
+                );
+
+            const now = Date.now();
+            const hedge = {
+                id: state.hedges.reduce((m, h) => Math.max(m, h.id), 0) + 1,
+                symbol: this.tradeOptions?.symbol,
+                day: dayKey(now),
+                created_at: now,
+                duration: Number(this.tradeOptions?.duration),
+                status: 'BUYING',
+                rise: { ...newLeg('RISE', stake), quoted_payout: quote(RISE) },
+                fall: { ...newLeg('FALL', stake), quoted_payout: quote(FALL) },
+            };
+            state.current = hedge;
+            state.last_hedge_at = now;
+            state.ticks_since_last = 0;
+
+            const message = e => e?.error?.message || e?.message || 'Purchase failed.';
+            this.last_buy = null;
+
+            hedge.rise.order_sent_at = Date.now();
+            const rise_promise = this.purchase(RISE).then(
+                () => {
+                    const buy = this.last_buy;
+                    if (!buy) {
+                        Object.assign(hedge.rise, { status: 'FAILED', error: 'Rise was not bought.' });
+                        return new Error('Rise was not bought.');
+                    }
+                    Object.assign(hedge.rise, {
+                        status: 'OPEN',
+                        order_confirmed_at: Date.now(),
+                        contract_id: buy.contract_id,
+                        purchase_time: buy.start_time,
+                        stake: Number(buy.buy_price ?? stake),
+                    });
+                    return true;
+                },
+                error => {
+                    Object.assign(hedge.rise, { status: 'FAILED', order_confirmed_at: Date.now(), error: message(error) });
+                    return error;
+                }
+            );
+
+            hedge.fall.order_sent_at = Date.now();
+            const fall_promise = api_base.api
+                .send({ buy: fall_proposal.id, price: toBuyPrice(fall_proposal.askPrice, stake) })
+                .then(response => {
+                    if (response?.error || !response?.buy) {
+                        throw response?.error ? response : new Error('Fall purchase was not confirmed.');
+                    }
+                    Object.assign(hedge.fall, {
+                        status: 'OPEN',
+                        order_confirmed_at: Date.now(),
+                        contract_id: response.buy.contract_id,
+                        purchase_time: response.buy.start_time,
+                        stake: Number(response.buy.buy_price ?? stake),
+                        quoted_payout: Number(response.buy.payout ?? hedge.fall.quoted_payout),
+                    });
+                    return true;
+                })
+                .catch(error => {
+                    Object.assign(hedge.fall, { status: 'FAILED', order_confirmed_at: Date.now(), error: message(error) });
+                    return false;
+                });
+
+            return Promise.all([rise_promise, fall_promise]).then(async ([rise_result, fall_ok]) => {
+                const rise_ok = rise_result === true;
+                if (rise_ok && fall_ok) {
+                    hedge.status = 'OPEN';
+                    notifyHedge(
+                        `HEDGE #${hedge.id} OPEN — Rise ${hedge.rise.contract_id} + Fall ${hedge.fall.contract_id} | gap ${Math.abs(
+                            hedge.rise.order_confirmed_at - hedge.fall.order_confirmed_at
+                        )} ms`
+                    );
+                    return;
+                }
+                if (!rise_ok && !fall_ok) {
+                    hedge.status = 'ABORTED';
+                    hedge.failure = `Both legs failed — Rise: ${hedge.rise.error} | Fall: ${hedge.fall.error}`;
+                    state.hedges.push(hedge);
+                    state.current = null;
+                    notifyHedge(`HEDGE #${hedge.id} FAILED — ${hedge.failure}`, 'journal__text--error');
+                    throw rise_result;
+                }
+
+                const live_label = rise_ok ? 'Rise' : 'Fall';
+                const live = rise_ok ? hedge.rise : hedge.fall;
+                hedge.failure = `${rise_ok ? 'Fall' : 'Rise'} leg failed: ${(rise_ok ? hedge.fall : hedge.rise).error}`;
+                hedge.policy_applied = `${live_label} allowed to run (policy B).`;
+                if (state.settings.incomplete_policy === 'CANCEL') {
+                    try {
+                        const sold = await api_base.api.send({ sell: live.contract_id, price: 0 });
+                        if (sold?.error) throw sold;
+                        live.status = 'CANCELLED';
+                        live.note = 'cancelled after the other leg failed';
+                        hedge.policy_applied = `${live_label} cancelled (sold for ${Number(sold.sell?.sold_for ?? 0).toFixed(2)}).`;
+                    } catch (error) {
+                        hedge.policy_applied = `${live_label} could not be cancelled (${message(error)}) — it runs to expiry.`;
+                    }
+                }
+                hedge.status = 'OPEN';
+                notifyHedge(`HEDGE #${hedge.id} INCOMPLETE — ${hedge.failure}. ${hedge.policy_applied}`, 'journal__text--warn');
+
+                if (!rise_ok) {
+                    // The engine bought nothing, so After Purchase will not run: settle Fall here.
+                    settleHedgeInBackground(state);
+                    throw rise_result;
+                }
+            });
+        }
+
         getPurchaseReference = () => purchase_reference;
         regeneratePurchaseReference = () => {
             purchase_reference = getUUID();

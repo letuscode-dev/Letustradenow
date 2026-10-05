@@ -188,6 +188,16 @@ import {
     resetRepeatedDigitRecurrenceState,
 } from '../utils/repeated-digit-recurrence-differ';
 import {
+    checkHedgeRiskGates,
+    createRiseFallHedgeState,
+    dashboardLines,
+    FALL,
+    isTemporaryBlock,
+    normalizeHedgeSettings,
+    RISE,
+} from '../utils/rise-fall-hedge';
+import { notifyHedge, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
+import {
     applySequentialDiffersTradeResult,
     armSequentialDiffersPrediction,
     buildSequentialScanResult,
@@ -428,6 +438,7 @@ const getBotInterface = tradeEngine => {
                 resetRankDropState(tradeEngine.rankDropState);
                 tradeEngine.rankDropState = null;
             }
+            tradeEngine.riseFallHedgeState = null;
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
                 tradeEngine.ascendingRankNextState = null;
@@ -975,6 +986,97 @@ const getBotInterface = tradeEngine => {
             const { analysis_window } = normalizeTieDigitOptions(opts);
             const digit_ticks = await loadWindowDigitTicks(tradeEngine, analysis_window, 'tie_digit');
             return replayTieDigit(digit_ticks, opts);
+        },
+        /**
+         * Rise/Fall Hedge — called on every Before Purchase pass. Returns 1 when a hedge
+         * should be fired now, 0 to wait. A hard risk limit stops the bot.
+         */
+        readyRiseFallHedge: options => {
+            if (!tradeEngine.riseFallHedgeState) tradeEngine.riseFallHedgeState = createRiseFallHedgeState();
+            const state = tradeEngine.riseFallHedgeState;
+            state.settings = normalizeHedgeSettings(options || {});
+            const stake = Number(tradeEngine.tradeOptions?.amount) || 0;
+            const duration = Number(tradeEngine.tradeOptions?.duration) || 0;
+
+            if (!state.dashboard_shown) {
+                state.dashboard_shown = true;
+                const symbol = tradeEngine.tradeOptions?.symbol;
+                const symbol_name =
+                    (api_base.active_symbols || []).find(s => (s.underlying_symbol || s.symbol) === symbol)
+                        ?.display_name || symbol;
+                const payout = type => tradeEngine.data?.proposals?.find(p => p.contract_type === type)?.payout;
+                dashboardLines({
+                    symbol_name,
+                    stake,
+                    duration,
+                    state,
+                    quotes: { rise: payout(RISE), fall: payout(FALL) },
+                }).forEach(line => notifyHedge(line));
+                notifyHedge(
+                    state.settings.mode === 'AUTO'
+                        ? `Mode: AUTOMATIC — a hedge every ${state.settings.every_n_ticks} ticks, cooldown ${state.settings.cooldown_seconds}s`
+                        : 'Mode: MANUAL — this run fires one hedge, then stops. Press Run again for the next hedge.'
+                );
+            }
+
+            const ticks = typeof tradeEngine.getCachedDigitTicks === 'function' ? tradeEngine.getCachedDigitTicks() : [];
+            const epoch = ticks.length ? ticks[ticks.length - 1].epoch : null;
+            if (epoch !== null && epoch !== state.last_tick_epoch) {
+                state.last_tick_epoch = epoch;
+                state.ticks_since_last += 1;
+            }
+            if (state.current) return 0;
+            if (state.settings.mode === 'AUTO' && state.ticks_since_last < state.settings.every_n_ticks) return 0;
+
+            const blocked = checkHedgeRiskGates({
+                settings: state.settings,
+                stake,
+                hedges: state.hedges,
+                now: Date.now(),
+                last_hedge_at: state.last_hedge_at,
+            });
+            if (blocked && isTemporaryBlock(blocked)) {
+                const wait = blocked.replace(/\d+s left/, 'waiting');
+                if (state.last_wait_message !== wait) notifyHedge(`Waiting — ${blocked}`);
+                state.last_wait_message = wait;
+                return 0;
+            }
+            if (blocked) {
+                if (!state.stop_requested) {
+                    state.stop_requested = true;
+                    notifyHedge(`STOPPED — ${blocked}`, 'journal__text--error');
+                    setTimeout(() => globalObserver.emit('bot.stop_button_click'), 300);
+                }
+                return 0;
+            }
+            state.last_wait_message = '';
+            return 1;
+        },
+        purchaseRiseFallHedge: () => tradeEngine.purchaseRiseFallHedge(),
+        /**
+         * Rise/Fall Hedge — called in After Purchase. Waits for both legs, records the
+         * combined result and returns 1 to trade again or 0 to stop.
+         */
+        settleRiseFallHedge: async () => {
+            const state = tradeEngine.riseFallHedgeState;
+            if (!state) return 0;
+            await settleCurrentHedge(state, tradeEngine.data?.contract);
+            if (state.settings.mode !== 'AUTO') {
+                notifyHedge('Manual hedge complete — press Run to fire the next hedge.');
+                return 0;
+            }
+            const blocked = checkHedgeRiskGates({
+                settings: state.settings,
+                stake: Number(tradeEngine.tradeOptions?.amount) || 0,
+                hedges: state.hedges,
+                now: Date.now(),
+                last_hedge_at: undefined,
+            });
+            if (blocked) {
+                notifyHedge(`STOPPED — ${blocked}`, 'journal__text--error');
+                return 0;
+            }
+            return 1;
         },
         /**
          * Rank Drop Differs — Differ the digit with the biggest frequency-rank

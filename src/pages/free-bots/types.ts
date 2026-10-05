@@ -1,10 +1,7 @@
 export type FreeBotAction = 'RUN' | 'LOAD';
 
-/** Bots that run as a live panel in the Free Bots tab instead of in Bot Builder. */
-export type FreeBotPanel = 'rise_fall_hedge';
-
 /**
- * A free bot entry: either raw Blockly XML (loaded into Bot Builder) or a live panel.
+ * A free bot entry backed by a raw Blockly XML string.
  * Add entries via catalog.ts.
  */
 export type FreeBot = {
@@ -13,6 +10,5 @@ export type FreeBot = {
     description: string;
     tags?: string[];
     /** Raw Blockly XML content for this bot. */
-    xml?: string;
-    panel?: FreeBotPanel;
+    xml: string;
 };
