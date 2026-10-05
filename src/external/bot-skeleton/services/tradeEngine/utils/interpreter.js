@@ -138,6 +138,16 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
+            'configureRiseFallHedgeEntry',
+            createAsync(js_interpreter, bot_interface.configureRiseFallHedgeEntry)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
+            'configureRiseFallHedgeEntry',
+            createAsync(js_interpreter, bot_interface.configureRiseFallHedgeEntry)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
             'readyRiseFallHedge',
             createAsync(js_interpreter, bot_interface.readyRiseFallHedge)
         );

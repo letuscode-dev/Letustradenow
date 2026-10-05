@@ -1,6 +1,7 @@
 /**
  * Rise/Fall Hedge blocks.
  *  - rise_fall_hedge_ready (Before Purchase): 1 = fire a hedge now, 0 = wait. Hard risk limits stop the bot.
+ *  - rise_fall_hedge_entry_engine (Before Purchase): entry filter settings; decides WHEN the hedge may fire.
  *  - rise_fall_hedge_purchase (Before Purchase): buys Rise and Fall together with the same stake and duration.
  *  - rise_fall_hedge_result (After Purchase): waits for both legs, journals the combined result,
  *    returns 1 to trade again or 0 to stop.
@@ -71,6 +72,71 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.rise_fall_hedge_ready = b
         ([name, key, fallback]) => `${key}: ${generator.valueToCode(block, name, generator.ORDER_ATOMIC) || fallback}`
     ).join(',\n            ');
     return [`Bot.readyRiseFallHedge({\n            ${fields}\n        })`, generator.ORDER_ATOMIC];
+};
+
+const ENTRY_INPUTS = [
+    ['ENABLED', 'enabled', 'true', 'Boolean'],
+    ['MODE', 'mode', '"MULTI-CONFIRMATION"', null],
+    ['MIN_SCORE', 'min_score', '8', 'Number'],
+    ['MIN_BIAS', 'min_bias', '65', 'Number'],
+    ['LOOKBACK', 'lookback', '50', 'Number'],
+    ['SHORT_WINDOW', 'short_window', '10', 'Number'],
+    ['MEDIUM_WINDOW', 'medium_window', '20', 'Number'],
+    ['LONG_WINDOW', 'long_window', '50', 'Number'],
+    ['ACCELERATION', 'acceleration_threshold', '20', 'Number'],
+    ['STRENGTH_RATIO', 'strength_ratio', '1.5', 'Number'],
+    ['PATTERN_LENGTH', 'pattern_length', '5', 'Number'],
+    ['PATTERN_HISTORY', 'pattern_history', '1000', 'Number'],
+    ['MIN_PATTERN_SAMPLES', 'min_pattern_samples', '20', 'Number'],
+    ['PATTERN_THRESHOLD', 'pattern_threshold', '65', 'Number'],
+    ['EXHAUSTION_RUN', 'exhaustion_run', '6', 'Number'],
+    ['MIN_PAYOUT', 'min_payout', '0', 'Number'],
+    ['MAX_SIMULTANEOUS', 'max_simultaneous', '1', 'Number'],
+    ['LOG_NO_TRADE', 'log_no_trade', 'true', 'Boolean'],
+];
+
+window.Blockly.Blocks.rise_fall_hedge_entry_engine = {
+    init() {
+        this.jsonInit(this.definition());
+        this.setInputsInline(false);
+    },
+    definition() {
+        return {
+            message0: localize(
+                'Rise/Fall hedge entry engine: enabled %1 entry mode %2 minimum entry score %3 minimum directional bias percent %4 lookback ticks %5 short window %6 medium window %7 long window %8 acceleration threshold pts %9 strength ratio %10 pattern length %11 pattern history ticks %12 minimum pattern samples %13 pattern continuation percent %14 exhaustion run %15 minimum payout %16 max simultaneous hedges %17 log no-trade entries %18'
+            ),
+            args0: ENTRY_INPUTS.map(([name, , , check]) => ({
+                type: 'input_value',
+                name,
+                ...(check ? { check } : {}),
+            })),
+            previousStatement: null,
+            nextStatement: null,
+            ...colours(),
+            tooltip: localize(
+                'Decides WHEN the hedge may fire from an entry score (0–13). Never picks a side: an approved entry buys Rise and Fall together. Modes: MOMENTUM, ACCELERATION, PATTERN, REVERSAL, MULTI-CONFIRMATION, ADAPTIVE (or A–F).'
+            ),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Rise/Fall hedge entry engine'),
+            description: localize('Entry filter for the Rise/Fall Hedge: momentum, acceleration, patterns, strength, reversal and multi-window confirmation.'),
+            key_words: localize('hedge, entry, score, momentum, pattern'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.rise_fall_hedge_entry_engine = block => {
+    const generator = window.Blockly.JavaScript.javascriptGenerator;
+    const fields = ENTRY_INPUTS.map(
+        ([name, key, fallback]) => `${key}: ${generator.valueToCode(block, name, generator.ORDER_ATOMIC) || fallback}`
+    ).join(',\n        ');
+    return `Bot.configureRiseFallHedgeEntry({\n        ${fields}\n    });\n`;
 };
 
 window.Blockly.Blocks.rise_fall_hedge_purchase = {

@@ -6,12 +6,16 @@
  * journaled with per-leg details, execution gap and session statistics.
  * Mode MANUAL fires one hedge per Run; AUTO fires every N ticks within the risk limits.
  * Flat stake: no martingale, no stake increase after losses.
+ * The Entry Engine (Before Purchase) only decides WHEN the hedge may fire: it scores
+ * recent ticks 0–13 and, when approved, both Rise and Fall are bought as before.
  */
 
 const varGet = (id, name) =>
     `<block type="variables_get"><field name="VAR" id="${id}">${name}</field></block>`;
 
 const num = n => `<block type="math_number"><field name="NUM">${n}</field></block>`;
+
+const bool = b => `<block type="logic_boolean"><field name="BOOL">${b ? 'TRUE' : 'FALSE'}</field></block>`;
 
 const text = t => `<block type="text"><field name="TEXT">${t}</field></block>`;
 
@@ -46,6 +50,49 @@ const SETTINGS = [
     ['rfh_max_trades', 'Max Number Of Hedges', num(100)],
     ['rfh_asym_ms', 'Asymmetric Execution ms', num(500)],
     ['rfh_policy', 'Incomplete Hedge Policy (CANCEL or RUN)', text('CANCEL')],
+    ['rfh_entry_enabled', 'Entry Engine Enabled', bool(true)],
+    [
+        'rfh_entry_mode',
+        'Entry Mode (MOMENTUM, ACCELERATION, PATTERN, REVERSAL, MULTI-CONFIRMATION, ADAPTIVE)',
+        text('MULTI-CONFIRMATION'),
+    ],
+    ['rfh_entry_min_score', 'Minimum Entry Score (of 13)', num(8)],
+    ['rfh_entry_bias', 'Minimum Directional Bias %', num(65)],
+    ['rfh_entry_lookback', 'Lookback Window Ticks', num(50)],
+    ['rfh_entry_short', 'Short Momentum Window', num(10)],
+    ['rfh_entry_medium', 'Medium Momentum Window', num(20)],
+    ['rfh_entry_long', 'Long Momentum Window', num(50)],
+    ['rfh_entry_accel', 'Acceleration Threshold (% points)', num(20)],
+    ['rfh_entry_strength', 'Tick Strength Ratio', num(1.5)],
+    ['rfh_entry_pattern_len', 'Pattern Length (3-10)', num(5)],
+    ['rfh_entry_pattern_hist', 'Pattern History Ticks', num(1000)],
+    ['rfh_entry_pattern_samples', 'Minimum Pattern Samples', num(20)],
+    ['rfh_entry_pattern_pct', 'Pattern Continuation %', num(65)],
+    ['rfh_entry_exhaustion', 'Exhaustion Run Length', num(6)],
+    ['rfh_entry_min_payout', 'Minimum Winning Payout (0 = off)', num(0)],
+    ['rfh_entry_max_open', 'Maximum Simultaneous Hedges', num(1)],
+    ['rfh_entry_log', 'Log No-Trade Entries', bool(true)],
+];
+
+const ENTRY_INPUTS = [
+    ['ENABLED', 'rfh_entry_enabled'],
+    ['MODE', 'rfh_entry_mode'],
+    ['MIN_SCORE', 'rfh_entry_min_score'],
+    ['MIN_BIAS', 'rfh_entry_bias'],
+    ['LOOKBACK', 'rfh_entry_lookback'],
+    ['SHORT_WINDOW', 'rfh_entry_short'],
+    ['MEDIUM_WINDOW', 'rfh_entry_medium'],
+    ['LONG_WINDOW', 'rfh_entry_long'],
+    ['ACCELERATION', 'rfh_entry_accel'],
+    ['STRENGTH_RATIO', 'rfh_entry_strength'],
+    ['PATTERN_LENGTH', 'rfh_entry_pattern_len'],
+    ['PATTERN_HISTORY', 'rfh_entry_pattern_hist'],
+    ['MIN_PATTERN_SAMPLES', 'rfh_entry_pattern_samples'],
+    ['PATTERN_THRESHOLD', 'rfh_entry_pattern_pct'],
+    ['EXHAUSTION_RUN', 'rfh_entry_exhaustion'],
+    ['MIN_PAYOUT', 'rfh_entry_min_payout'],
+    ['MAX_SIMULTANEOUS', 'rfh_entry_max_open'],
+    ['LOG_NO_TRADE', 'rfh_entry_log'],
 ];
 
 const v = id => {
@@ -105,6 +152,9 @@ ${SETTINGS.map(([id, name]) => `    <variable id="${id}">${name}</variable>`).jo
   </block>
   <block type="before_purchase" id="rfh_before" deletable="false" x="0" y="900">
     <statement name="BEFOREPURCHASE_STACK">
+      <block type="rise_fall_hedge_entry_engine" id="rfh_entry_engine">
+${ENTRY_INPUTS.map(([input, id]) => `        <value name="${input}">${v(id)}</value>`).join('\n')}
+        <next>
       <block type="controls_if" id="rfh_if_ready">
         <value name="IF0">
           <block type="logic_compare">
@@ -131,6 +181,8 @@ ${SETTINGS.map(([id, name]) => `    <variable id="${id}">${name}</variable>`).jo
         <statement name="DO0">
           <block type="rise_fall_hedge_purchase" id="rfh_buy"></block>
         </statement>
+      </block>
+        </next>
       </block>
     </statement>
   </block>

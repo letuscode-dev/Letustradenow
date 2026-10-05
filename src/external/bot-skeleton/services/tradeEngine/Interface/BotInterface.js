@@ -196,6 +196,21 @@ import {
     normalizeHedgeSettings,
     RISE,
 } from '../utils/rise-fall-hedge';
+import {
+    analyzeHedgeEntry,
+    decideHedgeEntry,
+    entryFiredLines,
+    entryNoTradeLine,
+    entryRecord,
+    entrySettingsLines,
+    hedgeEconomics,
+    loadEntryLog,
+    normalizeEntrySettings,
+    readHedgePayouts,
+    requiredEntryScore,
+    saveEntryLog,
+    strategyBreakdownLines,
+} from '../utils/rise-fall-hedge-entry';
 import { notifyHedge, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -438,6 +453,7 @@ const getBotInterface = tradeEngine => {
                 resetRankDropState(tradeEngine.rankDropState);
                 tradeEngine.rankDropState = null;
             }
+            if (tradeEngine.riseFallHedgeState?.entry_log) saveEntryLog(tradeEngine.riseFallHedgeState.entry_log);
             tradeEngine.riseFallHedgeState = null;
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
@@ -991,19 +1007,24 @@ const getBotInterface = tradeEngine => {
          * Rise/Fall Hedge — called on every Before Purchase pass. Returns 1 when a hedge
          * should be fired now, 0 to wait. A hard risk limit stops the bot.
          */
-        readyRiseFallHedge: options => {
+        configureRiseFallHedgeEntry: async options => {
+            if (!tradeEngine.riseFallHedgeState) tradeEngine.riseFallHedgeState = createRiseFallHedgeState();
+            tradeEngine.riseFallHedgeState.entry_settings = normalizeEntrySettings(options || {});
+        },
+        readyRiseFallHedge: async options => {
             if (!tradeEngine.riseFallHedgeState) tradeEngine.riseFallHedgeState = createRiseFallHedgeState();
             const state = tradeEngine.riseFallHedgeState;
             state.settings = normalizeHedgeSettings(options || {});
+            const entry = state.entry_settings?.enabled ? state.entry_settings : null;
             const stake = Number(tradeEngine.tradeOptions?.amount) || 0;
             const duration = Number(tradeEngine.tradeOptions?.duration) || 0;
+            const symbol = tradeEngine.tradeOptions?.symbol;
+            const symbol_name =
+                (api_base.active_symbols || []).find(s => (s.underlying_symbol || s.symbol) === symbol)?.display_name ||
+                symbol;
 
             if (!state.dashboard_shown) {
                 state.dashboard_shown = true;
-                const symbol = tradeEngine.tradeOptions?.symbol;
-                const symbol_name =
-                    (api_base.active_symbols || []).find(s => (s.underlying_symbol || s.symbol) === symbol)
-                        ?.display_name || symbol;
                 const payout = type => tradeEngine.data?.proposals?.find(p => p.contract_type === type)?.payout;
                 dashboardLines({
                     symbol_name,
@@ -1012,21 +1033,35 @@ const getBotInterface = tradeEngine => {
                     state,
                     quotes: { rise: payout(RISE), fall: payout(FALL) },
                 }).forEach(line => notifyHedge(line));
-                notifyHedge(
-                    state.settings.mode === 'AUTO'
-                        ? `Mode: AUTOMATIC — a hedge every ${state.settings.every_n_ticks} ticks, cooldown ${state.settings.cooldown_seconds}s`
-                        : 'Mode: MANUAL — this run fires one hedge, then stops. Press Run again for the next hedge.'
-                );
+                if (entry) {
+                    notifyHedge(
+                        state.settings.mode === 'AUTO'
+                            ? `Mode: AUTOMATIC — the Entry Engine checks every new tick; cooldown ${state.settings.cooldown_seconds}s`
+                            : 'Mode: MANUAL — this run fires one hedge when the Entry Engine approves, then stops.'
+                    );
+                    entrySettingsLines(entry).forEach(line => notifyHedge(line));
+                    strategyBreakdownLines(state.hedges).forEach(line => notifyHedge(`Stored ${line}`));
+                } else {
+                    notifyHedge(
+                        state.settings.mode === 'AUTO'
+                            ? `Mode: AUTOMATIC — a hedge every ${state.settings.every_n_ticks} ticks, cooldown ${state.settings.cooldown_seconds}s`
+                            : 'Mode: MANUAL — this run fires one hedge, then stops. Press Run again for the next hedge.'
+                    );
+                }
             }
 
             const ticks = typeof tradeEngine.getCachedDigitTicks === 'function' ? tradeEngine.getCachedDigitTicks() : [];
             const epoch = ticks.length ? ticks[ticks.length - 1].epoch : null;
-            if (epoch !== null && epoch !== state.last_tick_epoch) {
+            const new_tick = epoch !== null && epoch !== state.last_tick_epoch;
+            if (new_tick) {
                 state.last_tick_epoch = epoch;
                 state.ticks_since_last += 1;
             }
             if (state.current) return 0;
-            if (state.settings.mode === 'AUTO' && state.ticks_since_last < state.settings.every_n_ticks) return 0;
+            if (entry && !new_tick) return 0;
+            if (!entry && state.settings.mode === 'AUTO' && state.ticks_since_last < state.settings.every_n_ticks) {
+                return 0;
+            }
 
             const blocked = checkHedgeRiskGates({
                 settings: state.settings,
@@ -1035,6 +1070,53 @@ const getBotInterface = tradeEngine => {
                 now: Date.now(),
                 last_hedge_at: state.last_hedge_at,
             });
+            if (entry && !(blocked && !isTemporaryBlock(blocked))) {
+                const raw = tradeEngine.$scope?.ticksService?.getCachedTicks?.(symbol) || [];
+                const prices = raw.map(t => (typeof t === 'object' && t !== null ? Number(t.quote) : Number(t)));
+                const analysis = analyzeHedgeEntry(prices.slice(-(entry.pattern_history + 1)), entry);
+                if (analysis.status === 'COLLECTING') {
+                    const wait = `Entry Engine: collecting ticks (need ${analysis.need}).`;
+                    if (state.last_wait_message !== wait) notifyHedge(`${wait} Have ${analysis.have}.`);
+                    state.last_wait_message = wait;
+                    return 0;
+                }
+                const payouts = readHedgePayouts(tradeEngine.data?.proposals, tradeEngine.getPurchaseReference?.());
+                const required_score = requiredEntryScore(entry, state.hedges);
+                const decision = decideHedgeEntry({
+                    analysis,
+                    settings: entry,
+                    required_score,
+                    payouts,
+                    open_hedges: state.current ? 1 : 0,
+                    temporary_block: blocked,
+                });
+                const now = Date.now();
+                const record = entryRecord({
+                    now,
+                    market: symbol_name,
+                    settings: entry,
+                    analysis,
+                    required_score,
+                    payouts,
+                    decision,
+                });
+                if (!state.entry_log) state.entry_log = loadEntryLog();
+                state.entry_log.push(record);
+                if (state.entry_log.length > 1000) state.entry_log.splice(0, state.entry_log.length - 1000);
+                state.last_wait_message = '';
+                if (!decision.approved) {
+                    if (entry.log_no_trade) notifyHedge(entryNoTradeLine(record));
+                    if (state.entry_log.length % 20 === 0) saveEntryLog(state.entry_log);
+                    return 0;
+                }
+                saveEntryLog(state.entry_log);
+                const economics = hedgeEconomics(stake, payouts);
+                entryFiredLines({ record, analysis, stake, duration, economics }).forEach(line =>
+                    notifyHedge(line, 'journal__text--success')
+                );
+                state.pending_entry = { ...record, economics };
+                return 1;
+            }
             if (blocked && isTemporaryBlock(blocked)) {
                 const wait = blocked.replace(/\d+s left/, 'waiting');
                 if (state.last_wait_message !== wait) notifyHedge(`Waiting — ${blocked}`);

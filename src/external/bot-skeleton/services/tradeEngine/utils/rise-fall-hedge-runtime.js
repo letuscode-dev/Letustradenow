@@ -8,6 +8,7 @@ import {
     isSettled,
     saveHedgeHistory,
 } from './rise-fall-hedge';
+import { hedgeEntryLines, strategyBreakdownLines } from './rise-fall-hedge-entry';
 
 const POLL_MS = 500;
 const SETTLE_TIMEOUT_MS = 120000;
@@ -71,6 +72,11 @@ export const settleCurrentHedge = async (state, rise_contract) => {
     const className =
         final.net > 0 ? 'journal__text--success' : final.net < 0 ? 'journal__text--error' : 'journal__text';
     hedgeResultLines(final, state).forEach((line, i) => notifyHedge(line, i < 5 ? className : 'journal__text'));
+    if (final.entry || state.entry_settings?.enabled) {
+        hedgeEntryLines(final).forEach(line => notifyHedge(line));
+        notifyHedge('Strategy performance (all stored hedges):');
+        strategyBreakdownLines(state.hedges).forEach(line => notifyHedge(line));
+    }
     return final;
 };
 

@@ -21,8 +21,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'rise-fall-hedge-v1',
         title: 'Rise/Fall Hedge (Step Indices)',
         description:
-            'Buys a Rise and a Fall contract at the same time on Step Index 100 (change the symbol for any Step Index) with the same stake (default $2 each) and duration (default 2 ticks), treated as one hedge. Mode MANUAL fires one hedge per Run; AUTO fires every N ticks with cooldown and daily hedge limit. Journal shows each leg, the combined stake/payout/P/L and % return from the actual Deriv payouts, execution gap with an ASYMMETRIC EXECUTION flag, incomplete-hedge handling (CANCEL or RUN) and full statistics. Risk limits stop the bot automatically; Stop is the emergency stop. Flat stake — no martingale.',
-        tags: ['Rise/Fall', 'Hedge', 'Step Index', 'Manual & Auto', 'Risk controls'],
+            'Buys a Rise and a Fall contract at the same time on Step Index 100 (change the symbol for any Step Index) with the same stake (default $2 each) and duration (default 2 ticks), treated as one hedge. Mode MANUAL fires one hedge per Run; AUTO fires every N ticks with cooldown and daily hedge limit. Journal shows each leg, the combined stake/payout/P/L and % return from the actual Deriv payouts, execution gap with an ASYMMETRIC EXECUTION flag, incomplete-hedge handling (CANCEL or RUN) and full statistics. Risk limits stop the bot automatically; Stop is the emergency stop. Flat stake — no martingale. Intelligent Entry Engine decides WHEN to fire (never which side): entry score 0–13 from momentum, acceleration, pattern repetition, tick strength, reversal/exhaustion and multi-window confirmation (modes A–F, default Multi-Confirmation, minimum 8), live payout filter, hedge economics before execution, an entry log for every fired and NO TRADE decision, and performance per entry strategy.',
+        tags: ['Rise/Fall', 'Hedge', 'Step Index', 'Entry Engine', 'Manual & Auto', 'Risk controls'],
         xml: RISE_FALL_HEDGE_XML,
     },
 ];

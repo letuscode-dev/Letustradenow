@@ -39,6 +39,36 @@ describe('free bot catalog XML', () => {
         expect(doc.querySelector('block[type="before_purchase"] block[type="rise_fall_hedge_purchase"]')).not.toBeNull();
         expect(doc.querySelector('block[type="after_purchase"] block[type="rise_fall_hedge_result"]')).not.toBeNull();
         expect(doc.querySelector('block[type="purchase"]')).toBeNull();
+
+        const engine = doc.querySelector('block[type="before_purchase"] block[type="rise_fall_hedge_entry_engine"]');
+        expect(engine).not.toBeNull();
+        expect(engine?.querySelector(':scope > next > block[type="controls_if"]')).not.toBeNull();
+        expect(setValue('rfh_entry_enabled')).toEqual(['TRUE']);
+        expect(setValue('rfh_entry_mode')).toEqual(['MULTI-CONFIRMATION']);
+        expect(setValue('rfh_entry_min_score')).toEqual(['8']);
+        expect(setValue('rfh_entry_bias')).toEqual(['65']);
+        expect(setValue('rfh_entry_lookback')).toEqual(['50']);
+        expect(setValue('rfh_entry_short')).toEqual(['10']);
+        expect(setValue('rfh_entry_medium')).toEqual(['20']);
+        expect(setValue('rfh_entry_long')).toEqual(['50']);
+        expect(setValue('rfh_entry_pattern_len')).toEqual(['5']);
+        expect(setValue('rfh_entry_pattern_samples')).toEqual(['20']);
+        expect(setValue('rfh_entry_max_open')).toEqual(['1']);
+        [
+            'ENABLED',
+            'MODE',
+            'MIN_SCORE',
+            'MIN_BIAS',
+            'LOOKBACK',
+            'SHORT_WINDOW',
+            'MEDIUM_WINDOW',
+            'LONG_WINDOW',
+            'PATTERN_LENGTH',
+            'MIN_PATTERN_SAMPLES',
+            'MIN_PAYOUT',
+            'MAX_SIMULTANEOUS',
+            'LOG_NO_TRADE',
+        ].forEach(input => expect(engine?.querySelector(`:scope > value[name="${input}"]`)).not.toBeNull());
         expect(bot!.xml).not.toMatch(/martingale/i);
         expect(doc.querySelectorAll('block[type="variables_set"] block[type="math_arithmetic"]')).toHaveLength(0);
     });

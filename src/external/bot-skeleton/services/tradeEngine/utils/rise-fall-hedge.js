@@ -314,8 +314,11 @@ const time = ms => (ms ? new Date(ms).toISOString().slice(11, 23) : '—');
 export const hedgeResultLines = (hedge, state) => {
     const lines = formatHedgeCard(hedge).split('\n');
     const detail = (label, leg) =>
-        `${label}: id ${leg.contract_id ?? '—'} | sent ${time(leg.order_sent_at)} | confirmed ${time(leg.order_confirmed_at)} | entry ${leg.entry_spot ?? '—'} | exit ${leg.exit_spot ?? '—'} | stake $${leg.stake.toFixed(2)} | payout ${leg.payout === undefined ? '—' : `$${leg.payout.toFixed(2)}`} | ${leg.result ?? leg.status}${leg.note ? ` | ${leg.note}` : ''}`;
+        `${label}: id ${leg.contract_id ?? '—'} | sent ${time(leg.order_sent_at)} | confirmed ${time(leg.order_confirmed_at)} | entry ${leg.entry_spot ?? '—'} | exit ${leg.exit_spot ?? '—'} | buy price $${leg.stake.toFixed(2)} | quoted payout ${Number.isFinite(leg.quoted_payout) ? `$${leg.quoted_payout.toFixed(2)}` : '—'} | paid ${leg.payout === undefined ? '—' : `$${leg.payout.toFixed(2)}`} | ${leg.result ?? leg.status}${leg.note ? ` | ${leg.note}` : ''}`;
     lines.push(detail('Rise', hedge.rise), detail('Fall', hedge.fall));
+    if (hedge.rise.order_sent_at !== undefined && hedge.fall.order_sent_at !== undefined) {
+        lines.push(`Order timestamps differ by ${Math.abs(hedge.rise.order_sent_at - hedge.fall.order_sent_at)} ms`);
+    }
     if (hedge.total_stake !== undefined) {
         lines.push(
             `Combined: stake $${hedge.total_stake.toFixed(2)} | payout $${hedge.total_payout.toFixed(2)} | P/L ${money(hedge.net)} | return ${hedge.return_pct.toFixed(2)}%`

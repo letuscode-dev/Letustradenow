@@ -423,7 +423,9 @@ export default Engine =>
                 status: 'BUYING',
                 rise: { ...newLeg('RISE', stake), quoted_payout: quote(RISE) },
                 fall: { ...newLeg('FALL', stake), quoted_payout: quote(FALL) },
+                entry: state.pending_entry || null,
             };
+            state.pending_entry = null;
             state.current = hedge;
             state.last_hedge_at = now;
             state.ticks_since_last = 0;
@@ -445,6 +447,7 @@ export default Engine =>
                         contract_id: buy.contract_id,
                         purchase_time: buy.start_time,
                         stake: Number(buy.buy_price ?? stake),
+                        quoted_payout: Number(buy.payout ?? hedge.rise.quoted_payout),
                     });
                     return true;
                 },
