@@ -1,14 +1,15 @@
 /**
- * First Decimal Digit Differ + 10.5 Recovery.
+ * Double Decimal Digit Differ + 10.5 Recovery.
  *
- * On every new tick the FIRST digit after the decimal point of the price becomes the
- * Differs barrier (4681.35 → 3, 8.42 → 4, 1234.567 → 5). After a loss the next stake is
- * the previous stake × recovery multiplier (default 10.5); a win resets to the base
- * stake. Maximum recovery level / stake pause trading instead of escalating further.
+ * On every new tick the LAST TWO digits after the decimal point are compared. Only when
+ * they are the same (4681.33) is a Differs trade placed, with that digit as the barrier
+ * (DIFFER 3). After a loss the next stake is the previous stake × recovery multiplier
+ * (default 10.5); a win resets to the base stake. Maximum recovery level / stake pause
+ * trading instead of escalating further.
  */
 import { clock, formatPrice } from './last-tick-price-digit-differ';
 
-export const FDD_BOT_NAME = 'First Decimal Digit Differ + 10.5 Recovery';
+export const FDD_BOT_NAME = 'Double Decimal Digit Differ + 10.5 Recovery';
 
 export const FDD_DEFAULTS = {
     auto_trading: true,
@@ -62,16 +63,22 @@ export const normalizeFddSettings = (raw = {}) => {
     };
 };
 
-/** The FIRST digit to the RIGHT of the decimal point, or null if there is none / the price is invalid. */
-export const extractFirstDecimalDigit = (quote, pip_size) => {
+/**
+ * The last two digits after the decimal point: { first, second, pair } where pair is the
+ * digit when both are the same (4681.33 → 3) and null otherwise (4681.35). Returns null
+ * when the price is invalid or has fewer than two decimals.
+ */
+export const readLastTwoDecimals = (quote, pip_size) => {
     const text = formatPrice(quote, pip_size);
     if (text === null) return null;
     const dot = text.indexOf('.');
-    // A numeric quote like 4681.00 arrives as 4681 when the pip size is not known yet.
-    if (dot === -1 && typeof quote === 'number' && !Number.isInteger(pip_size)) return 0;
-    if (dot < 1 || dot === text.length - 1) return null;
-    const digit = Number(text[dot + 1]);
-    return Number.isInteger(digit) ? digit : null;
+    if (dot < 1) return null;
+    const decimals = text.slice(dot + 1);
+    if (decimals.length < 2) return null;
+    const first = Number(decimals[decimals.length - 2]);
+    const second = Number(decimals[decimals.length - 1]);
+    if (!Number.isInteger(first) || !Number.isInteger(second)) return null;
+    return { first, second, pair: first === second ? first : null };
 };
 
 export const createFddState = (settings = normalizeFddSettings()) => ({
@@ -81,6 +88,8 @@ export const createFddState = (settings = normalizeFddSettings()) => ({
     tick_count: 0,
     last_epoch: null,
     price: null,
+    last_two: null,
+    last_pair: null,
     digit: null,
     barrier: null,
     previous_barrier: null,
@@ -157,16 +166,27 @@ export const evaluateFddTick = (state, { quote, epoch, pip_size, now }, settings
     state.tick_count += 1;
     state.last_epoch = epoch;
     state.price = formatPrice(quote, pip_size);
-    const digit = extractFirstDecimalDigit(quote, pip_size);
-    if (digit === null) {
+    const decimals = readLastTwoDecimals(quote, pip_size);
+    if (decimals === null) {
         state.entry_status = 'WAITING';
+        state.last_two = null;
+        state.digit = null;
+        state.barrier = null;
         state.stable_ticks = 0;
         return { decision: 'ERROR', reason: 'invalid tick price', checks: [] };
     }
-    state.previous_barrier = state.barrier;
-    state.stable_ticks = digit === state.barrier ? state.stable_ticks + 1 : 1;
-    state.digit = digit;
-    state.barrier = digit;
+    const { pair } = decimals;
+    state.last_two = `${decimals.first}${decimals.second}`;
+    if (pair !== null) {
+        state.stable_ticks = pair === state.barrier ? state.stable_ticks + 1 : 1;
+        if (state.last_pair !== null) state.previous_barrier = state.last_pair;
+        state.last_pair = pair;
+        state.barrier = pair;
+    } else {
+        state.stable_ticks = 0;
+        state.barrier = null;
+    }
+    state.digit = pair;
 
     const checks = [];
     const wait = reason => {
@@ -179,12 +199,17 @@ export const evaluateFddTick = (state, { quote, epoch, pip_size, now }, settings
     checks.push('auto trading ON');
 
     if (state.last_trade_epoch !== null && epoch === state.last_trade_epoch) return wait('duplicate signal');
-    if (state.stable_ticks < settings.confirmation_ticks) {
+    if (pair === null) {
         return wait(
-            `entry conditions not satisfied (digit ${digit} stable ${state.stable_ticks}/${settings.confirmation_ticks} ticks)`
+            `entry conditions not satisfied (last two decimals ${decimals.first} and ${decimals.second} are not the same)`
         );
     }
-    checks.push('entry conditions PASSED');
+    if (state.stable_ticks < settings.confirmation_ticks) {
+        return wait(
+            `entry conditions not satisfied (repeated digit ${pair} seen on ${state.stable_ticks}/${settings.confirmation_ticks} consecutive ticks)`
+        );
+    }
+    checks.push(`last two decimals ${pair}${pair} match — entry conditions PASSED`);
 
     const stop = fddStopReason(state, settings);
     if (stop) {
@@ -269,15 +294,16 @@ export const fddTickLines = ({ state, result, market, now }) => {
     if (result.decision === 'ERROR') {
         return [
             head,
-            'ERROR — Unable to extract first decimal digit.',
+            'ERROR — Unable to read the last two decimal digits.',
             'Status: WAITING — invalid tick price (no trade; waiting for the next valid tick)',
         ];
     }
+    const [first, second] = state.last_two;
     const lines = [
         head,
-        `Decimal Point Found. | First Decimal Digit: ${state.digit} | Current Barrier: ${state.barrier} | Previous Barrier: ${
-            state.previous_barrier ?? '—'
-        }`,
+        `Decimal Point Found. | Last Two Decimals: ${first} ${second} → ${
+            state.digit === null ? 'NOT THE SAME' : `SAME (${state.digit})`
+        } | Current Barrier: ${state.barrier ?? '— (no repeated pair)'} | Previous Barrier: ${state.previous_barrier ?? '—'}`,
         `Recovery Level: ${state.recovery_level} | Current Stake: ${money(state.current_stake)}`,
         `Analyzing entry conditions... ${result.checks.length ? result.checks.join(' · ') : '—'}`,
     ];
@@ -289,7 +315,7 @@ export const fddTickLines = ({ state, result, market, now }) => {
 
 export const fddTradeLines = ({ barrier, stake, duration, duration_unit, recovery_level }) => [
     `Action: DIFFER ${barrier} | Stake: ${money(stake)} | Duration: ${duration} ${
-        duration_unit === 't' ? 'ticks' : duration_unit
+        duration_unit === 't' ? (Number(duration) === 1 ? 'tick' : 'ticks') : duration_unit
     } | Recovery Level: ${recovery_level}`,
     'Submitting trade...',
 ];
@@ -347,7 +373,7 @@ export const fddResultLines = ({ state, outcome, barrier, profit, contract_id, b
 
 export const fddStatusLines = (state, market) => [
     `BOT: ${FDD_BOT_NAME} | STATUS: ${state.paused && state.status === 'ANALYZING' ? 'PAUSED' : state.status} | MARKET: ${market}`,
-    `LATEST PRICE: ${state.price ?? '—'} | FIRST DECIMAL DIGIT: ${state.digit ?? '—'} | CURRENT BARRIER: ${
+    `LATEST PRICE: ${state.price ?? '—'} | LAST TWO DECIMALS: ${state.last_two ?? '—'} | CURRENT BARRIER: ${
         state.barrier ?? '—'
     }`,
     `BASE STAKE: ${money(state.base_stake)} | CURRENT STAKE: ${money(state.current_stake)} | RECOVERY MULTIPLIER: ${
@@ -359,7 +385,7 @@ export const fddStatusLines = (state, market) => [
 ];
 
 export const fddSettingsLines = s => [
-    `${FDD_BOT_NAME} — barrier = FIRST digit after the decimal point of every new tick (automatic)`,
+    `${FDD_BOT_NAME} — trades only when the last two decimals of the tick are the same (4681.33 → DIFFER 3); barrier is automatic`,
     `Base stake ${money(s.base_stake)} | Recovery ${s.recovery_enabled ? 'ON' : 'OFF'} × ${s.recovery_multiplier} | Max recovery level ${
         s.max_recovery_level
     } | Max recovery stake ${money(s.max_recovery_stake)} | Max consecutive losses ${s.max_consecutive_losses}`,

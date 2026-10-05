@@ -68,7 +68,6 @@ import {
     applyFddResult,
     createFddState,
     evaluateFddTick,
-    extractFirstDecimalDigit,
     FDD_PURCHASE_FAILURE_LIMIT,
     fddPlacedLine,
     fddResultLines,
@@ -78,6 +77,7 @@ import {
     fddTickLines,
     fddTradeLines,
     normalizeFddSettings,
+    readLastTwoDecimals,
     recordFddPurchaseFailure,
     syncFddSettings,
 } from '../utils/first-decimal-digit-differ';
@@ -1369,13 +1369,13 @@ const getBotInterface = tradeEngine => {
             }
             return 1;
         },
-        /** First Decimal Digit Differ — first digit after the decimal of the latest tick (0 if unavailable). */
+        /** Double Decimal Digit Differ — repeated last-two-decimals digit of the latest tick, else its last digit (0 if unavailable). */
         getFirstDecimalDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
             const ticks_service = tradeEngine.$scope?.ticksService;
             const latest = ticks_service?.getLatestTick?.(symbol);
-            const digit = latest ? extractFirstDecimalDigit(latest.quote, ltdPipSize(ticks_service, symbol)) : null;
-            return digit ?? 0;
+            const decimals = latest ? readLastTwoDecimals(latest.quote, ltdPipSize(ticks_service, symbol)) : null;
+            return decimals?.pair ?? decimals?.second ?? 0;
         },
         /**
          * First Decimal Digit Differ — analyse each new tick once. Returns the barrier (0–9)

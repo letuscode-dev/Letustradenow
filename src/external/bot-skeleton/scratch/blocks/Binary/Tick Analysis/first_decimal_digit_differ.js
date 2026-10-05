@@ -1,6 +1,6 @@
 /**
- * First Decimal Digit Differ + 10.5 Recovery blocks.
- *  - first_decimal_digit_barrier: first digit after the decimal point of the latest tick.
+ * Double Decimal Digit Differ + 10.5 Recovery blocks.
+ *  - first_decimal_digit_barrier: repeated last-two-decimals digit of the latest tick (4681.33 → 3).
  *  - first_decimal_digit_differ_analyze (Before Purchase): analyses each new tick, journals it and
  *    returns the barrier (0–9) when entry, risk and recovery checks pass, otherwise -1.
  *  - first_decimal_digit_differ_purchase (Before Purchase): buys DIGITDIFF with that barrier and the recovery stake.
@@ -55,17 +55,17 @@ window.Blockly.Blocks.first_decimal_digit_barrier = {
     },
     definition() {
         return {
-            message0: localize('First decimal digit of last tick (barrier)'),
+            message0: localize('Repeated last-two-decimals digit (barrier)'),
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
-            tooltip: localize('The first digit to the right of the decimal point of the latest tick (4681.35 → 3).'),
+            tooltip: localize('When the last two decimals of the latest tick are the same (4681.33) this is that digit (3); otherwise the last decimal.'),
             category: window.Blockly.Categories.Tick_Analysis,
         };
     },
     meta() {
         return {
-            display_name: localize('First decimal digit of last tick'),
+            display_name: localize('Repeated decimal digit barrier'),
             description: localize('Automatic Differs barrier from the latest tick price.'),
             key_words: localize('digit, decimal, barrier, differs'),
         };
@@ -87,7 +87,7 @@ window.Blockly.Blocks.first_decimal_digit_differ_analyze = {
     },
     definition() {
         return {
-            message0: `${localize('First decimal digit Differ + recovery signal:')} ${LABELS.map(
+            message0: `${localize('Double decimal digit Differ + recovery signal:')} ${LABELS.map(
                 (label, i) => `${label} %${i + 1}`
             ).join(' ')}`,
             args0: ANALYZE_INPUTS.map(([name, , , check]) => ({ type: 'input_value', name, check })),
@@ -95,15 +95,15 @@ window.Blockly.Blocks.first_decimal_digit_differ_analyze = {
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
             tooltip: localize(
-                'Analyses every new tick: barrier = first digit after the decimal point. Returns the barrier (0–9) when entry conditions, risk limits and recovery status pass, otherwise -1. Writes every decision to the Journal.'
+                'Analyses every new tick: trades only when the last two decimals are the same (4681.33 → DIFFER 3). Returns the barrier (0–9) when entry conditions, risk limits and recovery status pass, otherwise -1. Writes every decision to the Journal.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
     },
     meta() {
         return {
-            display_name: localize('First decimal digit Differ signal'),
-            description: localize('Tick-by-tick analysis for First Decimal Digit Differ + 10.5 Recovery.'),
+            display_name: localize('Double decimal digit Differ signal'),
+            description: localize('Tick-by-tick analysis for Double Decimal Digit Differ + 10.5 Recovery.'),
             key_words: localize('digit, decimal, differs, recovery, signal'),
         };
     },
@@ -127,7 +127,7 @@ window.Blockly.Blocks.first_decimal_digit_differ_purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase Differs with the first decimal digit barrier'),
+            message0: localize('Purchase Differs with the repeated decimal digit barrier'),
             previousStatement: null,
             ...colours(),
             tooltip: localize(
@@ -138,7 +138,7 @@ window.Blockly.Blocks.first_decimal_digit_differ_purchase = {
     },
     meta() {
         return {
-            display_name: localize('Purchase first decimal digit Differs'),
+            display_name: localize('Purchase double decimal digit Differs'),
             description: localize('Buys Differs with the automatic barrier and recovery stake.'),
             key_words: localize('purchase, differs, digit, recovery'),
         };
@@ -158,7 +158,7 @@ window.Blockly.Blocks.first_decimal_digit_differ_result = {
     },
     definition() {
         return {
-            message0: localize('First decimal digit Differ result (1 = trade again)'),
+            message0: localize('Double decimal digit Differ result (1 = trade again)'),
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
@@ -170,8 +170,8 @@ window.Blockly.Blocks.first_decimal_digit_differ_result = {
     },
     meta() {
         return {
-            display_name: localize('First decimal digit Differ result'),
-            description: localize('Result and recovery handling for First Decimal Digit Differ + 10.5 Recovery.'),
+            display_name: localize('Double decimal digit Differ result'),
+            description: localize('Result and recovery handling for Double Decimal Digit Differ + 10.5 Recovery.'),
             key_words: localize('result, differs, recovery'),
         };
     },

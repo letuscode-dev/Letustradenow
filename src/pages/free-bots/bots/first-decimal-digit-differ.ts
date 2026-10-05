@@ -1,8 +1,8 @@
 /**
- * First Decimal Digit Differ + 10.5 Recovery free bot.
+ * Double Decimal Digit Differ + 10.5 Recovery free bot.
  *
- * On every new tick the FIRST digit after the decimal point of the price is the Differs
- * barrier (4681.35 → 3). The barrier is automatic — never entered by the user. After a
+ * Trades Differs only when the last two decimals of the tick are the same, with that digit
+ * as the barrier (4681.33 → DIFFER 3). The barrier is automatic — never entered by the user. After a
  * loss the next stake is previous stake × Recovery Multiplier (default 10.5); a win
  * resets to the base stake. Maximum Recovery Level / Stake pause trading.
  */

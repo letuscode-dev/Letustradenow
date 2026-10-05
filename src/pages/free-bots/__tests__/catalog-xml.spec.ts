@@ -14,7 +14,7 @@ describe('free bot catalog XML', () => {
         ).not.toBeNull();
     });
 
-    it('ships only First Decimal Digit Differ + 10.5 Recovery', () => {
+    it('ships only Double Decimal Digit Differ + 10.5 Recovery', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual(['first-decimal-digit-differ-v1']);
     });
 
