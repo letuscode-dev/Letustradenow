@@ -3,20 +3,24 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it.each(FREE_BOTS.map(bot => [bot.title, bot.xml]))('%s is well-formed', (_title, xml) => {
+    it.each(FREE_BOTS.filter(bot => bot.xml).map(bot => [bot.title, bot.xml]))('%s is well-formed', (_title, xml) => {
         const doc = parse(xml as string);
         expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         expect(doc.querySelector('block[type="trade_definition"]')).not.toBeNull();
         expect(doc.querySelector('block[type="purchase"]')).not.toBeNull();
     });
 
-    it('only ships the Rank Drop Differs bot', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rank-drop-differ-v1']);
+    it('ships Rank Drop Differs (Blockly) and the Rise/Fall Hedge panel', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rank-drop-differ-v1', 'rise-fall-hedge-v1']);
+        const hedge = FREE_BOTS.find(b => b.id === 'rise-fall-hedge-v1');
+        expect(hedge?.panel).toBe('rise_fall_hedge');
+        expect(hedge?.xml).toBeUndefined();
+        FREE_BOTS.forEach(bot => expect(Boolean(bot.xml) !== Boolean(bot.panel)).toBe(true));
     });
 
     it('Rank Drop Differs: Differs risk management and its own settings', () => {
         const bot = FREE_BOTS.find(b => b.id === 'rank-drop-differ-v1');
-        const doc = parse(bot!.xml);
+        const doc = parse(bot!.xml!);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
         expect(field('PURCHASE_LIST')).toBe('DIGITDIFF');

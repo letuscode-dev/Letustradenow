@@ -2,13 +2,16 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import Button from '@/components/shared_ui/button';
-import { load, save_types } from '@/external/bot-skeleton';
 import { DBOT_TABS } from '@/constants/bot-contents';
+import { load, save_types } from '@/external/bot-skeleton';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
+import RiseFallHedge from './rise-fall-hedge/rise-fall-hedge';
 import { FREE_BOTS } from './catalog';
 import type { FreeBot } from './types';
 import './free-bots.scss';
+
+const PANELS = { rise_fall_hedge: RiseFallHedge };
 
 /** Keep trade parameters visible; leave purchase/risk/scan stacks collapsed. */
 const VISIBLE_MAIN_TYPES = new Set(['trade_definition']);
@@ -47,6 +50,9 @@ const FreeBots = () => {
     const { dashboard, run_panel } = useStore();
     const [status_by_id, setStatusById] = React.useState<Record<string, string>>({});
     const [busy_id, setBusyId] = React.useState<string | null>(null);
+    const [open_panel_id, setOpenPanelId] = React.useState<string | null>(null);
+    const open_panel_bot = FREE_BOTS.find(bot => bot.id === open_panel_id && bot.panel);
+    const OpenPanel = open_panel_bot ? PANELS[open_panel_bot.panel] : null;
 
     const setStatus = (bot_id: string, message: string) => {
         setStatusById(prev => ({ ...prev, [bot_id]: message }));
@@ -133,22 +139,40 @@ const FreeBots = () => {
 
                                 <div className='free-bots__card-footer'>
                                     {status && <p className='free-bots__status'>{status}</p>}
-                                    <Button
-                                        className='free-bots__button'
-                                        is_disabled={is_busy || run_panel.is_running}
-                                        onClick={() => loadBot(bot)}
-                                        primary
-                                        type='button'
-                                    >
-                                        {is_busy
-                                            ? localize('Loading...')
-                                            : localize('Load into Bot Builder')}
-                                    </Button>
+                                    {bot.panel ? (
+                                        <Button
+                                            className='free-bots__button'
+                                            onClick={() => setOpenPanelId(open_panel_id === bot.id ? null : bot.id)}
+                                            primary
+                                            type='button'
+                                        >
+                                            {open_panel_id === bot.id ? localize('Close bot') : localize('Open bot')}
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            className='free-bots__button'
+                                            is_disabled={is_busy || run_panel.is_running}
+                                            onClick={() => loadBot(bot)}
+                                            primary
+                                            type='button'
+                                        >
+                                            {is_busy
+                                                ? localize('Loading...')
+                                                : localize('Load into Bot Builder')}
+                                        </Button>
+                                    )}
                                 </div>
                             </li>
                         );
                     })}
                 </ul>
+            )}
+
+            {OpenPanel && (
+                <section className='free-bots__panel' aria-label={open_panel_bot.title}>
+                    <h3 className='free-bots__card-title'>{open_panel_bot.title}</h3>
+                    <OpenPanel />
+                </section>
             )}
         </div>
     );
