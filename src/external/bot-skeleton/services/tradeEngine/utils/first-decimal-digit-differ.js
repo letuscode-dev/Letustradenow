@@ -67,6 +67,8 @@ export const extractFirstDecimalDigit = (quote, pip_size) => {
     const text = formatPrice(quote, pip_size);
     if (text === null) return null;
     const dot = text.indexOf('.');
+    // A numeric quote like 4681.00 arrives as 4681 when the pip size is not known yet.
+    if (dot === -1 && typeof quote === 'number' && !Number.isInteger(pip_size)) return 0;
     if (dot < 1 || dot === text.length - 1) return null;
     const digit = Number(text[dot + 1]);
     return Number.isInteger(digit) ? digit : null;
@@ -95,6 +97,7 @@ export const createFddState = (settings = normalizeFddSettings()) => ({
     current_stake: settings.base_stake,
     recovery_level: 0,
     paused: null,
+    purchase_failures: 0,
     trades: 0,
     wins: 0,
     losses: 0,
@@ -124,8 +127,27 @@ export const fddStopReason = (state, settings) => {
     if (settings.stop_loss > 0 && state.profit <= -settings.stop_loss) {
         return `stop loss reached (-$${Math.abs(state.profit).toFixed(2)})`;
     }
+    if (!state.paused && settings.stop_loss > 0 && round2(state.current_stake - state.profit) > settings.stop_loss) {
+        return `stop loss would be exceeded if the next $${state.current_stake.toFixed(2)} trade lost (session P/L ${
+            state.profit >= 0 ? '+' : '-'
+        }$${Math.abs(state.profit).toFixed(2)}, stop loss $${settings.stop_loss.toFixed(2)})`;
+    }
     return null;
 };
+
+const PURCHASE_FAILURE_LIMIT = 3;
+
+/** Record a purchase that did not go through; pauses trading after repeated failures. */
+export const recordFddPurchaseFailure = (state, message) => {
+    state.purchase_failures += 1;
+    if (state.purchase_failures >= PURCHASE_FAILURE_LIMIT) {
+        state.paused = `purchase failed ${state.purchase_failures} times in a row (${message})`;
+        return true;
+    }
+    return false;
+};
+
+export const FDD_PURCHASE_FAILURE_LIMIT = PURCHASE_FAILURE_LIMIT;
 
 /**
  * Process one new tick: extract the barrier, then check entry conditions, risk limits
@@ -269,8 +291,11 @@ export const fddTradeLines = ({ barrier, stake, duration, duration_unit, recover
     `Action: DIFFER ${barrier} | Stake: ${money(stake)} | Duration: ${duration} ${
         duration_unit === 't' ? 'ticks' : duration_unit
     } | Recovery Level: ${recovery_level}`,
-    `TRADE PLACED — DIFFER ${barrier}`,
+    'Submitting trade...',
 ];
+
+export const fddPlacedLine = ({ barrier, contract_id, buy_price }) =>
+    `TRADE PLACED — DIFFER ${barrier} | Trade submitted. Contract ID: ${contract_id} | Buy price: ${money(buy_price)}`;
 
 export const fddResultLines = ({ state, outcome, barrier, profit, contract_id, balance, now }) => {
     const s = state.settings;

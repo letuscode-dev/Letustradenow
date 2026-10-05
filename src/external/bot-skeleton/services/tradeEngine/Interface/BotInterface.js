@@ -69,6 +69,8 @@ import {
     createFddState,
     evaluateFddTick,
     extractFirstDecimalDigit,
+    FDD_PURCHASE_FAILURE_LIMIT,
+    fddPlacedLine,
     fddResultLines,
     fddSettingsLines,
     fddStatusLines,
@@ -76,6 +78,7 @@ import {
     fddTickLines,
     fddTradeLines,
     normalizeFddSettings,
+    recordFddPurchaseFailure,
     syncFddSettings,
 } from '../utils/first-decimal-digit-differ';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
@@ -358,6 +361,9 @@ const loadWindowDigitTicks = async (tradeEngine, window_size, key) => {
 const ltdNotify = (message, className = 'journal__text') =>
     globalObserver.emit('ui.log.notify', { className, message, sound: 'silent' });
 
+/** One Journal entry per event: every journal message re-copies and re-stores the whole log. */
+const fddLog = (lines, className = 'journal__text') => ltdNotify(lines.join('<br>'), className);
+
 const ltdMarketName = symbol =>
     (api_base.active_symbols || []).find(s => (s.underlying_symbol || s.symbol) === symbol)?.display_name || symbol;
 
@@ -367,11 +373,17 @@ const ltdPipSize = (ticks_service, symbol) => {
 };
 
 /** Warns in the Journal when the market feed stops (no trade is placed on stale data). */
-const startLtdWatchdog = (state, ticks_service, symbol) => {
+const startLtdWatchdog = (state, ticks_service, symbol, scope) => {
     if (state.watchdog) clearInterval(state.watchdog);
     let last_epoch = ticks_service?.getLatestTick?.(symbol)?.epoch ?? null;
     let last_change = Date.now();
     state.watchdog = setInterval(() => {
+        // Bot Builder replaces the interpreter on Stop without calling stop(), so the run's scope is the signal.
+        if (scope?.stopped) {
+            clearInterval(state.watchdog);
+            state.watchdog = null;
+            return;
+        }
         const epoch = ticks_service?.getLatestTick?.(symbol)?.epoch ?? null;
         if (epoch !== last_epoch) {
             last_epoch = epoch;
@@ -1225,7 +1237,7 @@ const getBotInterface = tradeEngine => {
                 state.started = true;
                 ltdSettingsLines(settings).forEach(line => ltdNotify(line));
                 ltdStatusLines(state, market).forEach(line => ltdNotify(line));
-                startLtdWatchdog(state, ticks_service, symbol);
+                startLtdWatchdog(state, ticks_service, symbol, tradeEngine.$scope);
             }
 
             const latest = ticks_service?.getLatestTick?.(symbol);
@@ -1380,9 +1392,9 @@ const getBotInterface = tradeEngine => {
 
             if (!state.started) {
                 state.started = true;
-                fddSettingsLines(settings).forEach(line => ltdNotify(line));
-                fddStatusLines(state, market).forEach(line => ltdNotify(line));
-                startLtdWatchdog(state, ticks_service, symbol);
+                fddLog(fddSettingsLines(settings));
+                fddLog(fddStatusLines(state, market));
+                startLtdWatchdog(state, ticks_service, symbol, tradeEngine.$scope);
             }
 
             const latest = ticks_service?.getLatestTick?.(symbol);
@@ -1401,11 +1413,9 @@ const getBotInterface = tradeEngine => {
                 ERROR: 'journal__text--error',
                 STOPPED: 'journal__text--error',
             }[result.decision];
-            fddTickLines({ state, result, market, now }).forEach((line, i) =>
-                ltdNotify(line, i === 0 ? 'journal__text' : className || 'journal__text')
-            );
+            fddLog(fddTickLines({ state, result, market, now }), className);
             if (settings.status_every && state.tick_count % settings.status_every === 0) {
-                fddStatusLines(state, market).forEach(line => ltdNotify(line));
+                fddLog(fddStatusLines(state, market));
             }
 
             if (result.decision === 'STOPPED') {
@@ -1434,19 +1444,21 @@ const getBotInterface = tradeEngine => {
                 return undefined;
             }
 
-            fddTradeLines({
-                barrier: pending.barrier,
-                stake: pending.stake,
-                duration: tradeEngine.tradeOptions?.duration,
-                duration_unit: tradeEngine.tradeOptions?.duration_unit,
-                recovery_level: state.recovery_level,
-            }).forEach(line => ltdNotify(line, 'journal__text--success'));
+            fddLog(
+                fddTradeLines({
+                    barrier: pending.barrier,
+                    stake: pending.stake,
+                    duration: tradeEngine.tradeOptions?.duration,
+                    duration_unit: tradeEngine.tradeOptions?.duration_unit,
+                    recovery_level: state.recovery_level,
+                })
+            );
 
+            const previous = { at: state.last_trade_at, epoch: state.last_trade_epoch };
             state.last_trade_at = Date.now();
             state.last_trade_epoch = pending.epoch;
             state.traded_barrier = pending.barrier;
             state.traded_stake = pending.stake;
-            state.last_action = `TRADE PLACED — DIFFER ${pending.barrier}`;
             state.status = 'IN TRADE';
             tradeEngine.last_buy = null;
             tradeEngine.tradeOptions = {
@@ -1454,25 +1466,48 @@ const getBotInterface = tradeEngine => {
                 prediction: pending.barrier,
                 amount: pending.stake,
             };
+
+            // A thrown purchase error makes the interpreter rebuild the trade engine, which would
+            // silently lose the recovery level, stake and session P/L — so failures are handled here.
+            const failed = message => {
+                state.last_trade_at = previous.at;
+                state.last_trade_epoch = previous.epoch;
+                state.status = 'ANALYZING';
+                state.last_action = `Trade failed — ${message}`;
+                const paused = recordFddPurchaseFailure(state, message);
+                fddLog(
+                    [
+                        `TRADE FAILED — ${message} (attempt ${state.purchase_failures}/${FDD_PURCHASE_FAILURE_LIMIT})`,
+                        paused
+                            ? `TRADING PAUSED — ${state.paused}. Check the stake/balance, then restart the bot.`
+                            : `Stake stays $${pending.stake.toFixed(2)} at recovery level ${
+                                  state.recovery_level
+                              }; retrying on the next valid tick.`,
+                    ],
+                    'journal__text--error'
+                );
+            };
             try {
                 await tradeEngine.purchaseOverrideContractType('DIGITDIFF');
             } catch (error) {
-                state.status = 'ANALYZING';
-                state.last_action = `Trade failed — ${error?.error?.message || error?.message || 'purchase error'}`;
-                ltdNotify(`TRADE FAILED — ${state.last_action.replace('Trade failed — ', '')}`, 'journal__text--error');
-                throw error;
+                failed(error?.error?.message || error?.message || 'purchase error');
+                return undefined;
             }
             const buy = tradeEngine.last_buy;
             if (!buy) {
-                state.status = 'ANALYZING';
-                state.last_action = 'Trade not submitted';
-                ltdNotify('WAITING — trade was not submitted by the engine; analysing the next tick.', 'journal__text--warn');
+                failed('trade was not submitted by the engine');
                 return undefined;
             }
-            ltdNotify(
-                `Trade submitted. Contract ID: ${buy.contract_id} | Buy price: $${Number(buy.buy_price ?? pending.stake).toFixed(
-                    2
-                )}`,
+            state.purchase_failures = 0;
+            state.last_action = `TRADE PLACED — DIFFER ${pending.barrier}`;
+            fddLog(
+                [
+                    fddPlacedLine({
+                        barrier: pending.barrier,
+                        contract_id: buy.contract_id,
+                        buy_price: Number(buy.buy_price ?? pending.stake),
+                    }),
+                ],
                 'journal__text--success'
             );
             return undefined;
@@ -1500,15 +1535,16 @@ const getBotInterface = tradeEngine => {
             } catch {
                 balance = undefined;
             }
-            fddResultLines({ state, outcome, barrier, profit, contract_id: contract.contract_id, balance, now: Date.now() }).forEach(
-                line => ltdNotify(line, outcome.won ? 'journal__text--success' : 'journal__text--error')
+            fddLog(
+                fddResultLines({ state, outcome, barrier, profit, contract_id: contract.contract_id, balance, now: Date.now() }),
+                outcome.won ? 'journal__text--success' : 'journal__text--error'
             );
 
             const stop = fddStopReason(state, state.settings);
             if (stop) state.status = 'STOPPED';
-            fddStatusLines(state, market).forEach(line => ltdNotify(line));
+            fddLog(fddStatusLines(state, market));
             if (stop) {
-                ltdNotify(`STOPPED — ${stop}`, 'journal__text--error');
+                fddLog([`STOPPED — ${stop}`], 'journal__text--error');
                 if (state.watchdog) clearInterval(state.watchdog);
                 return 0;
             }

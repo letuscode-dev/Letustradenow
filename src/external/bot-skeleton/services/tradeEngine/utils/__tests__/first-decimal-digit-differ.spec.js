@@ -3,11 +3,14 @@ import {
     createFddState,
     evaluateFddTick,
     extractFirstDecimalDigit,
+    fddPlacedLine,
     fddResultLines,
     fddStatusLines,
+    fddStopReason,
     fddTickLines,
     fddTradeLines,
     normalizeFddSettings,
+    recordFddPurchaseFailure,
 } from '../first-decimal-digit-differ';
 
 describe('First Decimal Digit Differ — extraction', () => {
@@ -141,11 +144,45 @@ describe('First Decimal Digit Differ — tick decisions and journal', () => {
         expect(evaluateFddTick(state, tick('4681.35', 1), settings).decision).toBe('STOPPED');
     });
 
+    it('never places a trade whose loss would breach the stop loss', () => {
+        const state = createFddState(normalizeFddSettings({ stop_loss: 20, max_recovery_level: 3, max_recovery_stake: 5000 }));
+        applyFddResult(state, { profit: -2, stake: 2 });
+        expect(state.current_stake).toBe(21);
+        const r = evaluateFddTick(state, tick('4681.35', 1), state.settings);
+        expect(r.decision).toBe('STOPPED');
+        expect(r.reason).toMatch(/stop loss would be exceeded if the next \$21.00 trade lost/);
+    });
+
+    it('a paused session is not reported as a stop-loss stop', () => {
+        const state = createFddState(normalizeFddSettings({}));
+        [2, 21, 220.5].forEach(stake => applyFddResult(state, { profit: -stake, stake }));
+        expect(state.paused).toBe('recovery limit reached');
+        expect(fddStopReason(state, state.settings)).toBeNull();
+    });
+
+    it('three purchase failures in a row pause trading; the recovery stake is kept', () => {
+        const state = createFddState(settings);
+        applyFddResult(state, { profit: -2, stake: 2 });
+        expect(recordFddPurchaseFailure(state, 'Insufficient balance')).toBe(false);
+        expect(recordFddPurchaseFailure(state, 'Insufficient balance')).toBe(false);
+        expect(recordFddPurchaseFailure(state, 'Insufficient balance')).toBe(true);
+        expect(state.paused).toMatch(/purchase failed 3 times in a row \(Insufficient balance\)/);
+        expect(state.current_stake).toBe(21);
+        expect(state.recovery_level).toBe(1);
+    });
+
+    it('numeric whole-number quote without a pip size → first decimal 0', () => {
+        expect(extractFirstDecimalDigit(4681)).toBe(0);
+    });
+
     it('trade and status lines', () => {
         expect(fddTradeLines({ barrier: 3, stake: 21, duration: 2, duration_unit: 't', recovery_level: 1 })).toEqual([
             'Action: DIFFER 3 | Stake: $21.00 | Duration: 2 ticks | Recovery Level: 1',
-            'TRADE PLACED — DIFFER 3',
+            'Submitting trade...',
         ]);
+        expect(fddPlacedLine({ barrier: 3, contract_id: 123, buy_price: 21 })).toBe(
+            'TRADE PLACED — DIFFER 3 | Trade submitted. Contract ID: 123 | Buy price: $21.00'
+        );
         const state = createFddState(settings);
         const status = fddStatusLines(state, 'Volatility 75 (1s) Index').join('\n');
         expect(status).toMatch(/BOT: First Decimal Digit Differ \+ 10.5 Recovery \| STATUS: ANALYZING/);
