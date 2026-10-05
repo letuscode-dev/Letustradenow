@@ -107,7 +107,7 @@ export const RANK_DROP_DIFFER_XML = `<xml xmlns="https://developers.google.com/b
       <block type="trade_definition_market" id="rdd_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">R_75</field>
+        <field name="SYMBOL_LIST">1HZ75V</field>
         <next>
           <block type="trade_definition_tradetype" id="rdd_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>

@@ -48,6 +48,7 @@ import './tie_digit_differ_scan';
 import './rank_drop_differ_scan';
 import './rise_fall_hedge';
 import './last_tick_price_digit_differ';
+import './first_decimal_digit_differ';
 import './over_zero_gap_filter';
 import './percentage_filter';
 import './stat';

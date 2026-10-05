@@ -64,6 +64,20 @@ import {
     resetEvenOddPairRuntimeState,
     toMarketSide,
 } from '../utils/even-odd-pair-over-under';
+import {
+    applyFddResult,
+    createFddState,
+    evaluateFddTick,
+    extractFirstDecimalDigit,
+    fddResultLines,
+    fddSettingsLines,
+    fddStatusLines,
+    fddStopReason,
+    fddTickLines,
+    fddTradeLines,
+    normalizeFddSettings,
+    syncFddSettings,
+} from '../utils/first-decimal-digit-differ';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
 import { createDetails, getLastDigit } from '../utils/helpers';
 import {
@@ -504,6 +518,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.riseFallHedgeState = null;
             if (tradeEngine.ltdState?.watchdog) clearInterval(tradeEngine.ltdState.watchdog);
             tradeEngine.ltdState = null;
+            if (tradeEngine.fddState?.watchdog) clearInterval(tradeEngine.fddState.watchdog);
+            tradeEngine.fddState = null;
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
                 tradeEngine.ascendingRankNextState = null;
@@ -1334,6 +1350,163 @@ const getBotInterface = tradeEngine => {
             const stop = ltdStopReason(state, state.settings);
             if (stop) state.status = 'STOPPED';
             ltdStatusLines(state, market).forEach(line => ltdNotify(line));
+            if (stop) {
+                ltdNotify(`STOPPED — ${stop}`, 'journal__text--error');
+                if (state.watchdog) clearInterval(state.watchdog);
+                return 0;
+            }
+            return 1;
+        },
+        /** First Decimal Digit Differ — first digit after the decimal of the latest tick (0 if unavailable). */
+        getFirstDecimalDigitBarrier: () => {
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const ticks_service = tradeEngine.$scope?.ticksService;
+            const latest = ticks_service?.getLatestTick?.(symbol);
+            const digit = latest ? extractFirstDecimalDigit(latest.quote, ltdPipSize(ticks_service, symbol)) : null;
+            return digit ?? 0;
+        },
+        /**
+         * First Decimal Digit Differ — analyse each new tick once. Returns the barrier (0–9)
+         * when entry, risk and recovery checks pass, otherwise -1. Everything is journaled.
+         */
+        analyzeFirstDecimalDigit: async options => {
+            const settings = normalizeFddSettings(options || {});
+            if (!tradeEngine.fddState) tradeEngine.fddState = createFddState(settings);
+            const state = tradeEngine.fddState;
+            syncFddSettings(state, settings);
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const market = ltdMarketName(symbol);
+            const ticks_service = tradeEngine.$scope?.ticksService;
+
+            if (!state.started) {
+                state.started = true;
+                fddSettingsLines(settings).forEach(line => ltdNotify(line));
+                fddStatusLines(state, market).forEach(line => ltdNotify(line));
+                startLtdWatchdog(state, ticks_service, symbol);
+            }
+
+            const latest = ticks_service?.getLatestTick?.(symbol);
+            if (!latest || latest.epoch === state.last_epoch) return -1;
+            state.stale = false;
+            if (state.status !== 'STOPPED') state.status = 'ANALYZING';
+
+            const now = Date.now();
+            const result = evaluateFddTick(
+                state,
+                { quote: latest.quote, epoch: latest.epoch, pip_size: ltdPipSize(ticks_service, symbol), now },
+                settings
+            );
+            const className = {
+                READY: 'journal__text--success',
+                ERROR: 'journal__text--error',
+                STOPPED: 'journal__text--error',
+            }[result.decision];
+            fddTickLines({ state, result, market, now }).forEach((line, i) =>
+                ltdNotify(line, i === 0 ? 'journal__text' : className || 'journal__text')
+            );
+            if (settings.status_every && state.tick_count % settings.status_every === 0) {
+                fddStatusLines(state, market).forEach(line => ltdNotify(line));
+            }
+
+            if (result.decision === 'STOPPED') {
+                state.status = 'STOPPED';
+                if (!state.stop_requested) {
+                    state.stop_requested = true;
+                    if (state.watchdog) clearInterval(state.watchdog);
+                    setTimeout(() => globalObserver.emit('bot.stop_button_click'), 300);
+                }
+                return -1;
+            }
+            if (result.decision !== 'READY') return -1;
+            state.pending = { barrier: state.barrier, epoch: latest.epoch, stake: state.current_stake };
+            return state.barrier;
+        },
+        /** First Decimal Digit Differ — buys DIGITDIFF with this tick's barrier and the recovery stake. */
+        purchaseFirstDecimalDigitDiffer: async () => {
+            const state = tradeEngine.fddState;
+            const pending = state?.pending;
+            if (!pending) return undefined;
+            state.pending = null;
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const latest = tradeEngine.$scope?.ticksService?.getLatestTick?.(symbol);
+            if (latest && latest.epoch !== pending.epoch) {
+                ltdNotify('WAITING — a newer tick arrived before purchase; it will be analysed first (no stale trade).');
+                return undefined;
+            }
+
+            fddTradeLines({
+                barrier: pending.barrier,
+                stake: pending.stake,
+                duration: tradeEngine.tradeOptions?.duration,
+                duration_unit: tradeEngine.tradeOptions?.duration_unit,
+                recovery_level: state.recovery_level,
+            }).forEach(line => ltdNotify(line, 'journal__text--success'));
+
+            state.last_trade_at = Date.now();
+            state.last_trade_epoch = pending.epoch;
+            state.traded_barrier = pending.barrier;
+            state.traded_stake = pending.stake;
+            state.last_action = `TRADE PLACED — DIFFER ${pending.barrier}`;
+            state.status = 'IN TRADE';
+            tradeEngine.last_buy = null;
+            tradeEngine.tradeOptions = {
+                ...(tradeEngine.tradeOptions || {}),
+                prediction: pending.barrier,
+                amount: pending.stake,
+            };
+            try {
+                await tradeEngine.purchaseOverrideContractType('DIGITDIFF');
+            } catch (error) {
+                state.status = 'ANALYZING';
+                state.last_action = `Trade failed — ${error?.error?.message || error?.message || 'purchase error'}`;
+                ltdNotify(`TRADE FAILED — ${state.last_action.replace('Trade failed — ', '')}`, 'journal__text--error');
+                throw error;
+            }
+            const buy = tradeEngine.last_buy;
+            if (!buy) {
+                state.status = 'ANALYZING';
+                state.last_action = 'Trade not submitted';
+                ltdNotify('WAITING — trade was not submitted by the engine; analysing the next tick.', 'journal__text--warn');
+                return undefined;
+            }
+            ltdNotify(
+                `Trade submitted. Contract ID: ${buy.contract_id} | Buy price: $${Number(buy.buy_price ?? pending.stake).toFixed(
+                    2
+                )}`,
+                'journal__text--success'
+            );
+            return undefined;
+        },
+        /** First Decimal Digit Differ — record the result and apply recovery; 1 = trade again, 0 = stop. */
+        firstDecimalDigitResult: async () => {
+            const state = tradeEngine.fddState;
+            if (!state) return 0;
+            const contract = tradeEngine.data?.contract || {};
+            const profit = Number.isFinite(Number(contract.profit))
+                ? Number(contract.profit)
+                : Number(contract.sell_price || 0) - Number(contract.buy_price || 0);
+            const stake = Number(contract.buy_price) || state.traded_stake;
+            const outcome = applyFddResult(state, { profit, stake });
+            const barrier = contract.barrier ?? state.traded_barrier;
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const market = ltdMarketName(symbol);
+            state.status = 'ANALYZING';
+            state.last_action = `DIFFER ${barrier} ${outcome.won ? 'WIN' : 'LOSS'} (${profit >= 0 ? '+' : '-'}$${Math.abs(
+                profit
+            ).toFixed(2)})`;
+            let balance;
+            try {
+                balance = tradeEngine.getBalance?.('STR');
+            } catch {
+                balance = undefined;
+            }
+            fddResultLines({ state, outcome, barrier, profit, contract_id: contract.contract_id, balance, now: Date.now() }).forEach(
+                line => ltdNotify(line, outcome.won ? 'journal__text--success' : 'journal__text--error')
+            );
+
+            const stop = fddStopReason(state, state.settings);
+            if (stop) state.status = 'STOPPED';
+            fddStatusLines(state, market).forEach(line => ltdNotify(line));
             if (stop) {
                 ltdNotify(`STOPPED — ${stop}`, 'journal__text--error');
                 if (state.watchdog) clearInterval(state.watchdog);

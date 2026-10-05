@@ -73,7 +73,7 @@ ${VARIABLES.map(([id, name]) => `    <variable id="${id}">${name}</variable>`).j
       <block type="trade_definition_market" id="ltd_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">R_75</field>
+        <field name="SYMBOL_LIST">1HZ75V</field>
         <next>
           <block type="trade_definition_tradetype" id="ltd_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>

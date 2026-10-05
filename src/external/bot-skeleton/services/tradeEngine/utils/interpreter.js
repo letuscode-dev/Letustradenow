@@ -141,7 +141,14 @@ const Interpreter = () => {
             'configureRiseFallHedgeEntry',
             createAsync(js_interpreter, bot_interface.configureRiseFallHedgeEntry)
         );
-        ['analyzeLastTickDigit', 'purchaseLastTickDigitDiffer', 'lastTickDigitResult'].forEach(name =>
+        [
+            'analyzeLastTickDigit',
+            'purchaseLastTickDigitDiffer',
+            'lastTickDigitResult',
+            'analyzeFirstDecimalDigit',
+            'purchaseFirstDecimalDigitDiffer',
+            'firstDecimalDigitResult',
+        ].forEach(name =>
             js_interpreter.setProperty(pseudo_bot_interface, name, createAsync(js_interpreter, bot_interface[name]))
         );
         js_interpreter.setProperty(
