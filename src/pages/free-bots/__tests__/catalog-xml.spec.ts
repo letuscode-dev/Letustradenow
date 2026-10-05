@@ -37,7 +37,7 @@ describe('free bot catalog XML', () => {
                 .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
                 .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
         expect(setValue('fdd_stake')).toEqual(['2']);
-        expect(setValue('fdd_duration')).toEqual(['2']);
+        expect(setValue('fdd_duration')).toEqual(['1']);
         expect(setValue('fdd_recovery')).toEqual(['TRUE']);
         expect(setValue('fdd_multiplier')).toEqual(['10.5']);
         expect(setValue('fdd_max_level')).toEqual(['2']);

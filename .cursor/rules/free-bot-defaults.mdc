@@ -1,0 +1,9 @@
+---
+description: Default settings for free bots (Bot Builder XML in src/pages/free-bots)
+globs: src/pages/free-bots/**
+alwaysApply: false
+---
+
+# Free bot defaults
+
+- Contract **Duration defaults to 1** (tick) unless the user's instructions specify a different duration.

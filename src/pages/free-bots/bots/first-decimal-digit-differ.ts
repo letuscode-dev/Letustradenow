@@ -32,7 +32,7 @@ const chainSets = entries => {
 
 const SETTINGS = [
     ['fdd_stake', 'Stake', num(2)],
-    ['fdd_duration', 'Duration', num(2)],
+    ['fdd_duration', 'Duration', num(1)],
     ['fdd_recovery', 'Recovery Enabled', bool(true)],
     ['fdd_multiplier', 'Recovery Multiplier', num(10.5)],
     ['fdd_max_level', 'Maximum Recovery Level', num(2)],
