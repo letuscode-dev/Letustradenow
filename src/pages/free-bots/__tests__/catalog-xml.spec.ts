@@ -21,7 +21,7 @@ describe('free bot catalog XML', () => {
         expect(field('SUBMARKET_LIST')).toBe('step_index');
         expect(field('SYMBOL_LIST')).toBe('stpRNG');
         expect(field('TRADETYPECAT_LIST')).toBe('callput');
-        expect(field('TRADETYPE_LIST')).toBe('risefall');
+        expect(field('TRADETYPE_LIST')).toBe('callput');
         expect(field('TYPE_LIST')).toBe('both');
         expect(field('DURATIONTYPE_LIST')).toBe('t');
 

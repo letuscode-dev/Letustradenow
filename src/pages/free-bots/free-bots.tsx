@@ -57,17 +57,26 @@ const FreeBots = () => {
             setBusyId(bot.id);
             setStatus(bot.id, localize('Loading bot into Bot Builder...'));
 
-            await load({
+            const workspace = window.Blockly?.derivWorkspace;
+            if (!workspace) {
+                setStatus(bot.id, localize('Bot Builder is still starting — please try again in a moment.'));
+                return;
+            }
+
+            const result = await load({
                 block_string: bot.xml,
                 file_name: bot.title,
-                workspace: window.Blockly?.derivWorkspace,
+                workspace,
                 from: save_types.UNSAVED,
                 drop_event: null,
                 strategy_id: null,
                 showIncompatibleStrategyDialog: null,
             });
+            if (result?.error) {
+                setStatus(bot.id, result.error);
+                return;
+            }
 
-            const workspace = window.Blockly?.derivWorkspace;
             applyFreeBotCollapseState(workspace);
             window.setTimeout(() => applyFreeBotCollapseState(workspace), 0);
             window.setTimeout(() => applyFreeBotCollapseState(workspace), 50);

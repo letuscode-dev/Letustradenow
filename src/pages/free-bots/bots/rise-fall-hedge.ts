@@ -113,7 +113,7 @@ ${SETTINGS.map(([id, name]) => `    <variable id="${id}">${name}</variable>`).jo
         <next>
           <block type="trade_definition_tradetype" id="rfh_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">callput</field>
-            <field name="TRADETYPE_LIST">risefall</field>
+            <field name="TRADETYPE_LIST">callput</field>
             <next>
               <block type="trade_definition_contracttype" id="rfh_contract" deletable="false" movable="false">
                 <field name="TYPE_LIST">both</field>
