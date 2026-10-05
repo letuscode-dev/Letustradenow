@@ -7,11 +7,54 @@ describe('free bot catalog XML', () => {
         const doc = parse(xml);
         expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         expect(doc.querySelector('block[type="trade_definition"]')).not.toBeNull();
-        expect(doc.querySelector('block[type="purchase"], block[type="rise_fall_hedge_purchase"]')).not.toBeNull();
+        expect(
+            doc.querySelector(
+                'block[type="purchase"], block[type="rise_fall_hedge_purchase"], block[type="last_tick_digit_differ_purchase"]'
+            )
+        ).not.toBeNull();
     });
 
-    it('ships Rank Drop Differs and Rise/Fall Hedge as Bot Builder bots', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rank-drop-differ-v1', 'rise-fall-hedge-v1']);
+    it('ships the free bots as Bot Builder bots', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual([
+            'rank-drop-differ-v1',
+            'rise-fall-hedge-v1',
+            'last-tick-price-digit-differ-v1',
+        ]);
+    });
+
+    it('Last-Tick Price Digit Differ: DIGITDIFF with an automatic barrier and its settings', () => {
+        const bot = FREE_BOTS.find(b => b.id === 'last-tick-price-digit-differ-v1');
+        const doc = parse(bot!.xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        expect(field('SYMBOL_LIST')).toBe('stpRNG');
+        expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+        expect(field('TYPE_LIST')).toBe('DIGITDIFF');
+        expect(field('DURATIONTYPE_LIST')).toBe('t');
+
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('block[type="variables_set"]')]
+                .filter(b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+        expect(setValue('ltd_stake')).toEqual(['2']);
+        expect(setValue('ltd_duration')).toEqual(['2']);
+        expect(setValue('ltd_auto')).toEqual(['TRUE']);
+        expect(setValue('ltd_confirm')).toEqual(['2']);
+        expect(setValue('ltd_max_losses')).toEqual(['3']);
+
+        // The barrier is never a typed number: it comes from the last tick / the analysis block.
+        const prediction = doc.querySelector('block[type="trade_definition_tradeoptions"] > value[name="PREDICTION"]');
+        expect(prediction?.querySelector('field[name="VAR"]')?.getAttribute('id')).toBe('ltd_barrier');
+        const init_barrier = [...doc.querySelectorAll('block[type="variables_set"]')].find(
+            b => b.querySelector(':scope > field[name="VAR"]')?.getAttribute('id') === 'ltd_barrier'
+        );
+        expect(init_barrier?.querySelector(':scope > value[name="VALUE"] > block')?.getAttribute('type')).toBe(
+            'last_tick_digit_barrier'
+        );
+
+        expect(doc.querySelector('block[type="before_purchase"] block[type="last_tick_digit_differ_analyze"]')).not.toBeNull();
+        expect(doc.querySelector('block[type="before_purchase"] block[type="last_tick_digit_differ_purchase"]')).not.toBeNull();
+        expect(doc.querySelector('block[type="after_purchase"] block[type="last_tick_digit_differ_result"]')).not.toBeNull();
+        expect(bot!.xml).not.toMatch(/martingale/i);
     });
 
     it('Rise/Fall Hedge: Step Index 100 Rise + Fall, $2 per leg, 2 ticks, flat stake', () => {

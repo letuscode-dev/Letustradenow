@@ -83,6 +83,19 @@ import {
     releaseIncreasingDigitGapActiveTrade,
 } from '../utils/increasing-digit-gap';
 import {
+    applyLtdResult,
+    createLtdState,
+    evaluateLtdTick,
+    extractDigitBeforeDecimal,
+    ltdStopReason,
+    normalizeLtdSettings,
+    resultLines as ltdResultLines,
+    settingsLines as ltdSettingsLines,
+    statusLines as ltdStatusLines,
+    tickLines as ltdTickLines,
+    tradeLines as ltdTradeLines,
+} from '../utils/last-tick-price-digit-differ';
+import {
     createTrackerState as createLongAbsenceReturnTrackerState,
     evaluateLongAbsenceReturnDiffers,
     releaseLongAbsenceReturnActiveTrade,
@@ -328,6 +341,40 @@ const loadWindowDigitTicks = async (tradeEngine, window_size, key) => {
     return buffer;
 };
 
+const ltdNotify = (message, className = 'journal__text') =>
+    globalObserver.emit('ui.log.notify', { className, message, sound: 'silent' });
+
+const ltdMarketName = symbol =>
+    (api_base.active_symbols || []).find(s => (s.underlying_symbol || s.symbol) === symbol)?.display_name || symbol;
+
+const ltdPipSize = (ticks_service, symbol) => {
+    const pip = Number(ticks_service?.pipSizes?.[symbol]);
+    return Number.isFinite(pip) ? pip : undefined;
+};
+
+/** Warns in the Journal when the market feed stops (no trade is placed on stale data). */
+const startLtdWatchdog = (state, ticks_service, symbol) => {
+    if (state.watchdog) clearInterval(state.watchdog);
+    let last_epoch = ticks_service?.getLatestTick?.(symbol)?.epoch ?? null;
+    let last_change = Date.now();
+    state.watchdog = setInterval(() => {
+        const epoch = ticks_service?.getLatestTick?.(symbol)?.epoch ?? null;
+        if (epoch !== last_epoch) {
+            last_epoch = epoch;
+            last_change = Date.now();
+            if (state.stale) {
+                state.stale = false;
+                ltdNotify('Market data resumed — analysing new ticks again.');
+            }
+            return;
+        }
+        if (!state.stale && Date.now() - last_change > state.settings.stale_seconds * 1000) {
+            state.stale = true;
+            ltdNotify('WARNING — No new tick received.', 'journal__text--warn');
+        }
+    }, 1000);
+};
+
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
 
@@ -455,6 +502,8 @@ const getBotInterface = tradeEngine => {
             }
             if (tradeEngine.riseFallHedgeState?.entry_log) saveEntryLog(tradeEngine.riseFallHedgeState.entry_log);
             tradeEngine.riseFallHedgeState = null;
+            if (tradeEngine.ltdState?.watchdog) clearInterval(tradeEngine.ltdState.watchdog);
+            tradeEngine.ltdState = null;
             if (tradeEngine.ascendingRankNextState) {
                 resetAscendingRankNextState(tradeEngine.ascendingRankNextState);
                 tradeEngine.ascendingRankNextState = null;
@@ -1135,6 +1184,163 @@ const getBotInterface = tradeEngine => {
             return 1;
         },
         purchaseRiseFallHedge: () => tradeEngine.purchaseRiseFallHedge(),
+        /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
+        getLastTickDigitBarrier: () => {
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const ticks_service = tradeEngine.$scope?.ticksService;
+            const latest = ticks_service?.getLatestTick?.(symbol);
+            const digit = latest ? extractDigitBeforeDecimal(latest.quote, ltdPipSize(ticks_service, symbol)) : null;
+            return digit ?? 0;
+        },
+        /**
+         * Last-Tick Price Digit Differ — analyse each new tick once. Returns the barrier
+         * (0–9) when the entry conditions pass, otherwise -1. Everything is journaled.
+         */
+        analyzeLastTickDigit: async options => {
+            if (!tradeEngine.ltdState) tradeEngine.ltdState = createLtdState();
+            const state = tradeEngine.ltdState;
+            const settings = normalizeLtdSettings(options || {});
+            state.settings = settings;
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const market = ltdMarketName(symbol);
+            const ticks_service = tradeEngine.$scope?.ticksService;
+
+            if (!state.started) {
+                state.started = true;
+                ltdSettingsLines(settings).forEach(line => ltdNotify(line));
+                ltdStatusLines(state, market).forEach(line => ltdNotify(line));
+                startLtdWatchdog(state, ticks_service, symbol);
+            }
+
+            const latest = ticks_service?.getLatestTick?.(symbol);
+            if (!latest || latest.epoch === state.last_epoch) return -1;
+            state.stale = false;
+            if (state.status !== 'STOPPED') state.status = 'ANALYZING';
+
+            const now = Date.now();
+            const result = evaluateLtdTick(
+                state,
+                { quote: latest.quote, epoch: latest.epoch, pip_size: ltdPipSize(ticks_service, symbol), now },
+                settings
+            );
+            const className = {
+                READY: 'journal__text--success',
+                ERROR: 'journal__text--error',
+                STOPPED: 'journal__text--error',
+            }[result.decision];
+            ltdTickLines({ state, result, market, now }).forEach((line, i) =>
+                ltdNotify(line, i === 0 ? 'journal__text' : className || 'journal__text')
+            );
+            if (settings.status_every && state.tick_count % settings.status_every === 0) {
+                ltdStatusLines(state, market).forEach(line => ltdNotify(line));
+            }
+
+            if (result.decision === 'STOPPED') {
+                state.status = 'STOPPED';
+                if (!state.stop_requested) {
+                    state.stop_requested = true;
+                    if (state.watchdog) clearInterval(state.watchdog);
+                    setTimeout(() => globalObserver.emit('bot.stop_button_click'), 300);
+                }
+                return -1;
+            }
+            if (result.decision !== 'READY') return -1;
+            state.pending = { barrier: state.barrier, epoch: latest.epoch };
+            return state.barrier;
+        },
+        /** Last-Tick Price Digit Differ — buys DIGITDIFF with the barrier approved on this tick. */
+        purchaseLastTickDigitDiffer: async () => {
+            const state = tradeEngine.ltdState;
+            const pending = state?.pending;
+            if (!pending) return undefined;
+            state.pending = null;
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const latest = tradeEngine.$scope?.ticksService?.getLatestTick?.(symbol);
+            if (latest && latest.epoch !== pending.epoch) {
+                ltdNotify('WAITING — a newer tick arrived before purchase; it will be analysed first (no stale trade).');
+                return undefined;
+            }
+
+            const stake = tradeEngine.tradeOptions?.amount;
+            ltdTradeLines({
+                barrier: pending.barrier,
+                stake,
+                duration: tradeEngine.tradeOptions?.duration,
+                duration_unit: tradeEngine.tradeOptions?.duration_unit,
+            }).forEach(line => ltdNotify(line, 'journal__text--success'));
+
+            state.last_trade_at = Date.now();
+            state.last_trade_epoch = pending.epoch;
+            state.traded_barrier = pending.barrier;
+            state.last_action = `TRADE PLACED — DIFFER ${pending.barrier}`;
+            state.status = 'IN TRADE';
+            tradeEngine.last_buy = null;
+            tradeEngine.tradeOptions = { ...(tradeEngine.tradeOptions || {}), prediction: pending.barrier };
+            try {
+                await tradeEngine.purchaseOverrideContractType('DIGITDIFF');
+            } catch (error) {
+                state.status = 'ANALYZING';
+                state.last_action = `Trade failed — ${error?.error?.message || error?.message || 'purchase error'}`;
+                ltdNotify(`TRADE FAILED — ${state.last_action.replace('Trade failed — ', '')}`, 'journal__text--error');
+                throw error;
+            }
+            const buy = tradeEngine.last_buy;
+            if (!buy) {
+                state.status = 'ANALYZING';
+                state.last_action = 'Trade not submitted';
+                ltdNotify('WAITING — trade was not submitted by the engine; analysing the next tick.', 'journal__text--warn');
+                return undefined;
+            }
+            ltdNotify(
+                `Trade submitted successfully. Contract ID: ${buy.contract_id} | Buy price: $${Number(
+                    buy.buy_price ?? stake
+                ).toFixed(2)}`,
+                'journal__text--success'
+            );
+            return undefined;
+        },
+        /** Last-Tick Price Digit Differ — record the settled contract; 1 = trade again, 0 = stop. */
+        lastTickDigitResult: async () => {
+            const state = tradeEngine.ltdState;
+            if (!state) return 0;
+            const contract = tradeEngine.data?.contract || {};
+            const profit = Number.isFinite(Number(contract.profit))
+                ? Number(contract.profit)
+                : Number(contract.sell_price || 0) - Number(contract.buy_price || 0);
+            const won = applyLtdResult(state, { profit });
+            const barrier = contract.barrier ?? state.traded_barrier;
+            const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
+            const market = ltdMarketName(symbol);
+            state.status = 'ANALYZING';
+            state.last_action = `DIFFER ${barrier} ${won ? 'WON' : 'LOST'} (${profit >= 0 ? '+' : '-'}$${Math.abs(
+                profit
+            ).toFixed(2)})`;
+            let balance;
+            try {
+                balance = tradeEngine.getBalance?.('STR');
+            } catch {
+                balance = undefined;
+            }
+            ltdResultLines({
+                state,
+                barrier,
+                won,
+                profit,
+                contract_id: contract.contract_id,
+                balance,
+                now: Date.now(),
+            }).forEach(line => ltdNotify(line, won ? 'journal__text--success' : 'journal__text--error'));
+
+            const stop = ltdStopReason(state, state.settings);
+            if (stop) state.status = 'STOPPED';
+            ltdStatusLines(state, market).forEach(line => ltdNotify(line));
+            if (stop) {
+                ltdNotify(`STOPPED — ${stop}`, 'journal__text--error');
+                if (state.watchdog) clearInterval(state.watchdog);
+                return 0;
+            }
+            return 1;
+        },
         /**
          * Rise/Fall Hedge — called in After Purchase. Waits for both legs, records the
          * combined result and returns 1 to trade again or 0 to stop.

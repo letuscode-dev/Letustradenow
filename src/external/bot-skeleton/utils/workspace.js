@@ -6,6 +6,7 @@ const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'apollo_purchase',
     'apollo_purchase2',
     'rise_fall_hedge_purchase',
+    'last_tick_digit_differ_purchase',
 ];
 
 const isPurchaseSubstituteBlock = block => PURCHASE_SUBSTITUTE_BLOCK_TYPES.includes(block?.type);
