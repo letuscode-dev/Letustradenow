@@ -1,4 +1,4 @@
-import { FIRST_DECIMAL_DIGIT_DIFFER_XML } from './bots/first-decimal-digit-differ';
+import { RISE_FALL_SWITCHER_XML } from './bots/rise-fall-switcher';
 import type { FreeBot } from './types';
 
 /**
@@ -9,11 +9,11 @@ import type { FreeBot } from './types';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'first-decimal-digit-differ-v1',
-        title: 'Double Decimal Digit Differ + 10.5 Recovery',
+        id: 'rise-fall-switcher-v1',
+        title: 'Rise/Fall Switcher',
         description:
-            'Trades Differs when the last two decimals of the price match (4681.33 → DIFFER 3). 10.5× recovery after a loss, reset to base stake on a win, with recovery and risk limits. Volatility 75 (1s), $2 stake, 1 tick.',
-        tags: ['Differs', 'Repeated last two decimals', 'Automatic barrier', '10.5× recovery', 'Live journal'],
-        xml: FIRST_DECIMAL_DIGIT_DIFFER_XML,
+            'Starts on RISE, switches side after a loss and stays on the winning side. Martingale 1.25 on loss, reset on win. Step Index 100, $2 stake, 2 ticks.',
+        tags: ['Rise/Fall', 'Step Index', 'Side switch', 'Martingale 1.25'],
+        xml: RISE_FALL_SWITCHER_XML,
     },
 ];
