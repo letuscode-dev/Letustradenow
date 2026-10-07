@@ -22,7 +22,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'rise-fall-v1',
         title: 'Rise/Fall Consecutive Ticks',
         description:
-            'Fades the streak: consecutive up ticks buy Fall, and consecutive down ticks buy Rise (Consecutive Ticks, default 3). Trade Side is 0 for both sides, 1 for Rise only, or 2 for Fall only. Each signal takes Trades per Signal contracts of that side (default 3), then checks again. A loss multiplies the stake by 2. A win returns to the initial stake. Keeps trading until take profit, stop loss, or you stop it. Volatility 50 (1s), $1 stake, 3 ticks.',
+            'Fades the streak: consecutive up ticks buy Fall, and consecutive down ticks buy Rise (Consecutive Ticks, default 3). Trade Side is 0 for both sides, 1 for Rise only, or 2 for Fall only. Each signal takes Trades per Signal contracts of that side (default 3), then checks again. A loss multiplies the stake by 2. A win returns to the initial stake. Keeps trading until take profit, stop loss, or you stop it. Volatility 50 (1s), $1 stake, 1 tick.',
         tags: ['Rise/Fall', 'Volatility', 'Consecutive ticks', 'Martingale'],
         xml: RISE_FALL_XML,
     },

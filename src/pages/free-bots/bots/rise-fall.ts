@@ -8,7 +8,7 @@
  * (default 3) before it looks for the next streak. A loss multiplies the
  * stake by the Martingale Multiplier (default 2). A win returns the stake to
  * the initial amount. The run continues until take profit, stop loss, or the
- * user stops the bot. Duration 3 ticks.
+ * user stops the bot. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -206,7 +206,7 @@ const AFTER_PURCHASE = chain([
 const INIT = chain([
     n => set('rff_stake', num(1), n),
     n => set('rff_multiplier', num(2), n),
-    n => set('rff_duration', num(3), n),
+    n => set('rff_duration', num(1), n),
     n => set('rff_consecutive', num(3), n),
     n => set('rff_trades_per_signal', num(3), n),
     n => set('rff_mode', num(0), n),

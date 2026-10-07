@@ -160,14 +160,14 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Volatility 50 (1s) Rise/Fall, both sides, 3 ticks', () => {
+        it('Volatility 50 (1s) Rise/Fall, both sides, 1 tick', () => {
             expect(field('SUBMARKET_LIST')).toBe('random_index');
             expect(field('SYMBOL_LIST')).toBe('1HZ50V');
             expect(field('TRADETYPECAT_LIST')).toBe('callput');
             expect(field('TRADETYPE_LIST')).toBe('callput');
             expect(field('TYPE_LIST')).toBe('both');
             expect(field('DURATIONTYPE_LIST')).toBe('t');
-            expect(setValue('rff_duration')).toEqual(['3']);
+            expect(setValue('rff_duration')).toEqual(['1']);
             expect(setValue('rff_stake')).toEqual(['1']);
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('false');
