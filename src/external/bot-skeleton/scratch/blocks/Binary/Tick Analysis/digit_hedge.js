@@ -201,3 +201,83 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_continues = (
     'Bot.digitHedgeContinues()',
     window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
 ];
+
+window.Blockly.Blocks.digit_hedge_book_profit = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('hedge total %1 + profit %2, take profit %3, stop loss %4'),
+            args0: [
+                { type: 'input_value', name: 'TOTAL', check: 'Number' },
+                { type: 'input_value', name: 'PROFIT', check: 'Number' },
+                { type: 'input_value', name: 'TAKE_PROFIT', check: 'Number' },
+                { type: 'input_value', name: 'STOP_LOSS', check: 'Number' },
+            ],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                'Adds the combined Over 5 and Under 4 profit to the running total. Take profit stops the bot when that total reaches the target.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Book Over/Under hedge profit'),
+            description: localize('Updates total profit from both hedge legs and records take profit or stop loss.'),
+            key_words: localize('hedge, profit, take profit'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_book_profit = block => {
+    const value = name =>
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            name,
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '0';
+    return [
+        `Bot.digitHedgeBookProfit(${value('TOTAL')}, ${value('PROFIT')}, ${value('TAKE_PROFIT')}, ${value('STOP_LOSS')})`,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
+    ];
+};
+
+window.Blockly.Blocks.digit_hedge_limit = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('hedge take-profit or stop-loss result'),
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize('1 when take profit is reached, -1 when stop loss is reached, 0 otherwise.'),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Hedge limit result'),
+            description: localize('Whether the combined hedge profit has reached take profit or stop loss.'),
+            key_words: localize('hedge, take profit, stop loss'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_limit = () => [
+    'Bot.digitHedgeLimit()',
+    window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
+];

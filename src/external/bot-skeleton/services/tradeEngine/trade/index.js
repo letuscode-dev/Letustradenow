@@ -5,6 +5,7 @@ import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
+import { HEDGE_LIMIT_NONE } from '../utils/digit-hedge';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
 import rootReducer from './state/reducers';
@@ -39,6 +40,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.initArgs = args;
         this.options = options;
         this.digitHedgeHalt = false;
+        this.digitHedgeLimitAction = HEDGE_LIMIT_NONE;
         this.startPromise = this.loginAndGetBalance(token);
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);

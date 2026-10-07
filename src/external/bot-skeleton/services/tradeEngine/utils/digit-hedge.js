@@ -163,6 +163,37 @@ export const hedgeMayContinue = plan => {
     return next_stake === round2(used * mult) && next_stake > used;
 };
 
+export const HEDGE_LIMIT_TAKE_PROFIT = 'take_profit';
+export const HEDGE_LIMIT_STOP_LOSS = 'stop_loss';
+export const HEDGE_LIMIT_NONE = 'continue';
+
+/**
+ * Add this hedge's combined profit to the running total, then stop when the
+ * rounded total has reached take profit or stop loss. Numbers are coerced so a
+ * string comparison cannot treat 9.50 as already past 10.
+ */
+export const applyHedgeLimits = ({ total, profit, takeProfit, stopLoss }) => {
+    const start = Number(total);
+    const gain = Number(profit);
+    const next = round2((Number.isFinite(start) ? start : 0) + (Number.isFinite(gain) ? gain : 0));
+    const target = Number(takeProfit);
+    const loss_limit = Number(stopLoss);
+    if (Number.isFinite(target) && next >= target) {
+        return { total: next, action: HEDGE_LIMIT_TAKE_PROFIT };
+    }
+    if (Number.isFinite(loss_limit) && next <= round2(-Math.abs(loss_limit))) {
+        return { total: next, action: HEDGE_LIMIT_STOP_LOSS };
+    }
+    return { total: next, action: HEDGE_LIMIT_NONE };
+};
+
+/** 1 = take profit, -1 = stop loss, 0 = keep trading. */
+export const hedgeLimitCode = action => {
+    if (action === HEDGE_LIMIT_TAKE_PROFIT) return 1;
+    if (action === HEDGE_LIMIT_STOP_LOSS) return -1;
+    return 0;
+};
+
 const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({
     proposal: 1,
     amount: Number(trade_option?.amount),

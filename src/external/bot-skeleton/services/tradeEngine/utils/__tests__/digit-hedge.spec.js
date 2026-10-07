@@ -1,4 +1,5 @@
 import {
+    applyHedgeLimits,
     buildDigitOverProposal,
     buildDigitUnderProposal,
     canAffordBothLegs,
@@ -6,8 +7,12 @@ import {
     DIGIT_HEDGE_OPEN,
     DIGIT_HEDGE_SKIP,
     hedgeDecision,
+    hedgeLimitCode,
     hedgeMayContinue,
     hedgeNet,
+    HEDGE_LIMIT_NONE,
+    HEDGE_LIMIT_STOP_LOSS,
+    HEDGE_LIMIT_TAKE_PROFIT,
     HEDGE_RECOVER,
     HEDGE_RESET,
     HEDGE_STOP,
@@ -250,5 +255,52 @@ describe('Over 5 / Under 4 hedge stake', () => {
                 multiplier: 2,
             })
         ).toBe(true);
+    });
+});
+
+describe('Over 5 / Under 4 hedge take profit', () => {
+    it('stops when the combined profit reaches the target, including a fractional cent', () => {
+        expect(applyHedgeLimits({ total: 9.5, profit: 0.4, takeProfit: 10, stopLoss: 50 })).toEqual({
+            total: 9.9,
+            action: HEDGE_LIMIT_NONE,
+        });
+        expect(applyHedgeLimits({ total: 9.99, profit: 0.006, takeProfit: 10, stopLoss: 50 })).toEqual({
+            total: 10,
+            action: HEDGE_LIMIT_TAKE_PROFIT,
+        });
+        expect(hedgeLimitCode(HEDGE_LIMIT_TAKE_PROFIT)).toBe(1);
+    });
+
+    it('adds numeric strings instead of joining them, so 9.50 is not treated as past 10', () => {
+        expect(applyHedgeLimits({ total: '9.50', profit: '0.40', takeProfit: '10', stopLoss: '50' })).toEqual({
+            total: 9.9,
+            action: HEDGE_LIMIT_NONE,
+        });
+        expect(applyHedgeLimits({ total: '9.50', profit: '0.50', takeProfit: '10', stopLoss: '50' }).action).toBe(
+            HEDGE_LIMIT_TAKE_PROFIT
+        );
+    });
+
+    it('stops at stop loss on the combined total and keeps trading above it', () => {
+        expect(applyHedgeLimits({ total: -49.4, profit: -0.5, takeProfit: 10, stopLoss: 50 })).toEqual({
+            total: -49.9,
+            action: HEDGE_LIMIT_NONE,
+        });
+        expect(applyHedgeLimits({ total: -49.6, profit: -0.4, takeProfit: 10, stopLoss: 50 })).toEqual({
+            total: -50,
+            action: HEDGE_LIMIT_STOP_LOSS,
+        });
+        expect(hedgeLimitCode(HEDGE_LIMIT_STOP_LOSS)).toBe(-1);
+        expect(hedgeLimitCode(HEDGE_LIMIT_NONE)).toBe(0);
+    });
+
+    it('reaches take profit from a run of combined hedge results', () => {
+        const profits = [0.35, -0.1, 3.2, 4.1, 2.5];
+        const booked = profits.reduce(
+            (state, profit) => applyHedgeLimits({ total: state.total, profit, takeProfit: 10, stopLoss: 50 }),
+            { total: 0, action: HEDGE_LIMIT_NONE }
+        );
+        expect(booked.total).toBe(10.05);
+        expect(booked.action).toBe(HEDGE_LIMIT_TAKE_PROFIT);
     });
 });

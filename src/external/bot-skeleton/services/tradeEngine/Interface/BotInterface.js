@@ -28,9 +28,12 @@ import {
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
 import {
+    applyHedgeLimits,
     hedgeDecision,
+    hedgeLimitCode,
     hedgeMayContinue,
     hedgeNet,
+    HEDGE_LIMIT_NONE,
     HEDGE_STOP,
     isSettledContract,
     legProfit,
@@ -1228,6 +1231,7 @@ const getBotInterface = tradeEngine => {
          */
         settleDigitHedge: async () => {
             const hedge = tradeEngine.digitHedge;
+            tradeEngine.digitHedgeResultId = (tradeEngine.digitHedgeResultId || 0) + 1;
             const finish = (decision, net, message, className) => {
                 tradeEngine.digitHedgeDecision = decision;
                 if (message) notifyHedge(message, className);
@@ -1301,6 +1305,26 @@ const getBotInterface = tradeEngine => {
         },
         /** True only when the hedge finished and the next stake matches the rule. */
         digitHedgeContinues: () => hedgeMayContinue(tradeEngine.digitHedgeStakePlan),
+        /**
+         * Adds the combined Over 5 + Under 4 profit to the running total.
+         * Returns that total. A second call for the same settlement does not add again.
+         */
+        digitHedgeBookProfit: (total, profit, takeProfit, stopLoss) => {
+            const id = tradeEngine.digitHedgeResultId ?? 0;
+            if (tradeEngine.digitHedgeBookedId === id && tradeEngine.digitHedgeBooked) {
+                return tradeEngine.digitHedgeBooked.total;
+            }
+            const booked = applyHedgeLimits({ total, profit, takeProfit, stopLoss });
+            tradeEngine.digitHedgeBooked = booked;
+            tradeEngine.digitHedgeBookedId = id;
+            tradeEngine.digitHedgeLimitAction = booked.action;
+            if (booked.action !== HEDGE_LIMIT_NONE) {
+                tradeEngine.digitHedgeHalt = true;
+            }
+            return booked.total;
+        },
+        /** 1 = take profit reached, -1 = stop loss reached, 0 = trade again is allowed. */
+        digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
         /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
         getLastTickDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;

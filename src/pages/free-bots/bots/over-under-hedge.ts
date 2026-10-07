@@ -6,7 +6,9 @@
  * does not trade. A combined loss where both sides lose sets the next stake to
  * the stake that was bought, times the recovery multiplier. If one side wins,
  * the stake returns to the initial amount. A one-sided buy is not kept. An
- * unfinished hedge stops instead of betting again. Duration 1 tick.
+ * unfinished hedge stops instead of betting again. Take profit and stop loss
+ * use the combined profit of both sides, and a reached limit sends no further
+ * trade. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -28,7 +30,7 @@ const VARIABLES: [string, string][] = [
     ['ouh_text', 'Journal Text'],
 ];
 
-const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
+const { v, num, text, set, chain, arith, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
     VARIABLES,
     'ouh_text'
 );
@@ -80,19 +82,6 @@ const ANALYSE = chain([
       </block>`,
 ]);
 
-const LIMITS = `<block type="controls_if">
-        <mutation elseif="1" else="1"></mutation>
-        <value name="IF0">${compare('GTE', v('ouh_total'), v('ouh_take_profit'))}</value>
-        <statement name="DO0">${notify('success', [text('Take profit reached | P/L'), v('ouh_total')])}</statement>
-        <value name="IF1">${compare(
-            'LTE',
-            v('ouh_total'),
-            `<block type="math_single"><field name="OP">NEG</field><value name="NUM">${v('ouh_stop_loss')}</value></block>`
-        )}</value>
-        <statement name="DO1">${notify('error', [text('Stop loss reached | P/L'), v('ouh_total')])}</statement>
-        <statement name="ELSE"><block type="trade_again"></block></statement>
-      </block>`;
-
 const NOTE_WIN = notify('success', [
     text('WIN | net'),
     v('ouh_profit'),
@@ -119,28 +108,51 @@ const NEXT_STAKE = `<block type="digit_hedge_next_stake">
 
 const CONTINUES = `<block type="digit_hedge_continues"></block>`;
 const DECISION = `<block type="digit_hedge_decision"></block>`;
+const LIMIT = `<block type="digit_hedge_limit"></block>`;
+
+const BOOK = `<block type="digit_hedge_book_profit">
+    <value name="TOTAL">${v('ouh_total')}</value>
+    <value name="PROFIT">${v('ouh_profit')}</value>
+    <value name="TAKE_PROFIT">${v('ouh_take_profit')}</value>
+    <value name="STOP_LOSS">${v('ouh_stop_loss')}</value>
+  </block>`;
+
+const TAKE_PROFIT = notify('success', [text('Take profit reached | P/L'), v('ouh_total')]);
+const STOP_LOSS_NOTE = notify('error', [text('Stop loss reached | P/L'), v('ouh_total')]);
 
 const STOP = notify('error', [
     text('Hedge did not finish on both sides — stopped so the stake is not changed'),
 ]);
 
+const STAKE_AND_TRADE = set(
+    'ouh_current',
+    NEXT_STAKE,
+    `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('EQ', DECISION, num(1))}</value>
+        <statement name="DO0">${NOTE_WIN}</statement>
+        <statement name="ELSE">${NOTE_LOSS}</statement>
+        <next><block type="trade_again"></block></next>
+      </block>`
+);
+
 const AFTER_PURCHASE = chain([
     n => set('ouh_profit', `<block type="digit_hedge_result"></block>`, n),
-    n => set('ouh_total', round2(arith('ADD', v('ouh_total'), v('ouh_profit'))), n),
-    n => set('ouh_current', NEXT_STAKE, n),
+    n => set('ouh_total', BOOK, n),
     () => `<block type="controls_if">
-        <mutation else="1"></mutation>
-        <value name="IF0">${CONTINUES}</value>
-        <statement name="DO0">
+        <mutation elseif="1" else="1"></mutation>
+        <value name="IF0">${compare('EQ', LIMIT, num(1))}</value>
+        <statement name="DO0">${TAKE_PROFIT}</statement>
+        <value name="IF1">${compare('EQ', LIMIT, num(-1))}</value>
+        <statement name="DO1">${STOP_LOSS_NOTE}</statement>
+        <statement name="ELSE">
           <block type="controls_if">
             <mutation else="1"></mutation>
-            <value name="IF0">${compare('EQ', DECISION, num(1))}</value>
-            <statement name="DO0">${NOTE_WIN}</statement>
-            <statement name="ELSE">${NOTE_LOSS}</statement>
-            <next>${LIMITS}</next>
+            <value name="IF0">${CONTINUES}</value>
+            <statement name="DO0">${STAKE_AND_TRADE}</statement>
+            <statement name="ELSE">${STOP}</statement>
           </block>
         </statement>
-        <statement name="ELSE">${STOP}</statement>
       </block>`,
 ]);
 

@@ -540,7 +540,7 @@ export default Engine =>
          * sold off. If that sell fails, the bot stops instead of trading on one side.
          */
         purchaseDigitHedge() {
-            if (this.digitHedgeHalt) {
+            if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
                 return Promise.resolve();
             }
             if (!this.canAttemptPurchase('DIGITOVER')) {
@@ -573,6 +573,18 @@ export default Engine =>
 
             if (!Number.isFinite(stake) || stake <= 0) {
                 release(`Hedge was not sent. Stake ${this.tradeOptions?.amount} is not a positive amount.`);
+                return Promise.resolve();
+            }
+
+            const over_request = buildDigitOverProposal(trade);
+            const under_request = buildDigitUnderProposal(trade);
+            if (
+                over_request.contract_type !== 'DIGITOVER' ||
+                String(over_request.barrier) !== '5' ||
+                under_request.contract_type !== 'DIGITUNDER' ||
+                String(under_request.barrier) !== '4'
+            ) {
+                release('Hedge was not sent. Over 5 and Under 4 must be bought together.');
                 return Promise.resolve();
             }
 
@@ -624,11 +636,11 @@ export default Engine =>
             };
 
             return Promise.all([
-                quote(buildDigitOverProposal(trade)).then(
+                quote(over_request).then(
                     quoted => ({ ok: true, quoted }),
                     error => ({ ok: false, error })
                 ),
-                quote(buildDigitUnderProposal(trade)).then(
+                quote(under_request).then(
                     quoted => ({ ok: true, quoted }),
                     error => ({ ok: false, error })
                 ),
