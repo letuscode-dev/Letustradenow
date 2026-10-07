@@ -354,6 +354,9 @@ describe('free bot catalog XML', () => {
             expect(next?.querySelector(':scope > value[name="MULTIPLIER"] field')?.getAttribute('id')).toBe(
                 'ouh_multiplier'
             );
+            const afterStake = stake?.querySelector(':scope > next');
+            expect(afterStake?.querySelector('block[type="digit_hedge_continues"]')).not.toBeNull();
+            expect(afterStake?.querySelector('block[type="trade_again"]')).not.toBeNull();
         });
     });
 });

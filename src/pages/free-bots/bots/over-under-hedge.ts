@@ -124,15 +124,23 @@ const STOP = notify('error', [
     text('Hedge did not finish on both sides — stopped so the stake is not changed'),
 ]);
 
-const STAKE_AND_TRADE = set(
-    'ouh_current',
-    NEXT_STAKE,
-    `<block type="controls_if">
+/** Next stake must be stored before "may trade again" is read. */
+const NOTES_AND_AGAIN = `<block type="controls_if">
         <mutation else="1"></mutation>
         <value name="IF0">${compare('EQ', DECISION, num(1))}</value>
         <statement name="DO0">${NOTE_WIN}</statement>
         <statement name="ELSE">${NOTE_LOSS}</statement>
         <next><block type="trade_again"></block></next>
+      </block>`;
+
+const AFTER_LIMIT = set(
+    'ouh_current',
+    NEXT_STAKE,
+    `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${CONTINUES}</value>
+        <statement name="DO0">${NOTES_AND_AGAIN}</statement>
+        <statement name="ELSE">${STOP}</statement>
       </block>`
 );
 
@@ -145,14 +153,7 @@ const AFTER_PURCHASE = chain([
         <statement name="DO0">${TAKE_PROFIT}</statement>
         <value name="IF1">${compare('EQ', LIMIT, num(-1))}</value>
         <statement name="DO1">${STOP_LOSS_NOTE}</statement>
-        <statement name="ELSE">
-          <block type="controls_if">
-            <mutation else="1"></mutation>
-            <value name="IF0">${CONTINUES}</value>
-            <statement name="DO0">${STAKE_AND_TRADE}</statement>
-            <statement name="ELSE">${STOP}</statement>
-          </block>
-        </statement>
+        <statement name="ELSE">${AFTER_LIMIT}</statement>
       </block>`,
 ]);
 
