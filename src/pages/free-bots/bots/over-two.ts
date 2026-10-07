@@ -5,9 +5,10 @@
  * for the next tick. N is the "Digits to Check" setting (default 4). Each signal buys
  * "Trades per Signal" contracts in a row (default 1) before analysing again. The run does not
  * end after that batch: it keeps analysing and trading until Take Profit, Stop Loss, or the
- * user stops the bot. Stake × Martingale Multiplier (default 2.5) after a loss, back to the
- * initial stake after a win. Two losses in a row add 0.05 to the multiplier; a win restores
- * the multiplier to its starting value. Duration 1 tick.
+ * user stops the bot. After a loss the next stake is the accumulated loss divided by the
+ * payout percent (default 40), so one win recovers the full amount lost. A win returns the
+ * stake to the initial amount and clears that loss. Two losses in a row still add 0.05 to
+ * the Martingale Multiplier (default 2.5); a win restores the multiplier. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -17,6 +18,8 @@ const VARIABLES: [string, string][] = [
     ['ovr_multiplier', 'Martingale Multiplier'],
     ['ovr_multiplier_base', 'Base Multiplier'],
     ['ovr_loss_streak', 'Loss Streak'],
+    ['ovr_payout', 'Payout %'],
+    ['ovr_lost', 'Amount Lost'],
     ['ovr_duration', 'Duration (ticks)'],
     ['ovr_prediction', 'Prediction (Over)'],
     ['ovr_digits_to_check', 'Digits to Check'],
@@ -38,11 +41,21 @@ const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEn
     'ovr_msg'
 );
 
+const abs = (x: string) =>
+    `<block type="math_single"><field name="OP">ABS</field><value name="NUM">${x}</value></block>`;
+
+/** Stake whose 40% profit equals the amount lost since the last win. */
+const recoveryStake = round2(
+    arith('DIVIDE', v('ovr_lost'), arith('DIVIDE', v('ovr_payout'), num(100)))
+);
+
 const INIT = chain([
     n => set('ovr_stake', num(1), n),
     n => set('ovr_multiplier', num(2.5), n),
     n => set('ovr_multiplier_base', v('ovr_multiplier'), n),
     n => set('ovr_loss_streak', num(0), n),
+    n => set('ovr_payout', num(40), n),
+    n => set('ovr_lost', num(0), n),
     n => set('ovr_duration', num(1), n),
     n => set('ovr_prediction', num(2), n),
     n => set('ovr_digits_to_check', num(4), n),
@@ -116,6 +129,9 @@ const ON_WIN = set(
         'ovr_multiplier',
         v('ovr_multiplier_base'),
         set(
+            'ovr_lost',
+            num(0),
+            set(
             'ovr_current',
             v('ovr_stake'),
             notify('success', [
@@ -128,23 +144,30 @@ const ON_WIN = set(
                 text('| P/L'),
                 v('ovr_total'),
             ])
+            )
         )
     )
 );
 
 const applyLossStake = set(
-    'ovr_current',
-    round2(arith('MULTIPLY', v('ovr_current'), v('ovr_multiplier'))),
-    notify('warn', [
-        text('LOSS | streak'),
-        v('ovr_loss_streak'),
-        text('| multiplier'),
-        v('ovr_multiplier'),
-        text('| next stake'),
-        v('ovr_current'),
-        text('| P/L'),
-        v('ovr_total'),
-    ])
+    'ovr_lost',
+    round2(arith('ADD', v('ovr_lost'), abs(v('ovr_profit')))),
+    set(
+        'ovr_current',
+        recoveryStake,
+        notify('warn', [
+            text('LOSS | lost'),
+            v('ovr_lost'),
+            text('| payout'),
+            v('ovr_payout'),
+            text('% | next stake'),
+            v('ovr_current'),
+            text('| streak'),
+            v('ovr_loss_streak'),
+            text('| P/L'),
+            v('ovr_total'),
+        ])
+    )
 );
 
 /** Second loss in a row bumps the multiplier; later losses keep that value until a win. */

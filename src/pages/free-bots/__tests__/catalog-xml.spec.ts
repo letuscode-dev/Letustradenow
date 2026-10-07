@@ -40,6 +40,8 @@ describe('free bot catalog XML', () => {
             expect(setValue('ovr_trades_per_signal')).toEqual(['1']);
             expect(setValue('ovr_multiplier')).toEqual(['2.5']);
             expect(setValue('ovr_loss_streak')).toEqual(['0']);
+            expect(setValue('ovr_payout')).toEqual(['40']);
+            expect(setValue('ovr_lost')).toEqual(['0']);
             const base = [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')].find(
                 b => varId(b) === 'ovr_multiplier_base'
             );
@@ -87,7 +89,7 @@ describe('free bot catalog XML', () => {
             ).toBe('ovr_trades_per_signal');
         });
 
-        it('win restores stake and multiplier, two losses add 0.05, trades until limits', () => {
+        it('win restores stake and multiplier, losses recover at 40% payout, trades until limits', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
@@ -101,6 +103,10 @@ describe('free bot catalog XML', () => {
             expect(restore?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
                 'ovr_multiplier_base'
             );
+            const cleared = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_lost'
+            );
+            expect(cleared?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
             const stake = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
                 b => varId(b) === 'ovr_current'
             );
@@ -119,10 +125,22 @@ describe('free bot catalog XML', () => {
             );
             expect(added?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('ovr_multiplier');
             expect(added?.querySelector(':scope > value[name="B"] field')?.textContent).toBe('0.05');
-            const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
-                b => b.querySelector(':scope > value[name="B"] > block > field')?.getAttribute('id') === 'ovr_multiplier'
+            const lost = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_lost'
             );
-            expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
+            const absolute = lost?.querySelector('block[type="math_single"]');
+            expect(absolute?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('ABS');
+            expect(absolute?.querySelector(':scope > value[name="NUM"] field')?.getAttribute('id')).toBe('ovr_profit');
+            const recovery = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'DIVIDE' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ovr_lost'
+            );
+            expect(recovery?.querySelector(':scope > value[name="B"] field[name="OP"]')?.textContent).toBe('DIVIDE');
+            expect(recovery?.querySelector(':scope > value[name="B"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'ovr_payout'
+            );
+            expect(recovery?.querySelector(':scope > value[name="B"] value[name="B"] field')?.textContent).toBe('100');
             expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
         });
     });
