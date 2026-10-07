@@ -13,6 +13,7 @@ import {
     HEDGE_STOP,
     nextHedgeStake,
     planDigitHedgeBuys,
+    deadDigitsDominate,
     shouldHedgeLastDigits,
 } from '../digit-hedge';
 
@@ -39,6 +40,17 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(shouldHedgeLastDigits(0, 3)).toBe(false);
         expect(shouldHedgeLastDigits(4, undefined)).toBe(false);
         expect(shouldHedgeLastDigits(null, 5)).toBe(false);
+    });
+
+    it('hedges when 4 and 5 dominate the last five ticks', () => {
+        expect(deadDigitsDominate([1, 2, 4, 5, 4])).toBe(true);
+        expect(deadDigitsDominate([4, 5, 4, 5, 4])).toBe(true);
+        expect(deadDigitsDominate([9, 8, 7, 4, 5, 4])).toBe(true);
+        expect(deadDigitsDominate([4, 5, 1, 2, 3])).toBe(false);
+        expect(deadDigitsDominate([4, 4, 1, 2, 3])).toBe(false);
+        expect(deadDigitsDominate([4, 5, 4, 1])).toBe(false);
+        expect(deadDigitsDominate([4, 5, null, 4, 1])).toBe(false);
+        expect(deadDigitsDominate([4, 5, 1, 2], 4)).toBe(false);
     });
 });
 

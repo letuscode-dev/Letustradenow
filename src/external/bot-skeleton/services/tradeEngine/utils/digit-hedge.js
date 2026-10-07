@@ -30,6 +30,21 @@ export const shouldHedgeLastDigits = (newer, older) => {
     return isDeadDigit(Number(newer)) !== isDeadDigit(Number(older));
 };
 
+/**
+ * 4 and 5 dominate the last `window` digits when they appear more often than
+ * every other digit combined. The end of the list is the newest tick. A tie
+ * or a short list does not trade.
+ */
+export const deadDigitsDominate = (digits, window = 5) => {
+    const size = Number(window);
+    if (!Number.isInteger(size) || size < 1) return false;
+    if (!Array.isArray(digits) || digits.length < size) return false;
+    const recent = digits.slice(-size);
+    if (!recent.every(isLastDigit)) return false;
+    const dead = recent.filter(digit => isDeadDigit(Number(digit))).length;
+    return dead > size - dead;
+};
+
 export const isSettledContract = poc =>
     Boolean(poc && (poc.is_sold || poc.status === 'won' || poc.status === 'lost' || poc.status === 'sold'));
 

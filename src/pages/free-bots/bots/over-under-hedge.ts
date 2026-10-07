@@ -1,12 +1,12 @@
 /**
  * Over 5 / Under 4 hedge free bot (Volatility 75 (1s) Index).
  *
- * Buys Over 5 and Under 4 together when exactly one of the last two digits is
- * 4 or 5 and the other digit is something else. Skips 4-4, 5-5, 4-5, and 5-4.
- * A combined loss where both sides lose sets the next stake to the stake that
- * was bought, times the recovery multiplier. If one side wins, the stake
- * returns to the initial amount. A one-sided buy is not kept. An unfinished
- * hedge stops instead of betting again. Duration 1 tick.
+ * Buys Over 5 and Under 4 together when 4 and 5 dominate the last 5 ticks:
+ * those two digits appear more often than every other digit combined. A tie
+ * does not trade. A combined loss where both sides lose sets the next stake to
+ * the stake that was bought, times the recovery multiplier. If one side wins,
+ * the stake returns to the initial amount. A one-sided buy is not kept. An
+ * unfinished hedge stops instead of betting again. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -22,12 +22,13 @@ const VARIABLES: [string, string][] = [
     ['ouh_total', 'Total Profit'],
     ['ouh_profit', 'Last Profit'],
     ['ouh_digits', 'Last Digits'],
-    ['ouh_newer', 'Latest Digit'],
-    ['ouh_older', 'Previous Digit'],
+    ['ouh_window', 'Ticks to Check'],
+    ['ouh_i', 'i'],
+    ['ouh_dead', '4 or 5 Count'],
     ['ouh_text', 'Journal Text'],
 ];
 
-const { v, num, text, set, chain, arith, round2, compare, and, fromEnd, notify } = blockHelpers(
+const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
     VARIABLES,
     'ouh_text'
 );
@@ -35,30 +36,45 @@ const { v, num, text, set, chain, arith, round2, compare, and, fromEnd, notify }
 const or = (a: string, b: string) =>
     `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
 
-const not = (value: string) => `<block type="logic_negate"><value name="BOOL">${value}</value></block>`;
-
 /** 4 and 5 lose both sides of the hedge. */
 const isDead = (digit: string) => or(compare('EQ', digit, num(4)), compare('EQ', digit, num(5)));
 
-const validDigit = (digit: string) => and(compare('GTE', digit, num(0)), compare('LTE', digit, num(9)));
+const listLength = `<block type="lists_length"><value name="VALUE">${v('ouh_digits')}</value></block>`;
 
-/** Exactly one of the two digits is 4 or 5. */
-const exactlyOneDead = or(
-    and(isDead(v('ouh_newer')), not(isDead(v('ouh_older')))),
-    and(isDead(v('ouh_older')), not(isDead(v('ouh_newer'))))
-);
+const others = arith('MINUS', v('ouh_window'), v('ouh_dead'));
+
+const countDead = (next: string) =>
+    countTo(
+        'ouh_i',
+        v('ouh_window'),
+        `<block type="controls_if">
+            <value name="IF0">${isDead(fromEnd('ouh_digits', v('ouh_i')))}</value>
+            <statement name="DO0">${increment('ouh_dead')}</statement>
+          </block>`,
+        next
+    );
 
 const BUY = `<block type="digit_hedge_purchase"></block>`;
 
 const ANALYSE = chain([
     n => set('ouh_digits', `<block type="lastDigitList"></block>`, n),
-    n => set('ouh_newer', fromEnd('ouh_digits', num(1)), n),
-    n => set('ouh_older', fromEnd('ouh_digits', num(2)), n),
+    n => set('ouh_dead', num(0), n),
+    countDead,
     () => `<block type="controls_if">
-        <value name="IF0">${and(and(validDigit(v('ouh_newer')), validDigit(v('ouh_older'))), exactlyOneDead)}</value>
+        <value name="IF0">${and(
+            and(compare('GTE', v('ouh_window'), num(1)), compare('GTE', listLength, v('ouh_window'))),
+            compare('GT', v('ouh_dead'), others)
+        )}</value>
         <statement name="DO0">${notify(
             'success',
-            [text('Hedge | digits'), v('ouh_older'), v('ouh_newer'), text('| stake'), v('ouh_current')],
+            [
+                text('Hedge | last'),
+                v('ouh_window'),
+                text('| 4 or 5 x'),
+                v('ouh_dead'),
+                text('| stake'),
+                v('ouh_current'),
+            ],
             BUY
         )}</statement>
       </block>`,
@@ -132,6 +148,7 @@ const INIT = chain([
     n => set('ouh_stake', num(1), n),
     n => set('ouh_multiplier', num(2), n),
     n => set('ouh_duration', num(1), n),
+    n => set('ouh_window', num(5), n),
     n => set('ouh_prediction', num(5), n),
     n => set('ouh_take_profit', num(10), n),
     n => set('ouh_stop_loss', num(50), n),
