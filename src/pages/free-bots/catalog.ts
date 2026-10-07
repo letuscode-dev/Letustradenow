@@ -1,4 +1,4 @@
-import { RISE_FALL_SWITCHER_XML } from './bots/rise-fall-switcher';
+import { RISE_FALL_TREND_XML } from './bots/rise-fall-trend';
 import type { FreeBot } from './types';
 
 /**
@@ -9,11 +9,11 @@ import type { FreeBot } from './types';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'rise-fall-switcher-v1',
-        title: 'Rise/Fall Switcher',
+        id: 'rise-fall-trend-v1',
+        title: 'Rise/Fall Two-Tick Trend',
         description:
-            'Starts on RISE, switches side after a loss and stays on the winning side. Martingale 1.25 on loss, reset on win. Step Index 100, $2 stake, 2 ticks.',
-        tags: ['Rise/Fall', 'Step Index', 'Side switch', 'Martingale 1.25'],
-        xml: RISE_FALL_SWITCHER_XML,
+            'Two ticks up in a row → RISE, two ticks down in a row → FALL, otherwise waits. Martingale 1.25 on loss, reset on win. Step Index 500, $2 stake, 2 ticks.',
+        tags: ['Rise/Fall', 'Step Index', 'Two-tick trend', 'Martingale 1.25'],
+        xml: RISE_FALL_TREND_XML,
     },
 ];

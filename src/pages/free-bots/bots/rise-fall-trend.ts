@@ -1,9 +1,9 @@
 /**
- * Rise/Fall Switcher free bot (Step Index 100).
+ * Rise/Fall Two-Tick Trend free bot (Step Index 500).
  *
- * First trade is RISE. After a loss the bot switches side (RISE ↔ FALL); after a win it
- * stays on the winning side. Stake × Martingale Multiplier (default 1.25) after a loss,
- * back to the initial stake after a win. Duration 2 ticks. Built from standard blocks.
+ * Two consecutive up ticks → RISE; two consecutive down ticks → FALL; otherwise wait for
+ * the next tick. Stake × Martingale Multiplier (default 1.25) after a loss, back to the
+ * initial stake after a win. Duration 2 ticks. Built from standard blocks.
  */
 
 const VARIABLES: [string, string][] = [
@@ -17,6 +17,9 @@ const VARIABLES: [string, string][] = [
     ['rfs_total', 'Total Profit'],
     ['rfs_profit', 'Last Profit'],
     ['rfs_msg', 'Journal Message'],
+    ['rfs_t1', 'Latest Tick'],
+    ['rfs_t2', 'Previous Tick'],
+    ['rfs_t3', 'Tick Before Previous'],
 ];
 
 const name = (id: string) => VARIABLES.find(([vid]) => vid === id)![1];
@@ -64,17 +67,38 @@ const INIT = chain([
     n => set('rfs_duration', num(2), n),
     n => set('rfs_take_profit', num(10), n),
     n => set('rfs_stop_loss', num(50), n),
-    n => set('rfs_side', text('RISE'), n),
     n => set('rfs_current', v('rfs_stake'), n),
     n => set('rfs_total', num(0), n),
 ]);
 
-const BEFORE_PURCHASE = `<block type="controls_if">
-        <mutation else="1"></mutation>
-        <value name="IF0">${compare('EQ', v('rfs_side'), text('RISE'))}</value>
-        <statement name="DO0"><block type="purchase"><field name="PURCHASE_LIST">CALL</field></block></statement>
-        <statement name="ELSE"><block type="purchase"><field name="PURCHASE_LIST">PUT</field></block></statement>
-      </block>`;
+/** Tick `n` counted from the end of the tick list (1 = latest). */
+const tickFromEnd = (n: number) =>
+    `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_END</field><value name="VALUE"><block type="ticks"></block></value><value name="AT">${num(
+        n
+    )}</value></block>`;
+
+const and = (a: string, b: string) =>
+    `<block type="logic_operation"><field name="OP">AND</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
+
+const enter = (side: string, contract: string, pattern: string) =>
+    set(
+        'rfs_side',
+        text(side),
+        notify('info', [text(`${pattern} →`), v('rfs_side'), text('| stake'), v('rfs_current')], `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`)
+    );
+
+const BEFORE_PURCHASE = chain([
+    n => set('rfs_t1', tickFromEnd(1), n),
+    n => set('rfs_t2', tickFromEnd(2), n),
+    n => set('rfs_t3', tickFromEnd(3), n),
+    () => `<block type="controls_if">
+        <mutation elseif="1"></mutation>
+        <value name="IF0">${and(compare('LT', v('rfs_t3'), v('rfs_t2')), compare('LT', v('rfs_t2'), v('rfs_t1')))}</value>
+        <statement name="DO0">${enter('RISE', 'CALL', '2 ticks up')}</statement>
+        <value name="IF1">${and(compare('GT', v('rfs_t3'), v('rfs_t2')), compare('GT', v('rfs_t2'), v('rfs_t1')))}</value>
+        <statement name="DO1">${enter('FALL', 'PUT', '2 ticks down')}</statement>
+      </block>`,
+]);
 
 const ON_WIN = set(
     'rfs_current',
@@ -84,8 +108,6 @@ const ON_WIN = set(
         v('rfs_side'),
         text('| profit'),
         v('rfs_profit'),
-        text('| stay'),
-        v('rfs_side'),
         text('| next stake'),
         v('rfs_current'),
         text('| P/L'),
@@ -93,22 +115,18 @@ const ON_WIN = set(
     ])
 );
 
-const SWITCH_SIDE = `<block type="controls_if">
-        <mutation else="1"></mutation>
-        <value name="IF0">${compare('EQ', v('rfs_side'), text('RISE'))}</value>
-        <statement name="DO0">${set('rfs_side', text('FALL'))}</statement>
-        <statement name="ELSE">${set('rfs_side', text('RISE'))}</statement>
-        <next>${notify('warn', [
-            text('LOSS | switch to'),
-            v('rfs_side'),
-            text('| next stake'),
-            v('rfs_current'),
-            text('| P/L'),
-            v('rfs_total'),
-        ])}</next>
-      </block>`;
-
-const ON_LOSS = set('rfs_current', round2(arith('MULTIPLY', v('rfs_current'), v('rfs_multiplier'))), SWITCH_SIDE);
+const ON_LOSS = set(
+    'rfs_current',
+    round2(arith('MULTIPLY', v('rfs_current'), v('rfs_multiplier'))),
+    notify('warn', [
+        text('LOSS on'),
+        v('rfs_side'),
+        text('| next stake'),
+        v('rfs_current'),
+        text('| P/L'),
+        v('rfs_total'),
+    ])
+);
 
 const LIMITS = `<block type="controls_if">
         <mutation elseif="1" else="1"></mutation>
@@ -136,7 +154,7 @@ const AFTER_PURCHASE = chain([
     () => LIMITS,
 ]);
 
-export const RISE_FALL_SWITCHER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+export const RISE_FALL_TREND_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
 ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`).join('\n')}
   </variables>
@@ -145,7 +163,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
       <block type="trade_definition_market" id="rfs_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">step_index</field>
-        <field name="SYMBOL_LIST">stpRNG</field>
+        <field name="SYMBOL_LIST">stpRNG5</field>
         <next>
           <block type="trade_definition_tradetype" id="rfs_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">callput</field>
