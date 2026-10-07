@@ -7,7 +7,7 @@ import {
     releaseAdaptiveDigitGapActiveTrade,
 } from '../utils/adaptive-digit-gap';
 import { contractStatus, info, log, notify } from '../utils/broadcast';
-import { buildDigitUnderProposal } from '../utils/digit-hedge';
+import { buildDigitOverProposal, buildDigitUnderProposal } from '../utils/digit-hedge';
 import {
     openConditionalEvenOddActiveTrade,
     releaseConditionalEvenOddActiveTrade,
@@ -527,77 +527,71 @@ export default Engine =>
         }
 
         /**
-         * Over 5 / Under 4: Over uses the subscribed DIGITOVER proposal. Under 4 is
-         * proposed and bought in the same instant and is not waited on.
+         * Over 5 / Under 4. Stake bots do not subscribe to proposals, so each leg
+         * is quoted here and bought at once. Over is registered with the engine.
          */
         purchaseDigitHedge() {
             if (!this.canAttemptPurchase('DIGITOVER')) {
                 return Promise.resolve();
             }
 
-            try {
-                this.selectProposal('DIGITOVER');
-            } catch (error) {
-                return Promise.reject(error);
-            }
+            this.markPurchaseAttempt();
 
-            const stored = this.data.proposals.find(
-                proposal =>
-                    proposal.contract_type === 'DIGITOVER' &&
-                    proposal.purchase_reference === this.getPurchaseReference()
-            );
-            const under_request = buildDigitUnderProposal(
-                {
-                    ...this.tradeOptions,
-                    currency: this.tradeOptions?.currency || stored?.currency || api_base.account_info?.currency,
-                },
-                stored
-            );
             const stake = Number(this.tradeOptions?.amount);
+            const trade = {
+                ...this.tradeOptions,
+                currency: this.tradeOptions?.currency || api_base.account_info?.currency,
+            };
             const message = error => error?.error?.message || error?.message || 'Purchase failed.';
+            const quoteAndBuy = request =>
+                doUntilDone(() => api_base.api.send(request)).then(response => {
+                    const proposal = response?.proposal;
+                    if (response?.error || !proposal?.id) {
+                        throw response?.error ? response : new Error('Proposal was not quoted.');
+                    }
+                    const price = toBuyPrice(proposal.ask_price, proposal.display_value, stake);
+                    if (price === undefined) {
+                        throw new Error('Price was not quoted.');
+                    }
+                    return api_base.api.send({ buy: proposal.id, price });
+                }).then(response => {
+                    if (response?.error || !response?.buy?.contract_id) {
+                        throw response?.error ? response : new Error('Contract was not bought.');
+                    }
+                    return response;
+                });
 
             this.digitHedge = {
                 under_bought: false,
                 under_contract_id: null,
                 over_contract_id: null,
+                over_error: '',
                 under_error: '',
             };
             this.last_buy = null;
+            this.isSold = false;
 
-            const under_promise = doUntilDone(() => api_base.api.send(under_request))
-                .then(response => {
-                    if (response?.error || !response?.proposal?.id) {
-                        throw response?.error ? response : new Error('Under 4 proposal was not quoted.');
-                    }
-                    const price = toBuyPrice(response.proposal.ask_price, response.proposal.display_value, stake);
-                    if (price === undefined) {
-                        throw new Error('Under 4 price was not quoted.');
-                    }
-                    return api_base.api.send({ buy: response.proposal.id, price });
-                })
-                .then(response => {
-                    if (response?.error || !response?.buy?.contract_id) {
-                        throw response?.error ? response : new Error('Under 4 was not bought.');
-                    }
+            const over_promise = quoteAndBuy(buildDigitOverProposal(trade)).then(
+                response => {
+                    this.handlePurchaseSuccess(response, 'DIGITOVER');
+                    this.digitHedge.over_contract_id = response.buy.contract_id;
+                    return true;
+                },
+                error => {
+                    this.digitHedge.over_error = message(error);
+                    return false;
+                }
+            );
+            const under_promise = quoteAndBuy(buildDigitUnderProposal(trade)).then(
+                response => {
                     this.digitHedge.under_bought = true;
                     this.digitHedge.under_contract_id = response.buy.contract_id;
                     return true;
-                })
-                .catch(error => {
+                },
+                error => {
                     this.digitHedge.under_error = message(error);
                     return false;
-                });
-
-            const over_promise = this.purchase('DIGITOVER').then(
-                () => {
-                    const buy = this.last_buy;
-                    if (!buy?.contract_id) {
-                        return false;
-                    }
-                    this.digitHedge.over_contract_id = buy.contract_id;
-                    return true;
-                },
-                () => false
+                }
             );
 
             return Promise.all([over_promise, under_promise]).then(async ([over_ok, under_ok]) => {
@@ -620,11 +614,11 @@ export default Engine =>
                             `Over 5 was not bought. Under 4 could not be cancelled (${message(error)}).`
                         );
                     }
-                    throw new Error('Over 5 was not bought.');
                 }
 
                 if (!over_ok) {
-                    throw new Error('Over 5 was not bought.');
+                    this.resetPurchaseAttempt();
+                    throw new Error(this.digitHedge.over_error || 'Over 5 was not bought.');
                 }
 
                 notify(

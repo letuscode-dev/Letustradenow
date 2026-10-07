@@ -1,4 +1,4 @@
-import { buildDigitUnderProposal, hedgeNet, shouldHedgeLastDigits } from '../digit-hedge';
+import { buildDigitOverProposal, buildDigitUnderProposal, hedgeNet, shouldHedgeLastDigits } from '../digit-hedge';
 
 describe('Over 5 / Under 4 hedge entry', () => {
     it('hedges when exactly one of the last two digits is 4 or 5', () => {
@@ -53,13 +53,15 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(hedgeNet({ over: null, under: { profit: -1 }, under_bought: true })).toBeNull();
     });
 
-    it('requests Under 4 with the same stake, symbol, and duration', () => {
-        expect(
-            buildDigitUnderProposal(
-                { amount: 2, basis: 'stake', currency: 'USD', duration: 1, duration_unit: 't', symbol: '1HZ75V' },
-                {}
-            )
-        ).toEqual({
+    it('quotes Over 5 and Under 4 with the same stake, symbol, and duration', () => {
+        const trade = { amount: 2, basis: 'stake', currency: 'USD', duration: 1, duration_unit: 't', symbol: '1HZ75V' };
+        expect(buildDigitOverProposal(trade)).toMatchObject({
+            contract_type: 'DIGITOVER',
+            barrier: '5',
+            amount: 2,
+            underlying_symbol: '1HZ75V',
+        });
+        expect(buildDigitUnderProposal(trade)).toEqual({
             proposal: 1,
             amount: 2,
             basis: 'stake',

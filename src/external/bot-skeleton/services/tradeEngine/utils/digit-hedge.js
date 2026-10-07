@@ -1,9 +1,10 @@
 /**
  * Over 5 / Under 4 hedge.
  *
- * Both contracts use the same stake and duration. Over is bought through the
- * engine (prediction 5). Under is a separate proposal with barrier 4, sent at
- * the same time. Combined profit is the sum of the two settled contracts.
+ * Both contracts are quoted and bought together. The bot does not wait for the
+ * engine's proposal list, because a stake-based bot never subscribes to one.
+ * Over is then registered with the engine so After Purchase runs when it settles.
+ * Under is followed separately. Combined profit is the sum of both contracts.
  */
 
 export const OVER_BARRIER = '5';
@@ -49,15 +50,29 @@ export const hedgeNet = ({ over, under, under_bought }) => {
     return round2(over_profit + under_profit);
 };
 
-/** Under 4 proposal. Over 5 comes from the engine's subscribed proposal. */
-export const buildDigitUnderProposal = (trade_option, over_proposal) => ({
+const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({
     proposal: 1,
     amount: Number(trade_option?.amount),
     basis: trade_option?.basis || 'stake',
-    contract_type: 'DIGITUNDER',
-    currency: trade_option?.currency || over_proposal?.currency,
+    contract_type,
+    currency: trade_option?.currency,
     duration: Number(trade_option?.duration) || 1,
     duration_unit: trade_option?.duration_unit || 't',
-    underlying_symbol: trade_option?.symbol || over_proposal?.underlying_symbol || over_proposal?.symbol,
-    barrier: UNDER_BARRIER,
+    underlying_symbol: trade_option?.symbol,
+    barrier,
 });
+
+/** Over 5 quote. Barrier is fixed so it does not share Under's prediction. */
+export const buildDigitOverProposal = trade_option => buildDigitLegProposal(trade_option, 'DIGITOVER', OVER_BARRIER);
+
+/** Under 4 quote, sent at the same time as Over 5. */
+export const buildDigitUnderProposal = (trade_option, over_proposal) =>
+    buildDigitLegProposal(
+        {
+            ...trade_option,
+            currency: trade_option?.currency || over_proposal?.currency,
+            symbol: trade_option?.symbol || over_proposal?.underlying_symbol || over_proposal?.symbol,
+        },
+        'DIGITUNDER',
+        UNDER_BARRIER
+    );
