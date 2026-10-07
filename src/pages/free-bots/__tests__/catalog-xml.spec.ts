@@ -58,6 +58,29 @@ describe('free bot catalog XML', () => {
             expect(buy?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITOVER');
         });
 
+        it('buys the remaining Trades per Signal before analysing again', () => {
+            expect(setValue('ovr_trades_per_signal')).toEqual(['1']);
+            expect(setValue('ovr_remaining')).toEqual(['0']);
+            const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(gate?.getAttribute('type')).toBe('controls_if');
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'ovr_remaining'
+            );
+            const series = gate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(series)).toBe('ovr_remaining');
+            expect(series?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITOVER');
+            expect(series?.querySelector('block[type="controls_for"]')).toBeNull();
+            expect(gate?.querySelector(':scope > statement[name="ELSE"] block[type="controls_for"]')).not.toBeNull();
+
+            const signal = [...(gate?.querySelectorAll('statement[name="ELSE"] block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_remaining'
+            );
+            expect(signal?.querySelector(':scope > value[name="VALUE"] field[name="OP"]')?.textContent).toBe('MINUS');
+            expect(
+                signal?.querySelector(':scope > value[name="VALUE"] value[name="A"] field')?.getAttribute('id')
+            ).toBe('ovr_trades_per_signal');
+        });
+
         it('win resets the stake, loss multiplies it, trades until limits', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>

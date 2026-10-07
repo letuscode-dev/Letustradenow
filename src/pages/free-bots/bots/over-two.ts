@@ -2,7 +2,8 @@
  * Over 2 Digit Filter free bot (Volatility 75 Index).
  *
  * Buys Digit Over 2 when each of the last N last digits is greater than 2; otherwise waits
- * for the next tick. N is the "Digits to Check" setting (default 3). Stake × Martingale
+ * for the next tick. N is the "Digits to Check" setting (default 3). Each signal buys
+ * "Trades per Signal" contracts in a row (default 1) before analysing again. Stake × Martingale
  * Multiplier (default 2.5) after a loss, back to the initial stake after a win. Duration 1 tick.
  */
 
@@ -14,6 +15,7 @@ const VARIABLES: [string, string][] = [
     ['ovr_duration', 'Duration (ticks)'],
     ['ovr_prediction', 'Prediction (Over)'],
     ['ovr_digits_to_check', 'Digits to Check'],
+    ['ovr_trades_per_signal', 'Trades per Signal'],
     ['ovr_take_profit', 'Take Profit'],
     ['ovr_stop_loss', 'Stop Loss'],
     ['ovr_current', 'Current Stake'],
@@ -23,6 +25,7 @@ const VARIABLES: [string, string][] = [
     ['ovr_digits', 'Last Digits'],
     ['ovr_i', 'i'],
     ['ovr_over', 'Digits Over'],
+    ['ovr_remaining', 'Signal Trades Left'],
 ];
 
 const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
@@ -36,10 +39,12 @@ const INIT = chain([
     n => set('ovr_duration', num(1), n),
     n => set('ovr_prediction', num(2), n),
     n => set('ovr_digits_to_check', num(3), n),
+    n => set('ovr_trades_per_signal', num(1), n),
     n => set('ovr_take_profit', num(10), n),
     n => set('ovr_stop_loss', num(50), n),
     n => set('ovr_current', v('ovr_stake'), n),
     n => set('ovr_total', num(0), n),
+    n => set('ovr_remaining', num(0), n),
 ]);
 
 const countOver = (next: string) =>
@@ -53,7 +58,9 @@ const countOver = (next: string) =>
         next
     );
 
-const BEFORE_PURCHASE = chain([
+const BUY = `<block type="purchase"><field name="PURCHASE_LIST">DIGITOVER</field></block>`;
+
+const ANALYSE = chain([
     n => set('ovr_digits', `<block type="lastDigitList"></block>`, n),
     n => set('ovr_over', num(0), n),
     countOver,
@@ -62,20 +69,38 @@ const BEFORE_PURCHASE = chain([
             compare('GTE', v('ovr_digits_to_check'), num(1)),
             compare('EQ', v('ovr_over'), v('ovr_digits_to_check'))
         )}</value>
-        <statement name="DO0">${notify(
-            'info',
-            [
-                text('Last'),
-                v('ovr_digits_to_check'),
-                text('digits over'),
-                v('ovr_prediction'),
-                text('→ OVER | stake'),
-                v('ovr_current'),
-            ],
-            `<block type="purchase"><field name="PURCHASE_LIST">DIGITOVER</field></block>`
+        <statement name="DO0">${set(
+            'ovr_remaining',
+            arith('MINUS', v('ovr_trades_per_signal'), num(1)),
+            notify(
+                'info',
+                [
+                    text('Last'),
+                    v('ovr_digits_to_check'),
+                    text('digits over'),
+                    v('ovr_prediction'),
+                    text('→ OVER | stake'),
+                    v('ovr_current'),
+                    text('| left'),
+                    v('ovr_remaining'),
+                ],
+                BUY
+            )
         )}</statement>
       </block>`,
 ]);
+
+/** Trades left from the last signal are bought without re-analysing. */
+const BEFORE_PURCHASE = `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('GT', v('ovr_remaining'), num(0))}</value>
+        <statement name="DO0">${set(
+            'ovr_remaining',
+            arith('MINUS', v('ovr_remaining'), num(1)),
+            notify('info', [text('Signal trade → OVER | stake'), v('ovr_current'), text('| left'), v('ovr_remaining')], BUY)
+        )}</statement>
+        <statement name="ELSE">${ANALYSE}</statement>
+      </block>`;
 
 const ON_WIN = set(
     'ovr_current',

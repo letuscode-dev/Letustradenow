@@ -21,7 +21,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-two-v1',
         title: 'Over 2 Digit Filter',
         description:
-            'Buys Over 2 when the last N digits are all above 2 (Digits to Check, default 3). Martingale 2.5 on loss, reset on win. Volatility 75, $1 stake, 1 tick.',
+            'Buys Over 2 when the last N digits are all above 2 (Digits to Check, default 3); Trades per Signal sets how many trades each signal takes. Martingale 2.5 on loss, reset on win. Volatility 75, $1 stake, 1 tick.',
         tags: ['Over/Under', 'Volatility', 'Digit filter', 'Martingale 2.5'],
         xml: OVER_TWO_XML,
     },
