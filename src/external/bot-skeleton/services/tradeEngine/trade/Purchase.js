@@ -1,4 +1,5 @@
 import { getLocalizedErrorMessage } from '@/constants/backend-error-messages';
+import { observer as globalObserver } from '../../../utils/observer';
 import { LogTypes } from '../../../constants/messages';
 import { createError } from '../../../utils/error';
 import { api_base } from '../../api/api-base';
@@ -7,7 +8,13 @@ import {
     releaseAdaptiveDigitGapActiveTrade,
 } from '../utils/adaptive-digit-gap';
 import { contractStatus, info, log, notify } from '../utils/broadcast';
-import { buildDigitOverProposal, buildDigitUnderProposal } from '../utils/digit-hedge';
+import {
+    buildDigitOverProposal,
+    buildDigitUnderProposal,
+    canAffordBothLegs,
+    DIGIT_HEDGE_OPEN,
+    planDigitHedgeBuys,
+} from '../utils/digit-hedge';
 import {
     openConditionalEvenOddActiveTrade,
     releaseConditionalEvenOddActiveTrade,
@@ -527,15 +534,23 @@ export default Engine =>
         }
 
         /**
-         * Over 5 / Under 4. Stake bots do not subscribe to proposals, so each leg
-         * is quoted here and bought at once. Over is registered with the engine.
+         * Over 5 and Under 4 are one trade. Both are quoted first. Neither buy is
+         * sent unless both quotes exist and the balance covers both. A hedge is
+         * registered only when both buys return a contract. A single fill is
+         * sold off. If that sell fails, the bot stops instead of trading on one side.
          */
         purchaseDigitHedge() {
+            if (this.digitHedgeHalt) {
+                return Promise.resolve();
+            }
             if (!this.canAttemptPurchase('DIGITOVER')) {
                 return Promise.resolve();
             }
 
             this.markPurchaseAttempt();
+            this.digitHedge = null;
+            this.last_buy = null;
+            this.isSold = false;
 
             const stake = Number(this.tradeOptions?.amount);
             const trade = {
@@ -543,7 +558,25 @@ export default Engine =>
                 currency: this.tradeOptions?.currency || api_base.account_info?.currency,
             };
             const message = error => error?.error?.message || error?.message || 'Purchase failed.';
-            const quoteAndBuy = request =>
+            const release = note => {
+                this.digitHedge = null;
+                this.resetPurchaseAttempt();
+                if (note) notify('journal__text--warn', note);
+            };
+            const halt = note => {
+                this.digitHedge = null;
+                this.digitHedgeHalt = true;
+                this.resetPurchaseAttempt();
+                notify('journal__text--error', note);
+                globalObserver.emit('bot.stop_button_click');
+            };
+
+            if (!Number.isFinite(stake) || stake <= 0) {
+                release(`Hedge was not sent. Stake ${this.tradeOptions?.amount} is not a positive amount.`);
+                return Promise.resolve();
+            }
+
+            const quote = request =>
                 doUntilDone(() => api_base.api.send(request)).then(response => {
                     const proposal = response?.proposal;
                     if (response?.error || !proposal?.id) {
@@ -553,77 +586,119 @@ export default Engine =>
                     if (price === undefined) {
                         throw new Error('Price was not quoted.');
                     }
-                    return api_base.api.send({ buy: proposal.id, price });
-                }).then(response => {
+                    return { id: proposal.id, price };
+                });
+            const buyQuoted = quoted =>
+                api_base.api.send({ buy: quoted.id, price: quoted.price }).then(response => {
                     if (response?.error || !response?.buy?.contract_id) {
                         throw response?.error ? response : new Error('Contract was not bought.');
                     }
                     return response;
                 });
-
-            this.digitHedge = {
-                under_bought: false,
-                under_contract_id: null,
-                over_contract_id: null,
-                over_error: '',
-                under_error: '',
+            const cancelIds = async ids => {
+                const failed = [];
+                for (const contract_id of ids) {
+                    try {
+                        const sold = await api_base.api.send({ sell: contract_id, price: 0 });
+                        if (sold?.error) throw sold.error;
+                    } catch (error) {
+                        failed.push(`${contract_id} (${message(error)})`);
+                    }
+                }
+                return failed;
             };
-            this.last_buy = null;
-            this.isSold = false;
-
-            const over_promise = quoteAndBuy(buildDigitOverProposal(trade)).then(
-                response => {
-                    this.handlePurchaseSuccess(response, 'DIGITOVER');
-                    this.digitHedge.over_contract_id = response.buy.contract_id;
-                    return true;
-                },
-                error => {
-                    this.digitHedge.over_error = message(error);
-                    return false;
+            const abandon = async (plan, why) => {
+                const failed = await cancelIds(plan.cancel_ids);
+                if (failed.length) {
+                    halt(
+                        `Hedge stopped. A one-sided contract could not be cancelled (${failed.join(
+                            ', '
+                        )}). No further trades will be sent.`
+                    );
+                    return;
                 }
-            );
-            const under_promise = quoteAndBuy(buildDigitUnderProposal(trade)).then(
-                response => {
-                    this.digitHedge.under_bought = true;
-                    this.digitHedge.under_contract_id = response.buy.contract_id;
-                    return true;
-                },
-                error => {
-                    this.digitHedge.under_error = message(error);
-                    return false;
-                }
-            );
+                const closed = plan.cancel_ids.length
+                    ? 'The filled side was closed. Stake unchanged.'
+                    : 'Nothing was bought. Stake unchanged.';
+                release(`Hedge was not opened on both sides. ${closed} ${why}`);
+            };
 
-            return Promise.all([over_promise, under_promise]).then(async ([over_ok, under_ok]) => {
-                if (over_ok && under_ok) {
-                    notify(
-                        'journal__text--success',
-                        `HEDGE OPEN — Over 5 ${this.digitHedge.over_contract_id} + Under 4 ${this.digitHedge.under_contract_id}`
+            return Promise.all([
+                quote(buildDigitOverProposal(trade)).then(
+                    quoted => ({ ok: true, quoted }),
+                    error => ({ ok: false, error })
+                ),
+                quote(buildDigitUnderProposal(trade)).then(
+                    quoted => ({ ok: true, quoted }),
+                    error => ({ ok: false, error })
+                ),
+            ]).then(async ([over_quote, under_quote]) => {
+                if (!over_quote.ok || !under_quote.ok) {
+                    await abandon(
+                        planDigitHedgeBuys({
+                            over_quoted: false,
+                            under_quoted: false,
+                            over_contract_id: null,
+                            under_contract_id: null,
+                        }),
+                        `${over_quote.ok ? '' : `Over 5 was not quoted (${message(over_quote.error)}). `}${
+                            under_quote.ok ? '' : `Under 4 was not quoted (${message(under_quote.error)}).`
+                        }`
                     );
                     return;
                 }
 
-                if (!over_ok && this.digitHedge.under_contract_id) {
-                    try {
-                        const sold = await api_base.api.send({ sell: this.digitHedge.under_contract_id, price: 0 });
-                        if (sold?.error) throw sold;
-                        notify('journal__text--warn', 'Over 5 was not bought. Under 4 was cancelled.');
-                    } catch (error) {
-                        notify(
-                            'journal__text--warn',
-                            `Over 5 was not bought. Under 4 could not be cancelled (${message(error)}).`
-                        );
-                    }
+                let balance;
+                try {
+                    balance = this.getBalance?.();
+                } catch {
+                    balance = undefined;
+                }
+                if (!canAffordBothLegs(balance, over_quote.quoted.price, under_quote.quoted.price)) {
+                    release(
+                        `Hedge was not sent. Balance ${balance} does not cover Over 5 (${over_quote.quoted.price}) and Under 4 (${under_quote.quoted.price}) together.`
+                    );
+                    return;
                 }
 
-                if (!over_ok) {
-                    this.resetPurchaseAttempt();
-                    throw new Error(this.digitHedge.over_error || 'Over 5 was not bought.');
+                const [over_buy, under_buy] = await Promise.all([
+                    buyQuoted(over_quote.quoted).then(
+                        response => ({ ok: true, response }),
+                        error => ({ ok: false, error })
+                    ),
+                    buyQuoted(under_quote.quoted).then(
+                        response => ({ ok: true, response }),
+                        error => ({ ok: false, error })
+                    ),
+                ]);
+                const plan = planDigitHedgeBuys({
+                    over_quoted: true,
+                    under_quoted: true,
+                    over_contract_id: over_buy.ok ? over_buy.response.buy.contract_id : null,
+                    under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
+                });
+                if (plan.action !== DIGIT_HEDGE_OPEN) {
+                    await abandon(
+                        plan,
+                        `Over: ${over_buy.ok ? 'bought' : message(over_buy.error)}. Under: ${
+                            under_buy.ok ? 'bought' : message(under_buy.error)
+                        }.`
+                    );
+                    return;
                 }
 
+                this.digitHedge = {
+                    under_bought: true,
+                    under_contract_id: plan.under_contract_id,
+                    over_contract_id: plan.over_contract_id,
+                    stake,
+                    over_error: '',
+                    under_error: '',
+                };
+                this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
                 notify(
-                    'journal__text--warn',
-                    `HEDGE INCOMPLETE — Under 4 was not bought (${this.digitHedge.under_error}). Over 5 runs on its own.`
+                    'journal__text--success',
+                    `HEDGE OPEN — Over 5 ${plan.over_contract_id} + Under 4 ${plan.under_contract_id} | stake ${stake} each`
                 );
             });
         }

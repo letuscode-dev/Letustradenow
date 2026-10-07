@@ -70,6 +70,84 @@ export const hedgeDecision = ({ over, under, under_bought }) => {
     return HEDGE_RESET;
 };
 
+export const DIGIT_HEDGE_SKIP = 'skip';
+export const DIGIT_HEDGE_OPEN = 'open';
+export const DIGIT_HEDGE_CANCEL = 'cancel';
+
+const contractId = value => (value == null || value === '' ? null : value);
+
+/**
+ * Nothing is bought until both quotes exist. A hedge is kept only when both
+ * buys return a contract. Any single filled contract is cancelled.
+ */
+export const planDigitHedgeBuys = ({ over_quoted, under_quoted, over_contract_id, under_contract_id }) => {
+    const over_id = contractId(over_contract_id);
+    const under_id = contractId(under_contract_id);
+    const cancel_ids = [over_id, under_id].filter(Boolean);
+    if (!over_quoted || !under_quoted) {
+        return { action: cancel_ids.length ? DIGIT_HEDGE_CANCEL : DIGIT_HEDGE_SKIP, cancel_ids };
+    }
+    if (over_id && under_id) {
+        return {
+            action: DIGIT_HEDGE_OPEN,
+            cancel_ids: [],
+            over_contract_id: over_id,
+            under_contract_id: under_id,
+        };
+    }
+    return { action: DIGIT_HEDGE_CANCEL, cancel_ids };
+};
+
+/** True when the account can pay for both legs. An unknown balance does not block. */
+export const canAffordBothLegs = (balance, over_price, under_price) => {
+    const need = Number(over_price) + Number(under_price);
+    if (!Number.isFinite(need) || need <= 0) return false;
+    if (balance == null || balance === '') return true;
+    const cash = Number(balance);
+    if (!Number.isFinite(cash)) return true;
+    return cash + 1e-8 >= need;
+};
+
+const positiveStake = value => {
+    const stake = Number(value);
+    return Number.isFinite(stake) && stake > 0 ? stake : null;
+};
+
+/**
+ * Next stake from the stake that was actually bought.
+ * A both-lost hedge returns round(bought × multiplier). One winning side
+ * returns the set stake. Calling this again for the same hedge does not
+ * multiply a second time.
+ */
+export const nextHedgeStake = ({ bought, current, initial, multiplier, decision }) => {
+    const bought_stake = positiveStake(bought);
+    const current_stake = positiveStake(current);
+    const initial_stake = positiveStake(initial);
+    const used = bought_stake ?? current_stake;
+
+    if (decision === HEDGE_RESET) return round2(initial_stake ?? used ?? 0);
+    if (decision === HEDGE_RECOVER) {
+        const mult = Number(multiplier);
+        if (used == null || !Number.isFinite(mult) || mult <= 0) return round2(used ?? 0);
+        return round2(used * mult);
+    }
+    return round2(current_stake ?? used ?? 0);
+};
+
+/** Trade again only after a finished hedge whose next stake matches the rule. */
+export const hedgeMayContinue = plan => {
+    if (!plan) return false;
+    const next_stake = Number(plan.next);
+    if (!Number.isFinite(next_stake) || next_stake <= 0) return false;
+    if (plan.decision === HEDGE_RESET) return true;
+    if (plan.decision !== HEDGE_RECOVER) return false;
+
+    const used = positiveStake(plan.bought) ?? positiveStake(plan.current);
+    const mult = Number(plan.multiplier);
+    if (used == null || !Number.isFinite(mult) || mult <= 1) return false;
+    return next_stake === round2(used * mult) && next_stake > used;
+};
+
 const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({
     proposal: 1,
     amount: Number(trade_option?.amount),

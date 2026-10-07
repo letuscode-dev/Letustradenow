@@ -108,3 +108,96 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_decision = ()
     'Bot.digitHedgeDecision()',
     window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
 ];
+
+window.Blockly.Blocks.digit_hedge_next_stake = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('next hedge stake from bought %1 set %2 × %3'),
+            args0: [
+                { type: 'input_value', name: 'CURRENT', check: 'Number' },
+                { type: 'input_value', name: 'INITIAL', check: 'Number' },
+                { type: 'input_value', name: 'MULTIPLIER', check: 'Number' },
+            ],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                'After both sides lose, this is the bought stake times the multiplier, rounded to the cent. After one side wins, this is the set stake.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Next Over/Under hedge stake'),
+            description: localize('Doubles the bought stake only when both sides lose, otherwise returns the set stake.'),
+            key_words: localize('hedge, stake, martingale'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_next_stake = block => {
+    const current =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'CURRENT',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '0';
+    const initial =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'INITIAL',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '0';
+    const multiplier =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'MULTIPLIER',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '0';
+    return [
+        `Bot.digitHedgeNextStake(${current}, ${initial}, ${multiplier})`,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
+    ];
+};
+
+window.Blockly.Blocks.digit_hedge_continues = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('hedge finished with a valid next stake'),
+            output: 'Boolean',
+            outputShape: window.Blockly.OUTPUT_SHAPE_HEXAGONAL,
+            ...colours(),
+            tooltip: localize(
+                'True when both sides finished and the next stake is the set stake, or the bought stake times the multiplier.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Hedge may trade again'),
+            description: localize('False when a side is missing or the next stake was not doubled on a both-sides loss.'),
+            key_words: localize('hedge, stake'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_continues = () => [
+    'Bot.digitHedgeContinues()',
+    window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
+];

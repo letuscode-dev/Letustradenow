@@ -27,7 +27,15 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
-import { hedgeDecision, hedgeNet, HEDGE_STOP, isSettledContract, legProfit } from '../utils/digit-hedge';
+import {
+    hedgeDecision,
+    hedgeMayContinue,
+    hedgeNet,
+    HEDGE_STOP,
+    isSettledContract,
+    legProfit,
+    nextHedgeStake,
+} from '../utils/digit-hedge';
 import {
     createDigitPairReturnState,
     evaluateDigitPairReturnDiffers,
@@ -1273,6 +1281,26 @@ const getBotInterface = tradeEngine => {
         },
         /** 1 = return to the set stake, -1 = both sides lost, 0 = do not trade again. */
         digitHedgeDecision: () => tradeEngine.digitHedgeDecision ?? 0,
+        /**
+         * Next stake from the stake that was actually bought. A both-lost hedge
+         * is bought × multiplier, rounded to the cent. One winning side returns
+         * the set stake. A second call does not multiply again.
+         */
+        digitHedgeNextStake: (current, initial, multiplier) => {
+            const decision = tradeEngine.digitHedgeDecision ?? HEDGE_STOP;
+            const plan = {
+                decision,
+                bought: tradeEngine.digitHedge?.stake,
+                current,
+                initial,
+                multiplier,
+            };
+            const next = nextHedgeStake(plan);
+            tradeEngine.digitHedgeStakePlan = { ...plan, next };
+            return next;
+        },
+        /** True only when the hedge finished and the next stake matches the rule. */
+        digitHedgeContinues: () => hedgeMayContinue(tradeEngine.digitHedgeStakePlan),
         /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
         getLastTickDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;

@@ -318,30 +318,24 @@ describe('free bot catalog XML', () => {
             expect(signal?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
         });
 
-        it('resets the stake when one side wins, multiplies only when both sides lose, and stops otherwise', () => {
+        it('sets the next stake from the bought stake and trades again only when that stake is valid', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             expect(after?.querySelector('block[type="digit_hedge_result"]')).not.toBeNull();
-            expect(after?.querySelector('block[type="digit_hedge_decision"]')).not.toBeNull();
-            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
-                block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_decision"]')
+            const stake = [...(after?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                block => varId(block) === 'ouh_current'
             );
-            expect(result?.querySelector(':scope > value[name="IF0"] field[name="NUM"]')?.textContent).toBe('1');
-            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(win)).toBe('ouh_current');
-            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ouh_stake');
-            expect(result?.querySelector(':scope > value[name="IF1"] field[name="NUM"]')?.textContent).toBe('-1');
-            const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
-            expect(varId(loss)).toBe('ouh_current');
-            const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
-                block =>
-                    block.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
-                    block.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ouh_current' &&
-                    block.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ouh_multiplier'
+            const next = stake?.querySelector(':scope > value[name="VALUE"] > block[type="digit_hedge_next_stake"]');
+            expect(next?.querySelector(':scope > value[name="CURRENT"] field')?.getAttribute('id')).toBe('ouh_current');
+            expect(next?.querySelector(':scope > value[name="INITIAL"] field')?.getAttribute('id')).toBe('ouh_stake');
+            expect(next?.querySelector(':scope > value[name="MULTIPLIER"] field')?.getAttribute('id')).toBe(
+                'ouh_multiplier'
             );
-            expect(scaled).toBeTruthy();
-            const again = result?.querySelector(':scope > next block[type="trade_again"]');
-            expect(again).not.toBeNull();
-            expect(result?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
+            const gate = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] > block[type="digit_hedge_continues"]')
+            );
+            expect(gate?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).not.toBeNull();
+            expect(gate?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
+            expect(gate?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_decision"]')).not.toBeNull();
         });
     });
 });
