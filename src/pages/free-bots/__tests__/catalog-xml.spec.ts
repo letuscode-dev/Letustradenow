@@ -3,11 +3,11 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships only Rise/Fall Two-Tick Trend', () => {
+    it('ships only Rise/Fall Tick Trend', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rise-fall-trend-v1']);
     });
 
-    describe('Rise/Fall Two-Tick Trend', () => {
+    describe('Rise/Fall Tick Trend', () => {
         const doc = parse(FREE_BOTS[0].xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
@@ -38,40 +38,44 @@ describe('free bot catalog XML', () => {
             expect(setValue('rfs_multiplier')).toEqual(['1.25']);
         });
 
-        it('reads the last three ticks from the end of the tick list', () => {
+        it('Consecutive Ticks defaults to 3', () => {
+            expect(setValue('rfs_consecutive')).toEqual(['3']);
+        });
+
+        it('counts up/down moves over the last Consecutive Ticks ticks', () => {
             const before = doc.querySelector('block[type="before_purchase"]');
-            const reads = [...(before?.querySelectorAll('block[type="variables_set"]') || [])]
+            const loop = before?.querySelector('block[type="controls_for"]');
+            expect(loop?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id')).toBe('rfs_i');
+            expect(loop?.querySelector(':scope > value[name="FROM"] field')?.textContent).toBe('1');
+            expect(loop?.querySelector(':scope > value[name="TO"] field')?.getAttribute('id')).toBe('rfs_consecutive');
+
+            const reads = [...(loop?.querySelectorAll('block[type="variables_set"]') || [])]
                 .filter(b => b.querySelector(':scope > value[name="VALUE"] > block[type="lists_getIndex"]'))
                 .map(b => [
                     varId(b),
                     b.querySelector('field[name="WHERE"]')?.textContent,
-                    b.querySelector('block[type="ticks"]') ? 'ticks' : null,
-                    b.querySelector('value[name="AT"] field')?.textContent,
+                    b.querySelector('value[name="VALUE"] > block > value[name="VALUE"] field')?.getAttribute('id'),
                 ]);
             expect(reads).toEqual([
-                ['rfs_t1', 'FROM_END', 'ticks', '1'],
-                ['rfs_t2', 'FROM_END', 'ticks', '2'],
-                ['rfs_t3', 'FROM_END', 'ticks', '3'],
+                ['rfs_newer', 'FROM_END', 'rfs_ticks'],
+                ['rfs_older', 'FROM_END', 'rfs_ticks'],
             ]);
+
+            const counter = loop?.querySelector('block[type="controls_if"]');
+            expect(varId(counter?.querySelector(':scope > statement[name="DO0"] > block'))).toBe('rfs_up');
+            expect(varId(counter?.querySelector(':scope > statement[name="DO1"] > block'))).toBe('rfs_down');
         });
 
-        it('two up ticks buy CALL, two down ticks buy PUT, otherwise no purchase', () => {
-            const choice = doc.querySelector('block[type="before_purchase"] block[type="controls_if"]');
+        it('all moves up buy CALL, all moves down buy PUT, otherwise no purchase', () => {
+            const choice = doc.querySelector('block[type="before_purchase"] block[type="controls_for"] > next > block');
+            expect(choice?.getAttribute('type')).toBe('controls_if');
             expect(choice?.querySelector(':scope > mutation')?.getAttribute('else')).toBeNull();
             const condition = (input: string) =>
-                [...(choice?.querySelectorAll(`:scope > value[name="${input}"] block[type="logic_compare"]`) || [])].map(c => [
-                    c.querySelector(':scope > value[name="A"] field')?.getAttribute('id'),
-                    c.querySelector(':scope > field[name="OP"]')?.textContent,
-                    c.querySelector(':scope > value[name="B"] field')?.getAttribute('id'),
-                ]);
-            expect(condition('IF0')).toEqual([
-                ['rfs_t3', 'LT', 'rfs_t2'],
-                ['rfs_t2', 'LT', 'rfs_t1'],
-            ]);
-            expect(condition('IF1')).toEqual([
-                ['rfs_t3', 'GT', 'rfs_t2'],
-                ['rfs_t2', 'GT', 'rfs_t1'],
-            ]);
+                [...(choice?.querySelectorAll(`:scope > value[name="${input}"] block[type="logic_compare"]`) || [])].map(
+                    c => c.querySelector(':scope > value[name="A"] field')?.getAttribute('id')
+                );
+            expect(condition('IF0')).toEqual(['rfs_consecutive', 'rfs_up']);
+            expect(condition('IF1')).toEqual(['rfs_consecutive', 'rfs_down']);
             expect(choice?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
                 'CALL'
             );

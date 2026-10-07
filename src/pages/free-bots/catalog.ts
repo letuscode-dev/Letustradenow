@@ -10,10 +10,10 @@ import type { FreeBot } from './types';
 export const FREE_BOTS: FreeBot[] = [
     {
         id: 'rise-fall-trend-v1',
-        title: 'Rise/Fall Two-Tick Trend',
+        title: 'Rise/Fall Tick Trend',
         description:
-            'Two ticks up in a row → RISE, two ticks down in a row → FALL, otherwise waits. Martingale 1.25 on loss, reset on win. Step Index 500, $2 stake, 2 ticks.',
-        tags: ['Rise/Fall', 'Step Index', 'Two-tick trend', 'Martingale 1.25'],
+            'N ticks up in a row → RISE, N ticks down → FALL, otherwise waits (Consecutive Ticks, default 3). Martingale 1.25 on loss, reset on win. Step Index 500, $2 stake, 2 ticks.',
+        tags: ['Rise/Fall', 'Step Index', 'Tick trend', 'Martingale 1.25'],
         xml: RISE_FALL_TREND_XML,
     },
 ];

@@ -1,8 +1,8 @@
 /**
- * Rise/Fall Two-Tick Trend free bot (Step Index 500).
+ * Rise/Fall Tick Trend free bot (Step Index 500).
  *
- * Two consecutive up ticks → RISE; two consecutive down ticks → FALL; otherwise wait for
- * the next tick. Stake × Martingale Multiplier (default 1.25) after a loss, back to the
+ * N consecutive up ticks → RISE; N consecutive down ticks → FALL; otherwise wait for the
+ * next tick. N is the "Consecutive Ticks" setting (default 3). Stake × Martingale Multiplier (default 1.25) after a loss, back to the
  * initial stake after a win. Duration 2 ticks. Built from standard blocks.
  */
 
@@ -17,9 +17,13 @@ const VARIABLES: [string, string][] = [
     ['rfs_total', 'Total Profit'],
     ['rfs_profit', 'Last Profit'],
     ['rfs_msg', 'Journal Message'],
-    ['rfs_t1', 'Latest Tick'],
-    ['rfs_t2', 'Previous Tick'],
-    ['rfs_t3', 'Tick Before Previous'],
+    ['rfs_consecutive', 'Consecutive Ticks'],
+    ['rfs_ticks', 'Tick List'],
+    ['rfs_i', 'i'],
+    ['rfs_newer', 'Newer Tick'],
+    ['rfs_older', 'Older Tick'],
+    ['rfs_up', 'Up Moves'],
+    ['rfs_down', 'Down Moves'],
 ];
 
 const name = (id: string) => VARIABLES.find(([vid]) => vid === id)![1];
@@ -65,38 +69,68 @@ const INIT = chain([
     n => set('rfs_stake', num(2), n),
     n => set('rfs_multiplier', num(1.25), n),
     n => set('rfs_duration', num(2), n),
+    n => set('rfs_consecutive', num(3), n),
     n => set('rfs_take_profit', num(10), n),
     n => set('rfs_stop_loss', num(50), n),
     n => set('rfs_current', v('rfs_stake'), n),
     n => set('rfs_total', num(0), n),
 ]);
 
-/** Tick `n` counted from the end of the tick list (1 = latest). */
-const tickFromEnd = (n: number) =>
-    `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_END</field><value name="VALUE"><block type="ticks"></block></value><value name="AT">${num(
-        n
-    )}</value></block>`;
+/** Item `at` counted from the end of the cached tick list (1 = latest). */
+const tickFromEnd = (at: string) =>
+    `<block type="lists_getIndex"><mutation statement="false" at="true"></mutation><field name="MODE">GET</field><field name="WHERE">FROM_END</field><value name="VALUE">${v(
+        'rfs_ticks'
+    )}</value><value name="AT">${at}</value></block>`;
 
 const and = (a: string, b: string) =>
     `<block type="logic_operation"><field name="OP">AND</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
+
+const increment = (id: string) => set(id, arith('ADD', v(id), num(1)));
 
 const enter = (side: string, contract: string, pattern: string) =>
     set(
         'rfs_side',
         text(side),
-        notify('info', [text(`${pattern} →`), v('rfs_side'), text('| stake'), v('rfs_current')], `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`)
+        notify(
+            'info',
+            [v('rfs_consecutive'), text(`${pattern} →`), v('rfs_side'), text('| stake'), v('rfs_current')],
+            `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`
+        )
     );
 
+const countMoves = (next: string) => `<block type="controls_for">
+        <field name="VAR" id="rfs_i">${name('rfs_i')}</field>
+        <value name="FROM">${num(1)}</value>
+        <value name="TO">${v('rfs_consecutive')}</value>
+        <value name="BY">${num(1)}</value>
+        <statement name="DO">${chain([
+            n => set('rfs_newer', tickFromEnd(v('rfs_i')), n),
+            n => set('rfs_older', tickFromEnd(arith('ADD', v('rfs_i'), num(1))), n),
+            () => `<block type="controls_if">
+                <mutation elseif="1"></mutation>
+                <value name="IF0">${compare('LT', v('rfs_older'), v('rfs_newer'))}</value>
+                <statement name="DO0">${increment('rfs_up')}</statement>
+                <value name="IF1">${compare('GT', v('rfs_older'), v('rfs_newer'))}</value>
+                <statement name="DO1">${increment('rfs_down')}</statement>
+              </block>`,
+        ])}</statement>
+        ${next ? `<next>${next}</next>` : ''}
+      </block>`;
+
+const allMoves = (counter: string) =>
+    and(compare('GTE', v('rfs_consecutive'), num(1)), compare('EQ', v(counter), v('rfs_consecutive')));
+
 const BEFORE_PURCHASE = chain([
-    n => set('rfs_t1', tickFromEnd(1), n),
-    n => set('rfs_t2', tickFromEnd(2), n),
-    n => set('rfs_t3', tickFromEnd(3), n),
+    n => set('rfs_ticks', `<block type="ticks"></block>`, n),
+    n => set('rfs_up', num(0), n),
+    n => set('rfs_down', num(0), n),
+    countMoves,
     () => `<block type="controls_if">
         <mutation elseif="1"></mutation>
-        <value name="IF0">${and(compare('LT', v('rfs_t3'), v('rfs_t2')), compare('LT', v('rfs_t2'), v('rfs_t1')))}</value>
-        <statement name="DO0">${enter('RISE', 'CALL', '2 ticks up')}</statement>
-        <value name="IF1">${and(compare('GT', v('rfs_t3'), v('rfs_t2')), compare('GT', v('rfs_t2'), v('rfs_t1')))}</value>
-        <statement name="DO1">${enter('FALL', 'PUT', '2 ticks down')}</statement>
+        <value name="IF0">${allMoves('rfs_up')}</value>
+        <statement name="DO0">${enter('RISE', 'CALL', 'ticks up')}</statement>
+        <value name="IF1">${allMoves('rfs_down')}</value>
+        <statement name="DO1">${enter('FALL', 'PUT', 'ticks down')}</statement>
       </block>`,
 ]);
 
