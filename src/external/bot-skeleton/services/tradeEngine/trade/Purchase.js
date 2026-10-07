@@ -707,9 +707,12 @@ export default Engine =>
                     over_error: '',
                     under_error: '',
                 };
+                this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
                 this.digitHedgeImmediate = false;
                 this.digitHedgeImmediateUsed = false;
-                this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
+                // A 1-tick contract can sell before this id is tracked. Ask for it
+                // now so After Purchase still runs if that push was missed.
+                api_base.api.send({ proposal_open_contract: 1, contract_id: plan.over_contract_id }).catch(() => {});
                 notify(
                     'journal__text--success',
                     `HEDGE OPEN — Over 5 ${plan.over_contract_id} + Under 4 ${plan.under_contract_id} | stake ${stake} each`

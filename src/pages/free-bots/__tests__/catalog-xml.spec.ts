@@ -311,8 +311,9 @@ describe('free bot catalog XML', () => {
             expect(signal?.querySelector(':scope > value[name="WINDOW"] field')?.getAttribute('id')).toBe('ouh_window');
             expect(before?.querySelectorAll('block[type="digit_hedge_purchase"]')).toHaveLength(2);
             const recovery = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
-                block.querySelector(':scope > value[name="IF0"] > block[type="digit_hedge_skip_analysis"]')
+                block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_skip_analysis"]')
             );
+            expect(recovery?.querySelector(':scope > value[name="IF0"] field[name="NUM"]')?.textContent).toBe('1');
             expect(recovery?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
             expect(recovery?.querySelector(':scope > statement[name="ELSE"] block[type="digit_hedge_purchase"]')).not.toBeNull();
             const after = doc.querySelector('block[type="after_purchase"]');

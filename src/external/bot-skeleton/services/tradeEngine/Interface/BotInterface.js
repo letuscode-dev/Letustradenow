@@ -1258,9 +1258,13 @@ const getBotInterface = tradeEngine => {
                   : null;
             const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id) : null;
             if (isSettledContract(under_poc)) {
-                emitContract(under_poc);
-                if (typeof tradeEngine.updateTotals === 'function') {
-                    tradeEngine.updateTotals(under_poc);
+                const under_sell = Number(under_poc.sell_price);
+                const under_buy = Number(under_poc.buy_price);
+                if (Number.isFinite(under_sell) && Number.isFinite(under_buy)) {
+                    emitContract(under_poc);
+                    if (typeof tradeEngine.updateTotals === 'function') {
+                        tradeEngine.updateTotals(under_poc);
+                    }
                 }
             }
 
@@ -1324,6 +1328,8 @@ const getBotInterface = tradeEngine => {
             tradeEngine.digitHedgeLimitAction = booked.action;
             if (booked.action !== HEDGE_LIMIT_NONE) {
                 tradeEngine.digitHedgeHalt = true;
+                tradeEngine.digitHedgeImmediate = false;
+                tradeEngine.digitHedgeImmediateUsed = false;
             }
             return booked.total;
         },
@@ -1345,8 +1351,8 @@ const getBotInterface = tradeEngine => {
         },
         /** Count stored by the last signal check. */
         digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,
-        /** True when a both-sides loss is waiting to buy again without a new digit check. */
-        digitHedgeSkipAnalysis: () => Boolean(tradeEngine.digitHedgeImmediate),
+        /** 1 when a both-sides loss is waiting to buy again without a new digit check. */
+        digitHedgeSkipAnalysis: () => (tradeEngine.digitHedgeImmediate ? 1 : 0),
         /**
          * Arms an immediate Over 5 + Under 4 buy when both sides lost and the
          * option is on. A win, a stop, or option 0 clears it.

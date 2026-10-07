@@ -57,7 +57,7 @@ const SIGNAL = `<block type="digit_hedge_signal"><value name="WINDOW">${v('ouh_w
 
 const ANALYSE = `<block type="controls_if">
         <mutation else="1"></mutation>
-        <value name="IF0">${SKIP}</value>
+        <value name="IF0">${compare('EQ', SKIP, num(1))}</value>
         <statement name="DO0">${RECOVERY_BUY}</statement>
         <statement name="ELSE">
           <block type="controls_if">

@@ -117,7 +117,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                 return Promise.resolve(false);
             }
             // A both-sides loss can buy again without waiting for the next tick.
-            if (scope === BEFORE_PURCHASE && this.digitHedgeImmediate && !this.digitHedgeImmediateUsed) {
+            if (scope === BEFORE_PURCHASE && this.digitHedgeImmediate && !this.digitHedgeImmediateUsed && !this.digitHedgeHalt) {
                 this.digitHedgeImmediateUsed = true;
                 return Promise.resolve(true);
             }
