@@ -1,4 +1,5 @@
 import { OVER_TWO_XML } from './bots/over-two';
+import { OVER_UNDER_HEDGE_XML } from './bots/over-under-hedge';
 import { RISE_FALL_XML } from './bots/rise-fall';
 import type { FreeBot } from './types';
 
@@ -24,5 +25,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Fades the streak: consecutive up ticks buy Fall, and consecutive down ticks buy Rise (Consecutive Ticks, default 3). Trade Side is 0 for both sides, 1 for Rise only, or 2 for Fall only. Each signal takes Trades per Signal contracts of that side (default 3), then checks again. A loss multiplies the stake by 2. A win returns to the initial stake. Keeps trading until take profit, stop loss, or you stop it. Volatility 50 (1s), $1 stake, 3 ticks.',
         tags: ['Rise/Fall', 'Volatility', 'Consecutive ticks', 'Martingale'],
         xml: RISE_FALL_XML,
+    },
+    {
+        id: 'over-under-hedge-v1',
+        title: 'Over 5 / Under 4 Hedge',
+        description:
+            'Buys Over 5 and Under 4 at the same time when exactly one of the last two digits is 4 or 5 and the other digit is something else. Skips 4-4, 5-5, and 4-5. A combined loss multiplies the stake by 2. A combined win returns to the set stake. Keeps trading until take profit, stop loss, or you stop it. Volatility 75 (1s), $1 stake on each side, 1 tick.',
+        tags: ['Over/Under', 'Hedge', 'Volatility', 'Recovery x2'],
+        xml: OVER_UNDER_HEDGE_XML,
     },
 ];

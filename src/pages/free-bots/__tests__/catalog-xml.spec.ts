@@ -3,8 +3,8 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over 2 Digit Filter and Rise/Fall Consecutive Ticks', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-two-v1', 'rise-fall-v1']);
+    it('ships the Over 2, Rise/Fall, and Over/Under hedge bots', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-two-v1', 'rise-fall-v1', 'over-under-hedge-v1']);
     });
 
     describe('Over 2 Digit Filter', () => {
@@ -263,6 +263,75 @@ describe('free bot catalog XML', () => {
                     b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
                     b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'rff_current' &&
                     b.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'rff_multiplier'
+            );
+            expect(scaled).toBeTruthy();
+            expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Over 5 / Under 4 Hedge', () => {
+        const doc = parse(FREE_BOTS[2].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s) Over 5, 1 tick, stake from the current stake', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPE_LIST')).toBe('overunder');
+            expect(field('TYPE_LIST')).toBe('DIGITOVER');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(setValue('ouh_duration')).toEqual(['1']);
+            expect(setValue('ouh_prediction')).toEqual(['5']);
+            expect(setValue('ouh_stake')).toEqual(['1']);
+            expect(setValue('ouh_multiplier')).toEqual(['2']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector('value[name="PREDICTION"] field')?.getAttribute('id')).toBe('ouh_prediction');
+            expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ouh_current');
+        });
+
+        it('hedges only when exactly one of the last two digits is 4 or 5', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            expect(before?.querySelector('block[type="lastDigitList"]')).not.toBeNull();
+            const reads = [...(before?.querySelectorAll('block[type="lists_getIndex"]') || [])];
+            expect(reads.map(block => block.querySelector(':scope > value[name="AT"] field')?.textContent)).toEqual([
+                '1',
+                '2',
+            ]);
+            const signal = before?.querySelector('block[type="controls_if"]');
+            const dead = [...(signal?.querySelectorAll(':scope > value[name="IF0"] block[type="logic_compare"]') || [])].filter(
+                block => block.querySelector(':scope > field[name="OP"]')?.textContent === 'EQ'
+            );
+            const barriers = dead.map(block => block.querySelector(':scope > value[name="B"] field')?.textContent);
+            expect(barriers).toEqual(expect.arrayContaining(['4', '5']));
+            expect(signal?.querySelector(':scope > value[name="IF0"] block[type="logic_negate"]')).not.toBeNull();
+            expect(signal?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
+        });
+
+        it('a winning hedge returns to the set stake and a losing hedge multiplies by 2', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            expect(after?.querySelector('block[type="digit_hedge_result"]')).not.toBeNull();
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] field[id="ouh_profit"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('ouh_current');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ouh_stake');
+            const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
+            expect(varId(loss)).toBe('ouh_current');
+            const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                block =>
+                    block.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
+                    block.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ouh_current' &&
+                    block.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ouh_multiplier'
             );
             expect(scaled).toBeTruthy();
             expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();

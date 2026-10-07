@@ -26,7 +26,8 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
-import { analyzeDigitFrequency } from '../utils/digit-frequency-analysis';
+import { contract as emitContract } from '../utils/broadcast';
+import { hedgeNet, legProfit } from '../utils/digit-hedge';
 import {
     createDigitPairReturnState,
     evaluateDigitPairReturnDiffers,
@@ -241,7 +242,7 @@ import {
     saveEntryLog,
     strategyBreakdownLines,
 } from '../utils/rise-fall-hedge-entry';
-import { notifyHedge, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
+import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
     armSequentialDiffersPrediction,
@@ -1212,6 +1213,53 @@ const getBotInterface = tradeEngine => {
             return 1;
         },
         purchaseRiseFallHedge: () => tradeEngine.purchaseRiseFallHedge(),
+        purchaseDigitHedge: () => tradeEngine.purchaseDigitHedge(),
+        /**
+         * Waits for Over 5 and Under 4 to settle and returns their combined profit.
+         * 0 means break-even or the result is not available yet.
+         */
+        settleDigitHedge: async () => {
+            const hedge = tradeEngine.digitHedge;
+            if (!hedge) return 0;
+
+            const tracked = tradeEngine.data?.contract;
+            const over_matches =
+                tracked &&
+                hedge.over_contract_id &&
+                String(tracked.contract_id) === String(hedge.over_contract_id);
+            const over_poc = over_matches
+                ? tracked
+                : hedge.over_contract_id
+                  ? await pollUntilSettled(hedge.over_contract_id)
+                  : tracked;
+            const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id) : null;
+            if (under_poc?.is_sold || under_poc?.status === 'won' || under_poc?.status === 'lost') {
+                emitContract(under_poc);
+            }
+
+            const net = hedgeNet({
+                over: over_poc,
+                under: under_poc,
+                under_bought: Boolean(hedge.under_bought),
+            });
+            if (net === null) {
+                notifyHedge('Over/Under hedge result is not available yet.', 'journal__text--warn');
+                return 0;
+            }
+
+            const over_profit = legProfit(over_poc);
+            const under_profit = hedge.under_bought ? legProfit(under_poc) : null;
+            const label = net > 0 ? 'WIN' : net < 0 ? 'LOSS' : 'EVEN';
+            const className =
+                net > 0 ? 'journal__text--success' : net < 0 ? 'journal__text--error' : 'journal__text';
+            notifyHedge(
+                `HEDGE ${label} | Over ${over_profit ?? 'n/a'} | Under ${
+                    hedge.under_bought ? (under_profit ?? 'n/a') : 'not bought'
+                } | net ${net}`,
+                className
+            );
+            return net;
+        },
         /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
         getLastTickDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;

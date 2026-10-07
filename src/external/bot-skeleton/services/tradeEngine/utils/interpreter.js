@@ -168,6 +168,16 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
+            'purchaseDigitHedge',
+            createAsync(js_interpreter, bot_interface.purchaseDigitHedge)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
+            'settleDigitHedge',
+            createAsync(js_interpreter, bot_interface.settleDigitHedge)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
             'sellAtMarket',
             createAsync(js_interpreter, bot_interface.sellAtMarket)
         );

@@ -21,6 +21,7 @@ const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'apollo_purchase',
     'apollo_purchase2',
     'rise_fall_hedge_purchase',
+    'digit_hedge_purchase',
     'last_tick_digit_differ_purchase',
     'first_decimal_digit_differ_purchase',
 ];
@@ -247,6 +248,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
 
     if (block_string.includes('rise_fall_hedge_')) {
         imports.push(import('../blocks/Binary/Tick Analysis/rise_fall_hedge'));
+    }
+
+    if (block_string.includes('digit_hedge_')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/digit_hedge'));
     }
 
     if (block_string.includes('last_tick_digit_')) {
