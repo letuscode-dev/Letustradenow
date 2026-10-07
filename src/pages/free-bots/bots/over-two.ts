@@ -1,0 +1,186 @@
+/**
+ * Over 2 Digit Filter free bot (Volatility 75 Index).
+ *
+ * Buys Digit Over 2 when each of the last N last digits is greater than 2; otherwise waits
+ * for the next tick. N is the "Digits to Check" setting (default 3). Stake × Martingale
+ * Multiplier (default 2.5) after a loss, back to the initial stake after a win. Duration 1 tick.
+ */
+
+import { blockHelpers } from './blocks';
+
+const VARIABLES: [string, string][] = [
+    ['ovr_stake', 'Initial Stake'],
+    ['ovr_multiplier', 'Martingale Multiplier'],
+    ['ovr_duration', 'Duration (ticks)'],
+    ['ovr_prediction', 'Prediction (Over)'],
+    ['ovr_digits_to_check', 'Digits to Check'],
+    ['ovr_take_profit', 'Take Profit'],
+    ['ovr_stop_loss', 'Stop Loss'],
+    ['ovr_current', 'Current Stake'],
+    ['ovr_total', 'Total Profit'],
+    ['ovr_profit', 'Last Profit'],
+    ['ovr_msg', 'Journal Message'],
+    ['ovr_digits', 'Last Digits'],
+    ['ovr_i', 'i'],
+    ['ovr_over', 'Digits Over'],
+];
+
+const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
+    VARIABLES,
+    'ovr_msg'
+);
+
+const INIT = chain([
+    n => set('ovr_stake', num(1), n),
+    n => set('ovr_multiplier', num(2.5), n),
+    n => set('ovr_duration', num(1), n),
+    n => set('ovr_prediction', num(2), n),
+    n => set('ovr_digits_to_check', num(3), n),
+    n => set('ovr_take_profit', num(10), n),
+    n => set('ovr_stop_loss', num(50), n),
+    n => set('ovr_current', v('ovr_stake'), n),
+    n => set('ovr_total', num(0), n),
+]);
+
+const countOver = (next: string) =>
+    countTo(
+        'ovr_i',
+        v('ovr_digits_to_check'),
+        `<block type="controls_if">
+            <value name="IF0">${compare('GT', fromEnd('ovr_digits', v('ovr_i')), v('ovr_prediction'))}</value>
+            <statement name="DO0">${increment('ovr_over')}</statement>
+          </block>`,
+        next
+    );
+
+const BEFORE_PURCHASE = chain([
+    n => set('ovr_digits', `<block type="lastDigitList"></block>`, n),
+    n => set('ovr_over', num(0), n),
+    countOver,
+    () => `<block type="controls_if">
+        <value name="IF0">${and(
+            compare('GTE', v('ovr_digits_to_check'), num(1)),
+            compare('EQ', v('ovr_over'), v('ovr_digits_to_check'))
+        )}</value>
+        <statement name="DO0">${notify(
+            'info',
+            [
+                text('Last'),
+                v('ovr_digits_to_check'),
+                text('digits over'),
+                v('ovr_prediction'),
+                text('→ OVER | stake'),
+                v('ovr_current'),
+            ],
+            `<block type="purchase"><field name="PURCHASE_LIST">DIGITOVER</field></block>`
+        )}</statement>
+      </block>`,
+]);
+
+const ON_WIN = set(
+    'ovr_current',
+    v('ovr_stake'),
+    notify('success', [
+        text('WIN | profit'),
+        v('ovr_profit'),
+        text('| next stake'),
+        v('ovr_current'),
+        text('| P/L'),
+        v('ovr_total'),
+    ])
+);
+
+const ON_LOSS = set(
+    'ovr_current',
+    round2(arith('MULTIPLY', v('ovr_current'), v('ovr_multiplier'))),
+    notify('warn', [text('LOSS | next stake'), v('ovr_current'), text('| P/L'), v('ovr_total')])
+);
+
+const LIMITS = `<block type="controls_if">
+        <mutation elseif="1" else="1"></mutation>
+        <value name="IF0">${compare('GTE', v('ovr_total'), v('ovr_take_profit'))}</value>
+        <statement name="DO0">${notify('success', [text('Take profit reached | P/L'), v('ovr_total')])}</statement>
+        <value name="IF1">${compare(
+            'LTE',
+            v('ovr_total'),
+            `<block type="math_single"><field name="OP">NEG</field><value name="NUM">${v('ovr_stop_loss')}</value></block>`
+        )}</value>
+        <statement name="DO1">${notify('error', [text('Stop loss reached | P/L'), v('ovr_total')])}</statement>
+        <statement name="ELSE"><block type="trade_again"></block></statement>
+      </block>`;
+
+const AFTER_PURCHASE = chain([
+    n => set('ovr_profit', `<block type="read_details"><field name="DETAIL_INDEX">4</field></block>`, n),
+    n => set('ovr_total', round2(arith('ADD', v('ovr_total'), v('ovr_profit'))), n),
+    n => `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0"><block type="contract_check_result"><field name="CHECK_RESULT">win</field></block></value>
+        <statement name="DO0">${ON_WIN}</statement>
+        <statement name="ELSE">${ON_LOSS}</statement>
+        ${n ? `<next>${n}</next>` : ''}
+      </block>`,
+    () => LIMITS,
+]);
+
+export const OVER_TWO_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+  <variables>
+${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`).join('\n')}
+  </variables>
+  <block type="trade_definition" id="ovr_trade_def" deletable="false" collapsed="false" x="0" y="60">
+    <statement name="TRADE_OPTIONS">
+      <block type="trade_definition_market" id="ovr_market" deletable="false" movable="false">
+        <field name="MARKET_LIST">synthetic_index</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">R_75</field>
+        <next>
+          <block type="trade_definition_tradetype" id="ovr_tradetype" deletable="false" movable="false">
+            <field name="TRADETYPECAT_LIST">digits</field>
+            <field name="TRADETYPE_LIST">overunder</field>
+            <next>
+              <block type="trade_definition_contracttype" id="ovr_contract" deletable="false" movable="false">
+                <field name="TYPE_LIST">DIGITOVER</field>
+                <next>
+                  <block type="trade_definition_candleinterval" id="ovr_candle" deletable="false" movable="false">
+                    <field name="CANDLEINTERVAL_LIST">60</field>
+                    <next>
+                      <block type="trade_definition_restartbuysell" id="ovr_restart" deletable="false" movable="false">
+                        <field name="TIME_MACHINE_ENABLED">FALSE</field>
+                        <next>
+                          <block type="trade_definition_restartonerror" id="ovr_restart_err" deletable="false" movable="false">
+                            <field name="RESTARTONERROR">TRUE</field>
+                          </block>
+                        </next>
+                      </block>
+                    </next>
+                  </block>
+                </next>
+              </block>
+            </next>
+          </block>
+        </next>
+      </block>
+    </statement>
+    <statement name="INITIALIZATION">
+      ${INIT}
+    </statement>
+    <statement name="SUBMARKET">
+      <block type="trade_definition_tradeoptions" id="ovr_tradeopts">
+        <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
+        <field name="DURATIONTYPE_LIST">t</field>
+        <value name="DURATION">${v('ovr_duration')}</value>
+        <value name="AMOUNT">${v('ovr_current')}</value>
+        <value name="PREDICTION">${v('ovr_prediction')}</value>
+      </block>
+    </statement>
+  </block>
+  <block type="before_purchase" id="ovr_before" deletable="false" x="0" y="700">
+    <statement name="BEFOREPURCHASE_STACK">
+      ${BEFORE_PURCHASE}
+    </statement>
+  </block>
+  <block type="after_purchase" id="ovr_after" x="900" y="60">
+    <statement name="AFTERPURCHASE_STACK">
+      ${AFTER_PURCHASE}
+    </statement>
+  </block>
+</xml>`;

@@ -3,8 +3,76 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships only Rise/Fall Tick Trend', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rise-fall-trend-v1']);
+    it('ships Rise/Fall Tick Trend and Over 2 Digit Filter', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['rise-fall-trend-v1', 'over-two-v1']);
+    });
+
+    describe('Over 2 Digit Filter', () => {
+        const doc = parse(FREE_BOTS[1].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 Digit Over 2, 1 tick', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('R_75');
+            expect(field('TRADETYPECAT_LIST')).toBe('digits');
+            expect(field('TRADETYPE_LIST')).toBe('overunder');
+            expect(field('TYPE_LIST')).toBe('DIGITOVER');
+            expect(setValue('ovr_duration')).toEqual(['1']);
+            expect(setValue('ovr_prediction')).toEqual(['2']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
+            expect(options?.querySelector('value[name="PREDICTION"] field')?.getAttribute('id')).toBe('ovr_prediction');
+            expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ovr_current');
+        });
+
+        it('Digits to Check defaults to 3, martingale 2.5', () => {
+            expect(setValue('ovr_digits_to_check')).toEqual(['3']);
+            expect(setValue('ovr_multiplier')).toEqual(['2.5']);
+        });
+
+        it('buys DIGITOVER only when every checked last digit is over the prediction', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            expect(before?.querySelector('block[type="lastDigitList"]')).not.toBeNull();
+            const loop = before?.querySelector('block[type="controls_for"]');
+            expect(loop?.querySelector(':scope > value[name="TO"] field')?.getAttribute('id')).toBe('ovr_digits_to_check');
+            const check = loop?.querySelector('block[type="logic_compare"]');
+            expect(check?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('GT');
+            expect(check?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('ovr_prediction');
+
+            const buy = loop?.querySelector(':scope > next > block[type="controls_if"]');
+            const conditions = [...(buy?.querySelectorAll(':scope > value[name="IF0"] block[type="logic_compare"]') || [])];
+            expect(conditions.map(c => c.querySelector(':scope > value[name="A"] field')?.getAttribute('id'))).toEqual([
+                'ovr_digits_to_check',
+                'ovr_over',
+            ]);
+            expect(buy?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITOVER');
+        });
+
+        it('win resets the stake, loss multiplies it, trades until limits', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_stake');
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('ovr_current');
+            const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b => b.querySelector(':scope > value[name="B"] > block > field')?.getAttribute('id') === 'ovr_multiplier'
+            );
+            expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
+            expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
+        });
     });
 
     describe('Rise/Fall Tick Trend', () => {
