@@ -7,7 +7,6 @@ import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
-import * as constants from './state/constants';
 import rootReducer from './state/reducers';
 import Balance from './Balance';
 import OpenContract from './OpenContract';
@@ -16,51 +15,7 @@ import Purchase from './Purchase';
 import Sell from './Sell';
 import Ticks from './Ticks';
 import Total from './Total';
-
-const watchBefore = store =>
-    watchScope({
-        store,
-        stopScope: constants.DURING_PURCHASE,
-        passScope: constants.BEFORE_PURCHASE,
-        passFlag: 'proposalsReady',
-    });
-
-const watchDuring = store =>
-    watchScope({
-        store,
-        stopScope: constants.STOP,
-        passScope: constants.DURING_PURCHASE,
-        passFlag: 'openContract',
-    });
-
-/* The watchScope function is called randomly and resets the prevTick
- * which leads to the same problem we try to solve. So prevTick is isolated
- */
-let prevTick;
-const watchScope = ({ store, stopScope, passScope, passFlag }) => {
-    // in case watch is called after stop is fired
-    if (store.getState().scope === stopScope) {
-        return Promise.resolve(false);
-    }
-    return new Promise(resolve => {
-        const unsubscribe = store.subscribe(() => {
-            const newState = store.getState();
-
-            if (newState.newTick === prevTick) return;
-            prevTick = newState.newTick;
-
-            if (newState.scope === passScope && newState[passFlag]) {
-                unsubscribe();
-                resolve(true);
-            }
-
-            if (newState.scope === stopScope) {
-                unsubscribe();
-                resolve(false);
-            }
-        });
-    });
-};
+import { settledBeforeReentry, watchBefore, watchDuring } from './watch-scope';
 
 export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Proposal(Ticks(Total(class {}))))))) {
     constructor($scope) {
@@ -99,6 +54,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.tradeOptions = { ...validated_trade_options, symbol: this.options.symbol };
         this.resetPurchaseAttempt?.();
+        this.isSold = false;
         this.store.dispatch(start());
         this.checkLimits(validated_trade_options);
 
@@ -150,6 +106,10 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
     watch(watchName) {
         if (watchName === 'before') {
+            const { scope } = this.store.getState();
+            if (settledBeforeReentry(scope, this.isSold)) {
+                return Promise.resolve(false);
+            }
             return watchBefore(this.store);
         }
         return watchDuring(this.store);

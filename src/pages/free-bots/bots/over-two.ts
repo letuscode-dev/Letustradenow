@@ -3,8 +3,10 @@
  *
  * Buys Digit Over 2 when each of the last N last digits is greater than 2; otherwise waits
  * for the next tick. N is the "Digits to Check" setting (default 3). Each signal buys
- * "Trades per Signal" contracts in a row (default 1) before analysing again. Stake × Martingale
- * Multiplier (default 2.5) after a loss, back to the initial stake after a win. Duration 1 tick.
+ * "Trades per Signal" contracts in a row (default 1) before analysing again. The run does not
+ * end after that batch: it keeps analysing and trading until Take Profit, Stop Loss, or the
+ * user stops the bot. Stake × Martingale Multiplier (default 2.5) after a loss, back to the
+ * initial stake after a win. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
