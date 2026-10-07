@@ -3,9 +3,10 @@
  *
  * Buys Over 5 and Under 4 together when exactly one of the last two digits is
  * 4 or 5 and the other digit is something else. Skips 4-4, 5-5, 4-5, and 5-4.
- * A combined loss multiplies the stake by 2. A combined win returns to the
- * initial stake. Runs until take profit, stop loss, or the user stops it.
- * Duration 1 tick.
+ * A combined loss where both sides lose multiplies the stake by 2. If one side
+ * wins, the stake returns to the initial amount even when the spread leaves a
+ * small net loss. An unfinished hedge stops instead of betting again. Duration
+ * 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -102,16 +103,28 @@ const ON_LOSS = set(
     ])
 );
 
+const DECISION = `<block type="digit_hedge_decision"></block>`;
+
+const STOP = notify('error', [
+    text('Hedge did not finish on both sides — stopped so the stake is not changed'),
+]);
+
 const AFTER_PURCHASE = chain([
     n => set('ouh_profit', `<block type="digit_hedge_result"></block>`, n),
     n => set('ouh_total', round2(arith('ADD', v('ouh_total'), v('ouh_profit'))), n),
     () => `<block type="controls_if">
-        <mutation elseif="1"></mutation>
-        <value name="IF0">${compare('GT', v('ouh_profit'), num(0))}</value>
+        <mutation elseif="1" else="1"></mutation>
+        <value name="IF0">${compare('EQ', DECISION, num(1))}</value>
         <statement name="DO0">${ON_WIN}</statement>
-        <value name="IF1">${compare('LT', v('ouh_profit'), num(0))}</value>
+        <value name="IF1">${compare('EQ', DECISION, num(-1))}</value>
         <statement name="DO1">${ON_LOSS}</statement>
-        <next>${LIMITS}</next>
+        <statement name="ELSE">${STOP}</statement>
+        <next>
+          <block type="controls_if">
+            <value name="IF0">${or(compare('EQ', DECISION, num(1)), compare('EQ', DECISION, num(-1)))}</value>
+            <statement name="DO0">${LIMITS}</statement>
+          </block>
+        </next>
       </block>`,
 ]);
 

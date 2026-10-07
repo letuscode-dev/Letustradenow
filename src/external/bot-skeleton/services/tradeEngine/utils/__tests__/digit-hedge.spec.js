@@ -1,4 +1,13 @@
-import { buildDigitOverProposal, buildDigitUnderProposal, hedgeNet, shouldHedgeLastDigits } from '../digit-hedge';
+import {
+    buildDigitOverProposal,
+    buildDigitUnderProposal,
+    hedgeDecision,
+    hedgeNet,
+    HEDGE_RECOVER,
+    HEDGE_RESET,
+    HEDGE_STOP,
+    shouldHedgeLastDigits,
+} from '../digit-hedge';
 
 describe('Over 5 / Under 4 hedge entry', () => {
     it('hedges when exactly one of the last two digits is 4 or 5', () => {
@@ -27,30 +36,46 @@ describe('Over 5 / Under 4 hedge entry', () => {
 });
 
 describe('Over 5 / Under 4 hedge result', () => {
+    const settled = contract => ({ is_sold: true, ...contract });
+
     it('adds both settled profits', () => {
+        const legs = {
+            over: settled({ profit: 1.2 }),
+            under: settled({ profit: -1 }),
+            under_bought: true,
+        };
+        expect(hedgeNet(legs)).toBe(0.2);
+        expect(hedgeDecision(legs)).toBe(HEDGE_RESET);
         expect(
             hedgeNet({
-                over: { profit: 1.2 },
-                under: { profit: -1 },
-                under_bought: true,
-            })
-        ).toBe(0.2);
-        expect(
-            hedgeNet({
-                over: { buy_price: 1, sell_price: 0 },
-                under: { buy_price: 1, sell_price: 0 },
+                over: settled({ buy_price: 1, sell_price: 0 }),
+                under: settled({ buy_price: 1, sell_price: 0 }),
                 under_bought: true,
             })
         ).toBe(-2);
     });
 
-    it('uses only the Over leg when Under was not bought', () => {
-        expect(hedgeNet({ over: { profit: -1 }, under: null, under_bought: false })).toBe(-1);
+    it('multiplies only when both sides lose, and resets when one side wins at a small net loss', () => {
+        const both_lost = {
+            over: settled({ profit: -1 }),
+            under: settled({ profit: -1 }),
+            under_bought: true,
+        };
+        expect(hedgeDecision(both_lost)).toBe(HEDGE_RECOVER);
+        const spread_loss = {
+            over: settled({ profit: 0.8 }),
+            under: settled({ profit: -1 }),
+            under_bought: true,
+        };
+        expect(hedgeNet(spread_loss)).toBe(-0.2);
+        expect(hedgeDecision(spread_loss)).toBe(HEDGE_RESET);
     });
 
-    it('waits while a bought leg has no result yet', () => {
-        expect(hedgeNet({ over: { profit: 1 }, under: null, under_bought: true })).toBeNull();
-        expect(hedgeNet({ over: null, under: { profit: -1 }, under_bought: true })).toBeNull();
+    it('stops when a side is missing or not settled', () => {
+        expect(hedgeNet({ over: settled({ profit: -1 }), under: null, under_bought: false })).toBeNull();
+        expect(hedgeDecision({ over: settled({ profit: -1 }), under: null, under_bought: false })).toBe(HEDGE_STOP);
+        expect(hedgeNet({ over: { profit: 1 }, under: settled({ profit: -1 }), under_bought: true })).toBeNull();
+        expect(hedgeDecision({ over: settled({ profit: 1 }), under: null, under_bought: true })).toBe(HEDGE_STOP);
     });
 
     it('quotes Over 5 and Under 4 with the same stake, symbol, and duration', () => {

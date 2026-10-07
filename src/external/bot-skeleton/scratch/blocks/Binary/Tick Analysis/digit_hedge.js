@@ -74,3 +74,37 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_result = () =
     'Bot.settleDigitHedge()',
     window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
 ];
+
+window.Blockly.Blocks.digit_hedge_decision = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('Over/Under hedge stake decision'),
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                '1 means one side won, so use the set stake. -1 means both sides lost, so multiply the stake. 0 means stop.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Over/Under hedge stake decision'),
+            description: localize('Whether the next hedge stake resets, multiplies, or the bot stops.'),
+            key_words: localize('hedge, stake'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_decision = () => [
+    'Bot.digitHedgeDecision()',
+    window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
+];

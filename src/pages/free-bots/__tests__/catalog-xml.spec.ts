@@ -234,7 +234,8 @@ describe('free bot catalog XML', () => {
             expect(same?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
                 'CALL'
             );
-            expect(same?.querySelector(':scope > statement[name="ELSE"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+            expect(same?.querySelector(':scope > value[name="IF1"] value[name="B"] field')?.textContent).toBe('2');
+            expect(same?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
                 'PUT'
             );
 
@@ -256,8 +257,9 @@ describe('free bot catalog XML', () => {
             expect(varId(win)).toBe('rff_current');
             expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('rff_stake');
 
-            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
             expect(varId(loss)).toBe('rff_current');
+            expect(result?.querySelector(':scope > value[name="IF1"] field[id="rff_profit"]')).not.toBeNull();
             const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
                 b =>
                     b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
@@ -316,15 +318,18 @@ describe('free bot catalog XML', () => {
             expect(signal?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
         });
 
-        it('a winning hedge returns to the set stake and a losing hedge multiplies by 2', () => {
+        it('resets the stake when one side wins, multiplies only when both sides lose, and stops otherwise', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             expect(after?.querySelector('block[type="digit_hedge_result"]')).not.toBeNull();
+            expect(after?.querySelector('block[type="digit_hedge_decision"]')).not.toBeNull();
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
-                block.querySelector(':scope > value[name="IF0"] field[id="ouh_profit"]')
+                block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_decision"]')
             );
+            expect(result?.querySelector(':scope > value[name="IF0"] field[name="NUM"]')?.textContent).toBe('1');
             const win = result?.querySelector(':scope > statement[name="DO0"] > block');
             expect(varId(win)).toBe('ouh_current');
             expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ouh_stake');
+            expect(result?.querySelector(':scope > value[name="IF1"] field[name="NUM"]')?.textContent).toBe('-1');
             const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
             expect(varId(loss)).toBe('ouh_current');
             const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
@@ -334,7 +339,9 @@ describe('free bot catalog XML', () => {
                     block.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ouh_multiplier'
             );
             expect(scaled).toBeTruthy();
-            expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
+            const again = result?.querySelector(':scope > next block[type="trade_again"]');
+            expect(again).not.toBeNull();
+            expect(result?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
         });
     });
 });

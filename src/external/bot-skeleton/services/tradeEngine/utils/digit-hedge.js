@@ -30,8 +30,11 @@ export const shouldHedgeLastDigits = (newer, older) => {
     return isDeadDigit(Number(newer)) !== isDeadDigit(Number(older));
 };
 
+export const isSettledContract = poc =>
+    Boolean(poc && (poc.is_sold || poc.status === 'won' || poc.status === 'lost' || poc.status === 'sold'));
+
 export const legProfit = poc => {
-    if (!poc) return null;
+    if (!isSettledContract(poc)) return null;
     const reported = Number(poc.profit);
     if (Number.isFinite(reported)) return round2(reported);
     const sell = Number(poc.sell_price);
@@ -40,14 +43,31 @@ export const legProfit = poc => {
     return null;
 };
 
-/** Combined P/L. A missing bought leg stays null so the caller can keep waiting. */
+/** Combined P/L once both legs have settled. Anything incomplete stays unknown. */
 export const hedgeNet = ({ over, under, under_bought }) => {
     const over_profit = legProfit(over);
-    if (over_profit === null) return null;
-    if (!under_bought) return over_profit;
-    const under_profit = legProfit(under);
-    if (under_profit === null) return null;
+    const under_profit = under_bought ? legProfit(under) : null;
+    if (over_profit === null || under_profit === null) return null;
     return round2(over_profit + under_profit);
+};
+
+/** 1 = back to the set stake, -1 = both sides lost so multiply, 0 = stop. */
+export const HEDGE_RESET = 1;
+export const HEDGE_RECOVER = -1;
+export const HEDGE_STOP = 0;
+
+/**
+ * One winning side is the hedge working, even when the spread leaves a small
+ * net loss. Doubling after that loss would raise the stake on almost every trade.
+ * Multiply only when both sides lose. Stop when a leg is missing.
+ */
+export const hedgeDecision = ({ over, under, under_bought }) => {
+    const net = hedgeNet({ over, under, under_bought });
+    if (net === null) return HEDGE_STOP;
+    const over_profit = legProfit(over);
+    const under_profit = legProfit(under);
+    if (over_profit < 0 && under_profit < 0) return HEDGE_RECOVER;
+    return HEDGE_RESET;
 };
 
 const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({

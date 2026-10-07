@@ -83,7 +83,7 @@ const FOLLOW_UP = set(
     'rff_remaining',
     arith('MINUS', v('rff_remaining'), num(1)),
     `<block type="controls_if">
-        <mutation else="1"></mutation>
+        <mutation elseif="1"></mutation>
         <value name="IF0">${compare('EQ', v('rff_picked'), num(1))}</value>
         <statement name="DO0">${notify(
             'success',
@@ -97,7 +97,8 @@ const FOLLOW_UP = set(
             ],
             buy('CALL')
         )}</statement>
-        <statement name="ELSE">${notify(
+        <value name="IF1">${compare('EQ', v('rff_picked'), num(2))}</value>
+        <statement name="DO1">${notify(
             'success',
             [
                 text('Same signal | side'),
@@ -195,10 +196,11 @@ const AFTER_PURCHASE = chain([
     n => set('rff_profit', `<block type="read_details"><field name="DETAIL_INDEX">4</field></block>`, n),
     n => set('rff_total', round2(arith('ADD', v('rff_total'), v('rff_profit'))), n),
     () => `<block type="controls_if">
-        <mutation else="1"></mutation>
+        <mutation elseif="1"></mutation>
         <value name="IF0"><block type="contract_check_result"><field name="CHECK_RESULT">win</field></block></value>
         <statement name="DO0">${ON_WIN}</statement>
-        <statement name="ELSE">${ON_LOSS}</statement>
+        <value name="IF1">${compare('LT', v('rff_profit'), num(0))}</value>
+        <statement name="DO1">${ON_LOSS}</statement>
         <next>${LIMITS}</next>
       </block>`,
 ]);

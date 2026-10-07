@@ -30,7 +30,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-under-hedge-v1',
         title: 'Over 5 / Under 4 Hedge',
         description:
-            'Buys Over 5 and Under 4 at the same time when exactly one of the last two digits is 4 or 5 and the other digit is something else. Skips 4-4, 5-5, and 4-5. A combined loss multiplies the stake by 2. A combined win returns to the set stake. Keeps trading until take profit, stop loss, or you stop it. Volatility 75 (1s), $1 stake on each side, 1 tick.',
+            'Buys Over 5 and Under 4 at the same time when exactly one of the last two digits is 4 or 5 and the other digit is something else. Skips 4-4, 5-5, and 4-5. The stake multiplies by 2 only when both sides lose. If one side wins, the stake returns to the set amount. If a side does not finish, the bot stops. Volatility 75 (1s), $1 stake on each side, 1 tick.',
         tags: ['Over/Under', 'Hedge', 'Volatility', 'Recovery x2'],
         xml: OVER_UNDER_HEDGE_XML,
     },
