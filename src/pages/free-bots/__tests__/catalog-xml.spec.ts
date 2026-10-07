@@ -160,11 +160,11 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Volatility 50 (1s) Rise/Fall, both sides, 1 tick', () => {
+        it('Volatility 50 (1s) Rise Equals and Fall Equals, both sides, 1 tick', () => {
             expect(field('SUBMARKET_LIST')).toBe('random_index');
             expect(field('SYMBOL_LIST')).toBe('1HZ50V');
             expect(field('TRADETYPECAT_LIST')).toBe('callput');
-            expect(field('TRADETYPE_LIST')).toBe('callput');
+            expect(field('TRADETYPE_LIST')).toBe('callputequal');
             expect(field('TYPE_LIST')).toBe('both');
             expect(field('DURATIONTYPE_LIST')).toBe('t');
             expect(setValue('rff_duration')).toEqual(['1']);
@@ -203,7 +203,7 @@ describe('free bot catalog XML', () => {
                 )
             ).toEqual(expect.arrayContaining(['0', '2']));
             expect(signal?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'PUT'
+                'PUTE'
             );
 
             const falling = signal?.querySelector(':scope > value[name="IF1"]');
@@ -214,7 +214,7 @@ describe('free bot catalog XML', () => {
                 )
             ).toEqual(expect.arrayContaining(['0', '1']));
             expect(signal?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'CALL'
+                'CALLE'
             );
         });
 
@@ -232,11 +232,11 @@ describe('free bot catalog XML', () => {
             );
             expect(same?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.textContent).toBe('1');
             expect(same?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'CALL'
+                'CALLE'
             );
             expect(same?.querySelector(':scope > value[name="IF1"] value[name="B"] field')?.textContent).toBe('2');
             expect(same?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'PUT'
+                'PUTE'
             );
 
             const queued = [...(gate?.querySelectorAll('statement[name="ELSE"] block[type="variables_set"]') || [])].find(
@@ -248,17 +248,21 @@ describe('free bot catalog XML', () => {
             ).toBe('rff_trades_per_signal');
         });
 
-        it('a win returns to the initial stake and a loss multiplies by 2, then trades again', () => {
+        it('a win clears the signal and returns to the initial stake, and a loss multiplies by 2', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
             );
             const win = result?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(win)).toBe('rff_current');
-            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('rff_stake');
+            expect(varId(win)).toBe('rff_remaining');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
+            const stake = win?.querySelector('block[type="variables_set"]');
+            expect(varId(stake)).toBe('rff_current');
+            expect(stake?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('rff_stake');
 
             const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
             expect(varId(loss)).toBe('rff_current');
+            expect(loss?.querySelector('[id="rff_remaining"]')).toBeNull();
             expect(result?.querySelector(':scope > value[name="IF1"] field[id="rff_profit"]')).not.toBeNull();
             const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
                 b =>

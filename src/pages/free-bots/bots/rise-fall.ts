@@ -1,14 +1,15 @@
 /**
- * Rise/Fall Consecutive Ticks free bot (Volatility 50 (1s) Index).
+ * Rise Equals / Fall Equals Consecutive Ticks free bot (Volatility 50 (1s)).
  *
- * Trade Side is 0 Both, 1 Rise only, or 2 Fall only. The bot fades the
- * streak: consecutive up ticks buy Fall, and consecutive down ticks buy Rise.
- * Rise or Fall trades only that contract side. A signal is N ticks in a row
- * moving one way (Consecutive Ticks, default 3). Each signal buys Trades per Signal contracts of the same side
- * (default 3) before it looks for the next streak. A loss multiplies the
- * stake by the Martingale Multiplier (default 2). A win returns the stake to
- * the initial amount. The run continues until take profit, stop loss, or the
- * user stops the bot. Duration 1 tick.
+ * Trade Side is 0 Both, 1 Rise Equals only, or 2 Fall Equals only. The bot
+ * fades the streak: consecutive up ticks buy Fall Equals, and consecutive
+ * down ticks buy Rise Equals. A signal is N ticks in a row moving one way
+ * (Consecutive Ticks, default 3). Trades per Signal (default 3) is the number
+ * of losing trades that signal may take. A win is a recovery: the stake
+ * returns to the initial amount and the trades left on that signal are set
+ * to 0, even when 2 or 3 were configured. A loss multiplies the stake by the
+ * Martingale Multiplier (default 2) and uses the next trade of the same
+ * signal until the count is met. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -19,7 +20,7 @@ const VARIABLES: [string, string][] = [
     ['rff_duration', 'Duration (ticks)'],
     ['rff_consecutive', 'Consecutive Ticks'],
     ['rff_trades_per_signal', 'Trades per Signal'],
-    ['rff_mode', 'Trade Side (0 Both, 1 Rise, 2 Fall)'],
+    ['rff_mode', 'Trade Side (0 Both, 1 Rise Equals, 2 Fall Equals)'],
     ['rff_picked', 'Signal Side'],
     ['rff_take_profit', 'Take Profit'],
     ['rff_stop_loss', 'Stop Loss'],
@@ -46,17 +47,17 @@ const or = (a: string, b: string) =>
 
 const modeIs = (mode: number) => compare('EQ', v('rff_mode'), num(mode));
 
-/** 0 trades both sides. 1 is Rise only. 2 is Fall only. */
+/** 0 trades both sides. 1 is Rise Equals only. 2 is Fall Equals only. */
 const sideAllowed = (only: number) => or(modeIs(0), modeIs(only));
 
 const allMoves = (counter: string) =>
     and(compare('GTE', v('rff_consecutive'), num(1)), compare('EQ', v(counter), v('rff_consecutive')));
 
-const buy = (contract: 'CALL' | 'PUT') =>
+const buy = (contract: 'CALLE' | 'PUTE') =>
     `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`;
 
-/** Remember the side, then buy once and queue the rest of this signal. */
-const arm = (direction: number, contract: 'CALL' | 'PUT', pattern: string) =>
+/** Remember the side, then buy once and queue further trades only if this one loses. */
+const arm = (direction: number, contract: 'CALLE' | 'PUTE', pattern: string) =>
     set(
         'rff_picked',
         num(direction),
@@ -95,7 +96,7 @@ const FOLLOW_UP = set(
                 text('| stake'),
                 v('rff_current'),
             ],
-            buy('CALL')
+            buy('CALLE')
         )}</statement>
         <value name="IF1">${compare('EQ', v('rff_picked'), num(2))}</value>
         <statement name="DO1">${notify(
@@ -108,7 +109,7 @@ const FOLLOW_UP = set(
                 text('| stake'),
                 v('rff_current'),
             ],
-            buy('PUT')
+            buy('PUTE')
         )}</statement>
       </block>`
 );
@@ -140,9 +141,9 @@ const ANALYSE = chain([
     () => `<block type="controls_if">
         <mutation elseif="1"></mutation>
         <value name="IF0">${and(allMoves('rff_up'), sideAllowed(2))}</value>
-        <statement name="DO0">${arm(2, 'PUT', 'Ticks up → Fall |')}</statement>
+        <statement name="DO0">${arm(2, 'PUTE', 'Ticks up → Fall Equals |')}</statement>
         <value name="IF1">${and(allMoves('rff_down'), sideAllowed(1))}</value>
-        <statement name="DO1">${arm(1, 'CALL', 'Ticks down → Rise |')}</statement>
+        <statement name="DO1">${arm(1, 'CALLE', 'Ticks down → Rise Equals |')}</statement>
       </block>`,
 ]);
 
@@ -167,16 +168,22 @@ const LIMITS = `<block type="controls_if">
       </block>`;
 
 const ON_WIN = set(
-    'rff_current',
-    v('rff_stake'),
-    notify('success', [
-        text('WIN | side'),
-        v('rff_picked'),
-        text('| stake back to'),
-        v('rff_current'),
-        text('| P/L'),
-        v('rff_total'),
-    ])
+    'rff_remaining',
+    num(0),
+    set(
+        'rff_current',
+        v('rff_stake'),
+        notify('success', [
+            text('WIN | side'),
+            v('rff_picked'),
+            text('| stake back to'),
+            v('rff_current'),
+            text('| signal trades left'),
+            v('rff_remaining'),
+            text('| P/L'),
+            v('rff_total'),
+        ])
+    )
 );
 
 const ON_LOSS = set(
@@ -233,7 +240,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
         <next>
           <block type="trade_definition_tradetype" id="rff_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">callput</field>
-            <field name="TRADETYPE_LIST">callput</field>
+            <field name="TRADETYPE_LIST">callputequal</field>
             <next>
               <block type="trade_definition_contracttype" id="rff_contract" deletable="false" movable="false">
                 <field name="TYPE_LIST">both</field>
