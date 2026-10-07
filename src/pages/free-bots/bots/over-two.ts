@@ -1,12 +1,13 @@
 /**
- * Over 2 Digit Filter free bot (Volatility 75 Index).
+ * Over 2 Digit Filter free bot (Volatility 75 (1s) Index).
  *
  * Buys Digit Over 2 when each of the last N last digits is greater than 2; otherwise waits
- * for the next tick. N is the "Digits to Check" setting (default 3). Each signal buys
+ * for the next tick. N is the "Digits to Check" setting (default 4). Each signal buys
  * "Trades per Signal" contracts in a row (default 1) before analysing again. The run does not
  * end after that batch: it keeps analysing and trading until Take Profit, Stop Loss, or the
  * user stops the bot. Stake × Martingale Multiplier (default 2.5) after a loss, back to the
- * initial stake after a win. Duration 1 tick.
+ * initial stake after a win. Two losses in a row add 0.05 to the multiplier; a win restores
+ * the multiplier to its starting value. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -14,6 +15,8 @@ import { blockHelpers } from './blocks';
 const VARIABLES: [string, string][] = [
     ['ovr_stake', 'Initial Stake'],
     ['ovr_multiplier', 'Martingale Multiplier'],
+    ['ovr_multiplier_base', 'Base Multiplier'],
+    ['ovr_loss_streak', 'Loss Streak'],
     ['ovr_duration', 'Duration (ticks)'],
     ['ovr_prediction', 'Prediction (Over)'],
     ['ovr_digits_to_check', 'Digits to Check'],
@@ -38,9 +41,11 @@ const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEn
 const INIT = chain([
     n => set('ovr_stake', num(1), n),
     n => set('ovr_multiplier', num(2.5), n),
+    n => set('ovr_multiplier_base', v('ovr_multiplier'), n),
+    n => set('ovr_loss_streak', num(0), n),
     n => set('ovr_duration', num(1), n),
     n => set('ovr_prediction', num(2), n),
-    n => set('ovr_digits_to_check', num(3), n),
+    n => set('ovr_digits_to_check', num(4), n),
     n => set('ovr_trades_per_signal', num(1), n),
     n => set('ovr_take_profit', num(10), n),
     n => set('ovr_stop_loss', num(50), n),
@@ -105,11 +110,36 @@ const BEFORE_PURCHASE = `<block type="controls_if">
       </block>`;
 
 const ON_WIN = set(
+    'ovr_loss_streak',
+    num(0),
+    set(
+        'ovr_multiplier',
+        v('ovr_multiplier_base'),
+        set(
+            'ovr_current',
+            v('ovr_stake'),
+            notify('success', [
+                text('WIN | profit'),
+                v('ovr_profit'),
+                text('| next stake'),
+                v('ovr_current'),
+                text('| multiplier'),
+                v('ovr_multiplier'),
+                text('| P/L'),
+                v('ovr_total'),
+            ])
+        )
+    )
+);
+
+const applyLossStake = set(
     'ovr_current',
-    v('ovr_stake'),
-    notify('success', [
-        text('WIN | profit'),
-        v('ovr_profit'),
+    round2(arith('MULTIPLY', v('ovr_current'), v('ovr_multiplier'))),
+    notify('warn', [
+        text('LOSS | streak'),
+        v('ovr_loss_streak'),
+        text('| multiplier'),
+        v('ovr_multiplier'),
         text('| next stake'),
         v('ovr_current'),
         text('| P/L'),
@@ -117,10 +147,18 @@ const ON_WIN = set(
     ])
 );
 
+/** Second loss in a row bumps the multiplier; later losses keep that value until a win. */
 const ON_LOSS = set(
-    'ovr_current',
-    round2(arith('MULTIPLY', v('ovr_current'), v('ovr_multiplier'))),
-    notify('warn', [text('LOSS | next stake'), v('ovr_current'), text('| P/L'), v('ovr_total')])
+    'ovr_loss_streak',
+    arith('ADD', v('ovr_loss_streak'), num(1)),
+    `<block type="controls_if">
+        <value name="IF0">${compare('EQ', v('ovr_loss_streak'), num(2))}</value>
+        <statement name="DO0">${set(
+            'ovr_multiplier',
+            round2(arith('ADD', v('ovr_multiplier'), num(0.05)))
+        )}</statement>
+        <next>${applyLossStake}</next>
+      </block>`
 );
 
 const LIMITS = `<block type="controls_if">
@@ -158,7 +196,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
       <block type="trade_definition_market" id="ovr_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
         <field name="SUBMARKET_LIST">random_index</field>
-        <field name="SYMBOL_LIST">R_75</field>
+        <field name="SYMBOL_LIST">1HZ75V</field>
         <next>
           <block type="trade_definition_tradetype" id="ovr_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>

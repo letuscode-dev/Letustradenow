@@ -21,9 +21,9 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Volatility 75 Digit Over 2, 1 tick', () => {
+        it('Volatility 75 (1s) Digit Over 2, 1 tick', () => {
             expect(field('SUBMARKET_LIST')).toBe('random_index');
-            expect(field('SYMBOL_LIST')).toBe('R_75');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
             expect(field('TRADETYPECAT_LIST')).toBe('digits');
             expect(field('TRADETYPE_LIST')).toBe('overunder');
             expect(field('TYPE_LIST')).toBe('DIGITOVER');
@@ -35,9 +35,15 @@ describe('free bot catalog XML', () => {
             expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ovr_current');
         });
 
-        it('Digits to Check defaults to 3, martingale 2.5', () => {
-            expect(setValue('ovr_digits_to_check')).toEqual(['3']);
+        it('Digits to Check defaults to 4, Trades per Signal to 1, martingale 2.5', () => {
+            expect(setValue('ovr_digits_to_check')).toEqual(['4']);
+            expect(setValue('ovr_trades_per_signal')).toEqual(['1']);
             expect(setValue('ovr_multiplier')).toEqual(['2.5']);
+            expect(setValue('ovr_loss_streak')).toEqual(['0']);
+            const base = [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')].find(
+                b => varId(b) === 'ovr_multiplier_base'
+            );
+            expect(base?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_multiplier');
         });
 
         it('buys DIGITOVER only when every checked last digit is over the prediction', () => {
@@ -81,15 +87,38 @@ describe('free bot catalog XML', () => {
             ).toBe('ovr_trades_per_signal');
         });
 
-        it('win resets the stake, loss multiplies it, trades until limits', () => {
+        it('win restores stake and multiplier, two losses add 0.05, trades until limits', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
             );
             const win = result?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_stake');
+            expect(varId(win)).toBe('ovr_loss_streak');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
+            const restore = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_multiplier'
+            );
+            expect(restore?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
+                'ovr_multiplier_base'
+            );
+            const stake = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_current'
+            );
+            expect(stake?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_stake');
+
             const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
-            expect(varId(loss)).toBe('ovr_current');
+            expect(varId(loss)).toBe('ovr_loss_streak');
+            const bump = loss?.querySelector(':scope > next > block[type="controls_if"]');
+            expect(bump?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('EQ');
+            expect(bump?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'ovr_loss_streak'
+            );
+            expect(bump?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.textContent).toBe('2');
+            const added = [...(bump?.querySelectorAll(':scope > statement[name="DO0"] block[type="math_arithmetic"]') || [])].find(
+                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'ADD'
+            );
+            expect(added?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('ovr_multiplier');
+            expect(added?.querySelector(':scope > value[name="B"] field')?.textContent).toBe('0.05');
             const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
                 b => b.querySelector(':scope > value[name="B"] > block > field')?.getAttribute('id') === 'ovr_multiplier'
             );
