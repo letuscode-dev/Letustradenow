@@ -5,20 +5,16 @@
  * for the next tick. N is the "Digits to Check" setting (default 4). Each signal buys
  * "Trades per Signal" contracts in a row (default 1) before analysing again. The run does not
  * end after that batch: it keeps analysing and trading until Take Profit, Stop Loss, or the
- * user stops the bot. After a loss the next stake is the accumulated loss divided by the
- * payout percent (default 40), rounded up to the next cent, so one win covers the full
- * amount lost. Two losses in a row add 0.05 to the Martingale Multiplier (default 2.5) and
- * that higher multiplier scales the recovery stake; a win restores the multiplier, clears
- * the loss, and returns the stake to the initial amount. Duration 1 tick.
+ * user stops the bot. After a loss the next stake is only the accumulated loss divided by
+ * the payout percent (default 40), rounded up to the next cent, so one win covers the full
+ * amount lost. A win clears the loss and returns the stake to the initial amount. Duration
+ * 2 ticks.
  */
 
 import { blockHelpers } from './blocks';
 
 const VARIABLES: [string, string][] = [
     ['ovr_stake', 'Initial Stake'],
-    ['ovr_multiplier', 'Martingale Multiplier'],
-    ['ovr_multiplier_base', 'Base Multiplier'],
-    ['ovr_loss_streak', 'Loss Streak'],
     ['ovr_payout', 'Payout %'],
     ['ovr_lost', 'Amount Lost'],
     ['ovr_duration', 'Duration (ticks)'],
@@ -57,17 +53,14 @@ const roundUp2 = (x: string) =>
         num(100)
     );
 
-/** Amount lost ÷ (payout% / 100), before the live multiplier is applied. */
+/** Amount lost ÷ (payout% / 100). The next stake is this amount only. */
 const recoveryBase = roundUp2(arith('DIVIDE', v('ovr_lost'), arith('DIVIDE', v('ovr_payout'), num(100))));
 
 const INIT = chain([
     n => set('ovr_stake', num(1), n),
-    n => set('ovr_multiplier', num(2.5), n),
-    n => set('ovr_multiplier_base', v('ovr_multiplier'), n),
-    n => set('ovr_loss_streak', num(0), n),
     n => set('ovr_payout', num(40), n),
     n => set('ovr_lost', num(0), n),
-    n => set('ovr_duration', num(1), n),
+    n => set('ovr_duration', num(2), n),
     n => set('ovr_prediction', num(2), n),
     n => set('ovr_digits_to_check', num(4), n),
     n => set('ovr_trades_per_signal', num(1), n),
@@ -134,29 +127,19 @@ const BEFORE_PURCHASE = `<block type="controls_if">
       </block>`;
 
 const ON_WIN = set(
-    'ovr_loss_streak',
+    'ovr_lost',
     num(0),
     set(
-        'ovr_multiplier',
-        v('ovr_multiplier_base'),
-        set(
-            'ovr_lost',
-            num(0),
-            set(
-            'ovr_current',
-            v('ovr_stake'),
-            notify('success', [
-                text('WIN | profit'),
-                v('ovr_profit'),
-                text('| next stake'),
-                v('ovr_current'),
-                text('| multiplier'),
-                v('ovr_multiplier'),
-                text('| P/L'),
-                v('ovr_total'),
-            ])
-            )
-        )
+        'ovr_current',
+        v('ovr_stake'),
+        notify('success', [
+            text('WIN | profit'),
+            v('ovr_profit'),
+            text('| next stake'),
+            v('ovr_current'),
+            text('| P/L'),
+            v('ovr_total'),
+        ])
     )
 );
 
@@ -165,37 +148,22 @@ const lossNotify = notify('warn', [
     v('ovr_lost'),
     text('| payout'),
     v('ovr_payout'),
-    text('% | multiplier'),
-    v('ovr_multiplier'),
-    text('| next stake'),
+    text('% | next stake'),
     v('ovr_current'),
-    text('| streak'),
-    v('ovr_loss_streak'),
     text('| P/L'),
     v('ovr_total'),
 ]);
 
-const applyLossStake = set(
+/** Next stake is the payout recovery only. A short or invalid result stays at the set stake. */
+const ON_LOSS = set(
     'ovr_lost',
     round2(arith('ADD', v('ovr_lost'), abs(v('ovr_profit')))),
     set(
         'ovr_current',
         recoveryBase,
         `<block type="controls_if">
-            <mutation elseif="1"></mutation>
             <value name="IF0">${compare('LTE', v('ovr_payout'), num(0))}</value>
             <statement name="DO0">${set('ovr_current', v('ovr_stake'))}</statement>
-            <value name="IF1">${compare('GT', v('ovr_multiplier_base'), num(0))}</value>
-            <statement name="DO1">${set(
-                'ovr_current',
-                roundUp2(
-                    arith(
-                        'MULTIPLY',
-                        v('ovr_current'),
-                        arith('DIVIDE', v('ovr_multiplier'), v('ovr_multiplier_base'))
-                    )
-                )
-            )}</statement>
             <next>
               <block type="controls_if">
                 <value name="IF0">${compare('LT', v('ovr_current'), v('ovr_stake'))}</value>
@@ -205,20 +173,6 @@ const applyLossStake = set(
             </next>
           </block>`
     )
-);
-
-/** Second loss in a row bumps the multiplier; later losses keep that value until a win. */
-const ON_LOSS = set(
-    'ovr_loss_streak',
-    arith('ADD', v('ovr_loss_streak'), num(1)),
-    `<block type="controls_if">
-        <value name="IF0">${compare('EQ', v('ovr_loss_streak'), num(2))}</value>
-        <statement name="DO0">${set(
-            'ovr_multiplier',
-            round2(arith('ADD', v('ovr_multiplier'), num(0.05)))
-        )}</statement>
-        <next>${applyLossStake}</next>
-      </block>`
 );
 
 const LIMITS = `<block type="controls_if">

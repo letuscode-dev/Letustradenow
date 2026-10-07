@@ -21,13 +21,13 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Volatility 75 (1s) Digit Over 2, 1 tick', () => {
+        it('Volatility 75 (1s) Digit Over 2, 2 ticks', () => {
             expect(field('SUBMARKET_LIST')).toBe('random_index');
             expect(field('SYMBOL_LIST')).toBe('1HZ75V');
             expect(field('TRADETYPECAT_LIST')).toBe('digits');
             expect(field('TRADETYPE_LIST')).toBe('overunder');
             expect(field('TYPE_LIST')).toBe('DIGITOVER');
-            expect(setValue('ovr_duration')).toEqual(['1']);
+            expect(setValue('ovr_duration')).toEqual(['2']);
             expect(setValue('ovr_prediction')).toEqual(['2']);
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
@@ -35,17 +35,14 @@ describe('free bot catalog XML', () => {
             expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ovr_current');
         });
 
-        it('Digits to Check defaults to 4, Trades per Signal to 1, martingale 2.5', () => {
+        it('Digits to Check defaults to 4 and Trades per Signal to 1', () => {
             expect(setValue('ovr_digits_to_check')).toEqual(['4']);
             expect(setValue('ovr_trades_per_signal')).toEqual(['1']);
-            expect(setValue('ovr_multiplier')).toEqual(['2.5']);
-            expect(setValue('ovr_loss_streak')).toEqual(['0']);
             expect(setValue('ovr_payout')).toEqual(['40']);
             expect(setValue('ovr_lost')).toEqual(['0']);
-            const base = [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')].find(
-                b => varId(b) === 'ovr_multiplier_base'
-            );
-            expect(base?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_multiplier');
+            expect(doc.querySelector('variable[id="ovr_multiplier"]')).toBeNull();
+            expect(doc.querySelector('variable[id="ovr_multiplier_base"]')).toBeNull();
+            expect(doc.querySelector('variable[id="ovr_loss_streak"]')).toBeNull();
         });
 
         it('buys DIGITOVER only when every checked last digit is over the prediction', () => {
@@ -89,46 +86,24 @@ describe('free bot catalog XML', () => {
             ).toBe('ovr_trades_per_signal');
         });
 
-        it('win restores stake and multiplier, losses recover at 40% payout, trades until limits', () => {
+        it('a win returns to the set stake, a loss recovers at payout percent only, then trades again', () => {
             const after = doc.querySelector('block[type="after_purchase"]');
             const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
             );
             const win = result?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(win)).toBe('ovr_loss_streak');
+            expect(varId(win)).toBe('ovr_lost');
             expect(win?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
-            const restore = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
-                b => varId(b) === 'ovr_multiplier'
-            );
-            expect(restore?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
-                'ovr_multiplier_base'
-            );
-            const cleared = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
-                b => varId(b) === 'ovr_lost'
-            );
-            expect(cleared?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
             const stake = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
                 b => varId(b) === 'ovr_current'
             );
             expect(stake?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ovr_stake');
+            expect(after?.textContent).not.toContain('0.05');
+            expect(after?.querySelector('field[id="ovr_multiplier"]')).toBeNull();
 
             const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
-            expect(varId(loss)).toBe('ovr_loss_streak');
-            const bump = loss?.querySelector(':scope > next > block[type="controls_if"]');
-            expect(bump?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('EQ');
-            expect(bump?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
-                'ovr_loss_streak'
-            );
-            expect(bump?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.textContent).toBe('2');
-            const added = [...(bump?.querySelectorAll(':scope > statement[name="DO0"] block[type="math_arithmetic"]') || [])].find(
-                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'ADD'
-            );
-            expect(added?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('ovr_multiplier');
-            expect(added?.querySelector(':scope > value[name="B"] field')?.textContent).toBe('0.05');
-            const lost = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
-                b => varId(b) === 'ovr_lost'
-            );
-            const absolute = lost?.querySelector('block[type="math_single"]');
+            expect(varId(loss)).toBe('ovr_lost');
+            const absolute = loss?.querySelector('block[type="math_single"]');
             expect(absolute?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('ABS');
             expect(absolute?.querySelector(':scope > value[name="NUM"] field')?.getAttribute('id')).toBe('ovr_profit');
             const recovery = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
@@ -147,13 +122,6 @@ describe('free bot catalog XML', () => {
             expect(recovery_set?.querySelector('block[type="math_round"] > field[name="OP"]')?.textContent).toBe(
                 'ROUNDUP'
             );
-            const ratio = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
-                b =>
-                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'DIVIDE' &&
-                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ovr_multiplier' &&
-                    b.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ovr_multiplier_base'
-            );
-            expect(ratio).toBeTruthy();
             const payout_guard = [...(loss?.querySelectorAll('block[type="controls_if"]') || [])].find(
                 b =>
                     b.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent === 'LTE' &&
@@ -217,7 +185,7 @@ describe('free bot catalog XML', () => {
             expect(setValue('rff_stop_loss')).toEqual(['50']);
         });
 
-        it('buys Rise or Fall only when that side is enabled and every step moved that way', () => {
+        it('fades the streak: rising ticks buy Fall, falling ticks buy Rise, and only the chosen side', () => {
             const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
             const analyse = gate?.querySelector(':scope > statement[name="ELSE"]');
             expect(analyse?.querySelector('block[type="ticks"]')).not.toBeNull();
@@ -227,26 +195,26 @@ describe('free bot catalog XML', () => {
             expect(directions.map(c => c.querySelector(':scope > field[name="OP"]')?.textContent)).toEqual(['LT', 'GT']);
 
             const signal = loop?.querySelector(':scope > next > block[type="controls_if"]');
-            const rise = signal?.querySelector(':scope > value[name="IF0"]');
-            expect(rise?.querySelector('field[id="rff_up"]')).not.toBeNull();
+            const rising = signal?.querySelector(':scope > value[name="IF0"]');
+            expect(rising?.querySelector('field[id="rff_up"]')).not.toBeNull();
             expect(
-                [...(rise?.querySelectorAll('block[type="logic_compare"]') || [])].map(
-                    c => c.querySelector(':scope > value[name="B"] field')?.textContent
-                )
-            ).toEqual(expect.arrayContaining(['0', '1']));
-            expect(signal?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'CALL'
-            );
-
-            const fall = signal?.querySelector(':scope > value[name="IF1"]');
-            expect(fall?.querySelector('field[id="rff_down"]')).not.toBeNull();
-            expect(
-                [...(fall?.querySelectorAll('block[type="logic_compare"]') || [])].map(
+                [...(rising?.querySelectorAll('block[type="logic_compare"]') || [])].map(
                     c => c.querySelector(':scope > value[name="B"] field')?.textContent
                 )
             ).toEqual(expect.arrayContaining(['0', '2']));
-            expect(signal?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+            expect(signal?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
                 'PUT'
+            );
+
+            const falling = signal?.querySelector(':scope > value[name="IF1"]');
+            expect(falling?.querySelector('field[id="rff_down"]')).not.toBeNull();
+            expect(
+                [...(falling?.querySelectorAll('block[type="logic_compare"]') || [])].map(
+                    c => c.querySelector(':scope > value[name="B"] field')?.textContent
+                )
+            ).toEqual(expect.arrayContaining(['0', '1']));
+            expect(signal?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'CALL'
             );
         });
 

@@ -1,10 +1,10 @@
 /**
  * Rise/Fall Consecutive Ticks free bot (Volatility 50 (1s) Index).
  *
- * Trade Side is 0 Both, 1 Rise only, or 2 Fall only. Both buys Rise after
- * consecutive up ticks and Fall after consecutive down ticks. Rise or Fall
- * trades only that side. A signal is N ticks in a row moving that way
- * (Consecutive Ticks, default 3). Each signal buys Trades per Signal contracts of the same side
+ * Trade Side is 0 Both, 1 Rise only, or 2 Fall only. The bot fades the
+ * streak: consecutive up ticks buy Fall, and consecutive down ticks buy Rise.
+ * Rise or Fall trades only that contract side. A signal is N ticks in a row
+ * moving one way (Consecutive Ticks, default 3). Each signal buys Trades per Signal contracts of the same side
  * (default 3) before it looks for the next streak. A loss multiplies the
  * stake by the Martingale Multiplier (default 2). A win returns the stake to
  * the initial amount. The run continues until take profit, stop loss, or the
@@ -138,10 +138,10 @@ const ANALYSE = chain([
     n => countMoves(n),
     () => `<block type="controls_if">
         <mutation elseif="1"></mutation>
-        <value name="IF0">${and(allMoves('rff_up'), sideAllowed(1))}</value>
-        <statement name="DO0">${arm(1, 'CALL', 'Rise |')}</statement>
-        <value name="IF1">${and(allMoves('rff_down'), sideAllowed(2))}</value>
-        <statement name="DO1">${arm(2, 'PUT', 'Fall |')}</statement>
+        <value name="IF0">${and(allMoves('rff_up'), sideAllowed(2))}</value>
+        <statement name="DO0">${arm(2, 'PUT', 'Ticks up → Fall |')}</statement>
+        <value name="IF1">${and(allMoves('rff_down'), sideAllowed(1))}</value>
+        <statement name="DO1">${arm(1, 'CALL', 'Ticks down → Rise |')}</statement>
       </block>`,
 ]);
 
