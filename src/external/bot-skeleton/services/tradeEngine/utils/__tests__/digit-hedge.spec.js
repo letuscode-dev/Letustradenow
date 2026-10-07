@@ -18,6 +18,8 @@ import {
     HEDGE_STOP,
     nextHedgeStake,
     planDigitHedgeBuys,
+    armImmediateRecovery,
+    deadDigitCount,
     deadDigitsDominate,
     shouldHedgeLastDigits,
 } from '../digit-hedge';
@@ -56,6 +58,20 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(deadDigitsDominate([4, 5, 4, 1])).toBe(false);
         expect(deadDigitsDominate([4, 5, null, 4, 1])).toBe(false);
         expect(deadDigitsDominate([4, 5, 1, 2], 4)).toBe(false);
+    });
+
+    it('counts 4 and 5 in the newest window only', () => {
+        expect(deadDigitCount([9, 8, 7, 4, 5, 4], 5)).toBe(3);
+        expect(deadDigitCount([4, 5, 1, 2, 3], 5)).toBe(2);
+        expect(deadDigitCount([1, 2], 5)).toBe(0);
+    });
+
+    it('arms an immediate hedge only after both sides lose and the option is on', () => {
+        expect(armImmediateRecovery({ decision: HEDGE_RECOVER, enabled: 1 })).toBe(true);
+        expect(armImmediateRecovery({ decision: HEDGE_RECOVER, enabled: 0 })).toBe(false);
+        expect(armImmediateRecovery({ decision: HEDGE_RESET, enabled: 1 })).toBe(false);
+        expect(armImmediateRecovery({ decision: HEDGE_STOP, enabled: 1 })).toBe(false);
+        expect(armImmediateRecovery({ decision: HEDGE_RECOVER, enabled: '1' })).toBe(true);
     });
 });
 

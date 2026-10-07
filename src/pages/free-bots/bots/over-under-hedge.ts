@@ -1,14 +1,15 @@
 /**
  * Over 5 / Under 4 hedge free bot (Volatility 75 (1s) Index).
  *
- * Buys Over 5 and Under 4 together when 4 and 5 dominate the last 5 ticks:
- * those two digits appear more often than every other digit combined. A tie
- * does not trade. A combined loss where both sides lose sets the next stake to
- * the stake that was bought, times the recovery multiplier. If one side wins,
- * the stake returns to the initial amount. A one-sided buy is not kept. An
- * unfinished hedge stops instead of betting again. Take profit and stop loss
- * use the combined profit of both sides, and a reached limit sends no further
- * trade. Duration 1 tick.
+ * Buys Over 5 and Under 4 together when 4 and 5 dominate the last 5 ticks.
+ * The check uses the ticks already in memory. Immediate Loss Hedge is an
+ * option: 1 buys the next Over 5 and Under 4 hedge as soon as both sides lose,
+ * without another digit check. 0 waits for the digit check again. A combined
+ * loss sets the next stake to the stake that was bought, times the recovery
+ * multiplier. If one side wins, the stake returns to the initial amount. A
+ * one-sided buy is not kept. An unfinished hedge stops instead of betting
+ * again. Take profit and stop loss use the combined profit of both sides, and
+ * a reached limit sends no further trade. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -23,64 +24,48 @@ const VARIABLES: [string, string][] = [
     ['ouh_current', 'Current Stake'],
     ['ouh_total', 'Total Profit'],
     ['ouh_profit', 'Last Profit'],
-    ['ouh_digits', 'Last Digits'],
     ['ouh_window', 'Ticks to Check'],
-    ['ouh_i', 'i'],
-    ['ouh_dead', '4 or 5 Count'],
+    ['ouh_immediate', 'Immediate Loss Hedge'],
     ['ouh_text', 'Journal Text'],
 ];
 
-const { v, num, text, set, chain, arith, compare, and, increment, fromEnd, countTo, notify } = blockHelpers(
-    VARIABLES,
-    'ouh_text'
-);
-
-const or = (a: string, b: string) =>
-    `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
-
-/** 4 and 5 lose both sides of the hedge. */
-const isDead = (digit: string) => or(compare('EQ', digit, num(4)), compare('EQ', digit, num(5)));
-
-const listLength = `<block type="lists_length"><value name="VALUE">${v('ouh_digits')}</value></block>`;
-
-const others = arith('MINUS', v('ouh_window'), v('ouh_dead'));
-
-const countDead = (next: string) =>
-    countTo(
-        'ouh_i',
-        v('ouh_window'),
-        `<block type="controls_if">
-            <value name="IF0">${isDead(fromEnd('ouh_digits', v('ouh_i')))}</value>
-            <statement name="DO0">${increment('ouh_dead')}</statement>
-          </block>`,
-        next
-    );
+const { v, num, text, set, chain, compare, notify } = blockHelpers(VARIABLES, 'ouh_text');
 
 const BUY = `<block type="digit_hedge_purchase"></block>`;
 
-const ANALYSE = chain([
-    n => set('ouh_digits', `<block type="lastDigitList"></block>`, n),
-    n => set('ouh_dead', num(0), n),
-    countDead,
-    () => `<block type="controls_if">
-        <value name="IF0">${and(
-            and(compare('GTE', v('ouh_window'), num(1)), compare('GTE', listLength, v('ouh_window'))),
-            compare('GT', v('ouh_dead'), others)
-        )}</value>
-        <statement name="DO0">${notify(
-            'success',
-            [
-                text('Hedge | last'),
-                v('ouh_window'),
-                text('| 4 or 5 x'),
-                v('ouh_dead'),
-                text('| stake'),
-                v('ouh_current'),
-            ],
-            BUY
-        )}</statement>
-      </block>`,
-]);
+const RECOVERY_BUY = notify(
+    'warn',
+    [text('Loss hedge | no analysis | Over 5 + Under 4 | stake'), v('ouh_current')],
+    BUY
+);
+
+const SIGNAL_BUY = notify(
+    'success',
+    [
+        text('Hedge | last'),
+        v('ouh_window'),
+        text('| 4 or 5 x'),
+        `<block type="digit_hedge_dead_count"></block>`,
+        text('| stake'),
+        v('ouh_current'),
+    ],
+    BUY
+);
+
+const SKIP = `<block type="digit_hedge_skip_analysis"></block>`;
+const SIGNAL = `<block type="digit_hedge_signal"><value name="WINDOW">${v('ouh_window')}</value></block>`;
+
+const ANALYSE = `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${SKIP}</value>
+        <statement name="DO0">${RECOVERY_BUY}</statement>
+        <statement name="ELSE">
+          <block type="controls_if">
+            <value name="IF0">${compare('EQ', SIGNAL, num(1))}</value>
+            <statement name="DO0">${SIGNAL_BUY}</statement>
+          </block>
+        </statement>
+      </block>`;
 
 const NOTE_WIN = notify('success', [
     text('WIN | net'),
@@ -133,13 +118,18 @@ const NOTES_AND_AGAIN = `<block type="controls_if">
         <next><block type="trade_again"></block></next>
       </block>`;
 
+const ARM = `<block type="digit_hedge_arm_recovery">
+        <value name="ENABLED">${v('ouh_immediate')}</value>
+        <next>${NOTES_AND_AGAIN}</next>
+      </block>`;
+
 const AFTER_LIMIT = set(
     'ouh_current',
     NEXT_STAKE,
     `<block type="controls_if">
         <mutation else="1"></mutation>
         <value name="IF0">${CONTINUES}</value>
-        <statement name="DO0">${NOTES_AND_AGAIN}</statement>
+        <statement name="DO0">${ARM}</statement>
         <statement name="ELSE">${STOP}</statement>
       </block>`
 );
@@ -162,6 +152,7 @@ const INIT = chain([
     n => set('ouh_multiplier', num(2), n),
     n => set('ouh_duration', num(1), n),
     n => set('ouh_window', num(5), n),
+    n => set('ouh_immediate', num(1), n),
     n => set('ouh_prediction', num(5), n),
     n => set('ouh_take_profit', num(10), n),
     n => set('ouh_stop_loss', num(50), n),

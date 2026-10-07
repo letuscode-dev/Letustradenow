@@ -29,11 +29,15 @@ import {
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
 import {
     applyHedgeLimits,
+    armImmediateRecovery,
+    deadDigitCount,
+    deadDigitsDominate,
     hedgeDecision,
     hedgeLimitCode,
     hedgeMayContinue,
     hedgeNet,
     HEDGE_LIMIT_NONE,
+    HEDGE_RECOVER,
     HEDGE_STOP,
     isSettledContract,
     legProfit,
@@ -1325,6 +1329,37 @@ const getBotInterface = tradeEngine => {
         },
         /** 1 = take profit reached, -1 = stop loss reached, 0 = trade again is allowed. */
         digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
+        /**
+         * 1 when 4 and 5 dominate the last `window` cached ticks. Reads the live
+         * cache only, so it does not wait on a history request.
+         */
+        digitHedgeSignal: window => {
+            let digits = [];
+            try {
+                digits = tradeEngine.getAvailableLastDigitList?.(window) || [];
+            } catch {
+                digits = [];
+            }
+            tradeEngine.digitHedgeDeadCount = deadDigitCount(digits, window);
+            return deadDigitsDominate(digits, window) ? 1 : 0;
+        },
+        /** Count stored by the last signal check. */
+        digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,
+        /** True when a both-sides loss is waiting to buy again without a new digit check. */
+        digitHedgeSkipAnalysis: () => Boolean(tradeEngine.digitHedgeImmediate),
+        /**
+         * Arms an immediate Over 5 + Under 4 buy when both sides lost and the
+         * option is on. A win, a stop, or option 0 clears it.
+         */
+        digitHedgeArmRecovery: enabled => {
+            const armed = armImmediateRecovery({
+                decision: tradeEngine.digitHedgeDecision ?? HEDGE_STOP,
+                enabled,
+            });
+            tradeEngine.digitHedgeImmediate = armed;
+            tradeEngine.digitHedgeImmediateUsed = false;
+            return armed ? 1 : 0;
+        },
         /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
         getLastTickDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;

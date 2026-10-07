@@ -707,6 +707,8 @@ export default Engine =>
                     over_error: '',
                     under_error: '',
                 };
+                this.digitHedgeImmediate = false;
+                this.digitHedgeImmediateUsed = false;
                 this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
                 notify(
                     'journal__text--success',

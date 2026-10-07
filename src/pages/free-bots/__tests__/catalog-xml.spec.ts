@@ -300,29 +300,25 @@ describe('free bot catalog XML', () => {
             expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ouh_current');
         });
 
-        it('hedges when 4 and 5 dominate the last 5 ticks', () => {
+        it('checks 4 and 5 in memory, and can buy the next hedge immediately after a loss', () => {
             expect(setValue('ouh_window')).toEqual(['5']);
+            expect(setValue('ouh_immediate')).toEqual(['1']);
             const before = doc.querySelector('block[type="before_purchase"]');
-            expect(before?.querySelector('block[type="lastDigitList"]')).not.toBeNull();
-            expect(before?.querySelector('block[type="lists_length"]')).not.toBeNull();
-            const loop = before?.querySelector('block[type="controls_for"]');
-            expect(loop?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id')).toBe('ouh_i');
-            expect(loop?.querySelector(':scope > value[name="TO"] field')?.getAttribute('id')).toBe('ouh_window');
-            expect(loop?.querySelector('field[id="ouh_dead"]')).not.toBeNull();
-            const barriers = [...(loop?.querySelectorAll('block[type="logic_compare"]') || [])]
-                .filter(block => block.querySelector(':scope > field[name="OP"]')?.textContent === 'EQ')
-                .map(block => block.querySelector(':scope > value[name="B"] field')?.textContent);
-            expect(barriers).toEqual(expect.arrayContaining(['4', '5']));
-            const signal = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
-                block.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')
+            expect(before?.querySelector('block[type="lastDigitList"]')).toBeNull();
+            expect(before?.querySelector('block[type="controls_for"]')).toBeNull();
+            expect(before?.querySelector('block[type="digit_hedge_skip_analysis"]')).not.toBeNull();
+            const signal = before?.querySelector('block[type="digit_hedge_signal"]');
+            expect(signal?.querySelector(':scope > value[name="WINDOW"] field')?.getAttribute('id')).toBe('ouh_window');
+            expect(before?.querySelectorAll('block[type="digit_hedge_purchase"]')).toHaveLength(2);
+            const recovery = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] > block[type="digit_hedge_skip_analysis"]')
             );
-            const dominates = [...(signal?.querySelectorAll(':scope > value[name="IF0"] block[type="logic_compare"]') || [])].find(
-                block =>
-                    block.querySelector(':scope > field[name="OP"]')?.textContent === 'GT' &&
-                    block.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ouh_dead'
-            );
-            expect(dominates).toBeTruthy();
-            expect(dominates?.querySelector('block[type="math_arithmetic"] field[name="OP"]')?.textContent).toBe('MINUS');
+            expect(recovery?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
+            expect(recovery?.querySelector(':scope > statement[name="ELSE"] block[type="digit_hedge_purchase"]')).not.toBeNull();
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const arm = after?.querySelector('block[type="digit_hedge_arm_recovery"]');
+            expect(arm?.querySelector(':scope > value[name="ENABLED"] field')?.getAttribute('id')).toBe('ouh_immediate');
+            expect(arm?.querySelector(':scope > next block[type="trade_again"]')).not.toBeNull();
         });
 
         it('books both legs into total profit and does not trade again after take profit', () => {

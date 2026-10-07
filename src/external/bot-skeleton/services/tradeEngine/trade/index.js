@@ -17,6 +17,7 @@ import Sell from './Sell';
 import Ticks from './Ticks';
 import Total from './Total';
 import { settledBeforeReentry, watchBefore, watchDuring } from './watch-scope';
+import { BEFORE_PURCHASE } from './state/constants';
 
 export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Proposal(Ticks(Total(class {}))))))) {
     constructor($scope) {
@@ -41,6 +42,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.options = options;
         this.digitHedgeHalt = false;
         this.digitHedgeLimitAction = HEDGE_LIMIT_NONE;
+        this.digitHedgeImmediate = false;
+        this.digitHedgeImmediateUsed = false;
         this.startPromise = this.loginAndGetBalance(token);
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
@@ -112,6 +115,11 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             const { scope } = this.store.getState();
             if (settledBeforeReentry(scope, this.isSold)) {
                 return Promise.resolve(false);
+            }
+            // A both-sides loss can buy again without waiting for the next tick.
+            if (scope === BEFORE_PURCHASE && this.digitHedgeImmediate && !this.digitHedgeImmediateUsed) {
+                this.digitHedgeImmediateUsed = true;
+                return Promise.resolve(true);
             }
             return watchBefore(this.store);
         }

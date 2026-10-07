@@ -45,6 +45,20 @@ export const deadDigitsDominate = (digits, window = 5) => {
     return dead > size - dead;
 };
 
+/** How many of the last `window` digits are 4 or 5. The list end is newest. */
+export const deadDigitCount = (digits, window = 5) => {
+    const size = Number(window);
+    if (!Array.isArray(digits) || !Number.isInteger(size) || size < 1) return 0;
+    return digits.slice(-size).filter(digit => isDeadDigit(Number(digit))).length;
+};
+
+/**
+ * A both-sides loss may buy the next hedge at once. Any other result, or the
+ * option turned off, goes back to the digit check.
+ */
+export const armImmediateRecovery = ({ decision, enabled }) =>
+    decision === HEDGE_RECOVER && Number(enabled) > 0;
+
 export const isSettledContract = poc =>
     Boolean(poc && (poc.is_sold || poc.status === 'won' || poc.status === 'lost' || poc.status === 'sold'));
 

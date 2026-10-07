@@ -281,3 +281,145 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_limit = () =>
     'Bot.digitHedgeLimit()',
     window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
 ];
+
+window.Blockly.Blocks.digit_hedge_signal = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('4 and 5 dominate the last %1 ticks'),
+            args0: [{ type: 'input_value', name: 'WINDOW', check: 'Number' }],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize('1 when 4 and 5 appear more often than the other digits in the cached ticks. 0 otherwise.'),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Over/Under hedge signal'),
+            description: localize('Fast check of the latest ticks already in memory.'),
+            key_words: localize('hedge, digit, fast'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_signal = block => {
+    const window_size =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'WINDOW',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '5';
+    return [
+        `Bot.digitHedgeSignal(${window_size})`,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
+    ];
+};
+
+window.Blockly.Blocks.digit_hedge_dead_count = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('4 or 5 count from the last hedge check'),
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize('How many of the checked ticks were 4 or 5.'),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('4 or 5 count'),
+            description: localize('Count from the last fast hedge check.'),
+            key_words: localize('hedge, digit'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_dead_count = () => [
+    'Bot.digitHedgeDeadCount()',
+    window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
+];
+
+window.Blockly.Blocks.digit_hedge_skip_analysis = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('loss hedge is waiting'),
+            output: 'Boolean',
+            outputShape: window.Blockly.OUTPUT_SHAPE_HEXAGONAL,
+            ...colours(),
+            tooltip: localize('True when both sides lost and the immediate-loss option is on.'),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Skip hedge analysis'),
+            description: localize('Buy Over 5 and Under 4 again without checking digits.'),
+            key_words: localize('hedge, loss, immediate'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_skip_analysis = () => [
+    'Bot.digitHedgeSkipAnalysis()',
+    window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC,
+];
+
+window.Blockly.Blocks.digit_hedge_arm_recovery = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('arm immediate loss hedge if option %1 is on'),
+            args0: [{ type: 'input_value', name: 'ENABLED', check: 'Number' }],
+            previousStatement: null,
+            nextStatement: null,
+            ...colours(),
+            tooltip: localize(
+                'After both sides lose, and when the option is greater than 0, the next Over 5 and Under 4 hedge is sent without a digit check.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Arm immediate loss hedge'),
+            description: localize('Option on: a both-sides loss buys again immediately. Option 0: wait for the digit check.'),
+            key_words: localize('hedge, loss, immediate'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+    restricted_parents: ['after_purchase'],
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_arm_recovery = block => {
+    const enabled =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'ENABLED',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '0';
+    return `Bot.digitHedgeArmRecovery(${enabled});\n`;
+};
