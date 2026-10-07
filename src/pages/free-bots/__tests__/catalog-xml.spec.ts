@@ -3,8 +3,8 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over 2 Digit Filter', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-two-v1']);
+    it('ships Over 2 Digit Filter and Rise/Fall Consecutive Ticks', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-two-v1', 'rise-fall-v1']);
     });
 
     describe('Over 2 Digit Filter', () => {
@@ -174,6 +174,129 @@ describe('free bot catalog XML', () => {
             expect(
                 floor?.querySelector(':scope > statement[name="DO0"] value[name="VALUE"] field')?.getAttribute('id')
             ).toBe('ovr_stake');
+            expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Rise/Fall Consecutive Ticks', () => {
+        const doc = parse(FREE_BOTS[1].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 50 (1s) Rise/Fall, both sides, 3 ticks', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ50V');
+            expect(field('TRADETYPECAT_LIST')).toBe('callput');
+            expect(field('TRADETYPE_LIST')).toBe('callput');
+            expect(field('TYPE_LIST')).toBe('both');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(setValue('rff_duration')).toEqual(['3']);
+            expect(setValue('rff_stake')).toEqual(['1']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('false');
+            expect(options?.querySelector('value[name="DURATION"] field')?.getAttribute('id')).toBe('rff_duration');
+            expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('rff_current');
+        });
+
+        it('defaults to both sides, 3 consecutive ticks, 3 trades per signal, multiplier 2', () => {
+            expect(setValue('rff_mode')).toEqual(['0']);
+            expect(setValue('rff_consecutive')).toEqual(['3']);
+            expect(setValue('rff_trades_per_signal')).toEqual(['3']);
+            expect(setValue('rff_multiplier')).toEqual(['2']);
+            expect(setValue('rff_remaining')).toEqual(['0']);
+            expect(setValue('rff_take_profit')).toEqual(['10']);
+            expect(setValue('rff_stop_loss')).toEqual(['50']);
+        });
+
+        it('buys Rise or Fall only when that side is enabled and every step moved that way', () => {
+            const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
+            const analyse = gate?.querySelector(':scope > statement[name="ELSE"]');
+            expect(analyse?.querySelector('block[type="ticks"]')).not.toBeNull();
+            const loop = analyse?.querySelector('block[type="controls_for"]');
+            expect(loop?.querySelector(':scope > value[name="TO"] field')?.getAttribute('id')).toBe('rff_consecutive');
+            const directions = [...(loop?.querySelectorAll(':scope > statement[name="DO"] block[type="logic_compare"]') || [])];
+            expect(directions.map(c => c.querySelector(':scope > field[name="OP"]')?.textContent)).toEqual(['LT', 'GT']);
+
+            const signal = loop?.querySelector(':scope > next > block[type="controls_if"]');
+            const rise = signal?.querySelector(':scope > value[name="IF0"]');
+            expect(rise?.querySelector('field[id="rff_up"]')).not.toBeNull();
+            expect(
+                [...(rise?.querySelectorAll('block[type="logic_compare"]') || [])].map(
+                    c => c.querySelector(':scope > value[name="B"] field')?.textContent
+                )
+            ).toEqual(expect.arrayContaining(['0', '1']));
+            expect(signal?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'CALL'
+            );
+
+            const fall = signal?.querySelector(':scope > value[name="IF1"]');
+            expect(fall?.querySelector('field[id="rff_down"]')).not.toBeNull();
+            expect(
+                [...(fall?.querySelectorAll('block[type="logic_compare"]') || [])].map(
+                    c => c.querySelector(':scope > value[name="B"] field')?.textContent
+                )
+            ).toEqual(expect.arrayContaining(['0', '2']));
+            expect(signal?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'PUT'
+            );
+        });
+
+        it('takes the remaining trades of the same side before analysing again', () => {
+            const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'rff_remaining'
+            );
+            const follow = gate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(follow)).toBe('rff_remaining');
+            expect(follow?.querySelector('block[type="controls_for"]')).toBeNull();
+            const same = follow?.querySelector('block[type="controls_if"]');
+            expect(same?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'rff_picked'
+            );
+            expect(same?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.textContent).toBe('1');
+            expect(same?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'CALL'
+            );
+            expect(same?.querySelector(':scope > statement[name="ELSE"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'PUT'
+            );
+
+            const queued = [...(gate?.querySelectorAll('statement[name="ELSE"] block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'rff_remaining'
+            );
+            expect(queued?.querySelector(':scope > value[name="VALUE"] field[name="OP"]')?.textContent).toBe('MINUS');
+            expect(
+                queued?.querySelector(':scope > value[name="VALUE"] value[name="A"] field')?.getAttribute('id')
+            ).toBe('rff_trades_per_signal');
+        });
+
+        it('a win returns to the initial stake and a loss multiplies by 2, then trades again', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('rff_current');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('rff_stake');
+
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('rff_current');
+            const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'rff_current' &&
+                    b.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'rff_multiplier'
+            );
+            expect(scaled).toBeTruthy();
             expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
         });
     });
