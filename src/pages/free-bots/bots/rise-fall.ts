@@ -4,12 +4,11 @@
  * Trade Side is 0 Both, 1 Rise Equals only, or 2 Fall Equals only. The bot
  * fades the streak: consecutive up ticks buy Fall Equals, and consecutive
  * down ticks buy Rise Equals. A signal is N ticks in a row moving one way
- * (Consecutive Ticks, default 3). Trades per Signal (default 3) is the number
- * of losing trades that signal may take. A win is a recovery: the stake
- * returns to the initial amount and the trades left on that signal are set
- * to 0, even when 2 or 3 were configured. A loss multiplies the stake by the
- * Martingale Multiplier (default 2) and uses the next trade of the same
- * signal until the count is met. Duration 1 tick.
+ * (Consecutive Ticks, default 3). Trades per Signal (default 3) counts only
+ * losses: the next trade of that signal is armed after a loss, and only while
+ * the count is not met. A win is a recovery. The stake returns to the initial
+ * amount, the trades left on that signal are set to 0, and the bot waits
+ * until that streak breaks before it can enter again. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -27,6 +26,8 @@ const VARIABLES: [string, string][] = [
     ['rff_current', 'Current Stake'],
     ['rff_total', 'Total Profit'],
     ['rff_remaining', 'Trades Remaining'],
+    ['rff_taken', 'Trades Taken'],
+    ['rff_hold', 'Wait For New Streak'],
     ['rff_ticks', 'Ticks'],
     ['rff_i', 'i'],
     ['rff_older', 'Older Tick'],
@@ -45,6 +46,8 @@ const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEn
 const or = (a: string, b: string) =>
     `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
 
+const not = (a: string) => `<block type="logic_negate"><value name="BOOL">${a}</value></block>`;
+
 const modeIs = (mode: number) => compare('EQ', v('rff_mode'), num(mode));
 
 /** 0 trades both sides. 1 is Rise Equals only. 2 is Fall Equals only. */
@@ -56,34 +59,41 @@ const allMoves = (counter: string) =>
 const buy = (contract: 'CALLE' | 'PUTE') =>
     `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`;
 
-/** Remember the side, then buy once and queue further trades only if this one loses. */
+/** Remember the side and buy once. Further trades are armed only after a loss. */
 const arm = (direction: number, contract: 'CALLE' | 'PUTE', pattern: string) =>
     set(
         'rff_picked',
         num(direction),
         set(
-            'rff_remaining',
-            arith('MINUS', v('rff_trades_per_signal'), num(1)),
-            notify(
-                'success',
-                [
-                    text(pattern),
-                    v('rff_consecutive'),
-                    text('ticks | side'),
-                    v('rff_picked'),
-                    text('| stake'),
-                    v('rff_current'),
-                ],
-                buy(contract)
+            'rff_taken',
+            num(1),
+            set(
+                'rff_remaining',
+                num(0),
+                notify(
+                    'success',
+                    [
+                        text(pattern),
+                        v('rff_consecutive'),
+                        text('ticks | side'),
+                        v('rff_picked'),
+                        text('| stake'),
+                        v('rff_current'),
+                    ],
+                    buy(contract)
+                )
             )
         )
     );
 
-/** Later trades of the same signal keep the side that triggered it. */
+/** A loss already authorised one more trade of the same side. */
 const FOLLOW_UP = set(
-    'rff_remaining',
-    arith('MINUS', v('rff_remaining'), num(1)),
-    `<block type="controls_if">
+    'rff_taken',
+    arith('ADD', v('rff_taken'), num(1)),
+    set(
+        'rff_remaining',
+        num(0),
+        `<block type="controls_if">
         <mutation elseif="1"></mutation>
         <value name="IF0">${compare('EQ', v('rff_picked'), num(1))}</value>
         <statement name="DO0">${notify(
@@ -112,7 +122,8 @@ const FOLLOW_UP = set(
             buy('PUTE')
         )}</statement>
       </block>`
-);
+        )
+    );
 
 /** Count how many of the last N steps moved up and how many moved down. */
 const countMoves = (next: string) =>
@@ -133,18 +144,35 @@ const countMoves = (next: string) =>
         next
     );
 
-const ANALYSE = chain([
-    n => set('rff_ticks', `<block type="ticks"></block>`, n),
-    n => set('rff_up', num(0), n),
-    n => set('rff_down', num(0), n),
-    n => countMoves(n),
-    () => `<block type="controls_if">
+const SIGNAL = `<block type="controls_if">
         <mutation elseif="1"></mutation>
         <value name="IF0">${and(allMoves('rff_up'), sideAllowed(2))}</value>
         <statement name="DO0">${arm(2, 'PUTE', 'Ticks up → Fall Equals |')}</statement>
         <value name="IF1">${and(allMoves('rff_down'), sideAllowed(1))}</value>
         <statement name="DO1">${arm(1, 'CALLE', 'Ticks down → Rise Equals |')}</statement>
-      </block>`,
+      </block>`;
+
+/** After a win, ignore this streak until it is no longer all up or all down. */
+const streakStillThere = or(allMoves('rff_up'), allMoves('rff_down'));
+
+const AFTER_COUNT = `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('EQ', v('rff_hold'), num(1))}</value>
+        <statement name="DO0">
+          <block type="controls_if">
+            <value name="IF0">${not(streakStillThere)}</value>
+            <statement name="DO0">${set('rff_hold', num(0))}</statement>
+          </block>
+        </statement>
+        <statement name="ELSE">${SIGNAL}</statement>
+      </block>`;
+
+const ANALYSE = chain([
+    n => set('rff_ticks', `<block type="ticks"></block>`, n),
+    n => set('rff_up', num(0), n),
+    n => set('rff_down', num(0), n),
+    n => countMoves(n),
+    () => AFTER_COUNT,
 ]);
 
 const BEFORE_PURCHASE = `<block type="controls_if">
@@ -171,32 +199,50 @@ const ON_WIN = set(
     'rff_remaining',
     num(0),
     set(
-        'rff_current',
-        v('rff_stake'),
-        notify('success', [
-            text('WIN | side'),
-            v('rff_picked'),
-            text('| stake back to'),
-            v('rff_current'),
-            text('| signal trades left'),
-            v('rff_remaining'),
-            text('| P/L'),
-            v('rff_total'),
-        ])
+        'rff_taken',
+        num(0),
+        set(
+            'rff_hold',
+            num(1),
+            set(
+                'rff_current',
+                v('rff_stake'),
+                notify('success', [
+                    text('WIN | side'),
+                    v('rff_picked'),
+                    text('| stake back to'),
+                    v('rff_current'),
+                    text('| signal trades left'),
+                    v('rff_remaining'),
+                    text('| P/L'),
+                    v('rff_total'),
+                ])
+            )
+        )
     )
 );
+
+const LOSS_NOTE = notify('warn', [
+    text('LOSS | side'),
+    v('rff_picked'),
+    text('| next stake'),
+    v('rff_current'),
+    text('| same signal left'),
+    v('rff_remaining'),
+    text('| P/L'),
+    v('rff_total'),
+]);
 
 const ON_LOSS = set(
     'rff_current',
     round2(arith('MULTIPLY', v('rff_current'), v('rff_multiplier'))),
-    notify('warn', [
-        text('LOSS | side'),
-        v('rff_picked'),
-        text('| next stake'),
-        v('rff_current'),
-        text('| P/L'),
-        v('rff_total'),
-    ])
+    `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('LT', v('rff_taken'), v('rff_trades_per_signal'))}</value>
+        <statement name="DO0">${set('rff_remaining', num(1))}</statement>
+        <statement name="ELSE">${set('rff_remaining', num(0))}</statement>
+        <next>${LOSS_NOTE}</next>
+      </block>`
 );
 
 const AFTER_PURCHASE = chain([
@@ -224,7 +270,9 @@ const INIT = chain([
     n => set('rff_stop_loss', num(50), n),
     n => set('rff_current', v('rff_stake'), n),
     n => set('rff_total', num(0), n),
-    () => set('rff_remaining', num(0)),
+    n => set('rff_remaining', num(0), n),
+    n => set('rff_taken', num(0), n),
+    () => set('rff_hold', num(0)),
 ]);
 
 export const RISE_FALL_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">

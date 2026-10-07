@@ -181,6 +181,8 @@ describe('free bot catalog XML', () => {
             expect(setValue('rff_trades_per_signal')).toEqual(['3']);
             expect(setValue('rff_multiplier')).toEqual(['2']);
             expect(setValue('rff_remaining')).toEqual(['0']);
+            expect(setValue('rff_taken')).toEqual(['0']);
+            expect(setValue('rff_hold')).toEqual(['0']);
             expect(setValue('rff_take_profit')).toEqual(['10']);
             expect(setValue('rff_stop_loss')).toEqual(['50']);
         });
@@ -194,7 +196,13 @@ describe('free bot catalog XML', () => {
             const directions = [...(loop?.querySelectorAll(':scope > statement[name="DO"] block[type="logic_compare"]') || [])];
             expect(directions.map(c => c.querySelector(':scope > field[name="OP"]')?.textContent)).toEqual(['LT', 'GT']);
 
-            const signal = loop?.querySelector(':scope > next > block[type="controls_if"]');
+            const hold = loop?.querySelector(':scope > next > block[type="controls_if"]');
+            expect(hold?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'rff_hold'
+            );
+            expect(hold?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')).toBeNull();
+            expect(hold?.querySelector(':scope > statement[name="DO0"] block[type="logic_negate"]')).not.toBeNull();
+            const signal = hold?.querySelector(':scope > statement[name="ELSE"] > block[type="controls_if"]');
             const rising = signal?.querySelector(':scope > value[name="IF0"]');
             expect(rising?.querySelector('field[id="rff_up"]')).not.toBeNull();
             expect(
@@ -218,13 +226,17 @@ describe('free bot catalog XML', () => {
             );
         });
 
-        it('takes the remaining trades of the same side before analysing again', () => {
+        it('buys one trade on a signal, and a later trade of that signal only after a loss', () => {
             const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
             expect(gate?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
                 'rff_remaining'
             );
             const follow = gate?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(follow)).toBe('rff_remaining');
+            expect(varId(follow)).toBe('rff_taken');
+            expect(follow?.querySelector(':scope > value[name="VALUE"] field[name="OP"]')?.textContent).toBe('ADD');
+            const cleared = follow?.querySelector('block[type="variables_set"]');
+            expect(varId(cleared)).toBe('rff_remaining');
+            expect(cleared?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
             expect(follow?.querySelector('block[type="controls_for"]')).toBeNull();
             const same = follow?.querySelector('block[type="controls_if"]');
             expect(same?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
@@ -239,13 +251,12 @@ describe('free bot catalog XML', () => {
                 'PUTE'
             );
 
-            const queued = [...(gate?.querySelectorAll('statement[name="ELSE"] block[type="variables_set"]') || [])].find(
-                b => varId(b) === 'rff_remaining'
+            const opened = [...(gate?.querySelectorAll('statement[name="ELSE"] block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'rff_taken' && b.querySelector(':scope > value[name="VALUE"] field')?.textContent === '1'
             );
-            expect(queued?.querySelector(':scope > value[name="VALUE"] field[name="OP"]')?.textContent).toBe('MINUS');
-            expect(
-                queued?.querySelector(':scope > value[name="VALUE"] value[name="A"] field')?.getAttribute('id')
-            ).toBe('rff_trades_per_signal');
+            const idle = opened?.querySelector('block[type="variables_set"]');
+            expect(varId(idle)).toBe('rff_remaining');
+            expect(idle?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
         });
 
         it('a win clears the signal and returns to the initial stake, and a loss multiplies by 2', () => {
@@ -256,13 +267,29 @@ describe('free bot catalog XML', () => {
             const win = result?.querySelector(':scope > statement[name="DO0"] > block');
             expect(varId(win)).toBe('rff_remaining');
             expect(win?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
-            const stake = win?.querySelector('block[type="variables_set"]');
+            const taken = win?.querySelector(':scope > next > block[type="variables_set"]');
+            expect(varId(taken)).toBe('rff_taken');
+            expect(taken?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
+            const hold = taken?.querySelector(':scope > next > block[type="variables_set"]');
+            expect(varId(hold)).toBe('rff_hold');
+            expect(hold?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('1');
+            const stake = hold?.querySelector('block[type="variables_set"]');
             expect(varId(stake)).toBe('rff_current');
             expect(stake?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('rff_stake');
 
             const loss = result?.querySelector(':scope > statement[name="DO1"] > block');
             expect(varId(loss)).toBe('rff_current');
-            expect(loss?.querySelector('[id="rff_remaining"]')).toBeNull();
+            expect(loss?.querySelector('[id="rff_hold"]')).toBeNull();
+            const again = loss?.querySelector('block[type="controls_if"]');
+            expect(again?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'rff_taken'
+            );
+            expect(again?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.getAttribute('id')).toBe(
+                'rff_trades_per_signal'
+            );
+            expect(varId(again?.querySelector(':scope > statement[name="DO0"] > block'))).toBe('rff_remaining');
+            expect(again?.querySelector(':scope > statement[name="DO0"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(again?.querySelector(':scope > statement[name="ELSE"] field[name="NUM"]')?.textContent).toBe('0');
             expect(result?.querySelector(':scope > value[name="IF1"] field[id="rff_profit"]')).not.toBeNull();
             const scaled = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
                 b =>
