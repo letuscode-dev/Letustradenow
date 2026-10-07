@@ -141,6 +141,39 @@ describe('free bot catalog XML', () => {
                 'ovr_payout'
             );
             expect(recovery?.querySelector(':scope > value[name="B"] value[name="B"] field')?.textContent).toBe('100');
+            const recovery_set = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ovr_current' && b.querySelector(':scope > value block[type="math_round"]')
+            );
+            expect(recovery_set?.querySelector('block[type="math_round"] > field[name="OP"]')?.textContent).toBe(
+                'ROUNDUP'
+            );
+            const ratio = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'DIVIDE' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ovr_multiplier' &&
+                    b.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ovr_multiplier_base'
+            );
+            expect(ratio).toBeTruthy();
+            const payout_guard = [...(loss?.querySelectorAll('block[type="controls_if"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent === 'LTE' &&
+                    b.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id') ===
+                        'ovr_payout'
+            );
+            expect(
+                payout_guard?.querySelector(':scope > statement[name="DO0"] value[name="VALUE"] field')?.getAttribute(
+                    'id'
+                )
+            ).toBe('ovr_stake');
+            const floor = [...(loss?.querySelectorAll('block[type="controls_if"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent === 'LT' &&
+                    b.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id') ===
+                        'ovr_current'
+            );
+            expect(
+                floor?.querySelector(':scope > statement[name="DO0"] value[name="VALUE"] field')?.getAttribute('id')
+            ).toBe('ovr_stake');
             expect(after?.querySelector('block[type="trade_again"]')).not.toBeNull();
         });
     });

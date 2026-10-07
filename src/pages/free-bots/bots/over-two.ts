@@ -6,9 +6,10 @@
  * "Trades per Signal" contracts in a row (default 1) before analysing again. The run does not
  * end after that batch: it keeps analysing and trading until Take Profit, Stop Loss, or the
  * user stops the bot. After a loss the next stake is the accumulated loss divided by the
- * payout percent (default 40), so one win recovers the full amount lost. A win returns the
- * stake to the initial amount and clears that loss. Two losses in a row still add 0.05 to
- * the Martingale Multiplier (default 2.5); a win restores the multiplier. Duration 1 tick.
+ * payout percent (default 40), rounded up to the next cent, so one win covers the full
+ * amount lost. Two losses in a row add 0.05 to the Martingale Multiplier (default 2.5) and
+ * that higher multiplier scales the recovery stake; a win restores the multiplier, clears
+ * the loss, and returns the stake to the initial amount. Duration 1 tick.
  */
 
 import { blockHelpers } from './blocks';
@@ -44,10 +45,20 @@ const { v, num, text, set, chain, arith, round2, compare, and, increment, fromEn
 const abs = (x: string) =>
     `<block type="math_single"><field name="OP">ABS</field><value name="NUM">${x}</value></block>`;
 
-/** Stake whose 40% profit equals the amount lost since the last win. */
-const recoveryStake = round2(
-    arith('DIVIDE', v('ovr_lost'), arith('DIVIDE', v('ovr_payout'), num(100)))
-);
+/** ceil(x × 100) / 100 — a nearest-cent round can leave the win short of the loss. */
+const roundUp2 = (x: string) =>
+    arith(
+        'DIVIDE',
+        `<block type="math_round"><field name="OP">ROUNDUP</field><value name="NUM">${arith(
+            'MULTIPLY',
+            x,
+            num(100)
+        )}</value></block>`,
+        num(100)
+    );
+
+/** Amount lost ÷ (payout% / 100), before the live multiplier is applied. */
+const recoveryBase = roundUp2(arith('DIVIDE', v('ovr_lost'), arith('DIVIDE', v('ovr_payout'), num(100))));
 
 const INIT = chain([
     n => set('ovr_stake', num(1), n),
@@ -149,24 +160,50 @@ const ON_WIN = set(
     )
 );
 
+const lossNotify = notify('warn', [
+    text('LOSS | lost'),
+    v('ovr_lost'),
+    text('| payout'),
+    v('ovr_payout'),
+    text('% | multiplier'),
+    v('ovr_multiplier'),
+    text('| next stake'),
+    v('ovr_current'),
+    text('| streak'),
+    v('ovr_loss_streak'),
+    text('| P/L'),
+    v('ovr_total'),
+]);
+
 const applyLossStake = set(
     'ovr_lost',
     round2(arith('ADD', v('ovr_lost'), abs(v('ovr_profit')))),
     set(
         'ovr_current',
-        recoveryStake,
-        notify('warn', [
-            text('LOSS | lost'),
-            v('ovr_lost'),
-            text('| payout'),
-            v('ovr_payout'),
-            text('% | next stake'),
-            v('ovr_current'),
-            text('| streak'),
-            v('ovr_loss_streak'),
-            text('| P/L'),
-            v('ovr_total'),
-        ])
+        recoveryBase,
+        `<block type="controls_if">
+            <mutation elseif="1"></mutation>
+            <value name="IF0">${compare('LTE', v('ovr_payout'), num(0))}</value>
+            <statement name="DO0">${set('ovr_current', v('ovr_stake'))}</statement>
+            <value name="IF1">${compare('GT', v('ovr_multiplier_base'), num(0))}</value>
+            <statement name="DO1">${set(
+                'ovr_current',
+                roundUp2(
+                    arith(
+                        'MULTIPLY',
+                        v('ovr_current'),
+                        arith('DIVIDE', v('ovr_multiplier'), v('ovr_multiplier_base'))
+                    )
+                )
+            )}</statement>
+            <next>
+              <block type="controls_if">
+                <value name="IF0">${compare('LT', v('ovr_current'), v('ovr_stake'))}</value>
+                <statement name="DO0">${set('ovr_current', v('ovr_stake'))}</statement>
+                <next>${lossNotify}</next>
+              </block>
+            </next>
+          </block>`
     )
 );
 
