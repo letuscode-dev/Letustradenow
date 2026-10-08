@@ -265,6 +265,7 @@ import {
 } from '../utils/rise-fall-hedge-entry';
 import {
     onlyUpsDownsResultLines,
+    onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
@@ -1458,6 +1459,9 @@ const getBotInterface = tradeEngine => {
             onlyUpsDownsResultLines({ won: win, previous, next }).forEach(line => notifyHedge(line, klass));
             return win ? 1 : 0;
         },
+        /** 1 = take profit, -1 = too many losses in a row, 0 = keep trading. */
+        onlyUpsDownsLimit: (total, takeProfit, losses, maxLosses) =>
+            onlyUpsDownsLimitCode({ total, takeProfit, losses, maxLosses }),
         /** 1 when a both-sides loss is waiting to buy again without a new digit check. */
         digitHedgeSkipAnalysis: () => (tradeEngine.digitHedgeImmediate ? 1 : 0),
         /**

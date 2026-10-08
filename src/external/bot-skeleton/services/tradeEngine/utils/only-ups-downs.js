@@ -106,6 +106,22 @@ export const nextOnlyUpsDownsStake = ({ won, current, base }) => {
 };
 
 /**
+ * 1 = take profit, -1 = consecutive losses reached the stop, 0 = trade again.
+ * Take profit wins when both are true. A blank loss limit stops after 5 losses.
+ * A take profit of 0 does not stop on the first tick.
+ */
+export const onlyUpsDownsLimitCode = ({ total, takeProfit, losses, maxLosses }) => {
+    const profit = Number(total);
+    const target = Number(takeProfit);
+    const streak = Math.floor(Number(losses));
+    const requested = Math.floor(Number(maxLosses));
+    const stopAfter = Number.isFinite(requested) && requested >= 1 ? requested : 5;
+    if (Number.isFinite(target) && target > 0 && Number.isFinite(profit) && profit >= target) return 1;
+    if (Number.isFinite(streak) && streak >= stopAfter) return -1;
+    return 0;
+};
+
+/**
  * One decision per tick. A second look at the same tick does not journal again
  * and does not trade again after that tick already produced a trade.
  */

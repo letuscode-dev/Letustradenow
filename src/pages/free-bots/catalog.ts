@@ -48,7 +48,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'only-ups-downs-v1',
         title: 'Only Ups / Only Downs',
         description:
-            'Buys Only Ups when the last 4 digits are all below 5, and Only Downs when they are all above 4. A mix does not trade. A loss multiplies the stake by 1.5. A win returns to the base stake. Volatility 75 (1s), $1, 2 ticks.',
+            'Buys Only Ups when the last 4 digits are all below 5, and Only Downs when they are all above 4. A mix does not trade. A loss multiplies the stake by 1.5. Stops at take profit or after 5 losses in a row. Volatility 75 (1s), $1, 2 ticks.',
         tags: ['Only Ups/Downs', 'Volatility', 'Martingale'],
         xml: ONLY_UPS_DOWNS_XML,
     },

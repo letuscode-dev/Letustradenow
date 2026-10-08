@@ -492,6 +492,9 @@ describe('free bot catalog XML', () => {
             expect(setValue('oud_stake')).toEqual(['1']);
             expect(setValue('oud_duration')).toEqual(['2']);
             expect(setValue('oud_level')).toEqual(['0']);
+            expect(setValue('oud_take_profit')).toEqual(['10']);
+            expect(setValue('oud_max_losses')).toEqual(['5']);
+            expect(setValue('oud_total')).toEqual(['0']);
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('oud_current');
             expect(options?.querySelector('value[name="DURATION"] field')?.getAttribute('id')).toBe('oud_duration');
@@ -531,7 +534,17 @@ describe('free bot catalog XML', () => {
             expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
             expect(multiply?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('1.5');
             expect(loss?.querySelector('block[type="only_ups_downs_result"] field[name="NUM"]')?.textContent).toBe('0');
-            expect(decision?.querySelector(':scope > next > block[type="trade_again"]')).not.toBeNull();
+            const limits = decision?.querySelector(':scope > next > block[type="controls_if"]');
+            expect(limits?.querySelector(':scope > value[name="IF0"] block[type="only_ups_downs_limit"]')).not.toBeNull();
+            expect(
+                limits?.querySelector(':scope > value[name="IF0"] value[name="TAKE_PROFIT"] field')?.getAttribute('id')
+            ).toBe('oud_take_profit');
+            expect(
+                limits?.querySelector(':scope > value[name="IF0"] value[name="MAX_LOSSES"] field')?.getAttribute('id')
+            ).toBe('oud_max_losses');
+            expect(limits?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="DO1"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
             expect(decision?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
             expect(decision?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
         });

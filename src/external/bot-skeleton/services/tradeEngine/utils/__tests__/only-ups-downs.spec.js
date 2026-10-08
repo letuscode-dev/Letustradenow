@@ -4,6 +4,7 @@ import {
     nextOnlyUpsDownsStake,
     onlyUpsDownsAnalysisLines,
     onlyUpsDownsResultLines,
+    onlyUpsDownsLimitCode,
     ONLY_DOWNS,
     ONLY_NONE,
     ONLY_UPS,
@@ -131,5 +132,15 @@ describe('Only Ups / Only Downs four digits', () => {
         ]);
         expect(nextOnlyUpsDownsStake({ won: true, current: stake, base: 1 })).toBe(1);
         expect(onlyUpsDownsResultLines({ won: true, previous: 3.375, next: 1 })[1]).toBe('Result: WIN');
+    });
+
+    it('stops at take profit before a loss streak, and stops after 5 losses', () => {
+        expect(onlyUpsDownsLimitCode({ total: 10, takeProfit: 10, losses: 0, maxLosses: 5 })).toBe(1);
+        expect(onlyUpsDownsLimitCode({ total: '12.5', takeProfit: '10', losses: 5, maxLosses: 5 })).toBe(1);
+        expect(onlyUpsDownsLimitCode({ total: 9.99, takeProfit: 10, losses: 4, maxLosses: 5 })).toBe(0);
+        expect(onlyUpsDownsLimitCode({ total: 9.99, takeProfit: 10, losses: 5, maxLosses: 5 })).toBe(-1);
+        expect(onlyUpsDownsLimitCode({ total: 0, takeProfit: 10, losses: 0, maxLosses: 5 })).toBe(0);
+        expect(onlyUpsDownsLimitCode({ total: 0, takeProfit: 0, losses: 5, maxLosses: 0 })).toBe(-1);
+        expect(onlyUpsDownsLimitCode({ total: 3, takeProfit: 10, losses: 5, maxLosses: 'nope' })).toBe(-1);
     });
 });

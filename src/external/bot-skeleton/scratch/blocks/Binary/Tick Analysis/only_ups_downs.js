@@ -93,3 +93,50 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.only_ups_downs_result = b
     const next = value('NEXT') || '0';
     return `Bot.journalOnlyUpsDownsResult(${won}, ${previous}, ${next});\n`;
 };
+
+window.Blockly.Blocks.only_ups_downs_limit = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('Only Ups / Only Downs limit | profit %1 target %2 losses %3 stop after %4'),
+            args0: [
+                { type: 'input_value', name: 'TOTAL' },
+                { type: 'input_value', name: 'TAKE_PROFIT' },
+                { type: 'input_value', name: 'LOSSES' },
+                { type: 'input_value', name: 'MAX_LOSSES' },
+            ],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                '1 when profit has reached take profit. -1 when losses in a row have reached the stop (default 5). 0 when trading may continue. Take profit is checked first.'
+            ),
+            category: window.Blockly.Categories.After_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Only Ups / Only Downs limit'),
+            description: localize('Stop at take profit or after too many losses in a row.'),
+            key_words: localize('take profit, stop loss, consecutive'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.only_ups_downs_limit = block => {
+    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC;
+    const value = name => window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
+    const total = value('TOTAL') || '0';
+    const takeProfit = value('TAKE_PROFIT') || '0';
+    const losses = value('LOSSES') || '0';
+    const maxLosses = value('MAX_LOSSES') || '5';
+    return [
+        `Bot.onlyUpsDownsLimit(${total}, ${takeProfit}, ${losses}, ${maxLosses})`,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
+    ];
+};
