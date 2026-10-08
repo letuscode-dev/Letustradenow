@@ -419,14 +419,14 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Volatility 75 (1s), Over 5 and Under 4, range 3, immediate recovery on', () => {
+        it('Volatility 75 (1s), Over 5 and Under 4, range 1, immediate recovery on', () => {
             expect(field('SYMBOL_LIST')).toBe('1HZ75V');
             expect(field('TRADETYPE_LIST')).toBe('overunder');
             expect(field('TYPE_LIST')).toBe('DIGITOVER');
             expect(field('DURATIONTYPE_LIST')).toBe('t');
             expect(setValue('qgh_stake')).toEqual(['1']);
             expect(setValue('qgh_duration')).toEqual(['1']);
-            expect(setValue('qgh_range')).toEqual(['3']);
+            expect(setValue('qgh_range')).toEqual(['1']);
             expect(setValue('qgh_immediate')).toEqual(['1']);
             expect(setValue('qgh_multiplier')).toEqual(['2']);
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');

@@ -451,7 +451,7 @@ window.Blockly.Blocks.digit_hedge_quiet = {
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
             tooltip: localize(
-                '1 when the newest ticks contain no 4 and no 5. The default range is 3, and the latest digit is included. 0 otherwise.'
+                '1 when the newest ticks contain no 4 and no 5. The default range is 1, and the latest digit is included. 0 otherwise.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -474,6 +474,6 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_quiet = block
             block,
             'RANGE',
             window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
-        ) || '3';
+        ) || '1';
     return [`Bot.digitHedgeQuietSignal(${range})`, window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL];
 };

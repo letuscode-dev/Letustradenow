@@ -39,7 +39,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'quiet-gap-hedge-v1',
         title: 'Over 5 + Under 4 Quiet Gap',
         description:
-            'Buys Over 5 and Under 4 when the last ticks have no 4 or 5 (default 3). Option 1 recovers immediately after both sides lose. A double loss doubles the stake. Volatility 75 (1s), $1 each side, 1 tick.',
+            'Buys Over 5 and Under 4 when the last ticks have no 4 or 5 (default 1). Option 1 recovers immediately after both sides lose. A double loss doubles the stake. Volatility 75 (1s), $1 each side, 1 tick.',
         tags: ['Over/Under', 'Hedge', 'Volatility', 'Recovery x2'],
         xml: QUIET_GAP_HEDGE_XML,
     },

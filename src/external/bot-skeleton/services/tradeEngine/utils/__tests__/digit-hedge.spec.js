@@ -104,18 +104,22 @@ describe('Over 5 / Under 4 hedge entry', () => {
     });
 
     it('buys Over 5 and Under 4 only when the last ticks have no 4 or 5', () => {
-        expect(evaluateQuietGap([1, 2, 3]).trade).toBe(true);
+        expect(evaluateQuietGap([1, 2, 3])).toMatchObject({ trade: true, last: 3, window: 1 });
         expect(evaluateQuietGap([6, 7, 8, 9], 3)).toMatchObject({ trade: true, last: 9, gapCount: 0, window: 3 });
         expect(evaluateQuietGap([1, 2, 4]).trade).toBe(false);
-        expect(evaluateQuietGap([4, 1, 2]).trade).toBe(false);
-        expect(evaluateQuietGap([8, 4, 7]).trade).toBe(false);
+        expect(evaluateQuietGap([4, 1, 2], 3).trade).toBe(false);
+        expect(evaluateQuietGap([4, 1, 2])).toMatchObject({ trade: true, last: 2, window: 1 });
+        expect(evaluateQuietGap([8, 4, 7], 3).trade).toBe(false);
+        expect(evaluateQuietGap([8, 4, 7])).toMatchObject({ trade: true, last: 7, window: 1 });
+        expect(evaluateQuietGap([4, 7], 2).trade).toBe(false);
         expect(evaluateQuietGap([1, 2, 5]).trade).toBe(false);
         expect(evaluateQuietGap([1, 4, 2, 3], 3).trade).toBe(false);
         expect(evaluateQuietGap([4, 1], 1)).toMatchObject({ trade: true, last: 1, window: 1 });
         expect(evaluateQuietGap([1, 4], 1).trade).toBe(false);
         expect(evaluateQuietGap([7], 3)).toMatchObject({ trade: false, ready: false, have: 1, window: 3 });
+        expect(evaluateQuietGap([7])).toMatchObject({ trade: true, last: 7, ready: true, window: 1 });
         expect(evaluateQuietGap([1, 2, Number.NaN]).trade).toBe(false);
-        expect(evaluateQuietGap([8, 7, 6], 0).window).toBe(3);
+        expect(evaluateQuietGap([8, 7, 6], 0).window).toBe(1);
         expect(evaluateQuietGap([8, 7, 6]).trade).toBe(true);
     });
 });

@@ -2,7 +2,7 @@
  * Over 5 + Under 4 quiet-gap hedge (Volatility 75 (1s) Index).
  *
  * Buys Over 5 and Under 4 together when the newest ticks contain no 4 and no
- * 5. The range defaults to 3, and the latest digit is part of that range.
+ * 5. The range defaults to 1, and the latest digit is part of that range.
  * Immediate Loss Hedge is an option: 1 buys the next hedge as soon as both
  * sides lose, without another digit check. 0 waits for a clear range again.
  * A combined loss doubles the stake that was bought. One winning side returns
@@ -138,7 +138,7 @@ const INIT = chain([
     n => set('qgh_stake', num(1), n),
     n => set('qgh_multiplier', num(2), n),
     n => set('qgh_duration', num(1), n),
-    n => set('qgh_range', num(3), n),
+    n => set('qgh_range', num(1), n),
     n => set('qgh_immediate', num(1), n),
     n => set('qgh_take_profit', num(10), n),
     n => set('qgh_stop_loss', num(50), n),
