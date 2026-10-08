@@ -9,6 +9,7 @@ describe('free bot catalog XML', () => {
             'rise-fall-v1',
             'over-under-hedge-v1',
             'digit-hedge-filter-v1',
+            'quiet-gap-hedge-v1',
         ]);
     });
 
@@ -467,6 +468,69 @@ describe('free bot catalog XML', () => {
             expect(again?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('NEQ');
             expect(again?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).not.toBeNull();
             expect(again?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
+        });
+    });
+
+    describe('Over 5 + Under 4 Quiet Gap', () => {
+        const doc = parse(FREE_BOTS[4].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s), Over 5 and Under 4, range 3, immediate recovery on', () => {
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPE_LIST')).toBe('overunder');
+            expect(field('TYPE_LIST')).toBe('DIGITOVER');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(setValue('qgh_stake')).toEqual(['1']);
+            expect(setValue('qgh_duration')).toEqual(['1']);
+            expect(setValue('qgh_range')).toEqual(['3']);
+            expect(setValue('qgh_immediate')).toEqual(['1']);
+            expect(setValue('qgh_multiplier')).toEqual(['2']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('qgh_current');
+            expect(options?.querySelector('value[name="DURATION"] field')?.getAttribute('id')).toBe('qgh_duration');
+            expect(options?.querySelector('value[name="PREDICTION"] field[name="NUM"]')?.textContent).toBe('5');
+        });
+
+        it('buys only when the range is clear, and can recover without that check', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const signal = before?.querySelector('block[type="digit_hedge_quiet"]');
+            expect(signal?.querySelector(':scope > value[name="RANGE"] field')?.getAttribute('id')).toBe('qgh_range');
+            const purchases = before?.querySelectorAll('block[type="digit_hedge_purchase"]') || [];
+            expect(purchases).toHaveLength(2);
+            purchases.forEach(purchase => {
+                expect(purchase.querySelector(':scope > value[name="OVER"] field[name="NUM"]')?.textContent).toBe('5');
+                expect(purchase.querySelector(':scope > value[name="UNDER"] field[name="NUM"]')?.textContent).toBe('4');
+            });
+            const recovery = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_skip_analysis"]')
+            );
+            expect(recovery?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_purchase"]')).not.toBeNull();
+            expect(recovery?.querySelector(':scope > statement[name="ELSE"] block[type="digit_hedge_quiet"]')).not.toBeNull();
+            expect(recovery?.querySelector(':scope > statement[name="DO0"] block[type="digit_hedge_quiet"]')).toBeNull();
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const arm = after?.querySelector('block[type="digit_hedge_arm_recovery"]');
+            expect(arm?.querySelector(':scope > value[name="ENABLED"] field')?.getAttribute('id')).toBe('qgh_immediate');
+            const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_limit"]')
+            );
+            expect(limits?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="DO1"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+            const stake = [...(after?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                block => varId(block) === 'qgh_current'
+            );
+            expect(stake?.querySelector('block[type="digit_hedge_next_stake"]')).not.toBeNull();
+            expect(stake?.querySelector(':scope > next block[type="digit_hedge_continues"]')).not.toBeNull();
         });
     });
 });

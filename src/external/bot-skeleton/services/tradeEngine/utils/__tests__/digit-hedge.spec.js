@@ -27,6 +27,7 @@ import {
     armImmediateRecovery,
     deadDigitCount,
     deadDigitsDominate,
+    evaluateQuietGap,
     shouldHedgeLastDigits,
 } from '../digit-hedge';
 
@@ -100,6 +101,22 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(armImmediateRecovery({ decision: HEDGE_RESET, enabled: 1 })).toBe(false);
         expect(armImmediateRecovery({ decision: HEDGE_STOP, enabled: 1 })).toBe(false);
         expect(armImmediateRecovery({ decision: HEDGE_RECOVER, enabled: '1' })).toBe(true);
+    });
+
+    it('buys Over 5 and Under 4 only when the last ticks have no 4 or 5', () => {
+        expect(evaluateQuietGap([1, 2, 3]).trade).toBe(true);
+        expect(evaluateQuietGap([6, 7, 8, 9], 3)).toMatchObject({ trade: true, last: 9, gapCount: 0, window: 3 });
+        expect(evaluateQuietGap([1, 2, 4]).trade).toBe(false);
+        expect(evaluateQuietGap([4, 1, 2]).trade).toBe(false);
+        expect(evaluateQuietGap([8, 4, 7]).trade).toBe(false);
+        expect(evaluateQuietGap([1, 2, 5]).trade).toBe(false);
+        expect(evaluateQuietGap([1, 4, 2, 3], 3).trade).toBe(false);
+        expect(evaluateQuietGap([4, 1], 1)).toMatchObject({ trade: true, last: 1, window: 1 });
+        expect(evaluateQuietGap([1, 4], 1).trade).toBe(false);
+        expect(evaluateQuietGap([7], 3)).toMatchObject({ trade: false, ready: false, have: 1, window: 3 });
+        expect(evaluateQuietGap([1, 2, Number.NaN]).trade).toBe(false);
+        expect(evaluateQuietGap([8, 7, 6], 0).window).toBe(3);
+        expect(evaluateQuietGap([8, 7, 6]).trade).toBe(true);
     });
 });
 

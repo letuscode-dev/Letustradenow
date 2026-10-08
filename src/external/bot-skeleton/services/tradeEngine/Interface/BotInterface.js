@@ -32,6 +32,7 @@ import {
     armImmediateRecovery,
     deadDigitCount,
     deadDigitsDominate,
+    evaluateQuietGap,
     hedgeDecision,
     hedgeLimitCode,
     hedgeMayContinue,
@@ -1444,6 +1445,30 @@ const getBotInterface = tradeEngine => {
         },
         /** Count stored by the last signal check. */
         digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,
+        /** 1 when the newest ticks contain no 4 or 5. Default range is 3. */
+        digitHedgeQuietSignal: range => {
+            const size = Math.floor(Number(range));
+            const window = Number.isFinite(size) && size >= 1 ? Math.min(size, 500) : 3;
+            let digits = [];
+            try {
+                digits = tradeEngine.getAvailableLastDigitList?.(window) || [];
+            } catch {
+                digits = [];
+            }
+            const report = evaluateQuietGap(digits, window);
+            const detail = report.ready
+                ? `last digit ${report.last} | 4 or 5 x ${report.gapCount}`
+                : `have ${Math.min(report.have, report.window)} of ${report.window}`;
+            notifyHedge(
+                `Quiet gap | last ${report.window} | ${detail} | ${report.trade ? 'PASS' : 'NO TRADE'}`,
+                report.trade ? 'journal__text--success' : 'journal__text'
+            );
+            if (report.trade) {
+                tradeEngine.digitHedgeOverBarrier = 5;
+                tradeEngine.digitHedgeUnderBarrier = 4;
+            }
+            return report.trade ? 1 : 0;
+        },
         /** 1 when a both-sides loss is waiting to buy again without a new digit check. */
         digitHedgeSkipAnalysis: () => (tradeEngine.digitHedgeImmediate ? 1 : 0),
         /**

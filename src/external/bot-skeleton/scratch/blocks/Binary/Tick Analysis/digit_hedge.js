@@ -495,3 +495,42 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_filter = bloc
         window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
     ];
 };
+
+window.Blockly.Blocks.digit_hedge_quiet = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize('last %1 ticks have no 4 or 5'),
+            args0: [{ type: 'input_value', name: 'RANGE' }],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                '1 when the newest ticks contain no 4 and no 5. The default range is 3, and the latest digit is included. 0 otherwise.'
+            ),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('No 4 or 5 in the last ticks'),
+            description: localize('Over 5 and Under 4 entry when 4 and 5 are absent.'),
+            key_words: localize('hedge, over, under, quiet'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_quiet = block => {
+    const range =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'RANGE',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC
+        ) || '3';
+    return [`Bot.digitHedgeQuietSignal(${range})`, window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL];
+};

@@ -81,6 +81,31 @@ export const deadDigitCount = (digits, window = 5, over = OVER_BARRIER, under = 
 export const armImmediateRecovery = ({ decision, enabled }) =>
     decision === HEDGE_RECOVER && Number(enabled) > 0;
 
+/**
+ * 1 when the newest `range` ticks (default 3) contain no 4 and no 5.
+ * The newest tick is inside that range, so the last digit is not 4 or 5 either.
+ * A short list or a missing digit does not trade.
+ */
+export const evaluateQuietGap = (digits, range = 3) => {
+    const size = Math.floor(Number(range));
+    const window = Number.isFinite(size) && size >= 1 ? Math.min(size, 500) : 3;
+    const raw = (Array.isArray(digits) ? digits : []).map(digit => Number(digit));
+    const sample = raw.slice(-window);
+    const isDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
+    const ready = raw.length >= window && sample.length === window && sample.every(isDigit);
+    const last = ready ? sample[sample.length - 1] : null;
+    const gapCount = ready ? sample.filter(digit => digit === 4 || digit === 5).length : null;
+    const lastClear = last !== 4 && last !== 5;
+    return {
+        trade: ready && lastClear && gapCount === 0,
+        window,
+        last,
+        gapCount,
+        ready,
+        have: raw.length,
+    };
+};
+
 export const isSettledContract = poc =>
     Boolean(poc && (poc.is_sold || poc.status === 'won' || poc.status === 'lost' || poc.status === 'sold'));
 

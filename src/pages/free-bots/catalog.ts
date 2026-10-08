@@ -1,6 +1,7 @@
 import { DIGIT_HEDGE_FILTER_XML } from './bots/digit-hedge-filter';
 import { OVER_TWO_XML } from './bots/over-two';
 import { OVER_UNDER_HEDGE_XML } from './bots/over-under-hedge';
+import { QUIET_GAP_HEDGE_XML } from './bots/quiet-gap-hedge';
 import { RISE_FALL_XML } from './bots/rise-fall';
 import type { FreeBot } from './types';
 
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Over 5 and Under 4 together when 4 and 5 stay quiet on the last 100 ticks, 0–3 and 6–9 are each at least 40%, the recent gap is not rising, and no repeated pattern points at 4 or 5. Volatility 75 (1s), $1 each side, 1 tick.',
         tags: ['Over/Under', 'Hedge', 'Volatility', 'Digit filter'],
         xml: DIGIT_HEDGE_FILTER_XML,
+    },
+    {
+        id: 'quiet-gap-hedge-v1',
+        title: 'Over 5 + Under 4 Quiet Gap',
+        description:
+            'Buys Over 5 and Under 4 when the last ticks have no 4 or 5 (default 3). Option 1 recovers immediately after both sides lose. A double loss doubles the stake. Volatility 75 (1s), $1 each side, 1 tick.',
+        tags: ['Over/Under', 'Hedge', 'Volatility', 'Recovery x2'],
+        xml: QUIET_GAP_HEDGE_XML,
     },
 ];
