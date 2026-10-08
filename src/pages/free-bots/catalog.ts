@@ -1,3 +1,4 @@
+import { JUMP_DIFFERS_XML } from './bots/jump-differs';
 import { ONLY_UPS_DOWNS_XML } from './bots/only-ups-downs';
 import { OVER_TWO_XML } from './bots/over-two';
 import { OVER_UNDER_HEDGE_XML } from './bots/over-under-hedge';
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Only Ups when the last 4 digits are all below 5, and Only Downs when they are all above 4. A mix does not trade. A loss multiplies the stake by 1.5. Stops at take profit or after 5 losses in a row. Volatility 75 (1s), $1, 2 ticks.',
         tags: ['Only Ups/Downs', 'Volatility', 'Martingale'],
         xml: ONLY_UPS_DOWNS_XML,
+    },
+    {
+        id: 'jump-differs-v1',
+        title: 'Jump 10 Differs',
+        description:
+            'Buys Differs on Jump 10. The digit is the last digit plus 1, or minus 1 when the last digit is 8 or 9. A win returns to the stake. A loss sets the stake times 10.5. $2, 1 tick.',
+        tags: ['Differs', 'Jump 10', 'Martingale'],
+        xml: JUMP_DIFFERS_XML,
     },
 ];
