@@ -9,6 +9,7 @@ describe('free bot catalog XML', () => {
             'rise-fall-v1',
             'over-under-hedge-v1',
             'quiet-gap-hedge-v1',
+            'only-ups-downs-v1',
         ]);
     });
 
@@ -465,6 +466,74 @@ describe('free bot catalog XML', () => {
             );
             expect(stake?.querySelector('block[type="digit_hedge_next_stake"]')).not.toBeNull();
             expect(stake?.querySelector(':scope > next block[type="digit_hedge_continues"]')).not.toBeNull();
+        });
+    });
+
+    describe('Only Ups / Only Downs', () => {
+        const doc = parse(FREE_BOTS[4].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s) Only Ups and Only Downs, base stake 1, 2 ticks', () => {
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPECAT_LIST')).toBe('runs');
+            expect(field('TRADETYPE_LIST')).toBe('runs');
+            expect(field('TYPE_LIST')).toBe('both');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(setValue('oud_stake')).toEqual(['1']);
+            expect(setValue('oud_duration')).toEqual(['2']);
+            expect(setValue('oud_level')).toEqual(['0']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector('value[name="AMOUNT"] field')?.getAttribute('id')).toBe('oud_current');
+            expect(options?.querySelector('value[name="DURATION"] field')?.getAttribute('id')).toBe('oud_duration');
+        });
+
+        it('buys one direction from one four-digit check, and multiplies a loss by 1.5', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const read = before?.querySelector(':scope statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(varId(read)).toBe('oud_signal');
+            const signal = read?.querySelector(':scope > value[name="VALUE"] block[type="only_ups_downs_signal"]');
+            expect(signal?.querySelector(':scope > value[name="STAKE"] field')?.getAttribute('id')).toBe('oud_current');
+            expect(signal?.querySelector(':scope > value[name="LEVEL"] field')?.getAttribute('id')).toBe('oud_level');
+            const gate = read?.querySelector(':scope > next > block[type="controls_if"]');
+            expect(gate?.querySelector(':scope > value[name="IF0"] block[type="only_ups_downs_signal"]')).toBeNull();
+            expect(gate?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'RUNHIGH'
+            );
+            expect(gate?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                'RUNLOW'
+            );
+            expect(gate?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).not.toBe(
+                'RUNLOW'
+            );
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const decision = after?.querySelector('block[type="controls_if"]');
+            expect(decision?.querySelector(':scope > value[name="IF0"] field[name="CHECK_RESULT"]')?.textContent).toBe(
+                'win'
+            );
+            const win = decision?.querySelector(':scope > statement[name="DO0"]');
+            expect(win?.querySelector('block[type="variables_set"] field[name="VAR"]')?.getAttribute('id')).toBe(
+                'oud_current'
+            );
+            expect(win?.querySelector('value[name="VALUE"] field[name="VAR"]')?.getAttribute('id')).toBe('oud_stake');
+            expect(win?.querySelector('block[type="only_ups_downs_result"] field[name="NUM"]')?.textContent).toBe('1');
+            const loss = decision?.querySelector(':scope > statement[name="ELSE"]');
+            const multiply = loss?.querySelector('block[type="math_arithmetic"]');
+            expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
+            expect(multiply?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('1.5');
+            expect(loss?.querySelector('block[type="only_ups_downs_result"] field[name="NUM"]')?.textContent).toBe('0');
+            expect(decision?.querySelector(':scope > next > block[type="trade_again"]')).not.toBeNull();
+            expect(decision?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
+            expect(decision?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
         });
     });
 });

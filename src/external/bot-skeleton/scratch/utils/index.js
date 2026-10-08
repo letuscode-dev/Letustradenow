@@ -254,6 +254,10 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/digit_hedge'));
     }
 
+    if (block_string.includes('only_ups_downs')) {
+        imports.push(import('../blocks/Binary/Tick Analysis/only_ups_downs'));
+    }
+
     if (block_string.includes('last_tick_digit_')) {
         imports.push(import('../blocks/Binary/Tick Analysis/last_tick_price_digit_differ'));
     }

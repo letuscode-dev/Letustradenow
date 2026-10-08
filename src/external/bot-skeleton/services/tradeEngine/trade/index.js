@@ -46,6 +46,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.digitHedgeImmediateUsed = false;
         this.digitHedgeOverBarrier = 5;
         this.digitHedgeUnderBarrier = 4;
+        this.onlyUpsDownsTip = '';
+        this.onlyUpsDownsTradedTip = '';
         this.startPromise = this.loginAndGetBalance(token);
 
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);

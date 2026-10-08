@@ -1,3 +1,4 @@
+import { ONLY_UPS_DOWNS_XML } from './bots/only-ups-downs';
 import { OVER_TWO_XML } from './bots/over-two';
 import { OVER_UNDER_HEDGE_XML } from './bots/over-under-hedge';
 import { QUIET_GAP_HEDGE_XML } from './bots/quiet-gap-hedge';
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Over 5 and Under 4 when the last ticks have no 4 or 5 (default 1). Option 1 recovers immediately after both sides lose. A double loss doubles the stake. Volatility 75 (1s), $1 each side, 1 tick.',
         tags: ['Over/Under', 'Hedge', 'Volatility', 'Recovery x2'],
         xml: QUIET_GAP_HEDGE_XML,
+    },
+    {
+        id: 'only-ups-downs-v1',
+        title: 'Only Ups / Only Downs',
+        description:
+            'Buys Only Ups when the last 4 digits are all below 5, and Only Downs when they are all above 4. A mix does not trade. A loss multiplies the stake by 1.5. A win returns to the base stake. Volatility 75 (1s), $1, 2 ticks.',
+        tags: ['Only Ups/Downs', 'Volatility', 'Martingale'],
+        xml: ONLY_UPS_DOWNS_XML,
     },
 ];

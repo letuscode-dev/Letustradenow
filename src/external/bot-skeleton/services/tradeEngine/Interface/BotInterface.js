@@ -263,6 +263,10 @@ import {
     saveEntryLog,
     strategyBreakdownLines,
 } from '../utils/rise-fall-hedge-entry';
+import {
+    onlyUpsDownsResultLines,
+    resolveOnlyUpsDownsCall,
+} from '../utils/only-ups-downs';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -1417,6 +1421,42 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.digitHedgeUnderBarrier = 4;
             }
             return report.trade ? 1 : 0;
+        },
+        /**
+         * 1 = Only Ups, -1 = Only Downs, 0 = no trade.
+         * Journals the four-digit check once per tick. The same tick cannot trade twice.
+         */
+        analyzeOnlyUpsDowns: (stake, level) => {
+            let digits = [];
+            try {
+                digits = tradeEngine.getAvailableLastDigitList?.(4) || [];
+            } catch {
+                digits = [];
+            }
+            const rawTip = String(tradeEngine.getLatestTickTipKey?.() || '');
+            const epoch = /^\d+$/.test(rawTip) ? rawTip : '';
+            const result = resolveOnlyUpsDownsCall({
+                digits,
+                epoch,
+                seenEpoch: tradeEngine.onlyUpsDownsTip || '',
+                tradedEpoch: tradeEngine.onlyUpsDownsTradedTip || '',
+                stake,
+                level,
+            });
+            tradeEngine.onlyUpsDownsTip = result.seenEpoch;
+            tradeEngine.onlyUpsDownsTradedTip = result.tradedEpoch;
+            if (!result.repeat) {
+                const klass = result.code ? 'journal__text--success' : 'journal__text';
+                result.lines.forEach(line => notifyHedge(line, klass));
+            }
+            return result.code;
+        },
+        /** Writes the win or loss and the stake change. The multiplier is 1.5. */
+        journalOnlyUpsDownsResult: (won, previous, next) => {
+            const win = Number(won) > 0;
+            const klass = win ? 'journal__text--success' : 'journal__text--error';
+            onlyUpsDownsResultLines({ won: win, previous, next }).forEach(line => notifyHedge(line, klass));
+            return win ? 1 : 0;
         },
         /** 1 when a both-sides loss is waiting to buy again without a new digit check. */
         digitHedgeSkipAnalysis: () => (tradeEngine.digitHedgeImmediate ? 1 : 0),
