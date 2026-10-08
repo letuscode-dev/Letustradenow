@@ -152,10 +152,8 @@ export const planDigitHedgeBuys = ({ over_quoted, under_quoted, over_contract_id
 /** True when the account can pay for both legs. An unknown balance does not block. */
 export const canAffordBothLegs = (balance, over_price, under_price) => {
     const need = Number(over_price) + Number(under_price);
-    if (!Number.isFinite(need) || need <= 0) return false;
-    if (balance == null || balance === '') return true;
     const cash = Number(balance);
-    if (!Number.isFinite(cash)) return true;
+    if (!Number.isFinite(need) || need <= 0 || !Number.isFinite(cash)) return false;
     return cash + 1e-8 >= need;
 };
 

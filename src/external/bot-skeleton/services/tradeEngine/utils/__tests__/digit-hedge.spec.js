@@ -265,7 +265,8 @@ describe('Over 5 / Under 4 hedge is both sides or neither', () => {
     it('sends nothing when the balance cannot pay for both legs', () => {
         expect(canAffordBothLegs(1.5, 1, 1)).toBe(false);
         expect(canAffordBothLegs(2, 1, 1)).toBe(true);
-        expect(canAffordBothLegs(undefined, 1, 1)).toBe(true);
+        expect(canAffordBothLegs(undefined, 1, 1)).toBe(false);
+        expect(canAffordBothLegs('', 1, 1)).toBe(false);
     });
 });
 

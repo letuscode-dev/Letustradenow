@@ -46,10 +46,17 @@ export const normalizeDigitHedgeFilter = (options = {}) => ({
     alreadyEntered: Boolean(options.alreadyEntered),
 });
 
-const validDigits = digits =>
-    (Array.isArray(digits) ? digits : [])
-        .map(digit => Number(digit))
-        .filter(digit => Number.isInteger(digit) && digit >= 0 && digit <= 9);
+const isDigit = digit => Number.isInteger(digit) && digit >= 0 && digit <= 9;
+
+/** Newest ticks first, stopping at the first quote that is not a digit. */
+const trailingDigits = raw => {
+    const digits = [];
+    for (let index = raw.length - 1; index >= 0; index -= 1) {
+        if (!isDigit(raw[index])) break;
+        digits.push(raw[index]);
+    }
+    return digits.reverse();
+};
 
 const share = (count, total) => (total > 0 ? (count / total) * 100 : 0);
 
@@ -77,17 +84,22 @@ const followerCounts = (sample, length) => {
 };
 
 const patternResult = (sample, threshold) => {
-    const { sequence, counts } = followerCounts(sample, PATTERN_LENGTH);
+    const { sequence, counts, total } = followerCounts(sample, PATTERN_LENGTH);
     const four = counts[4];
     const five = counts[5];
     const bestOther = counts.reduce(
         (best, count, digit) => (digit === 4 || digit === 5 ? best : Math.max(best, count)),
         0
     );
-    const strong4 = four >= threshold && four > five && four > bestOther;
-    const strong5 = five >= threshold && five > four && five > bestOther;
-    const both = four >= threshold && five >= threshold && four === five && four > bestOther;
-    if (both) {
+    const gapCount = four + five;
+    const otherCount = total - gapCount;
+    // A tie still leaves 4 or 5 as a most-likely next digit. Split 4s and 5s
+    // are one threat: both digits lose the hedge.
+    const both = four >= threshold && five >= threshold && four === five && four >= bestOther;
+    const strong4 = four >= threshold && four > five && four >= bestOther;
+    const strong5 = five >= threshold && five > four && five >= bestOther;
+    const gapMajority = gapCount >= threshold && gapCount > otherCount;
+    if (both || (!strong4 && !strong5 && gapMajority)) {
         return {
             pass: false,
             digit: null,
@@ -135,28 +147,34 @@ const mark = ok => (ok ? 'PASS' : 'FAIL');
  */
 export const evaluateDigitHedgeFilter = (digits, options = {}) => {
     const settings = normalizeDigitHedgeFilter(options);
-    const clean = validDigits(digits);
-    const sample = clean.slice(-settings.window);
-    const total = sample.length;
-    const windowComplete = clean.length >= settings.window && total === settings.window;
+    const raw = (Array.isArray(digits) ? digits : []).map(digit => Number(digit));
+    const sample = raw.slice(-settings.window);
+    const windowComplete = raw.length >= settings.window && sample.length === settings.window && sample.every(isDigit);
     const counts = Array(10).fill(0);
     sample.forEach(digit => {
-        counts[digit] += 1;
+        if (isDigit(digit)) counts[digit] += 1;
     });
+    const total = windowComplete ? sample.length : counts.reduce((sum, count) => sum + count, 0);
     const digitPct = counts.map(count => roundPct(share(count, total)));
     const low = roundPct(share(counts[0] + counts[1] + counts[2] + counts[3], total));
     const gap = roundPct(share(counts[4] + counts[5], total));
     const high = roundPct(share(counts[6] + counts[7] + counts[8] + counts[9], total));
 
-    const latest = clean.slice(-settings.recent);
-    const previous = clean.slice(-2 * settings.recent, -settings.recent);
-    const recentReady = latest.length === settings.recent && previous.length === settings.recent;
+    const latest = raw.slice(-settings.recent);
+    const previous = raw.slice(-2 * settings.recent, -settings.recent);
+    const recentReady =
+        latest.length === settings.recent &&
+        previous.length === settings.recent &&
+        latest.every(isDigit) &&
+        previous.every(isDigit);
     const recentGap = recentReady ? gapShare(latest) : null;
     const previousGap = recentReady ? gapShare(previous) : null;
+    const recentGaps = recentReady ? latest.filter(digit => digit === 4 || digit === 5).length : null;
+    const previousGaps = recentReady ? previous.filter(digit => digit === 4 || digit === 5).length : null;
     let trend = 'INCOMPLETE';
     if (recentReady) {
-        if (recentGap > previousGap) trend = 'INCREASING';
-        else if (recentGap < previousGap) trend = 'DECREASING';
+        if (recentGaps > previousGaps) trend = 'INCREASING';
+        else if (recentGaps < previousGaps) trend = 'DECREASING';
         else trend = 'STABLE';
     }
     const gapIncreasing = trend === 'INCREASING';
@@ -167,7 +185,7 @@ export const evaluateDigitHedgeFilter = (digits, options = {}) => {
           ? 'RECENT GAP TREND: DECREASING/STABLE - PASS'
           : 'RECENT GAP TREND: NOT ENOUGH TICKS - NO TRADE';
 
-    const pattern = patternResult(sample, settings.patternThreshold);
+    const pattern = patternResult(trailingDigits(raw), settings.patternThreshold);
     const patternLine = windowComplete
         ? pattern.line
         : 'PATTERN CHECK: waiting for the full analysis window - NO TRADE';
@@ -190,7 +208,7 @@ export const evaluateDigitHedgeFilter = (digits, options = {}) => {
         'Analysis Window:',
         `${settings.window} ticks`,
         'Completed ticks:',
-        `${Math.min(clean.length, settings.window)} / ${settings.window}`,
+        `${windowComplete ? settings.window : total} / ${settings.window}`,
         'Window complete:',
         mark(windowComplete),
         'Digit frequencies:',

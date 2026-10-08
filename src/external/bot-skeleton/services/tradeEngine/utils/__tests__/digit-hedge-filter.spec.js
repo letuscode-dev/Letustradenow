@@ -156,6 +156,53 @@ describe('selective Over 5 + Under 4 hedge', () => {
         has(report, 'PATTERN CHECK: No strong 4/5 pattern detected - PASS');
     });
 
+    it('does not enter when 4 merely ties another digit, or when 4 and 5 split the follows', () => {
+        const tied = quietDigits();
+        [1, 2, 3, 4, 1, 2, 3, 6, 1, 2, 3, 4, 1, 2, 3, 6, 1, 2, 3, 4, 1, 2, 3, 6].forEach((digit, index) => {
+            tied[index] = digit;
+        });
+        tied[97] = 1;
+        tied[98] = 2;
+        tied[99] = 3;
+        const tieReport = evaluateDigitHedgeFilter(tied);
+        expect(tieReport.trade).toBe(false);
+        has(tieReport, 'PATTERN WARNING: Repeated sequence indicates elevated probability of digit 4 - NO TRADE');
+
+        const split = quietDigits();
+        [1, 2, 3, 4, 1, 2, 3, 5, 1, 2, 3, 4, 1, 2, 3, 5].forEach((digit, index) => {
+            split[index] = digit;
+        });
+        split[97] = 1;
+        split[98] = 2;
+        split[99] = 3;
+        const splitReport = evaluateDigitHedgeFilter(split);
+        expect(splitReport.trade).toBe(false);
+        has(splitReport, 'PATTERN WARNING: Repeated sequence indicates elevated probability of digit 4 or 5 - NO TRADE');
+    });
+
+    it('does not enter when an older run of the same sequence kept leading into 4', () => {
+        const recent = quietDigits();
+        recent[97] = 1;
+        recent[98] = 2;
+        recent[99] = 3;
+        const older = Array(100).fill(7);
+        [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4].forEach((digit, index) => {
+            older[index] = digit;
+        });
+        const report = evaluateDigitHedgeFilter(older.concat(recent));
+        expect(report.windowComplete).toBe(true);
+        expect(report.patternDigit).toBe(4);
+        expect(report.trade).toBe(false);
+    });
+
+    it('does not enter when a tick inside the window has no digit', () => {
+        const digits = [7].concat(quietDigits());
+        digits[50] = Number.NaN;
+        const report = evaluateDigitHedgeFilter(digits);
+        expect(report.windowComplete).toBe(false);
+        expect(report.trade).toBe(false);
+    });
+
     it('does not enter before the analysis window is complete or on a tick that already traded', () => {
         const short = evaluateDigitHedgeFilter(quietDigits().slice(-30));
         expect(short.windowComplete).toBe(false);

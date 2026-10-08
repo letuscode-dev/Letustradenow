@@ -1247,6 +1247,7 @@ const getBotInterface = tradeEngine => {
                 return net;
             };
             if (!hedge) {
+                tradeEngine.digitHedgeLive = false;
                 return finish(HEDGE_STOP, 0, 'No Over/Under hedge is open — stopped.', 'journal__text--error');
             }
 
@@ -1275,6 +1276,7 @@ const getBotInterface = tradeEngine => {
 
             const legs = { over: over_poc, under: under_poc, under_bought: Boolean(hedge.under_bought) };
             if (isSettledContract(over_poc) && isSettledContract(under_poc) && hedgeTicksDiffer(over_poc, under_poc)) {
+                tradeEngine.digitHedgeLive = false;
                 const broken = hedgeNet(legs);
                 return finish(
                     HEDGE_STOP,
@@ -1286,6 +1288,9 @@ const getBotInterface = tradeEngine => {
             const decision = hedgeDecision(legs);
             const net = hedgeNet(legs);
             if (decision === HEDGE_STOP || net === null) {
+                if (isSettledContract(over_poc) && isSettledContract(under_poc)) {
+                    tradeEngine.digitHedgeLive = false;
+                }
                 return finish(
                     HEDGE_STOP,
                     0,
@@ -1298,6 +1303,7 @@ const getBotInterface = tradeEngine => {
             const under_profit = legProfit(under_poc);
             const label = decision === HEDGE_STOP ? 'STOP' : over_profit < 0 && under_profit < 0 ? 'BOTH LOST' : 'HEDGE';
             const className = net < 0 ? 'journal__text--error' : 'journal__text--success';
+            tradeEngine.digitHedgeLive = false;
             return finish(
                 decision,
                 net,
