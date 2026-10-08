@@ -414,7 +414,12 @@ export default Engine =>
         }
 
         getPipSize() {
-            return this.$scope.ticksService.pipSizes?.[this.symbol] ?? 0;
+            const symbol = this.symbol;
+            const live = Number(api_base.pip_sizes?.[symbol]);
+            if (Number.isInteger(live) && live >= 0) return live;
+            const cached = Number(this.$scope?.ticksService?.pipSizes?.[symbol]);
+            if (Number.isInteger(cached) && cached >= 0) return cached;
+            return 0;
         }
 
         async requestAccumulatorStats() {

@@ -562,7 +562,9 @@ export default Engine =>
             };
             const message = error => error?.error?.message || error?.message || 'Purchase failed.';
             const release = note => {
-                this.digitHedge = null;
+                // An open pair must stay recorded. Clearing it while the lock is on
+                // makes every later hedge look unfinished and never send.
+                if (!this.digitHedgeLive) this.digitHedge = null;
                 this.resetPurchaseAttempt();
                 if (note) notify('journal__text--warn', note);
             };
@@ -684,7 +686,13 @@ export default Engine =>
 
             return previousHedgeSettled().then(async settled => {
                 if (!settled) {
-                    release('Hedge was not sent. The previous Over 5 and Under 4 contracts are still open.');
+                    // Keep the open contract ids. Clearing them leaves the lock on
+                    // with nothing to check, and every later hedge is refused.
+                    this.resetPurchaseAttempt();
+                    notify(
+                        'journal__text--warn',
+                        'Hedge was not sent. The previous Over 5 and Under 4 contracts are still open.'
+                    );
                     return undefined;
                 }
                 this.digitHedgeLive = true;

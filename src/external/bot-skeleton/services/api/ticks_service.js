@@ -112,17 +112,15 @@ export default class TicksService {
     }
 
     requestPipSizes() {
-        if (this.pipSizes) {
+        const live = api_base.pip_sizes;
+        if (live && Object.keys(live).length > 0) {
+            this.pipSizes = live;
             return Promise.resolve(this.pipSizes);
         }
-
-        if (!this.active_symbols_promise) {
-            this.active_symbols_promise = new Promise(resolve => {
-                this.pipSizes = api_base.pip_sizes;
-                resolve(this.pipSizes);
-            });
+        if (this.pipSizes && Object.keys(this.pipSizes).length > 0) {
+            return Promise.resolve(this.pipSizes);
         }
-        return this.active_symbols_promise;
+        return Promise.resolve(live || {});
     }
 
     async request(options) {

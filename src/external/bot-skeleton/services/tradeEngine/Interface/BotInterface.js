@@ -33,6 +33,7 @@ import {
     deadDigitCount,
     deadDigitsDominate,
     evaluateQuietGap,
+    quietGapPipReady,
     quietGapWindow,
     hedgeDecision,
     hedgeLimitCode,
@@ -1403,6 +1404,15 @@ const getBotInterface = tradeEngine => {
         /** 1 when the newest ticks contain no 4 or 5. Default range is 1. */
         digitHedgeQuietSignal: range => {
             const window = quietGapWindow(range);
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                const line = 'Quiet gap | waiting for the market digit size | NO TRADE';
+                if (tradeEngine.quietGapWaitLine !== line) {
+                    tradeEngine.quietGapWaitLine = line;
+                    notifyHedge(line, 'journal__text');
+                }
+                return 0;
+            }
+            tradeEngine.quietGapWaitLine = '';
             let digits = [];
             try {
                 digits = tradeEngine.getAvailableLastDigitList?.(window) || [];

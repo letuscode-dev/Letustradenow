@@ -28,6 +28,7 @@ import {
     deadDigitCount,
     deadDigitsDominate,
     evaluateQuietGap,
+    quietGapPipReady,
     shouldHedgeLastDigits,
 } from '../digit-hedge';
 
@@ -121,6 +122,10 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(evaluateQuietGap([1, 2, Number.NaN]).trade).toBe(false);
         expect(evaluateQuietGap([8, 7, 6], 0).window).toBe(1);
         expect(evaluateQuietGap([8, 7, 6]).trade).toBe(true);
+        expect(quietGapPipReady(2)).toBe(true);
+        expect(quietGapPipReady('2')).toBe(true);
+        expect(quietGapPipReady(0)).toBe(false);
+        expect(quietGapPipReady(undefined)).toBe(false);
     });
 });
 

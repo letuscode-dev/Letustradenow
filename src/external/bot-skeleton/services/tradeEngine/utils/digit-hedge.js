@@ -88,6 +88,15 @@ export const quietGapWindow = (range = 1) => {
 };
 
 /**
+ * Volatility last digits need a known decimal size. Pip 0 rounds the price
+ * (4521.34 becomes 4521) and can buy when the real digit is 4 or 5.
+ */
+export const quietGapPipReady = pip => {
+    const size = Number(pip);
+    return Number.isInteger(size) && size >= 1;
+};
+
+/**
  * 1 when the newest `range` ticks (default 1) contain no 4 and no 5.
  * The newest tick is inside that range, so the last digit is not 4 or 5 either.
  * A short list or a missing digit does not trade.
