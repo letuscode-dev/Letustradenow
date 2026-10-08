@@ -35,7 +35,10 @@ import {
     hedgeDecision,
     hedgeLimitCode,
     hedgeMayContinue,
+    hedgeEntryPrice,
+    hedgeExitPrice,
     hedgeNet,
+    hedgeTicksDiffer,
     HEDGE_LIMIT_NONE,
     HEDGE_RECOVER,
     HEDGE_STOP,
@@ -1269,6 +1272,15 @@ const getBotInterface = tradeEngine => {
             }
 
             const legs = { over: over_poc, under: under_poc, under_bought: Boolean(hedge.under_bought) };
+            if (isSettledContract(over_poc) && isSettledContract(under_poc) && hedgeTicksDiffer(over_poc, under_poc)) {
+                const broken = hedgeNet(legs);
+                return finish(
+                    HEDGE_STOP,
+                    broken ?? 0,
+                    `Hedge stopped. Over 5 and Under 4 did not share one entry and one exit (Over ${hedgeEntryPrice(over_poc) ?? '—'} → ${hedgeExitPrice(over_poc) ?? '—'}, Under ${hedgeEntryPrice(under_poc) ?? '—'} → ${hedgeExitPrice(under_poc) ?? '—'}). Stake was not changed.`,
+                    'journal__text--error'
+                );
+            }
             const decision = hedgeDecision(legs);
             const net = hedgeNet(legs);
             if (decision === HEDGE_STOP || net === null) {

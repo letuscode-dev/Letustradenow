@@ -17,7 +17,11 @@ import {
     HEDGE_RESET,
     HEDGE_STOP,
     nextHedgeStake,
+    hedgeEntryPrice,
+    hedgeExitPrice,
+    hedgeTicksDiffer,
     planDigitHedgeBuys,
+    sameHedgeClock,
     armImmediateRecovery,
     deadDigitCount,
     deadDigitsDominate,
@@ -116,6 +120,40 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(hedgeDecision({ over: settled({ profit: -1 }), under: null, under_bought: false })).toBe(HEDGE_STOP);
         expect(hedgeNet({ over: { profit: 1 }, under: settled({ profit: -1 }), under_bought: true })).toBeNull();
         expect(hedgeDecision({ over: settled({ profit: 1 }), under: null, under_bought: true })).toBe(HEDGE_STOP);
+    });
+
+    it('keeps Over 5 and Under 4 only when they share one entry tick and one exit tick', () => {
+        const tick = { date_start: 1700000000, date_expiry: 1700000001 };
+        expect(sameHedgeClock(tick, { ...tick })).toBe(true);
+        expect(sameHedgeClock(tick, { date_start: 1700000001, date_expiry: 1700000002 })).toBe(false);
+        expect(sameHedgeClock({ date_start: 1700000000 }, { date_expiry: 1700000001 })).toBe(false);
+        expect(sameHedgeClock({ start_time: 1700000000 }, { start_time: '1700000000' })).toBe(true);
+        expect(
+            sameHedgeClock(
+                { date_start: 1700000000, entry_spot: '4521.31', exit_tick: '4521.48' },
+                { date_start: 1700000000, entry_spot: 4521.31, exit_tick: 4521.48 }
+            )
+        ).toBe(true);
+        expect(
+            sameHedgeClock(
+                { date_start: 1700000000, entry_spot: '4521.31', exit_tick: '4521.48' },
+                { date_start: 1700000000, entry_spot: '4521.55', exit_tick: '4521.70' }
+            )
+        ).toBe(false);
+        expect(hedgeEntryPrice({ entry_tick: 4, entry_spot: '4521.31' })).toBe(4521.31);
+        expect(hedgeExitPrice({ exit_tick: 7 })).toBeNull();
+        expect(
+            hedgeTicksDiffer(
+                { entry_spot: '4521.31', exit_tick: '4521.48' },
+                { entry_spot: '4521.55', exit_tick: '4521.70' }
+            )
+        ).toBe(true);
+        expect(
+            hedgeTicksDiffer(
+                { entry_spot: '4521.31', exit_tick: '4521.48' },
+                { entry_spot: '4521.31', exit_tick: '4521.48' }
+            )
+        ).toBe(false);
     });
 
     it('quotes Over 5 and Under 4 with the same stake, symbol, and duration', () => {

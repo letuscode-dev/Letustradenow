@@ -13,7 +13,9 @@ import {
     buildDigitUnderProposal,
     canAffordBothLegs,
     DIGIT_HEDGE_OPEN,
+    hedgeStartEpoch,
     planDigitHedgeBuys,
+    sameHedgeClock,
 } from '../utils/digit-hedge';
 import {
     openConditionalEvenOddActiveTrade,
@@ -534,10 +536,10 @@ export default Engine =>
         }
 
         /**
-         * Over 5 and Under 4 are one trade. Both are quoted first. Neither buy is
-         * sent unless both quotes exist and the balance covers both. A hedge is
-         * registered only when both buys return a contract. A single fill is
-         * sold off. If that sell fails, the bot stops instead of trading on one side.
+         * Over 5 and Under 4 are one trade. Both are quoted together. Neither buy
+         * is sent unless both quotes share the same start tick and the balance
+         * covers both. Fills on different ticks are sold off and are not a hedge.
+         * A single fill is sold off. If that sell fails, the bot stops.
          */
         purchaseDigitHedge() {
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
@@ -589,7 +591,7 @@ export default Engine =>
             }
 
             const quote = request =>
-                doUntilDone(() => api_base.api.send(request)).then(response => {
+                api_base.api.send(request).then(response => {
                     const proposal = response?.proposal;
                     if (response?.error || !proposal?.id) {
                         throw response?.error ? response : new Error('Proposal was not quoted.');
@@ -598,7 +600,12 @@ export default Engine =>
                     if (price === undefined) {
                         throw new Error('Price was not quoted.');
                     }
-                    return { id: proposal.id, price };
+                    return {
+                        id: proposal.id,
+                        price,
+                        date_start: proposal.date_start,
+                        date_expiry: proposal.date_expiry,
+                    };
                 });
             const buyQuoted = quoted =>
                 api_base.api.send({ buy: quoted.id, price: quoted.price }).then(response => {
@@ -672,6 +679,12 @@ export default Engine =>
                     );
                     return;
                 }
+                if (!sameHedgeClock(over_quote.quoted, under_quote.quoted)) {
+                    release(
+                        `Hedge was not sent. Over 5 and Under 4 were quoted on different ticks (${hedgeStartEpoch(over_quote.quoted) ?? 'none'} vs ${hedgeStartEpoch(under_quote.quoted) ?? 'none'}). Stake unchanged.`
+                    );
+                    return;
+                }
 
                 const [over_buy, under_buy] = await Promise.all([
                     buyQuoted(over_quote.quoted).then(
@@ -695,6 +708,31 @@ export default Engine =>
                         `Over: ${over_buy.ok ? 'bought' : message(over_buy.error)}. Under: ${
                             under_buy.ok ? 'bought' : message(under_buy.error)
                         }.`
+                    );
+                    return;
+                }
+
+                const over_fill = over_buy.response.buy;
+                const under_fill = under_buy.response.buy;
+                let same_tick = hedgeStartEpoch(over_fill) != null && sameHedgeClock(over_fill, under_fill);
+                if (!same_tick && (hedgeStartEpoch(over_fill) == null || hedgeStartEpoch(under_fill) == null)) {
+                    try {
+                        const [over_open, under_open] = await Promise.all([
+                            api_base.api.send({ proposal_open_contract: 1, contract_id: plan.over_contract_id }),
+                            api_base.api.send({ proposal_open_contract: 1, contract_id: plan.under_contract_id }),
+                        ]);
+                        same_tick = sameHedgeClock(
+                            over_open?.proposal_open_contract,
+                            under_open?.proposal_open_contract
+                        );
+                    } catch {
+                        same_tick = false;
+                    }
+                }
+                if (!same_tick) {
+                    await abandon(
+                        { cancel_ids: [plan.over_contract_id, plan.under_contract_id] },
+                        `Over 5 and Under 4 filled on different ticks (start ${over_fill.start_time ?? 'none'} vs ${under_fill.start_time ?? 'none'}).`
                     );
                     return;
                 }

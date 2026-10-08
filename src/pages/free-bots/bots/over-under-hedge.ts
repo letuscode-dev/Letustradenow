@@ -7,7 +7,8 @@
  * without another digit check. 0 waits for the digit check again. A combined
  * loss sets the next stake to the stake that was bought, times the recovery
  * multiplier. If one side wins, the stake returns to the initial amount. A
- * one-sided buy is not kept. An unfinished hedge stops instead of betting
+ * one-sided buy is not kept. The two sides are kept only when they share the
+ * same entry tick and the same exit tick. An unfinished hedge stops instead of betting
  * again. Take profit and stop loss use the combined profit of both sides, and
  * a reached limit sends no further trade. Duration 1 tick.
  */

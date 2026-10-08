@@ -220,6 +220,94 @@ const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({
     barrier,
 });
 
+const START_KEYS = ['date_start', 'start_time', 'entry_tick_time', 'entry_spot_time'];
+const END_KEYS = ['date_expiry', 'exit_tick_time'];
+const ENTRY_PRICE_KEYS = ['entry_spot_display_value', 'entry_spot'];
+const EXIT_PRICE_KEYS = ['exit_tick_display_value', 'exit_spot', 'exit_tick'];
+
+const epochOf = value => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const firstEpoch = (record, keys) => {
+    if (!record) return null;
+    for (const key of keys) {
+        const n = epochOf(record[key]);
+        if (n != null) return n;
+    }
+    return null;
+};
+
+/** A whole digit 0–9 is not the contract price. */
+const priceOf = value => {
+    if (value == null || value === '') return null;
+    const text = String(value).trim();
+    const n = Number(text);
+    if (!Number.isFinite(n)) return null;
+    if (Number.isInteger(n) && n >= 0 && n <= 9 && !text.includes('.')) return null;
+    return n;
+};
+
+const firstPrice = (record, keys) => {
+    if (!record) return null;
+    for (const key of keys) {
+        const price = priceOf(record[key]);
+        if (price != null) return price;
+    }
+    return null;
+};
+
+export const hedgeStartEpoch = record => firstEpoch(record, START_KEYS);
+
+export const hedgeEntryPrice = record => firstPrice(record, ENTRY_PRICE_KEYS);
+
+export const hedgeExitPrice = record => firstPrice(record, EXIT_PRICE_KEYS);
+
+/**
+ * True only when both legs open on the same tick and, once prices are known,
+ * share that entry price and that exit price. A missing start time is not a match.
+ */
+export const sameHedgeClock = (over, under) => {
+    const over_start = hedgeStartEpoch(over);
+    const under_start = hedgeStartEpoch(under);
+    if (over_start == null || under_start == null || over_start !== under_start) return false;
+
+    const over_end = firstEpoch(over, END_KEYS);
+    const under_end = firstEpoch(under, END_KEYS);
+    if (over_end != null && under_end != null && over_end !== under_end) return false;
+
+    const over_entry = hedgeEntryPrice(over);
+    const under_entry = hedgeEntryPrice(under);
+    if (over_entry != null && under_entry != null && over_entry !== under_entry) return false;
+
+    const over_exit = hedgeExitPrice(over);
+    const under_exit = hedgeExitPrice(under);
+    if (over_exit != null && under_exit != null && over_exit !== under_exit) return false;
+
+    return true;
+};
+
+/** True when both legs report a start, entry, or exit that is not the same tick. */
+export const hedgeTicksDiffer = (over, under) => {
+    if (!over || !under) return false;
+    const over_start = hedgeStartEpoch(over);
+    const under_start = hedgeStartEpoch(under);
+    if (over_start != null && under_start != null && over_start !== under_start) return true;
+
+    const over_end = firstEpoch(over, END_KEYS);
+    const under_end = firstEpoch(under, END_KEYS);
+    if (over_end != null && under_end != null && over_end !== under_end) return true;
+
+    const over_entry = hedgeEntryPrice(over);
+    const under_entry = hedgeEntryPrice(under);
+    if (over_entry != null && under_entry != null && over_entry !== under_entry) return true;
+
+    const over_exit = hedgeExitPrice(over);
+    const under_exit = hedgeExitPrice(under);
+    return over_exit != null && under_exit != null && over_exit !== under_exit;
+};
+
 /** Over 5 quote. Barrier is fixed so it does not share Under's prediction. */
 export const buildDigitOverProposal = trade_option => buildDigitLegProposal(trade_option, 'DIGITOVER', OVER_BARRIER);
 
