@@ -45,6 +45,9 @@ import {
     isSettledContract,
     legProfit,
     nextHedgeStake,
+    OVER_BARRIER,
+    parseDigitBarrier,
+    UNDER_BARRIER,
 } from '../utils/digit-hedge';
 import {
     createDigitPairReturnState,
@@ -1348,18 +1351,21 @@ const getBotInterface = tradeEngine => {
         /** 1 = take profit reached, -1 = stop loss reached, 0 = trade again is allowed. */
         digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
         /**
-         * 1 when 4 and 5 dominate the last `window` cached ticks. Reads the live
+         * 1 when the digits that lose both sides dominate the last `window`
+         * cached ticks. Over 5 and Under 4 lose on 4 and 5. Reads the live
          * cache only, so it does not wait on a history request.
          */
-        digitHedgeSignal: window => {
+        digitHedgeSignal: (window, over, under) => {
+            const over_barrier = parseDigitBarrier(over) ?? Number(OVER_BARRIER);
+            const under_barrier = parseDigitBarrier(under) ?? Number(UNDER_BARRIER);
             let digits = [];
             try {
                 digits = tradeEngine.getAvailableLastDigitList?.(window) || [];
             } catch {
                 digits = [];
             }
-            tradeEngine.digitHedgeDeadCount = deadDigitCount(digits, window);
-            return deadDigitsDominate(digits, window) ? 1 : 0;
+            tradeEngine.digitHedgeDeadCount = deadDigitCount(digits, window, over_barrier, under_barrier);
+            return deadDigitsDominate(digits, window, over_barrier, under_barrier) ? 1 : 0;
         },
         /** Count stored by the last signal check. */
         digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,

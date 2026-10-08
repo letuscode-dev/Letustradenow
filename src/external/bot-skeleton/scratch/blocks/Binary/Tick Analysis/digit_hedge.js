@@ -19,11 +19,15 @@ window.Blockly.Blocks.digit_hedge_purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase Over 5 + Under 4 hedge'),
+            message0: localize('Purchase Over %1 + Under %2 hedge'),
+            args0: [
+                { type: 'input_value', name: 'OVER', check: 'Number' },
+                { type: 'input_value', name: 'UNDER', check: 'Number' },
+            ],
             previousStatement: null,
             ...colours(),
             tooltip: localize(
-                'Buys Over 5 and Under 4 at the same time. Each side uses the stake and duration from Trade options.'
+                'Buys the Over barrier and the Under barrier at the same time. Each barrier is a digit from 0 to 9. Defaults are Over 5 and Under 4. Each side uses the stake and duration from Trade options.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -41,7 +45,21 @@ window.Blockly.Blocks.digit_hedge_purchase = {
     restricted_parents: ['before_purchase'],
 };
 
-window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = () => 'Bot.purchaseDigitHedge();\n';
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = block => {
+    const over =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'OVER',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '5';
+    const under =
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
+            block,
+            'UNDER',
+            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
+        ) || '4';
+    return `Bot.purchaseDigitHedge(${over}, ${under});\n`;
+};
 
 window.Blockly.Blocks.digit_hedge_result = {
     init() {
@@ -288,12 +306,18 @@ window.Blockly.Blocks.digit_hedge_signal = {
     },
     definition() {
         return {
-            message0: localize('4 and 5 dominate the last %1 ticks'),
-            args0: [{ type: 'input_value', name: 'WINDOW', check: 'Number' }],
+            message0: localize('digits from Under %1 through Over %2 dominate the last %3 ticks'),
+            args0: [
+                { type: 'input_value', name: 'UNDER', check: 'Number' },
+                { type: 'input_value', name: 'OVER', check: 'Number' },
+                { type: 'input_value', name: 'WINDOW', check: 'Number' },
+            ],
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
-            tooltip: localize('1 when 4 and 5 appear more often than the other digits in the cached ticks. 0 otherwise.'),
+            tooltip: localize(
+                '1 when the digits that lose both sides appear more often than the other digits. Over 5 and Under 4 lose on 4 and 5. 0 otherwise.'
+            ),
             category: window.Blockly.Categories.Before_Purchase,
         };
     },
@@ -310,14 +334,14 @@ window.Blockly.Blocks.digit_hedge_signal = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_signal = block => {
-    const window_size =
-        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
-            block,
-            'WINDOW',
-            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
-        ) || '5';
+    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE;
+    const value = name =>
+        window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
+    const window_size = value('WINDOW') || '5';
+    const over = value('OVER') || '5';
+    const under = value('UNDER') || '4';
     return [
-        `Bot.digitHedgeSignal(${window_size})`,
+        `Bot.digitHedgeSignal(${window_size}, ${over}, ${under})`,
         window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
     ];
 };

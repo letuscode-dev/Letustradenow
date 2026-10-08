@@ -20,6 +20,7 @@ import {
     hedgeEntryPrice,
     hedgeExitPrice,
     hedgeTicksDiffer,
+    parseDigitBarrier,
     planDigitHedgeBuys,
     sameHedgeClock,
     armImmediateRecovery,
@@ -68,6 +69,18 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(deadDigitCount([9, 8, 7, 4, 5, 4], 5)).toBe(3);
         expect(deadDigitCount([4, 5, 1, 2, 3], 5)).toBe(2);
         expect(deadDigitCount([1, 2], 5)).toBe(0);
+    });
+
+    it('uses any Over and Under barriers, and defaults to 5 and 4', () => {
+        expect(deadDigitsDominate([2, 3, 7, 9, 1], 5, 7, 2)).toBe(true);
+        expect(deadDigitsDominate([8, 9, 0, 1, 8], 5, 7, 2)).toBe(false);
+        expect(deadDigitCount([9, 8, 2, 5, 7], 5, 7, 2)).toBe(3);
+        expect(deadDigitsDominate([0, 1, 2, 3, 4], 5, 4, 5)).toBe(false);
+        expect(parseDigitBarrier(0)).toBe(0);
+        expect(parseDigitBarrier('9')).toBe(9);
+        expect(parseDigitBarrier(10)).toBeNull();
+        expect(parseDigitBarrier(-1)).toBeNull();
+        expect(parseDigitBarrier(4.5)).toBeNull();
     });
 
     it('arms an immediate hedge only after both sides lose and the option is on', () => {
@@ -175,6 +188,11 @@ describe('Over 5 / Under 4 hedge result', () => {
             underlying_symbol: '1HZ75V',
             barrier: '4',
         });
+        expect(buildDigitOverProposal(trade, 0).barrier).toBe('0');
+        expect(buildDigitUnderProposal(trade, 9).barrier).toBe('9');
+        expect(buildDigitOverProposal(trade, 7).barrier).toBe('7');
+        expect(buildDigitUnderProposal(trade, 2).barrier).toBe('2');
+        expect(buildDigitOverProposal(trade, 15).barrier).toBe('5');
     });
 });
 

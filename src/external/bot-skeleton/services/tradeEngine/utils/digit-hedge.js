@@ -12,8 +12,24 @@ export const UNDER_BARRIER = '4';
 
 const round2 = value => Math.round(Number(value) * 100) / 100;
 
-/** A 4 or a 5 loses both Over 5 and Under 4. */
-export const isDeadDigit = digit => digit === 4 || digit === 5;
+/** A digit from 0 to 9, or null when the value is not a barrier. */
+export const parseDigitBarrier = value => {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 0 && n <= 9 ? n : null;
+};
+
+/**
+ * Digits that lose both sides: not above the Over barrier and not below the
+ * Under barrier. Over 5 and Under 4 lose on 4 and 5. Over 7 and Under 2 lose
+ * on 2 through 7. No digit loses both when Under is above Over.
+ */
+export const isDeadDigit = (digit, over = OVER_BARRIER, under = UNDER_BARRIER) => {
+    const d = Number(digit);
+    const o = parseDigitBarrier(over);
+    const u = parseDigitBarrier(under);
+    if (!isLastDigit(d) || o == null || u == null) return false;
+    return d >= u && d <= o;
+};
 
 const isLastDigit = digit => {
     if (digit === null || digit === undefined || digit === '') return false;
@@ -35,21 +51,21 @@ export const shouldHedgeLastDigits = (newer, older) => {
  * every other digit combined. The end of the list is the newest tick. A tie
  * or a short list does not trade.
  */
-export const deadDigitsDominate = (digits, window = 5) => {
+export const deadDigitsDominate = (digits, window = 5, over = OVER_BARRIER, under = UNDER_BARRIER) => {
     const size = Number(window);
     if (!Number.isInteger(size) || size < 1) return false;
     if (!Array.isArray(digits) || digits.length < size) return false;
     const recent = digits.slice(-size);
     if (!recent.every(isLastDigit)) return false;
-    const dead = recent.filter(digit => isDeadDigit(Number(digit))).length;
+    const dead = recent.filter(digit => isDeadDigit(digit, over, under)).length;
     return dead > size - dead;
 };
 
-/** How many of the last `window` digits are 4 or 5. The list end is newest. */
-export const deadDigitCount = (digits, window = 5) => {
+/** How many of the last `window` digits lose both sides. The list end is newest. */
+export const deadDigitCount = (digits, window = 5, over = OVER_BARRIER, under = UNDER_BARRIER) => {
     const size = Number(window);
     if (!Array.isArray(digits) || !Number.isInteger(size) || size < 1) return 0;
-    return digits.slice(-size).filter(digit => isDeadDigit(Number(digit))).length;
+    return digits.slice(-size).filter(digit => isDeadDigit(digit, over, under)).length;
 };
 
 /**
@@ -308,17 +324,15 @@ export const hedgeTicksDiffer = (over, under) => {
     return over_exit != null && under_exit != null && over_exit !== under_exit;
 };
 
-/** Over 5 quote. Barrier is fixed so it does not share Under's prediction. */
-export const buildDigitOverProposal = trade_option => buildDigitLegProposal(trade_option, 'DIGITOVER', OVER_BARRIER);
+const barrierOrDefault = (barrier, fallback) => {
+    const parsed = parseDigitBarrier(barrier);
+    return parsed == null ? fallback : String(parsed);
+};
 
-/** Under 4 quote, sent at the same time as Over 5. */
-export const buildDigitUnderProposal = (trade_option, over_proposal) =>
-    buildDigitLegProposal(
-        {
-            ...trade_option,
-            currency: trade_option?.currency || over_proposal?.currency,
-            symbol: trade_option?.symbol || over_proposal?.underlying_symbol || over_proposal?.symbol,
-        },
-        'DIGITUNDER',
-        UNDER_BARRIER
-    );
+/** Over quote. Defaults to barrier 5. Any digit 0–9 is accepted. */
+export const buildDigitOverProposal = (trade_option, barrier = OVER_BARRIER) =>
+    buildDigitLegProposal(trade_option, 'DIGITOVER', barrierOrDefault(barrier, OVER_BARRIER));
+
+/** Under quote, sent with Over. Defaults to barrier 4. Any digit 0–9 is accepted. */
+export const buildDigitUnderProposal = (trade_option, barrier = UNDER_BARRIER) =>
+    buildDigitLegProposal(trade_option, 'DIGITUNDER', barrierOrDefault(barrier, UNDER_BARRIER));

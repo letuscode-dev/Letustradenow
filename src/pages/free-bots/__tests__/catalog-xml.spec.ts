@@ -324,6 +324,7 @@ describe('free bot catalog XML', () => {
             expect(field('DURATIONTYPE_LIST')).toBe('t');
             expect(setValue('ouh_duration')).toEqual(['1']);
             expect(setValue('ouh_prediction')).toEqual(['5']);
+            expect(setValue('ouh_under')).toEqual(['4']);
             expect(setValue('ouh_stake')).toEqual(['1']);
             expect(setValue('ouh_multiplier')).toEqual(['2']);
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
@@ -340,7 +341,18 @@ describe('free bot catalog XML', () => {
             expect(before?.querySelector('block[type="digit_hedge_skip_analysis"]')).not.toBeNull();
             const signal = before?.querySelector('block[type="digit_hedge_signal"]');
             expect(signal?.querySelector(':scope > value[name="WINDOW"] field')?.getAttribute('id')).toBe('ouh_window');
-            expect(before?.querySelectorAll('block[type="digit_hedge_purchase"]')).toHaveLength(2);
+            expect(signal?.querySelector(':scope > value[name="OVER"] field')?.getAttribute('id')).toBe('ouh_prediction');
+            expect(signal?.querySelector(':scope > value[name="UNDER"] field')?.getAttribute('id')).toBe('ouh_under');
+            const purchases = before?.querySelectorAll('block[type="digit_hedge_purchase"]') || [];
+            expect(purchases).toHaveLength(2);
+            purchases.forEach(purchase => {
+                expect(purchase.querySelector(':scope > value[name="OVER"] field')?.getAttribute('id')).toBe(
+                    'ouh_prediction'
+                );
+                expect(purchase.querySelector(':scope > value[name="UNDER"] field')?.getAttribute('id')).toBe(
+                    'ouh_under'
+                );
+            });
             const recovery = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
                 block.querySelector(':scope > value[name="IF0"] block[type="digit_hedge_skip_analysis"]')
             );

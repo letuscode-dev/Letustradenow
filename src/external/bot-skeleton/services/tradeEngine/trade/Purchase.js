@@ -12,6 +12,7 @@ import {
     buildDigitOverProposal,
     buildDigitUnderProposal,
     canAffordBothLegs,
+    parseDigitBarrier,
     DIGIT_HEDGE_OPEN,
     hedgeStartEpoch,
     planDigitHedgeBuys,
@@ -541,7 +542,7 @@ export default Engine =>
          * covers both. Fills on different ticks are sold off and are not a hedge.
          * A single fill is sold off. If that sell fails, the bot stops.
          */
-        purchaseDigitHedge() {
+        purchaseDigitHedge(over_barrier, under_barrier) {
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
                 return Promise.resolve();
             }
@@ -578,15 +579,24 @@ export default Engine =>
                 return Promise.resolve();
             }
 
-            const over_request = buildDigitOverProposal(trade);
-            const under_request = buildDigitUnderProposal(trade);
+            const over = parseDigitBarrier(over_barrier);
+            const under = parseDigitBarrier(under_barrier);
+            if (over == null || under == null) {
+                release(
+                    `Hedge was not sent. Over barrier ${over_barrier} and Under barrier ${under_barrier} must each be a digit from 0 to 9.`
+                );
+                return Promise.resolve();
+            }
+            const pair = `Over ${over} and Under ${under}`;
+            const over_request = buildDigitOverProposal(trade, over);
+            const under_request = buildDigitUnderProposal(trade, under);
             if (
                 over_request.contract_type !== 'DIGITOVER' ||
-                String(over_request.barrier) !== '5' ||
+                String(over_request.barrier) !== String(over) ||
                 under_request.contract_type !== 'DIGITUNDER' ||
-                String(under_request.barrier) !== '4'
+                String(under_request.barrier) !== String(under)
             ) {
-                release('Hedge was not sent. Over 5 and Under 4 must be bought together.');
+                release(`Hedge was not sent. ${pair} must be bought together.`);
                 return Promise.resolve();
             }
 
@@ -660,8 +670,8 @@ export default Engine =>
                             over_contract_id: null,
                             under_contract_id: null,
                         }),
-                        `${over_quote.ok ? '' : `Over 5 was not quoted (${message(over_quote.error)}). `}${
-                            under_quote.ok ? '' : `Under 4 was not quoted (${message(under_quote.error)}).`
+                        `${over_quote.ok ? '' : `Over ${over} was not quoted (${message(over_quote.error)}). `}${
+                            under_quote.ok ? '' : `Under ${under} was not quoted (${message(under_quote.error)}).`
                         }`
                     );
                     return;
@@ -675,13 +685,13 @@ export default Engine =>
                 }
                 if (!canAffordBothLegs(balance, over_quote.quoted.price, under_quote.quoted.price)) {
                     release(
-                        `Hedge was not sent. Balance ${balance} does not cover Over 5 (${over_quote.quoted.price}) and Under 4 (${under_quote.quoted.price}) together.`
+                        `Hedge was not sent. Balance ${balance} does not cover ${pair} (${over_quote.quoted.price} and ${under_quote.quoted.price}) together.`
                     );
                     return;
                 }
                 if (!sameHedgeClock(over_quote.quoted, under_quote.quoted)) {
                     release(
-                        `Hedge was not sent. Over 5 and Under 4 were quoted on different ticks (${hedgeStartEpoch(over_quote.quoted) ?? 'none'} vs ${hedgeStartEpoch(under_quote.quoted) ?? 'none'}). Stake unchanged.`
+                        `Hedge was not sent. ${pair} were quoted on different ticks (${hedgeStartEpoch(over_quote.quoted) ?? 'none'} vs ${hedgeStartEpoch(under_quote.quoted) ?? 'none'}). Stake unchanged.`
                     );
                     return;
                 }
@@ -732,7 +742,7 @@ export default Engine =>
                 if (!same_tick) {
                     await abandon(
                         { cancel_ids: [plan.over_contract_id, plan.under_contract_id] },
-                        `Over 5 and Under 4 filled on different ticks (start ${over_fill.start_time ?? 'none'} vs ${under_fill.start_time ?? 'none'}).`
+                        `${pair} filled on different ticks (start ${over_fill.start_time ?? 'none'} vs ${under_fill.start_time ?? 'none'}).`
                     );
                     return;
                 }
@@ -753,7 +763,7 @@ export default Engine =>
                 api_base.api.send({ proposal_open_contract: 1, contract_id: plan.over_contract_id }).catch(() => {});
                 notify(
                     'journal__text--success',
-                    `HEDGE OPEN — Over 5 ${plan.over_contract_id} + Under 4 ${plan.under_contract_id} | stake ${stake} each`
+                    `HEDGE OPEN — ${pair} | ${plan.over_contract_id} + ${plan.under_contract_id} | stake ${stake} each`
                 );
             });
         }

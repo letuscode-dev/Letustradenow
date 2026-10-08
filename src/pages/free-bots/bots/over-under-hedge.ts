@@ -1,7 +1,9 @@
 /**
  * Over 5 / Under 4 hedge free bot (Volatility 75 (1s) Index).
  *
- * Buys Over 5 and Under 4 together when 4 and 5 dominate the last 5 ticks.
+ * Buys an Over barrier and an Under barrier together. Both are digits from
+ * 0 to 9. They default to Over 5 and Under 4, which lose together on 4 and 5.
+ * The hedge enters when those losing digits dominate the last 5 ticks.
  * The check uses the ticks already in memory. Immediate Loss Hedge is an
  * option: 1 buys the next Over 5 and Under 4 hedge as soon as both sides lose,
  * without another digit check. 0 waits for the digit check again. A combined
@@ -20,6 +22,7 @@ const VARIABLES: [string, string][] = [
     ['ouh_multiplier', 'Recovery Multiplier'],
     ['ouh_duration', 'Duration (ticks)'],
     ['ouh_prediction', 'Over Barrier'],
+    ['ouh_under', 'Under Barrier'],
     ['ouh_take_profit', 'Take Profit'],
     ['ouh_stop_loss', 'Stop Loss'],
     ['ouh_current', 'Current Stake'],
@@ -32,11 +35,11 @@ const VARIABLES: [string, string][] = [
 
 const { v, num, text, set, chain, compare, notify } = blockHelpers(VARIABLES, 'ouh_text');
 
-const BUY = `<block type="digit_hedge_purchase"></block>`;
+const BUY = `<block type="digit_hedge_purchase"><value name="OVER">${v('ouh_prediction')}</value><value name="UNDER">${v('ouh_under')}</value></block>`;
 
 const RECOVERY_BUY = notify(
     'warn',
-    [text('Loss hedge | no analysis | Over 5 + Under 4 | stake'), v('ouh_current')],
+    [text('Loss hedge | no analysis | Over'), v('ouh_prediction'), text('+ Under'), v('ouh_under'), text('| stake'), v('ouh_current')],
     BUY
 );
 
@@ -45,7 +48,11 @@ const SIGNAL_BUY = notify(
     [
         text('Hedge | last'),
         v('ouh_window'),
-        text('| 4 or 5 x'),
+        text('| Under'),
+        v('ouh_under'),
+        text('through Over'),
+        v('ouh_prediction'),
+        text('x'),
         `<block type="digit_hedge_dead_count"></block>`,
         text('| stake'),
         v('ouh_current'),
@@ -54,7 +61,7 @@ const SIGNAL_BUY = notify(
 );
 
 const SKIP = `<block type="digit_hedge_skip_analysis"></block>`;
-const SIGNAL = `<block type="digit_hedge_signal"><value name="WINDOW">${v('ouh_window')}</value></block>`;
+const SIGNAL = `<block type="digit_hedge_signal"><value name="UNDER">${v('ouh_under')}</value><value name="OVER">${v('ouh_prediction')}</value><value name="WINDOW">${v('ouh_window')}</value></block>`;
 
 const ANALYSE = `<block type="controls_if">
         <mutation else="1"></mutation>
@@ -155,6 +162,7 @@ const INIT = chain([
     n => set('ouh_window', num(5), n),
     n => set('ouh_immediate', num(1), n),
     n => set('ouh_prediction', num(5), n),
+    n => set('ouh_under', num(4), n),
     n => set('ouh_take_profit', num(10), n),
     n => set('ouh_stop_loss', num(50), n),
     n => set('ouh_current', v('ouh_stake'), n),
