@@ -3,8 +3,13 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships the Over 2, Rise/Fall, and Over/Under hedge bots', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-two-v1', 'rise-fall-v1', 'over-under-hedge-v1']);
+    it('ships the Over 2, Rise/Fall, and both Over/Under hedge bots', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual([
+            'over-two-v1',
+            'rise-fall-v1',
+            'over-under-hedge-v1',
+            'digit-hedge-filter-v1',
+        ]);
     });
 
     describe('Over 2 Digit Filter', () => {
@@ -397,6 +402,71 @@ describe('free bot catalog XML', () => {
             const afterStake = stake?.querySelector(':scope > next');
             expect(afterStake?.querySelector('block[type="digit_hedge_continues"]')).not.toBeNull();
             expect(afterStake?.querySelector('block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Over 5 + Under 4 Digit Hedge', () => {
+        const doc = parse(FREE_BOTS[3].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s), Over 5, stake and duration from the settings', () => {
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPE_LIST')).toBe('overunder');
+            expect(field('TYPE_LIST')).toBe('DIGITOVER');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(setValue('dhf_stake')).toEqual(['1']);
+            expect(setValue('dhf_duration')).toEqual(['1']);
+            expect(setValue('dhf_window')).toEqual(['100']);
+            expect(setValue('dhf_recent')).toEqual(['20']);
+            expect(setValue('dhf_max_gap')).toEqual(['10']);
+            expect(setValue('dhf_min_low')).toEqual(['40']);
+            expect(setValue('dhf_min_high')).toEqual(['40']);
+            expect(setValue('dhf_max_4')).toEqual(['7']);
+            expect(setValue('dhf_max_5')).toEqual(['7']);
+            expect(setValue('dhf_pattern')).toEqual(['3']);
+            const amount = doc.querySelector('value[name="AMOUNT"] field');
+            const duration = doc.querySelector(
+                'block[type="trade_definition_tradeoptions"] value[name="DURATION"] field'
+            );
+            expect(amount?.getAttribute('id')).toBe('dhf_stake');
+            expect(duration?.getAttribute('id')).toBe('dhf_duration');
+            expect(doc.querySelector('value[name="PREDICTION"] field[name="NUM"]')?.textContent).toBe('5');
+        });
+
+        it('buys Over 5 and Under 4 only when every filter passes, and does not change the stake', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const filter = before?.querySelector('block[type="digit_hedge_filter"]');
+            expect(filter?.querySelector(':scope > value[name="WINDOW"] field')?.getAttribute('id')).toBe('dhf_window');
+            expect(filter?.querySelector(':scope > value[name="RECENT"] field')?.getAttribute('id')).toBe('dhf_recent');
+            expect(filter?.querySelector(':scope > value[name="MAX_GAP"] field')?.getAttribute('id')).toBe('dhf_max_gap');
+            expect(filter?.querySelector(':scope > value[name="MIN_LOW"] field')?.getAttribute('id')).toBe('dhf_min_low');
+            expect(filter?.querySelector(':scope > value[name="MIN_HIGH"] field')?.getAttribute('id')).toBe(
+                'dhf_min_high'
+            );
+            expect(filter?.querySelector(':scope > value[name="MAX_4"] field')?.getAttribute('id')).toBe('dhf_max_4');
+            expect(filter?.querySelector(':scope > value[name="MAX_5"] field')?.getAttribute('id')).toBe('dhf_max_5');
+            expect(filter?.querySelector(':scope > value[name="PATTERN"] field')?.getAttribute('id')).toBe('dhf_pattern');
+            const purchase = before?.querySelector('block[type="digit_hedge_purchase"]');
+            expect(purchase?.querySelector(':scope > value[name="OVER"] field[name="NUM"]')?.textContent).toBe('5');
+            expect(purchase?.querySelector(':scope > value[name="UNDER"] field[name="NUM"]')?.textContent).toBe('4');
+            const after = doc.querySelector('block[type="after_purchase"]');
+            expect(after?.querySelector('block[type="digit_hedge_result"]')).not.toBeNull();
+            expect(after?.querySelector('block[type="digit_hedge_next_stake"]')).toBeNull();
+            expect(after?.querySelector('block[type="digit_hedge_arm_recovery"]')).toBeNull();
+            const again = after?.querySelector('block[type="controls_if"]');
+            expect(again?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('NEQ');
+            expect(again?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).not.toBeNull();
+            expect(again?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
         });
     });
 });

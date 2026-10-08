@@ -543,6 +543,8 @@ export default Engine =>
          * A single fill is sold off. If that sell fails, the bot stops.
          */
         purchaseDigitHedge() {
+            const selective = Boolean(this.digitHedgeSelectiveLog);
+            this.digitHedgeSelectiveLog = false;
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
                 return Promise.resolve();
             }
@@ -759,10 +761,17 @@ export default Engine =>
                 // A 1-tick contract can sell before this id is tracked. Ask for it
                 // now so After Purchase still runs if that push was missed.
                 api_base.api.send({ proposal_open_contract: 1, contract_id: plan.over_contract_id }).catch(() => {});
+                const tip = this.getLatestTickTipKey?.();
+                this.digitHedgeFilterEnteredTip = /^\d+$/.test(String(tip || '')) ? String(tip) : '';
                 notify(
                     'journal__text--success',
                     `HEDGE OPEN — ${pair} | ${plan.over_contract_id} + ${plan.under_contract_id} | stake ${stake} each`
                 );
+                if (selective) {
+                    notify('journal__text--success', 'OVER 5 CONTRACT PLACED');
+                    notify('journal__text--success', 'UNDER 4 CONTRACT PLACED');
+                    notify('journal__text--success', 'HEDGE ENTRY COMPLETE');
+                }
             });
         }
 

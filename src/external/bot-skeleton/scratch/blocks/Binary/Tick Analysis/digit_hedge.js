@@ -438,3 +438,60 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_arm_recovery 
         ) || '0';
     return `Bot.digitHedgeArmRecovery(${enabled});\n`;
 };
+
+window.Blockly.Blocks.digit_hedge_filter = {
+    init() {
+        this.jsonInit(this.definition());
+    },
+    definition() {
+        return {
+            message0: localize(
+                'Over 5 + Under 4 filter | window %1 recent %2 max gap %3 min low %4 min high %5 max 4 %6 max 5 %7 pattern %8'
+            ),
+            args0: [
+                { type: 'input_value', name: 'WINDOW' },
+                { type: 'input_value', name: 'RECENT' },
+                { type: 'input_value', name: 'MAX_GAP' },
+                { type: 'input_value', name: 'MIN_LOW' },
+                { type: 'input_value', name: 'MIN_HIGH' },
+                { type: 'input_value', name: 'MAX_4' },
+                { type: 'input_value', name: 'MAX_5' },
+                { type: 'input_value', name: 'PATTERN' },
+            ],
+            output: 'Number',
+            outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
+            ...colours(),
+            tooltip: localize(
+                '1 only when 4 and 5 are quiet, 0–3 and 6–9 are both strong, the recent gap is not rising, and no repeated pattern points at 4 or 5. Writes the full check to the journal.'
+            ),
+            category: window.Blockly.Categories.Before_Purchase,
+        };
+    },
+    meta() {
+        return {
+            display_name: localize('Over 5 + Under 4 filter'),
+            description: localize('Selective hedge check. Every condition must pass.'),
+            key_words: localize('hedge, over, under, filter'),
+        };
+    },
+    customContextMenu(menu) {
+        modifyContextMenu(menu);
+    },
+};
+
+window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_filter = block => {
+    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC;
+    const value = name => window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
+    const windowSize = value('WINDOW') || '100';
+    const recent = value('RECENT') || '20';
+    const maxGap = value('MAX_GAP') || '10';
+    const minLow = value('MIN_LOW') || '40';
+    const minHigh = value('MIN_HIGH') || '40';
+    const max4 = value('MAX_4') || '7';
+    const max5 = value('MAX_5') || '7';
+    const pattern = value('PATTERN') || '3';
+    return [
+        `Bot.analyzeDigitHedgeFilter(${windowSize}, ${recent}, ${maxGap}, ${minLow}, ${minHigh}, ${max4}, ${max5}, ${pattern})`,
+        window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
+    ];
+};
