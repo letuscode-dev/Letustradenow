@@ -48,7 +48,6 @@ import {
     nextHedgeStake,
     resolveHedgeBarriers,
 } from '../utils/digit-hedge';
-import { evaluateDigitHedgeFilter, normalizeDigitHedgeFilter } from '../utils/digit-hedge-filter';
 import {
     createDigitPairReturnState,
     evaluateDigitPairReturnDiffers,
@@ -1392,56 +1391,6 @@ const getBotInterface = tradeEngine => {
             }
             tradeEngine.digitHedgeDeadCount = deadDigitCount(digits, window, over_barrier, under_barrier);
             return deadDigitsDominate(digits, window, over_barrier, under_barrier) ? 1 : 0;
-        },
-        /**
-         * 1 only when the 100-tick groups, the recent gap trend, and the 4/5
-         * pattern check all pass. Journals the full report for this tick.
-         * Asks for history when the cache is still shorter than the window.
-         */
-        analyzeDigitHedgeFilter: async (
-            windowSize,
-            recent,
-            maxGap,
-            minLow,
-            minHigh,
-            maxDigit4,
-            maxDigit5,
-            patternThreshold
-        ) => {
-            const settings = normalizeDigitHedgeFilter({
-                window: windowSize,
-                recent,
-                maxGap,
-                minLow,
-                minHigh,
-                maxDigit4,
-                maxDigit5,
-                patternThreshold,
-            });
-            const need = Math.max(settings.window, settings.recent * 2);
-            let digits = [];
-            try {
-                digits = tradeEngine.ensureTickHistory
-                    ? await tradeEngine.ensureTickHistory(need)
-                    : tradeEngine.getAvailableLastDigitList?.(need) || [];
-            } catch {
-                digits = tradeEngine.getAvailableLastDigitList?.(need) || [];
-            }
-            const tip = tradeEngine.getLatestTickTipKey?.();
-            const epoch = /^\d+$/.test(String(tip || '')) ? String(tip) : '';
-            const report = evaluateDigitHedgeFilter(digits || [], {
-                ...settings,
-                market: tradeEngine.options?.symbol || tradeEngine.tradeOptions?.symbol || tradeEngine.symbol || '',
-                alreadyEntered: Boolean(epoch) && epoch === String(tradeEngine.digitHedgeFilterEnteredTip || ''),
-            });
-            const klass = report.trade ? 'journal__text--success' : 'journal__text';
-            report.lines.forEach(line => notifyHedge(line, klass));
-            tradeEngine.digitHedgeSelectiveLog = Boolean(report.trade);
-            if (report.trade) {
-                tradeEngine.digitHedgeOverBarrier = 5;
-                tradeEngine.digitHedgeUnderBarrier = 4;
-            }
-            return report.trade ? 1 : 0;
         },
         /** Count stored by the last signal check. */
         digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,
