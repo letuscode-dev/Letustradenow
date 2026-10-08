@@ -3,10 +3,14 @@
 .free-bots {
     background: var(--general-main-1);
     box-sizing: border-box;
+    container-name: free-bots;
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: 1.6rem;
     height: var(--tab-content-height);
+    max-width: 100%;
+    min-width: 0;
     overflow: hidden auto;
     padding: 2rem 2.4rem 4.8rem;
     width: 100%;
@@ -67,21 +71,20 @@
     &__grid {
         display: grid;
         gap: 1.6rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
         list-style: none;
         margin: 0;
+        min-width: 0;
         padding: 0 0 2.4rem;
         width: 100%;
 
         @include tablet-screen {
             gap: 1.2rem;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
             padding-bottom: 3.2rem;
         }
 
         @include mobile-screen {
             gap: 1rem;
-            grid-template-columns: minmax(0, 1fr);
             padding-bottom: 5.6rem;
         }
     }
@@ -141,6 +144,7 @@
         line-height: 1.3;
         margin: 0;
         min-width: 0;
+        overflow-wrap: break-word;
         padding-top: 0.15rem;
 
         @include mobile-screen {
@@ -155,6 +159,8 @@
         line-height: 1.5;
         margin: 0;
         min-height: 5.6rem;
+        min-width: 0;
+        overflow-wrap: break-word;
 
         @include mobile-screen {
             font-size: 1.2rem;
@@ -179,7 +185,9 @@
         font-size: 1.05rem;
         font-weight: 600;
         letter-spacing: 0.01em;
-        line-height: 1;
+        line-height: 1.2;
+        max-width: 100%;
+        overflow-wrap: anywhere;
         padding: 0.45rem 0.75rem;
         text-transform: uppercase;
     }
@@ -200,7 +208,30 @@
         word-break: break-word;
     }
 
-    &__button {
+    &__button.dc-btn {
+        height: auto;
+        max-width: 100%;
+        min-height: 3.2rem;
+        padding-bottom: 0.6rem;
+        padding-top: 0.6rem;
+        white-space: normal;
         width: 100%;
+
+        .dc-btn__text {
+            white-space: normal;
+        }
+    }
+}
+
+/* Follow the Free Bots panel width, so a side panel or a phone does not squeeze four cards into one row. */
+@container free-bots (min-width: 64rem) {
+    .free-bots__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@container free-bots (min-width: 112rem) {
+    .free-bots__grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
