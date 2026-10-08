@@ -45,9 +45,7 @@ import {
     isSettledContract,
     legProfit,
     nextHedgeStake,
-    OVER_BARRIER,
-    parseDigitBarrier,
-    UNDER_BARRIER,
+    resolveHedgeBarriers,
 } from '../utils/digit-hedge';
 import {
     createDigitPairReturnState,
@@ -1350,14 +1348,34 @@ const getBotInterface = tradeEngine => {
         },
         /** 1 = take profit reached, -1 = stop loss reached, 0 = trade again is allowed. */
         digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
+        /** Saves the Over and Under digits before the hedge is bought. */
+        digitHedgeSetBarriers: (over, under) => {
+            const barriers = resolveHedgeBarriers({
+                over,
+                under,
+                fallbackOver: tradeEngine.digitHedgeOverBarrier,
+                fallbackUnder: tradeEngine.digitHedgeUnderBarrier,
+            });
+            tradeEngine.digitHedgeOverBarrier = barriers.over;
+            tradeEngine.digitHedgeUnderBarrier = barriers.under;
+            return barriers.over;
+        },
         /**
          * 1 when the digits that lose both sides dominate the last `window`
          * cached ticks. Over 5 and Under 4 lose on 4 and 5. Reads the live
          * cache only, so it does not wait on a history request.
          */
         digitHedgeSignal: (window, over, under) => {
-            const over_barrier = parseDigitBarrier(over) ?? Number(OVER_BARRIER);
-            const under_barrier = parseDigitBarrier(under) ?? Number(UNDER_BARRIER);
+            const barriers = resolveHedgeBarriers({
+                over,
+                under,
+                fallbackOver: tradeEngine.digitHedgeOverBarrier ?? tradeEngine.tradeOptions?.prediction,
+                fallbackUnder: tradeEngine.digitHedgeUnderBarrier,
+            });
+            const over_barrier = barriers.over;
+            const under_barrier = barriers.under;
+            tradeEngine.digitHedgeOverBarrier = over_barrier;
+            tradeEngine.digitHedgeUnderBarrier = under_barrier;
             let digits = [];
             try {
                 digits = tradeEngine.getAvailableLastDigitList?.(window) || [];

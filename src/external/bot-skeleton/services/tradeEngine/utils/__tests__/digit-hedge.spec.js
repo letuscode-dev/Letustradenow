@@ -21,6 +21,7 @@ import {
     hedgeExitPrice,
     hedgeTicksDiffer,
     parseDigitBarrier,
+    resolveHedgeBarriers,
     planDigitHedgeBuys,
     sameHedgeClock,
     armImmediateRecovery,
@@ -81,6 +82,16 @@ describe('Over 5 / Under 4 hedge entry', () => {
         expect(parseDigitBarrier(10)).toBeNull();
         expect(parseDigitBarrier(-1)).toBeNull();
         expect(parseDigitBarrier(4.5)).toBeNull();
+        expect(resolveHedgeBarriers()).toEqual({ over: 5, under: 4 });
+        expect(resolveHedgeBarriers({ over: undefined, under: undefined })).toEqual({ over: 5, under: 4 });
+        expect(resolveHedgeBarriers({ over: 8, under: 1 })).toEqual({ over: 8, under: 1 });
+        expect(
+            resolveHedgeBarriers({ over: undefined, under: undefined, fallbackOver: 7, fallbackUnder: 2 })
+        ).toEqual({ over: 7, under: 2 });
+        expect(resolveHedgeBarriers({ over: 'nope', under: 15, fallbackOver: 6, fallbackUnder: 3 })).toEqual({
+            over: 6,
+            under: 3,
+        });
     });
 
     it('arms an immediate hedge only after both sides lose and the option is on', () => {

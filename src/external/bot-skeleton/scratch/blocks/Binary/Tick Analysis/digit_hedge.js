@@ -21,8 +21,8 @@ window.Blockly.Blocks.digit_hedge_purchase = {
         return {
             message0: localize('Purchase Over %1 + Under %2 hedge'),
             args0: [
-                { type: 'input_value', name: 'OVER', check: 'Number' },
-                { type: 'input_value', name: 'UNDER', check: 'Number' },
+                { type: 'input_value', name: 'OVER' },
+                { type: 'input_value', name: 'UNDER' },
             ],
             previousStatement: null,
             ...colours(),
@@ -46,19 +46,11 @@ window.Blockly.Blocks.digit_hedge_purchase = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = block => {
-    const over =
-        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
-            block,
-            'OVER',
-            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
-        ) || '5';
-    const under =
-        window.Blockly.JavaScript.javascriptGenerator.valueToCode(
-            block,
-            'UNDER',
-            window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
-        ) || '4';
-    return `Bot.purchaseDigitHedge(${over}, ${under});\n`;
+    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC;
+    const value = name => window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
+    const over = value('OVER') || '5';
+    const under = value('UNDER') || '4';
+    return `Bot.digitHedgeSetBarriers(${over}, ${under});\nBot.purchaseDigitHedge();\n`;
 };
 
 window.Blockly.Blocks.digit_hedge_result = {
@@ -308,9 +300,9 @@ window.Blockly.Blocks.digit_hedge_signal = {
         return {
             message0: localize('digits from Under %1 through Over %2 dominate the last %3 ticks'),
             args0: [
-                { type: 'input_value', name: 'UNDER', check: 'Number' },
-                { type: 'input_value', name: 'OVER', check: 'Number' },
-                { type: 'input_value', name: 'WINDOW', check: 'Number' },
+                { type: 'input_value', name: 'UNDER' },
+                { type: 'input_value', name: 'OVER' },
+                { type: 'input_value', name: 'WINDOW' },
             ],
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
@@ -334,9 +326,8 @@ window.Blockly.Blocks.digit_hedge_signal = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_signal = block => {
-    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE;
-    const value = name =>
-        window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
+    const order = window.Blockly.JavaScript.javascriptGenerator.ORDER_ATOMIC;
+    const value = name => window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
     const window_size = value('WINDOW') || '5';
     const over = value('OVER') || '5';
     const under = value('UNDER') || '4';

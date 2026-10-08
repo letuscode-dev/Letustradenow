@@ -18,6 +18,12 @@ export const parseDigitBarrier = value => {
     return Number.isInteger(n) && n >= 0 && n <= 9 ? n : null;
 };
 
+/** Use the saved barriers, then the trade-option prediction, then Over 5 and Under 4. */
+export const resolveHedgeBarriers = ({ over, under, fallbackOver, fallbackUnder } = {}) => ({
+    over: parseDigitBarrier(over) ?? parseDigitBarrier(fallbackOver) ?? Number(OVER_BARRIER),
+    under: parseDigitBarrier(under) ?? parseDigitBarrier(fallbackUnder) ?? Number(UNDER_BARRIER),
+});
+
 /**
  * Digits that lose both sides: not above the Over barrier and not below the
  * Under barrier. Over 5 and Under 4 lose on 4 and 5. Over 7 and Under 2 lose

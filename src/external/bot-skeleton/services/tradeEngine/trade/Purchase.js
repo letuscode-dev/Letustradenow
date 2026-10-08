@@ -12,7 +12,7 @@ import {
     buildDigitOverProposal,
     buildDigitUnderProposal,
     canAffordBothLegs,
-    parseDigitBarrier,
+    resolveHedgeBarriers,
     DIGIT_HEDGE_OPEN,
     hedgeStartEpoch,
     planDigitHedgeBuys,
@@ -542,7 +542,7 @@ export default Engine =>
          * covers both. Fills on different ticks are sold off and are not a hedge.
          * A single fill is sold off. If that sell fails, the bot stops.
          */
-        purchaseDigitHedge(over_barrier, under_barrier) {
+        purchaseDigitHedge() {
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
                 return Promise.resolve();
             }
@@ -579,14 +579,12 @@ export default Engine =>
                 return Promise.resolve();
             }
 
-            const over = parseDigitBarrier(over_barrier);
-            const under = parseDigitBarrier(under_barrier);
-            if (over == null || under == null) {
-                release(
-                    `Hedge was not sent. Over barrier ${over_barrier} and Under barrier ${under_barrier} must each be a digit from 0 to 9.`
-                );
-                return Promise.resolve();
-            }
+            const barriers = resolveHedgeBarriers({
+                over: this.digitHedgeOverBarrier,
+                under: this.digitHedgeUnderBarrier,
+                fallbackOver: this.tradeOptions?.prediction,
+            });
+            const { over, under } = barriers;
             const pair = `Over ${over} and Under ${under}`;
             const over_request = buildDigitOverProposal(trade, over);
             const under_request = buildDigitUnderProposal(trade, under);
