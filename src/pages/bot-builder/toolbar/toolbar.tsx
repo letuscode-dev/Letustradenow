@@ -16,6 +16,36 @@ const Toolbar = observer(() => {
     const { isDesktop } = useDevice();
     const [is_digit_open, setDigitOpen] = React.useState(false);
     const toggleDigit = () => setDigitOpen(open => !open);
+    const digit_popover_ref = React.useRef(null);
+    const digit_drag = React.useRef(null);
+    const startDigitDrag = event => {
+        const target = event.target;
+        if (!target?.closest?.('.digit-panel__header')) return;
+        if (target.closest('button, select, option')) return;
+        event.preventDefault();
+        const node = digit_popover_ref.current;
+        if (!node) return;
+        node.setPointerCapture?.(event.pointerId);
+        digit_drag.current = {
+            x: event.clientX,
+            y: event.clientY,
+            left: node.dataset.dragX ? Number(node.dataset.dragX) : 0,
+            top: node.dataset.dragY ? Number(node.dataset.dragY) : 0,
+        };
+    };
+    const moveDigitDrag = event => {
+        const drag = digit_drag.current;
+        const node = digit_popover_ref.current;
+        if (!drag || !node) return;
+        const x = drag.left + event.clientX - drag.x;
+        const y = drag.top + event.clientY - drag.y;
+        node.dataset.dragX = String(x);
+        node.dataset.dragY = String(y);
+        node.style.transform = `translate(${x}px, ${y}px)`;
+    };
+    const endDigitDrag = () => {
+        digit_drag.current = null;
+    };
     const { is_dialog_open, closeResetDialog, onResetOkButtonClick: onOkButtonClick } = toolbar;
     const { is_running } = run_panel;
     const { setFormVisibility } = quick_strategy;
@@ -45,7 +75,14 @@ const Toolbar = observer(() => {
             </div>
             {!isDesktop && <WorkspaceGroup is_digit_open={is_digit_open} onToggleDigit={toggleDigit} />}
             {is_digit_open && (
-                <div className='digit-panel-popover'>
+                <div
+                    className='digit-panel-popover'
+                    ref={digit_popover_ref}
+                    onPointerDown={startDigitDrag}
+                    onPointerMove={moveDigitDrag}
+                    onPointerUp={endDigitDrag}
+                    onPointerCancel={endDigitDrag}
+                >
                     <DigitPanel onClose={() => setDigitOpen(false)} />
                 </div>
             )}

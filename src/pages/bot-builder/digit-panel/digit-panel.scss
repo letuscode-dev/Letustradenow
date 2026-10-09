@@ -12,10 +12,17 @@
         align-items: center;
         background: #101a36;
         color: #fff;
+        cursor: grab;
         display: flex;
         gap: 1.2rem;
         justify-content: space-between;
         padding: 1.4rem 1.6rem 1.2rem;
+        touch-action: none;
+        user-select: none;
+
+        &:active {
+            cursor: grabbing;
+        }
     }
 
     &__kicker {
