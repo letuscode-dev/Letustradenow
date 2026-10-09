@@ -57,8 +57,8 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'middle-gap-differs-v1',
         title: 'Jump 10 Middle Differs',
         description:
-            'Buys Differs on Jump 10 when the digit two ticks ago is 2 above the last digit. The barrier is the digit between them. A win returns to the stake. A loss sets the stake times 10.5. $2, 1 tick.',
-        tags: ['Differs', 'Jump 10', 'Martingale'],
+            'Buys Differs on Jump 10 when the digit two ticks ago is 2 above the last digit. The barrier is the digit between them. A loss is recovered over the set number of wins using the payout percent. $2, payout 11%, 3 wins, 1 tick.',
+        tags: ['Differs', 'Jump 10', 'Split recovery'],
         xml: MIDDLE_GAP_DIFFERS_XML,
     },
 ];

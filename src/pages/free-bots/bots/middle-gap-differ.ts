@@ -2,24 +2,32 @@
  * Jump 10 Middle Differs.
  *
  * Buys Differs only when the digit two ticks ago minus the latest digit is 2.
- * The barrier is the digit between them (8 then 6 → differ 7). Stake rules match
- * Jump 10 Differs: a win returns to 2, a loss sets the stake times 10.5 once.
+ * The barrier is the digit between them (8 then 6 → differ 7). A loss is split
+ * across Recovery runs wins. Each stake is (loss ÷ runs) ÷ (payout% ÷ 100).
  */
 
 import { blockHelpers } from './blocks';
 
 const VARIABLES: [string, string][] = [
     ['mgd_stake', 'Stake'],
-    ['mgd_amount', 'Amount'],
-    ['mgd_martingale', 'Martingale'],
+    ['mgd_payout', 'Payout %'],
+    ['mgd_runs', 'Recovery runs'],
 ];
 
-const { v, num, set, chain, arith, compare } = blockHelpers(VARIABLES, 'mgd_amount');
+const { v, num, set, chain, compare } = blockHelpers(VARIABLES, 'mgd_stake');
+
+const configure = (next = '') => `<block type="recovery_configure">
+        <value name="STAKE">${v('mgd_stake')}</value>
+        <value name="PAYOUT">${v('mgd_payout')}</value>
+        <value name="SPLITS">${v('mgd_runs')}</value>
+        ${next ? `<next>${next}</next>` : ''}
+      </block>`;
 
 const INIT = chain([
     n => set('mgd_stake', num(2), n),
-    n => set('mgd_martingale', num(10.5), n),
-    n => set('mgd_amount', v('mgd_stake'), n),
+    n => set('mgd_payout', num(11), n),
+    n => set('mgd_runs', num(3), n),
+    () => configure(),
 ]);
 
 const BEFORE_PURCHASE = `<block type="controls_if">
@@ -27,13 +35,11 @@ const BEFORE_PURCHASE = `<block type="controls_if">
         <statement name="DO0"><block type="purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block></statement>
       </block>`;
 
-const AFTER_PURCHASE = `<block type="controls_if">
-        <mutation else="1"></mutation>
-        <value name="IF0"><block type="contract_check_result"><field name="CHECK_RESULT">win</field></block></value>
-        <statement name="DO0">${set('mgd_amount', v('mgd_stake'))}</statement>
-        <statement name="ELSE">${set('mgd_amount', arith('MULTIPLY', v('mgd_stake'), v('mgd_martingale')))}</statement>
+const AFTER_PURCHASE = configure(`<block type="recovery_apply_result">
+        <value name="IS_WIN"><block type="contract_check_result"><field name="CHECK_RESULT">win</field></block></value>
+        <value name="PROFIT"><block type="read_details"><field name="DETAIL_INDEX">4</field></block></value>
         <next><block type="trade_again"></block></next>
-      </block>`;
+      </block>`);
 
 export const MIDDLE_GAP_DIFFERS_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -81,7 +87,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
         <mutation xmlns="http://www.w3.org/1999/xhtml" has_first_barrier="false" has_second_barrier="false" has_prediction="true"></mutation>
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">${num(1)}</value>
-        <value name="AMOUNT">${v('mgd_amount')}</value>
+        <value name="AMOUNT"><block type="recovery_stake"></block></value>
         <value name="PREDICTION">${num(0)}</value>
       </block>
     </statement>

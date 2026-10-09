@@ -486,7 +486,7 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Jump 10 Differs stake rules, 1 tick', () => {
+        it('Jump 10 Differs, payout percent, recovery runs, 1 tick', () => {
             expect(field('SYMBOL_LIST')).toBe('JD10');
             expect(field('SUBMARKET_LIST')).toBe('jump_index');
             expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
@@ -495,11 +495,18 @@ describe('free bot catalog XML', () => {
             expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
             expect(field('RESTARTONERROR')).toBe('TRUE');
             expect(setValue('mgd_stake')).toEqual(['2']);
-            expect(setValue('mgd_martingale')).toEqual(['10.5']);
-            expect(setValue('mgd_amount')).toEqual(['Stake']);
+            expect(setValue('mgd_payout')).toEqual(['11']);
+            expect(setValue('mgd_runs')).toEqual(['3']);
+            expect(doc.querySelector('variable[id="mgd_martingale"]')).toBeNull();
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
-            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('mgd_amount');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] > block')?.getAttribute('type')).toBe(
+                'recovery_stake'
+            );
+            const setup = doc.querySelector('statement[name="INITIALIZATION"] block[type="recovery_configure"]');
+            expect(setup?.querySelector(':scope > value[name="STAKE"] field')?.getAttribute('id')).toBe('mgd_stake');
+            expect(setup?.querySelector(':scope > value[name="PAYOUT"] field')?.getAttribute('id')).toBe('mgd_payout');
+            expect(setup?.querySelector(':scope > value[name="SPLITS"] field')?.getAttribute('id')).toBe('mgd_runs');
         });
 
         it('buys Differs only when the two-tick gap is 2', () => {
@@ -516,18 +523,21 @@ describe('free bot catalog XML', () => {
             expect(gate?.querySelector(':scope > statement[name="ELSE"]')).toBeNull();
         });
 
-        it('a win returns to the stake, a loss uses the stake times 10.5, then trades again', () => {
+        it('updates recovery from the payout percent and the run count, then trades again', () => {
             const after = doc.querySelector('statement[name="AFTERPURCHASE_STACK"] > block');
-            expect(after?.getAttribute('type')).toBe('controls_if');
-            const win = after?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(win)).toBe('mgd_amount');
-            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('mgd_stake');
-            const loss = after?.querySelector(':scope > statement[name="ELSE"] > block');
-            const multiply = loss?.querySelector(':scope > value[name="VALUE"] > block');
-            expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
-            expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('mgd_stake');
-            expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('mgd_martingale');
-            expect(after?.querySelector(':scope > next > block')?.getAttribute('type')).toBe('trade_again');
+            expect(after?.getAttribute('type')).toBe('recovery_configure');
+            expect(after?.querySelector(':scope > value[name="PAYOUT"] field')?.getAttribute('id')).toBe('mgd_payout');
+            expect(after?.querySelector(':scope > value[name="SPLITS"] field')?.getAttribute('id')).toBe('mgd_runs');
+            const apply = after?.querySelector(':scope > next > block');
+            expect(apply?.getAttribute('type')).toBe('recovery_apply_result');
+            expect(apply?.querySelector(':scope > value[name="IS_WIN"] field[name="CHECK_RESULT"]')?.textContent).toBe(
+                'win'
+            );
+            expect(apply?.querySelector(':scope > value[name="PROFIT"] field[name="DETAIL_INDEX"]')?.textContent).toBe(
+                '4'
+            );
+            expect(apply?.querySelector(':scope > next > block')?.getAttribute('type')).toBe('trade_again');
+            expect(after?.querySelector('block[type="math_arithmetic"]')).toBeNull();
         });
     });
 });

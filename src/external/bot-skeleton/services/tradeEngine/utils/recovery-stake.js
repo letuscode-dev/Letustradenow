@@ -162,6 +162,9 @@ export const applyRecoveryResult = (state, is_win, profit) => {
             if (state.accumulatedLoss <= 0) {
                 state.accumulatedLoss = 0;
                 state.remainingSplits = 0;
+            } else if (state.remainingSplits < 1) {
+                // A short payout must not drop the leftover loss back to the base stake.
+                state.remainingSplits = 1;
             }
         }
         return state;

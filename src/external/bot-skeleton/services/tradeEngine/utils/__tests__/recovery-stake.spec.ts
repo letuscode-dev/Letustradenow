@@ -109,6 +109,21 @@ describe('applyRecoveryResult', () => {
         expect(calculateRecoveryStake(state)).toBe(1);
     });
 
+    it('keeps one split when a planned win leaves loss behind', () => {
+        const state = createRecoveryState({
+            initialStake: 2,
+            payoutPercent: 100,
+            recoverySplits: 1,
+        });
+        applyRecoveryResult(state, false, -10);
+        state.lastStake = calculateRecoveryStake(state);
+        applyRecoveryResult(state, true, 4);
+        expect(state.accumulatedLoss).toBe(6);
+        expect(state.remainingSplits).toBe(1);
+        expect(state.payoutPercent).toBe(40);
+        expect(calculateRecoveryStake(state)).toBe(15);
+    });
+
     it('re-plans remaining splits after another loss mid-recovery', () => {
         const state = createRecoveryState({
             initialStake: 1,
