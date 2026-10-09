@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import chart_api from '@/external/bot-skeleton/services/api/chart-api';
-import { MAX_TICK_SAMPLE_SIZE } from './analysis-constants';
+import { DIGIT_HISTORY_SIZE } from './digit-distribution';
 import type { AnalysisCandle, AnalysisSymbol, AnalysisTick, MarketStatus, TimeframeOption } from './analysis-types';
 
 type RawSymbol = {
@@ -142,7 +142,7 @@ const fetchCandles = async (symbol: string, granularity: number): Promise<Analys
 const fetchTicks = async (symbol: string, pip?: number): Promise<AnalysisTick[]> => {
     const api = await waitForChartApi();
     const response = await api.send({
-        count: MAX_TICK_SAMPLE_SIZE,
+        count: DIGIT_HISTORY_SIZE,
         end: 'latest',
         style: 'ticks',
         ticks_history: symbol,
@@ -296,6 +296,8 @@ export const useAnalysisMarketData = () => {
 
                 if (!selectedSymbol && nextSymbols.length) {
                     const preferredSymbol =
+                        nextSymbols.find(symbol => symbol.exchangeIsOpen && symbol.symbol === '1HZ50V') ||
+                        nextSymbols.find(symbol => symbol.exchangeIsOpen && symbol.symbol === '1HZ75V') ||
                         nextSymbols.find(symbol => symbol.exchangeIsOpen && symbol.symbol === 'R_100') ||
                         nextSymbols.find(symbol => symbol.exchangeIsOpen) ||
                         nextSymbols[0];
@@ -357,7 +359,7 @@ export const useAnalysisMarketData = () => {
 
                 cleanupTicks = await subscribeToTicks(selectedSymbol, pip, tick => {
                     if (!mountedRef.current) return;
-                    setTicks(current => [...current, tick].slice(-MAX_TICK_SAMPLE_SIZE));
+                    setTicks(current => [...current, tick].slice(-DIGIT_HISTORY_SIZE));
                     setLastUpdated(Date.now());
                     setStatus('live');
                 });

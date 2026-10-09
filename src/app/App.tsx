@@ -24,7 +24,6 @@ const TAB_HASHES = new Set([
     'analysis',
     'tutorial',
     'free_bots',
-    'manual_trader',
 ]);
 
 const redirectInitialTabHashToMainUrl = () => {

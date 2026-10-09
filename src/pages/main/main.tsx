@@ -37,7 +37,7 @@ import {
     LabelPairedObjectsColumnCaptionRegularIcon,
     LabelPairedPuzzlePieceTwoCaptionBoldIcon,
 } from '@deriv/quill-icons/LabelPaired';
-import { LegacyGuide1pxIcon, LegacyOpenPositionIcon } from '@deriv/quill-icons/Legacy';
+import { LegacyGuide1pxIcon } from '@deriv/quill-icons/Legacy';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import RunPanel from '../../components/run-panel';
@@ -50,7 +50,6 @@ const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
 const Tutorial = lazy(() => import('../tutorials'));
 const Analysis = lazy(() => import('../analysis'));
 const FreeBots = lazy(() => import('../free-bots'));
-const ManualTrader = lazy(() => import('../manual-trader'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
@@ -83,7 +82,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots', 'manual_trader'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'analysis', 'tutorial', 'free_bots'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -131,7 +130,8 @@ const AppWrapper = observer(() => {
     const GetHashedValue = (tab: number) => {
         tab_value = location.hash?.split('#')[1];
         if (!tab_value) return is_preview_mode ? BOT_BUILDER : tab;
-        return Number(hash.indexOf(String(tab_value)));
+        const hashed_index = hash.indexOf(String(tab_value));
+        return hashed_index >= 0 ? hashed_index : DBOT_TABS.ANALYSIS;
     };
     const active_hash_tab = GetHashedValue(active_tab);
 
@@ -493,28 +493,6 @@ const AppWrapper = observer(() => {
                                     fallback={<ChunkLoader message={localize('Please wait, loading free bots...')} />}
                                 >
                                     <FreeBots />
-                                </Suspense>
-                            </div>
-                            <div
-                                label={
-                                    <>
-                                        <LegacyOpenPositionIcon
-                                            height='16px'
-                                            width='16px'
-                                            fill='var(--text-general)'
-                                            className='icon-general-fill-g-path'
-                                        />
-                                        <Localize i18n_default_text='Manual Trader' />
-                                    </>
-                                }
-                                id='id-manual-trader'
-                            >
-                                <Suspense
-                                    fallback={
-                                        <ChunkLoader message={localize('Please wait, loading manual trader...')} />
-                                    }
-                                >
-                                    <ManualTrader />
                                 </Suspense>
                             </div>
                         </Tabs>
