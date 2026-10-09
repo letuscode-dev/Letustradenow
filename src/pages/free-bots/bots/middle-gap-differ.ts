@@ -2,7 +2,7 @@
  * Seconds Differs.
  *
  * Buys Differs on the last digit of the current seconds (09:54:01 → 1, 09:54:15 → 5).
- * Bull Market Index. Payout 9.6% and 1 recovery run size the next stake.
+ * Volatility 75 (1s). Payout 9.6% and 1 recovery run size the next stake.
  * Stops at $5 total profit, or after 5 losses in a row. A win clears that streak.
  */
 
@@ -96,8 +96,8 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
     <statement name="TRADE_OPTIONS">
       <block type="trade_definition_market" id="mgd_market" deletable="false" movable="false">
         <field name="MARKET_LIST">synthetic_index</field>
-        <field name="SUBMARKET_LIST">random_daily</field>
-        <field name="SYMBOL_LIST">RDBULL</field>
+        <field name="SUBMARKET_LIST">random_index</field>
+        <field name="SYMBOL_LIST">1HZ75V</field>
         <next>
           <block type="trade_definition_tradetype" id="mgd_tradetype" deletable="false" movable="false">
             <field name="TRADETYPECAT_LIST">digits</field>

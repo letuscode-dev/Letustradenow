@@ -486,9 +486,9 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Bull Market Index, payout 9.6%, one recovery run, 1 tick', () => {
-            expect(field('SYMBOL_LIST')).toBe('RDBULL');
-            expect(field('SUBMARKET_LIST')).toBe('random_daily');
+        it('Volatility 75 (1s), payout 9.6%, one recovery run, 1 tick', () => {
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
             expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
             expect(field('TYPE_LIST')).toBe('DIGITDIFF');
             expect(field('DURATIONTYPE_LIST')).toBe('t');
