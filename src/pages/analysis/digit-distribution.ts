@@ -10,10 +10,12 @@ export const OVER_DIGIT = 4;
 export const UNDER_DIGIT = 5;
 
 export type DigitDistribution = {
+    coldDigit: number | null;
     counts: number[];
     evenPercent: number;
     fallPercent: number;
     hotDigit: number | null;
+    lastDigit: number | null;
     lastPrice: number | null;
     oddPercent: number;
     overPercent: number;
@@ -25,10 +27,12 @@ export type DigitDistribution = {
 };
 
 const emptyDistribution = (): DigitDistribution => ({
+    coldDigit: null,
     counts: Array(10).fill(0),
     evenPercent: 0,
     fallPercent: 0,
     hotDigit: null,
+    lastDigit: null,
     lastPrice: null,
     oddPercent: 0,
     overPercent: 0,
@@ -76,6 +80,14 @@ export const computeDigitDistribution = (ticks: AnalysisTick[], sampleSize = DEF
             if (isDigit(tick.digit) && counts[tick.digit] === maxCount) hotDigit = tick.digit;
         });
     }
+    let coldDigit: number | null = counted ? 0 : null;
+    if (counted) {
+        for (let digit = 1; digit < counts.length; digit += 1) {
+            if (counts[digit] < counts[coldDigit as number]) coldDigit = digit;
+        }
+    }
+    const lastTick = sample[sample.length - 1];
+    const lastDigit = isDigit(lastTick?.digit) ? lastTick.digit : null;
 
     const evenCount = counts.filter((_, digit) => digit % 2 === 0).reduce((sum, count) => sum + count, 0);
     const evenOdd = pairPercent(evenCount, counted);
@@ -90,13 +102,14 @@ export const computeDigitDistribution = (ticks: AnalysisTick[], sampleSize = DEF
         else if (change < 0) falls += 1;
     }
     const riseFall = pairPercent(rises, rises + falls);
-    const lastTick = sample[sample.length - 1];
 
     return {
+        coldDigit,
         counts,
         evenPercent: evenOdd.left,
         fallPercent: riseFall.right,
         hotDigit,
+        lastDigit,
         lastPrice: Number.isFinite(lastTick?.quote) ? lastTick.quote : null,
         oddPercent: evenOdd.right,
         overPercent: overUnder.left,

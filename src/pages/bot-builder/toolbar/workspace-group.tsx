@@ -19,7 +19,12 @@ import { useDevice } from '@deriv-com/ui';
 /* [/AI] */
 import ToolbarIcon from './toolbar-icon';
 
-const WorkspaceGroup = observer(() => {
+type WorkspaceGroupProps = {
+    is_digit_open: boolean;
+    onToggleDigit: () => void;
+};
+
+const WorkspaceGroup = observer(({ is_digit_open, onToggleDigit }: WorkspaceGroupProps) => {
     const { dashboard, toolbar, load_modal, save_modal } = useStore();
     const { setPreviewOnPopup, setChartModalVisibility, setTradingViewModalVisibility } = dashboard;
     const { has_redo_stack, has_undo_stack, onResetClick, onSortClick, onUndoClick, onZoomInOutClick } = toolbar;
@@ -71,6 +76,27 @@ const WorkspaceGroup = observer(() => {
                             onClick={toggleSaveModal}
                         >
                             <LabelPairedFloppyDiskMdRegularIcon />
+                        </span>
+                    }
+                />
+                <ToolbarIcon
+                    popover_message={localize('Digit distribution')}
+                    icon={
+                        <span
+                            className={classNames('toolbar__icon', {
+                                'toolbar__icon--active': is_digit_open,
+                            })}
+                            id='db-toolbar__digits-button'
+                            data-testid='dt_toolbar_digits_button'
+                            onClick={onToggleDigit}
+                        >
+                            <svg viewBox='0 0 16 16' width='16' height='16' aria-hidden='true'>
+                                {[0, 1, 2].map(row =>
+                                    [0, 1, 2].map(column => (
+                                        <circle key={`${row}-${column}`} cx={2.5 + column * 5.5} cy={2.5 + row * 5.5} r='1.35' />
+                                    ))
+                                )}
+                            </svg>
                         </span>
                     }
                 />

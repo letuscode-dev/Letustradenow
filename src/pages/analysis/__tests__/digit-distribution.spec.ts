@@ -9,6 +9,8 @@ describe('computeDigitDistribution', () => {
 
         expect(board.sampleSize).toBe(0);
         expect(board.hotDigit).toBeNull();
+        expect(board.coldDigit).toBeNull();
+        expect(board.lastDigit).toBeNull();
         expect(board.recentDigits).toEqual([]);
         expect(board.percents.every(percent => percent === 0)).toBe(true);
         expect(board.lastPrice).toBeNull();
@@ -32,6 +34,16 @@ describe('computeDigitDistribution', () => {
         expect(board.percents[2]).toBe(50);
         expect(board.percents[6]).toBe(50);
         expect(board.hotDigit).toBe(6);
+        expect(board.lastDigit).toBe(6);
+    });
+
+    it('keeps the newest digit separate from the fullest digit', () => {
+        const ticks = [...Array.from({ length: 6 }, () => 9), 3].map((digit, index) => tick(digit, 500 + index, index));
+        const board = computeDigitDistribution(ticks, 100);
+
+        expect(board.hotDigit).toBe(9);
+        expect(board.lastDigit).toBe(3);
+        expect(board.coldDigit).toBe(0);
     });
 
     it('splits even and odd, and Over 4 against Under 5, across the whole sample', () => {
