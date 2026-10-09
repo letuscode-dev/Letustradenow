@@ -1,6 +1,6 @@
 /**
  * 1 when the digit two ticks ago is exactly 2 above the latest digit.
- * Also stores the middle digit as the Differs barrier for the purchase that follows.
+ * The Differs barrier is the last digit of the current seconds (09:54:01 → 1).
  */
 import { localize } from '@deriv-com/translations';
 import { modifyContextMenu } from '../../../utils';
@@ -22,7 +22,7 @@ window.Blockly.Blocks.middle_gap_differ = {
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
             tooltip: localize(
-                '1 when previous_2 − previous_1 = 2. The Differs barrier is the digit between them. 0 otherwise.'
+                '1 when previous_2 − previous_1 = 2. The Differs barrier is the last digit of the current seconds, so 09:54:01 differs on 1. 0 otherwise.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -30,7 +30,9 @@ window.Blockly.Blocks.middle_gap_differ = {
     meta() {
         return {
             display_name: localize('Middle digit Differs'),
-            description: localize('Differs on the digit between two ticks that differ by 2.'),
+            description: localize(
+                'Trades when two ticks differ by 2, and differs on the last digit of the current seconds.'
+            ),
             key_words: localize('differs, middle, digit'),
         };
     },

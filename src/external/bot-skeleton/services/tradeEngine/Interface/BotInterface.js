@@ -269,7 +269,7 @@ import {
     onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
-import { middleGapFromNewest } from '../utils/middle-gap-differ';
+import { middleGapFromNewest, secondsDifferBarrier } from '../utils/middle-gap-differ';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -1436,7 +1436,7 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * 1 when the digit two ticks ago is exactly 2 above the latest digit.
-         * Sets the Differs barrier to the digit between them before the purchase.
+         * The barrier is the last digit of the current seconds, read at this moment.
          */
         middleGapDifferSignal: () => {
             if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
@@ -1455,10 +1455,13 @@ const getBotInterface = tradeEngine => {
                 digits = [];
             }
             const report = middleGapFromNewest(digits);
-            if (!report.trade || !tradeEngine.tradeOptions) return 0;
-            tradeEngine.tradeOptions = { ...tradeEngine.tradeOptions, prediction: report.barrier };
+            const now = new Date();
+            const barrier = secondsDifferBarrier(now);
+            if (!report.trade || barrier === null || !tradeEngine.tradeOptions) return 0;
+            tradeEngine.tradeOptions = { ...tradeEngine.tradeOptions, prediction: barrier };
+            const second = String(now.getSeconds()).padStart(2, '0');
             notifyHedge(
-                `Middle differs | ${report.previous2} - ${report.previous1} = 2 | differ ${report.barrier}`,
+                `Middle differs | ${report.previous2} - ${report.previous1} = 2 | seconds ${second} | differ ${barrier}`,
                 'journal__text--success'
             );
             return 1;
