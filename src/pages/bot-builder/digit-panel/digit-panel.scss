@@ -242,6 +242,15 @@
             box-shadow: 0 0 0 0.2rem rgba(18, 183, 106, 0.18);
         }
 
+        &--second .digit-panel__bubble {
+            border-color: #2e90fa;
+            box-shadow: 0 0 0 0.2rem rgba(46, 144, 250, 0.22);
+        }
+
+        &--current.digit-panel__cell--second .digit-panel__bubble {
+            box-shadow: 0 0 0 0.25rem #2e90fa;
+        }
+
         &--cold .digit-panel__bubble {
             border-color: #f04438;
             box-shadow: 0 0 0 0.2rem rgba(240, 68, 56, 0.16);

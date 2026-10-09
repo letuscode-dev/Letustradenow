@@ -133,7 +133,9 @@ const DigitPanel = ({ onClose }: DigitPanelProps) => {
                     {board.percents.map((percent, digit) => {
                         const isCurrent = digit === board.lastDigit;
                         const isHot = digit === board.hotDigit && !isCurrent;
-                        const isCold = digit === board.coldDigit && !isCurrent && digit !== board.hotDigit;
+                        const isSecond = digit === board.secondHotDigit;
+                        const isCold =
+                            digit === board.coldDigit && !isCurrent && digit !== board.hotDigit && !isSecond;
                         return (
                             <div
                                 key={digit}
@@ -141,6 +143,7 @@ const DigitPanel = ({ onClose }: DigitPanelProps) => {
                                 className={classNames('digit-panel__cell', {
                                     'digit-panel__cell--current': isCurrent,
                                     'digit-panel__cell--hot': isHot,
+                                    'digit-panel__cell--second': isSecond,
                                     'digit-panel__cell--cold': isCold,
                                 })}
                             >

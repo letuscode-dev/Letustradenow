@@ -9,6 +9,7 @@ describe('computeDigitDistribution', () => {
 
         expect(board.sampleSize).toBe(0);
         expect(board.hotDigit).toBeNull();
+        expect(board.secondHotDigit).toBeNull();
         expect(board.coldDigit).toBeNull();
         expect(board.lastDigit).toBeNull();
         expect(board.recentDigits).toEqual([]);
@@ -42,8 +43,17 @@ describe('computeDigitDistribution', () => {
         const board = computeDigitDistribution(ticks, 100);
 
         expect(board.hotDigit).toBe(9);
+        expect(board.secondHotDigit).toBe(3);
         expect(board.lastDigit).toBe(3);
         expect(board.coldDigit).toBe(0);
+    });
+
+    it('circles the second fullest digit, using the later one when that count is tied', () => {
+        const ticks = [4, 4, 6, 6, 9, 9, 9, 9, 9].map((digit, index) => tick(digit, 600 + index, index));
+        const board = computeDigitDistribution(ticks, 100);
+
+        expect(board.hotDigit).toBe(9);
+        expect(board.secondHotDigit).toBe(6);
     });
 
     it('splits even and odd, and Over 4 against Under 5, across the whole sample', () => {

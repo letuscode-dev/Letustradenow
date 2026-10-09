@@ -23,6 +23,7 @@ export type DigitDistribution = {
     recentDigits: number[];
     risePercent: number;
     sampleSize: number;
+    secondHotDigit: number | null;
     underPercent: number;
 };
 
@@ -40,6 +41,7 @@ const emptyDistribution = (): DigitDistribution => ({
     recentDigits: [],
     risePercent: 0,
     sampleSize: 0,
+    secondHotDigit: null,
     underPercent: 0,
 });
 
@@ -80,6 +82,17 @@ export const computeDigitDistribution = (ticks: AnalysisTick[], sampleSize = DEF
             if (isDigit(tick.digit) && counts[tick.digit] === maxCount) hotDigit = tick.digit;
         });
     }
+    let secondHotDigit: number | null = null;
+    if (hotDigit !== null) {
+        const secondCount = Math.max(...counts.filter((_, digit) => digit !== hotDigit));
+        if (secondCount > 0) {
+            sample.forEach(tick => {
+                if (isDigit(tick.digit) && tick.digit !== hotDigit && counts[tick.digit] === secondCount) {
+                    secondHotDigit = tick.digit;
+                }
+            });
+        }
+    }
     let coldDigit: number | null = counted ? 0 : null;
     if (counted) {
         for (let digit = 1; digit < counts.length; digit += 1) {
@@ -117,6 +130,7 @@ export const computeDigitDistribution = (ticks: AnalysisTick[], sampleSize = DEF
         recentDigits: sample.slice(-RECENT_DIGIT_COUNT).map(tick => tick.digit).filter(isDigit),
         risePercent: riseFall.left,
         sampleSize: sample.length,
+        secondHotDigit,
         underPercent: overUnder.right,
     };
 };
