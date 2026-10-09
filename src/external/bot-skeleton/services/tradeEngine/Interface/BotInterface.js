@@ -269,6 +269,7 @@ import {
     onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
+import { middleGapFromNewest } from '../utils/middle-gap-differ';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -1432,6 +1433,35 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.digitHedgeUnderBarrier = 4;
             }
             return report.trade ? 1 : 0;
+        },
+        /**
+         * 1 when the digit two ticks ago is exactly 2 above the latest digit.
+         * Sets the Differs barrier to the digit between them before the purchase.
+         */
+        middleGapDifferSignal: () => {
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                const line = 'Middle differs | waiting for the market digit size | NO TRADE';
+                if (tradeEngine.middleGapWaitLine !== line) {
+                    tradeEngine.middleGapWaitLine = line;
+                    notifyHedge(line, 'journal__text');
+                }
+                return 0;
+            }
+            tradeEngine.middleGapWaitLine = '';
+            let digits = [];
+            try {
+                digits = tradeEngine.getAvailableLastDigitList?.(2) || [];
+            } catch {
+                digits = [];
+            }
+            const report = middleGapFromNewest(digits);
+            if (!report.trade || !tradeEngine.tradeOptions) return 0;
+            tradeEngine.tradeOptions = { ...tradeEngine.tradeOptions, prediction: report.barrier };
+            notifyHedge(
+                `Middle differs | ${report.previous2} - ${report.previous1} = 2 | differ ${report.barrier}`,
+                'journal__text--success'
+            );
+            return 1;
         },
         /**
          * 1 = Only Ups, -1 = Only Downs, 0 = no trade.

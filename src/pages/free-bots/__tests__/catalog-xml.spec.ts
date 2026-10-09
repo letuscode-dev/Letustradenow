@@ -3,13 +3,14 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-        it('ships the Over 2, both Over/Under hedges, Only Ups / Only Downs, and Jump 10 Differs', () => {
+        it('ships the Over 2, both Over/Under hedges, Only Ups / Only Downs, and both Differs bots', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual([
             'over-two-v1',
             'over-under-hedge-v1',
             'quiet-gap-hedge-v1',
             'only-ups-downs-v1',
             'jump-differs-v1',
+            'middle-gap-differs-v1',
         ]);
     });
 
@@ -468,6 +469,65 @@ describe('free bot catalog XML', () => {
             expect(after?.querySelector(':scope > next > block')?.getAttribute('type')).toBe('trade_again');
             expect(after?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
             expect(after?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).toBeNull();
+        });
+    });
+
+    describe('Jump 10 Middle Differs', () => {
+        const doc = parse(FREE_BOTS[5].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Jump 10 Differs stake rules, 1 tick', () => {
+            expect(field('SYMBOL_LIST')).toBe('JD10');
+            expect(field('SUBMARKET_LIST')).toBe('jump_index');
+            expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+            expect(field('TYPE_LIST')).toBe('DIGITDIFF');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
+            expect(field('RESTARTONERROR')).toBe('TRUE');
+            expect(setValue('mgd_stake')).toEqual(['2']);
+            expect(setValue('mgd_martingale')).toEqual(['10.5']);
+            expect(setValue('mgd_amount')).toEqual(['Stake']);
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('mgd_amount');
+        });
+
+        it('buys Differs only when the two-tick gap is 2', () => {
+            const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(gate?.getAttribute('type')).toBe('controls_if');
+            expect(gate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('EQ');
+            expect(gate?.querySelector('block[type="middle_gap_differ"]')).not.toBeNull();
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            const purchase = gate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(purchase?.getAttribute('type')).toBe('purchase');
+            expect(purchase?.querySelector(':scope > field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITDIFF');
+            expect(gate?.querySelector(':scope > statement[name="ELSE"]')).toBeNull();
+        });
+
+        it('a win returns to the stake, a loss uses the stake times 10.5, then trades again', () => {
+            const after = doc.querySelector('statement[name="AFTERPURCHASE_STACK"] > block');
+            expect(after?.getAttribute('type')).toBe('controls_if');
+            const win = after?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('mgd_amount');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('mgd_stake');
+            const loss = after?.querySelector(':scope > statement[name="ELSE"] > block');
+            const multiply = loss?.querySelector(':scope > value[name="VALUE"] > block');
+            expect(multiply?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('MULTIPLY');
+            expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('mgd_stake');
+            expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('mgd_martingale');
+            expect(after?.querySelector(':scope > next > block')?.getAttribute('type')).toBe('trade_again');
         });
     });
 });

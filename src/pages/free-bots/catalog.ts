@@ -1,4 +1,5 @@
 import { JUMP_DIFFERS_XML } from './bots/jump-differs';
+import { MIDDLE_GAP_DIFFERS_XML } from './bots/middle-gap-differ';
 import { ONLY_UPS_DOWNS_XML } from './bots/only-ups-downs';
 import { OVER_TWO_XML } from './bots/over-two';
 import { OVER_UNDER_HEDGE_XML } from './bots/over-under-hedge';
@@ -51,5 +52,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Differs on Jump 10. The digit is the last digit plus 1, or minus 1 when the last digit is 8 or 9. A win returns to the stake. A loss sets the stake times 10.5. $2, 1 tick.',
         tags: ['Differs', 'Jump 10', 'Martingale'],
         xml: JUMP_DIFFERS_XML,
+    },
+    {
+        id: 'middle-gap-differs-v1',
+        title: 'Jump 10 Middle Differs',
+        description:
+            'Buys Differs on Jump 10 when the digit two ticks ago is 2 above the last digit. The barrier is the digit between them. A win returns to the stake. A loss sets the stake times 10.5. $2, 1 tick.',
+        tags: ['Differs', 'Jump 10', 'Martingale'],
+        xml: MIDDLE_GAP_DIFFERS_XML,
     },
 ];
