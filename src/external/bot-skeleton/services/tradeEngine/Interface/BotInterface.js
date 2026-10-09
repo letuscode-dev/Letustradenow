@@ -269,7 +269,7 @@ import {
     onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
-import { middleGapFromNewest, secondsDifferBarrier } from '../utils/middle-gap-differ';
+import { secondsDifferBarrier } from '../utils/middle-gap-differ';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -1435,33 +1435,17 @@ const getBotInterface = tradeEngine => {
             return report.trade ? 1 : 0;
         },
         /**
-         * 1 when the digit two ticks ago is exactly 2 above the latest digit.
-         * The barrier is the last digit of the current seconds, read at this moment.
+         * Sets the Differs barrier from the clock and returns 1.
+         * 09:54:01 differs on 1. 09:54:15 differs on 5. No digit pattern is used.
          */
         middleGapDifferSignal: () => {
-            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
-                const line = 'Middle differs | waiting for the market digit size | NO TRADE';
-                if (tradeEngine.middleGapWaitLine !== line) {
-                    tradeEngine.middleGapWaitLine = line;
-                    notifyHedge(line, 'journal__text');
-                }
-                return 0;
-            }
-            tradeEngine.middleGapWaitLine = '';
-            let digits = [];
-            try {
-                digits = tradeEngine.getAvailableLastDigitList?.(2) || [];
-            } catch {
-                digits = [];
-            }
-            const report = middleGapFromNewest(digits);
             const now = new Date();
             const barrier = secondsDifferBarrier(now);
-            if (!report.trade || barrier === null || !tradeEngine.tradeOptions) return 0;
+            if (barrier === null || !tradeEngine.tradeOptions) return 0;
             tradeEngine.tradeOptions = { ...tradeEngine.tradeOptions, prediction: barrier };
-            const second = String(now.getSeconds()).padStart(2, '0');
+            const pad = value => String(value).padStart(2, '0');
             notifyHedge(
-                `Middle differs | ${report.previous2} - ${report.previous1} = 2 | seconds ${second} | differ ${barrier}`,
+                `Seconds differs | ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} | differ ${barrier}`,
                 'journal__text--success'
             );
             return 1;

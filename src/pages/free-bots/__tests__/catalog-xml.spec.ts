@@ -472,7 +472,7 @@ describe('free bot catalog XML', () => {
         });
     });
 
-    describe('Jump 10 Middle Differs', () => {
+    describe('Jump 10 Seconds Differs', () => {
         const doc = parse(FREE_BOTS[5].xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
@@ -509,7 +509,7 @@ describe('free bot catalog XML', () => {
             expect(setup?.querySelector(':scope > value[name="SPLITS"] field')?.getAttribute('id')).toBe('mgd_runs');
         });
 
-        it('buys Differs only when the two-tick gap is 2', () => {
+        it('buys Differs on the current seconds digit', () => {
             const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
             expect(gate?.getAttribute('type')).toBe('controls_if');
             expect(gate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('EQ');

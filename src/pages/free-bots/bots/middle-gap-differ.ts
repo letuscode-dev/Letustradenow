@@ -1,8 +1,8 @@
 /**
  * Jump 10 Middle Differs.
  *
- * Buys Differs only when the digit two ticks ago minus the latest digit is 2.
- * The barrier is the last digit of the current seconds (09:54:01 → 1). A loss is split
+ * Buys Differs on the last digit of the current seconds (09:54:01 → 1, 09:54:15 → 5).
+ * The barrier changes with the clock. A loss is split
  * across Recovery runs wins. Each stake is (loss ÷ runs) ÷ (payout% ÷ 100).
  */
 

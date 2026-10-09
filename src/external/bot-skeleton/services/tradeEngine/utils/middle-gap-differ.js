@@ -1,9 +1,6 @@
 /**
- * Trade when the digit two ticks ago is exactly 2 above the latest digit.
- * The Differs barrier is not that middle digit. It is the last digit of the
- * current seconds: 09:54:01 → 1, 09:54:15 → 5, 09:54:10 → 0.
- *
- * Digits are oldest → newest. previous_2 is two ticks ago. previous_1 is the latest.
+ * The Differs barrier is the last digit of the current seconds.
+ * 09:54:01 → 1. 09:54:15 → 5. 09:54:10 → 0.
  */
 
 const isLastDigit = value => {
