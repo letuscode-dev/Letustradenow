@@ -472,7 +472,7 @@ describe('free bot catalog XML', () => {
         });
     });
 
-    describe('Jump 10 Seconds Differs', () => {
+    describe('Seconds Differs', () => {
         const doc = parse(FREE_BOTS[5].xml);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
@@ -486,17 +486,21 @@ describe('free bot catalog XML', () => {
             expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         });
 
-        it('Jump 10 Differs, payout percent, recovery runs, 1 tick', () => {
-            expect(field('SYMBOL_LIST')).toBe('JD10');
-            expect(field('SUBMARKET_LIST')).toBe('jump_index');
+        it('Bull Market Index, payout 9.6%, one recovery run, 1 tick', () => {
+            expect(field('SYMBOL_LIST')).toBe('RDBULL');
+            expect(field('SUBMARKET_LIST')).toBe('random_daily');
             expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
             expect(field('TYPE_LIST')).toBe('DIGITDIFF');
             expect(field('DURATIONTYPE_LIST')).toBe('t');
             expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
             expect(field('RESTARTONERROR')).toBe('TRUE');
             expect(setValue('mgd_stake')).toEqual(['2']);
-            expect(setValue('mgd_payout')).toEqual(['11']);
-            expect(setValue('mgd_runs')).toEqual(['3']);
+            expect(setValue('mgd_payout')).toEqual(['9.6']);
+            expect(setValue('mgd_runs')).toEqual(['1']);
+            expect(setValue('mgd_take_profit')).toEqual(['5']);
+            expect(setValue('mgd_max_losses')).toEqual(['5']);
+            expect(setValue('mgd_total')).toEqual(['0']);
+            expect(setValue('mgd_losses')).toEqual(['0']);
             expect(doc.querySelector('variable[id="mgd_martingale"]')).toBeNull();
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
@@ -523,21 +527,39 @@ describe('free bot catalog XML', () => {
             expect(gate?.querySelector(':scope > statement[name="ELSE"]')).toBeNull();
         });
 
-        it('updates recovery from the payout percent and the run count, then trades again', () => {
-            const after = doc.querySelector('statement[name="AFTERPURCHASE_STACK"] > block');
-            expect(after?.getAttribute('type')).toBe('recovery_configure');
-            expect(after?.querySelector(':scope > value[name="PAYOUT"] field')?.getAttribute('id')).toBe('mgd_payout');
-            expect(after?.querySelector(':scope > value[name="SPLITS"] field')?.getAttribute('id')).toBe('mgd_runs');
-            const apply = after?.querySelector(':scope > next > block');
-            expect(apply?.getAttribute('type')).toBe('recovery_apply_result');
-            expect(apply?.querySelector(':scope > value[name="IS_WIN"] field[name="CHECK_RESULT"]')?.textContent).toBe(
-                'win'
-            );
-            expect(apply?.querySelector(':scope > value[name="PROFIT"] field[name="DETAIL_INDEX"]')?.textContent).toBe(
+        it('recovers from the result, then stops at take profit or consecutive losses', () => {
+            const profit = doc.querySelector('statement[name="AFTERPURCHASE_STACK"] > block');
+            expect(varId(profit)).toBe('mgd_profit');
+            expect(profit?.querySelector(':scope > value[name="VALUE"] field[name="DETAIL_INDEX"]')?.textContent).toBe(
                 '4'
             );
-            expect(apply?.querySelector(':scope > next > block')?.getAttribute('type')).toBe('trade_again');
-            expect(after?.querySelector('block[type="math_arithmetic"]')).toBeNull();
+            const total = profit?.querySelector(':scope > next > block');
+            expect(varId(total)).toBe('mgd_total');
+            const setup = total?.querySelector(':scope > next > block');
+            expect(setup?.getAttribute('type')).toBe('recovery_configure');
+            expect(setup?.querySelector(':scope > value[name="PAYOUT"] field')?.getAttribute('id')).toBe('mgd_payout');
+            expect(setup?.querySelector(':scope > value[name="SPLITS"] field')?.getAttribute('id')).toBe('mgd_runs');
+            const apply = setup?.querySelector(':scope > next > block');
+            expect(apply?.getAttribute('type')).toBe('recovery_apply_result');
+            expect(apply?.querySelector(':scope > value[name="PROFIT"] field')?.getAttribute('id')).toBe('mgd_profit');
+            const streak = apply?.querySelector(':scope > next > block');
+            expect(streak?.getAttribute('type')).toBe('controls_if');
+            expect(streak?.querySelector(':scope > statement[name="DO0"] field')?.getAttribute('id')).toBe('mgd_losses');
+            expect(streak?.querySelector(':scope > statement[name="DO0"] field[name="NUM"]')?.textContent).toBe('0');
+            expect(streak?.querySelector(':scope > statement[name="ELSE"] field[name="OP"]')?.textContent).toBe('ADD');
+            const limits = streak?.querySelector(':scope > next > block');
+            expect(limits?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('AND');
+            expect(limits?.querySelector(':scope > statement[name="DO0"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="DO1"] block[type="trade_again"]')).toBeNull();
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+            expect(
+                limits?.querySelector(':scope > value[name="IF1"] > block > value[name="A"] field')?.getAttribute('id')
+            ).toBe('mgd_losses');
+            expect(
+                limits?.querySelector(
+                    ':scope > value[name="IF1"] > block > value[name="B"] > block > value[name="THEN"] field[name="NUM"]'
+                )?.textContent
+            ).toBe('5');
         });
     });
 });

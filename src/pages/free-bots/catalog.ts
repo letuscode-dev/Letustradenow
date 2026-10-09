@@ -55,10 +55,10 @@ export const FREE_BOTS: FreeBot[] = [
     },
     {
         id: 'middle-gap-differs-v1',
-        title: 'Jump 10 Seconds Differs',
+        title: 'Seconds Differs',
         description:
-            'Buys Differs on Jump 10. The barrier is the last digit of the current seconds (09:54:01 differs on 1) and changes as the clock changes. A loss is recovered over the set number of wins using the payout percent. $2, payout 11%, 3 wins, 1 tick.',
-        tags: ['Differs', 'Jump 10', 'Split recovery'],
+            'Buys Differs on the Bull Market Index. The barrier is the last digit of the current seconds (09:54:01 differs on 1). A loss is recovered in 1 win at 9.6% payout. Stops at $5 take profit or after 5 losses in a row. $2, 1 tick.',
+        tags: ['Differs', 'Bull Market', 'Recovery'],
         xml: MIDDLE_GAP_DIFFERS_XML,
     },
 ];
