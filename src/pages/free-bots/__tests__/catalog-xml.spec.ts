@@ -232,6 +232,9 @@ describe('free bot catalog XML', () => {
             expect(setValue('evo_take_profit')).toEqual(['10']);
             expect(setValue('evo_stop_loss')).toEqual(['50']);
             expect(setValue('evo_total')).toEqual(['0']);
+            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
+            expect(speed).toHaveLength(1);
+            expect(speed[0]?.querySelector('value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe('1');
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('false');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');

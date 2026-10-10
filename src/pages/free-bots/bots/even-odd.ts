@@ -5,9 +5,10 @@
  * equals it. Every later trade buys immediately. The user chooses Even or Odd
  * on the Purchase block. The default purchase is Even.
  *
- * A loss multiplies Amount by Martingale (default 1.5) and rounds to the nearest
- * cent. A win returns Amount to Stake. Duration is 1 tick. The run stops at
- * Take Profit or Stop Loss.
+ * Every tick already on screen is analysed, including the digit left after a
+ * contract settles, so a tick is not skipped. A loss multiplies Amount by
+ * Martingale (default 1.5) and rounds to the nearest cent. A win returns
+ * Amount to Stake. Duration is 1 tick. The run stops at Take Profit or Stop Loss.
  */
 
 import { blockHelpers } from './blocks';
@@ -32,7 +33,14 @@ const lastDigit = () => `<block type="last_digit"></block>`;
 const or = (a: string, b: string) =>
     `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
 
+/** 1 analyses the tick already on screen instead of waiting for the next one. */
+const setSpeed = (n = '') => `<block type="set_catch_every_tick">
+        <value name="ENABLED">${num(1)}</value>
+        ${n ? `<next>${n}</next>` : ''}
+      </block>`;
+
 const INIT = chain([
+    n => setSpeed(n),
     n => set('evo_entry', num(0), n),
     n => set('evo_entered', num(0), n),
     n => set('evo_stake', num(1), n),
