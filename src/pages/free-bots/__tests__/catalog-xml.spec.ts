@@ -381,9 +381,8 @@ describe('free bot catalog XML', () => {
             expect(entry?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
             expect(entry?.querySelector(':scope > value[name="A"] > block')?.getAttribute('type')).toBe('last_digit');
             expect(entry?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('oud_entry');
-            const consume = first?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(varId(consume)).toBe('oud_entered');
-            expect(consume?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('1');
+            const firstSide = first?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(firstSide?.getAttribute('type')).toBe('controls_if');
 
             const expectSide = (side: Element | null | undefined) => {
                 expect(side?.getAttribute('type')).toBe('controls_if');
@@ -391,19 +390,20 @@ describe('free bot catalog XML', () => {
                 expect(side?.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
                     '5'
                 );
-                expect(side?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                    'DIGITUNDER'
-                );
+                const under = side?.querySelector(':scope > statement[name="DO0"] > block');
+                expect(varId(under)).toBe('oud_entered');
+                expect(under?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('1');
+                expect(under?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITUNDER');
                 expect(side?.querySelector(':scope > value[name="IF1"] field[name="OP"]')?.textContent).toBe('LTE');
                 expect(side?.querySelector(':scope > value[name="IF1"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
                     '4'
                 );
-                expect(side?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                    'DIGITOVER'
-                );
+                const over = side?.querySelector(':scope > statement[name="DO1"] > block');
+                expect(varId(over)).toBe('oud_entered');
+                expect(over?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITOVER');
             };
 
-            expectSide(consume?.querySelector(':scope > next > block') ?? null);
+            expectSide(firstSide ?? null);
             const later = gate?.querySelector(':scope > statement[name="ELSE"] > block');
             expectSide(later ?? null);
             expect(later?.querySelector('block[type="last_digit"]')).toBeNull();

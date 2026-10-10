@@ -6,7 +6,9 @@
  * Prediction after loss is used while recovering.
  *
  * Entry Point is checked once. The first trade waits until the last digit equals
- * it. Every later trade skips that digit and buys from the active prediction.
+ * it, and that entry is marked used only when a contract is actually bought.
+ * A prediction that is neither 5 or higher nor 4 or lower does not burn it.
+ * Every later trade skips that digit and buys from the active prediction.
  *
  * Every tick (1) analyses the tick already on screen, so that digit is not
  * skipped. Normal speed (0) waits for the next tick before analysing again.
@@ -105,22 +107,26 @@ const sideMessage = (side: string) => [
     v('oud_stake'),
 ];
 
+/** Mark the one-time entry only on the purchase that uses it. */
+const buy = (sideName: string, purchase: string) =>
+    set('oud_entered', num(1), notify('info', sideMessage(sideName), purchase));
+
 /** 5+ is Under. 4 or lower is Over. The prediction is the barrier the user set. */
 const side = () => `<block type="controls_if">
         <mutation elseif="1"></mutation>
         <value name="IF0">${compare('GTE', v('oud_prediction'), num(5))}</value>
-        <statement name="DO0">${notify('info', sideMessage('UNDER'), BUY_UNDER)}</statement>
+        <statement name="DO0">${buy('UNDER', BUY_UNDER)}</statement>
         <value name="IF1">${compare('LTE', v('oud_prediction'), num(4))}</value>
-        <statement name="DO1">${notify('info', sideMessage('OVER'), BUY_OVER)}</statement>
+        <statement name="DO1">${buy('OVER', BUY_OVER)}</statement>
       </block>`;
 
-/** First trade waits for Entry Point and marks it used. Later trades follow the prediction. */
+/** First trade waits for Entry Point. Later trades follow the prediction. */
 const BEFORE_PURCHASE = `<block type="controls_if">
         <mutation else="1"></mutation>
         <value name="IF0">${compare('EQ', v('oud_entered'), num(0))}</value>
         <statement name="DO0"><block type="controls_if">
             <value name="IF0">${compare('EQ', lastDigit(), v('oud_entry'))}</value>
-            <statement name="DO0">${set('oud_entered', num(1), side())}</statement>
+            <statement name="DO0">${side()}</statement>
           </block></statement>
         <statement name="ELSE">${side()}</statement>
       </block>`;
@@ -161,7 +167,7 @@ const lossNotify = notify('warn', [
     v('oud_total'),
 ]);
 
-/** Next stake is the payout recovery only. A short or invalid result stays at the initial stake. */
+/** Next stake is the loss divided by the payout percent, plus the initial stake. An invalid payout or a stake below the initial stake stays at the initial stake. */
 const ON_LOSS = set(
     'oud_lost',
     round2(arith('ADD', v('oud_lost'), abs(v('oud_profit')))),

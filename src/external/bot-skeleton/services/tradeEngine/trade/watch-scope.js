@@ -10,25 +10,35 @@ export const settledBeforeReentry = (scope, isSold) => scope === constants.STOP 
 
 /* Isolated so a new watch() call cannot clear the last tick the previous watch saw. */
 let prevTick;
+/* The tick purchase conditions already analysed. A during-watch must not count as that. */
+let beforeAnalysedTick;
 
 export const resetWatchTick = () => {
     prevTick = undefined;
+    beforeAnalysedTick = undefined;
 };
 
 const isReady = (state, passScope, passFlag) => state.scope === passScope && state[passFlag];
+
+const hasTick = tick => tick !== undefined && tick !== null;
+
+const shouldCatch = (state, passScope, passFlag, catchCurrentTick) =>
+    catchCurrentTick &&
+    isReady(state, passScope, passFlag) &&
+    hasTick(state.newTick) &&
+    state.newTick !== beforeAnalysedTick;
 
 export const watchScope = ({ store, stopScope, passScope, passFlag, catchCurrentTick = false }) => {
     if (store.getState().scope === stopScope) {
         return Promise.resolve(false);
     }
 
-    // The tick is already on screen. Analyse it now instead of waiting for the next one.
-    if (catchCurrentTick) {
+    // The tick is already on screen. Analyse it once, even if the open contract just used it.
+    if (shouldCatch(store.getState(), passScope, passFlag, catchCurrentTick)) {
         const now = store.getState();
-        if (isReady(now, passScope, passFlag) && now.newTick !== prevTick) {
-            prevTick = now.newTick;
-            return Promise.resolve(true);
-        }
+        beforeAnalysedTick = now.newTick;
+        prevTick = now.newTick;
+        return Promise.resolve(true);
     }
 
     return new Promise(resolve => {
@@ -44,8 +54,10 @@ export const watchScope = ({ store, stopScope, passScope, passFlag, catchCurrent
             }
 
             if (newState.newTick === prevTick) {
-                // Quotes arrived on the tick already seen. Normal speed skips it.
-                if (catchCurrentTick && isReady(newState, passScope, passFlag)) {
+                // Quotes arrived on a tick purchase conditions have not analysed yet.
+                // Normal speed skips it. A tick already analysed is not analysed again.
+                if (shouldCatch(newState, passScope, passFlag, catchCurrentTick)) {
+                    beforeAnalysedTick = newState.newTick;
                     unsubscribe();
                     resolve(true);
                 }
@@ -54,6 +66,7 @@ export const watchScope = ({ store, stopScope, passScope, passFlag, catchCurrent
             prevTick = newState.newTick;
 
             if (isReady(newState, passScope, passFlag)) {
+                if (catchCurrentTick) beforeAnalysedTick = newState.newTick;
                 unsubscribe();
                 resolve(true);
             }

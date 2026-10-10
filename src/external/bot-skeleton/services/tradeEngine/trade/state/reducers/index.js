@@ -12,6 +12,9 @@ const signal = (state = initialState, action) => {
             return {
                 scope: constants.BEFORE_PURCHASE,
                 proposalsReady: state.proposalsReady,
+                // The tick already on screen must survive the next trade, or
+                // every-tick mode waits for a later tick and skips this digit.
+                newTick: state.newTick,
             };
         case constants.PROPOSALS_READY:
             return {
@@ -28,17 +31,20 @@ const signal = (state = initialState, action) => {
                 scope: constants.DURING_PURCHASE,
                 openContract: false,
                 proposalsReady: state.proposalsReady,
+                newTick: state.newTick,
             };
         case constants.OPEN_CONTRACT:
             return {
                 scope: constants.DURING_PURCHASE,
                 openContract: true,
                 proposalsReady: state.proposalsReady,
+                newTick: state.newTick,
             };
         case constants.SELL:
             return {
                 scope: constants.STOP,
                 proposalsReady: state.proposalsReady,
+                newTick: state.newTick,
             };
         case constants.NEW_TICK:
             return {

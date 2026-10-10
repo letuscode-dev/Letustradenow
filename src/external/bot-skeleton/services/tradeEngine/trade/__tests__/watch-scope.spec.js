@@ -107,4 +107,98 @@ describe('trade watch scope', () => {
         store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 4 });
         await expect(again).resolves.toBe(true);
     });
+
+    it('does not analyse an already seen tick when another update arrives', async () => {
+        const store = fakeStore({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 3,
+        });
+        await expect(watchBefore(store, true)).resolves.toBe(true);
+
+        const again = watchBefore(store, true);
+        let settled = false;
+        again.then(() => {
+            settled = true;
+        });
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 3 });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 4 });
+        await expect(again).resolves.toBe(true);
+    });
+
+    it('analyses the tick already on screen after the contract settles', async () => {
+        const store = fakeStore({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 3,
+        });
+        await expect(watchBefore(store, true)).resolves.toBe(true);
+
+        store.set({
+            scope: constants.DURING_PURCHASE,
+            openContract: true,
+            proposalsReady: true,
+            newTick: 3,
+        });
+        const during = watchDuring(store);
+        store.set({
+            scope: constants.DURING_PURCHASE,
+            openContract: true,
+            proposalsReady: true,
+            newTick: 4,
+        });
+        await expect(during).resolves.toBe(true);
+
+        store.set({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 4,
+        });
+        await expect(watchBefore(store, true)).resolves.toBe(true);
+    });
+
+    it('normal speed still waits for a newer tick after the contract settles', async () => {
+        const store = fakeStore({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 3,
+        });
+        const first = watchBefore(store);
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 4 });
+        await expect(first).resolves.toBe(true);
+
+        store.set({
+            scope: constants.DURING_PURCHASE,
+            openContract: true,
+            proposalsReady: true,
+            newTick: 4,
+        });
+        const during = watchDuring(store);
+        store.set({
+            scope: constants.DURING_PURCHASE,
+            openContract: true,
+            proposalsReady: true,
+            newTick: 5,
+        });
+        await expect(during).resolves.toBe(true);
+
+        store.set({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 5,
+        });
+        const next = watchBefore(store);
+        let settled = false;
+        next.then(() => {
+            settled = true;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 6 });
+        await expect(next).resolves.toBe(true);
+    });
 });

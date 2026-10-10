@@ -16,7 +16,7 @@ import Purchase from './Purchase';
 import Sell from './Sell';
 import Ticks from './Ticks';
 import Total from './Total';
-import { settledBeforeReentry, watchBefore, watchDuring } from './watch-scope';
+import { resetWatchTick, settledBeforeReentry, watchBefore, watchDuring } from './watch-scope';
 import { BEFORE_PURCHASE } from './state/constants';
 
 export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Proposal(Ticks(Total(class {}))))))) {
@@ -45,6 +45,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.digitHedgeImmediate = false;
         this.digitHedgeImmediateUsed = false;
         this.catchEveryTick = false;
+        resetWatchTick();
         this.digitHedgeOverBarrier = 5;
         this.digitHedgeUnderBarrier = 4;
         this.onlyUpsDownsTip = '';
