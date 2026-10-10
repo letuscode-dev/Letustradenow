@@ -441,6 +441,11 @@ describe('free bot catalog XML', () => {
                 'oud_payout'
             );
             expect(recovery?.querySelector(':scope > value[name="B"] value[name="B"] field')?.textContent).toBe('100');
+            const recoveryPlusStake = recovery?.parentElement?.parentElement;
+            expect(recoveryPlusStake?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('ADD');
+            expect(recoveryPlusStake?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe(
+                'oud_initial'
+            );
             const recoverySet = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
                 b => varId(b) === 'oud_stake' && b.querySelector(':scope > value block[type="math_round"]')
             );

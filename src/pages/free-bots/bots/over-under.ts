@@ -9,10 +9,13 @@
  * it. Every later trade skips that digit and buys from the active prediction.
  *
  * The next stake after a loss is the accumulated loss divided by the payout
- * percent (default 40), rounded up to the next cent, so one win covers the full
- * amount lost. A win clears the loss, returns Stake to Initial Stake, and
- * restores the before-loss prediction. Duration is 1 tick. The run stops at
- * Take Profit or Stop Loss.
+ * percent (default 40), plus the initial stake, rounded up to the next cent.
+ * At 40% that is 3.5 times the stake just lost: one win pays back every loss
+ * and the payout profit of the initial stake. Dividing the loss by 0.40 alone
+ * only breaks even when the contract pays the full percent, so a lower live
+ * payout leaves the loss uncovered. A win clears the loss, returns Stake to
+ * Initial Stake, and restores the before-loss prediction. Duration is 1 tick.
+ * The run stops at Take Profit or Stop Loss.
  */
 
 import { blockHelpers } from './blocks';
@@ -51,8 +54,17 @@ const roundUp2 = (x: string) =>
         num(100)
     );
 
-/** Amount lost ÷ (payout% / 100). The next stake is this amount only. */
-const recoveryBase = roundUp2(arith('DIVIDE', v('oud_lost'), arith('DIVIDE', v('oud_payout'), num(100))));
+/**
+ * Amount lost ÷ (payout% / 100), plus the initial stake.
+ * 40% → lost / 0.40 + initial. A $1 loss becomes $3.50, and $3.50 × 40% = $1.40.
+ */
+const recoveryBase = roundUp2(
+    arith(
+        'ADD',
+        arith('DIVIDE', v('oud_lost'), arith('DIVIDE', v('oud_payout'), num(100))),
+        v('oud_initial')
+    )
+);
 
 const lastDigit = () => `<block type="last_digit"></block>`;
 
