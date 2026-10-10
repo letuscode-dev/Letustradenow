@@ -2,9 +2,8 @@
  * Even/Odd entry free bot (Volatility 75 (1s) Index).
  *
  * Entry Point is checked once. The first trade waits until the last digit
- * equals it, and that entry is marked used only when a contract is bought.
- * An even entry (0, 2, 4, 6, 8) buys Even. An odd entry (1, 3, 5, 7, 9) buys
- * Odd. Every later trade buys that same side and does not wait for the digit.
+ * equals it. Every later trade buys immediately. The user chooses Even or Odd
+ * on the Purchase block. The default purchase is Even.
  *
  * A loss multiplies Amount by Martingale (default 1.5) and rounds to the nearest
  * cent. A win returns Amount to Stake. Duration is 1 tick. The run stops at
@@ -26,22 +25,12 @@ const VARIABLES: [string, string][] = [
     ['evo_msg', 'Journal Message'],
 ];
 
-const { v, num, text, set, chain, arith, round2, compare, and, notify } = blockHelpers(VARIABLES, 'evo_msg');
+const { v, num, text, set, chain, arith, round2, compare, notify } = blockHelpers(VARIABLES, 'evo_msg');
 
 const lastDigit = () => `<block type="last_digit"></block>`;
 
-const mod2 = (x: string) =>
-    `<block type="math_modulo"><value name="DIVIDEND">${x}</value><value name="DIVISOR">${num(2)}</value></block>`;
-
-const rounded = (x: string) =>
-    `<block type="math_round"><field name="OP">ROUND</field><value name="NUM">${x}</value></block>`;
-
-/** Whole number inside the inclusive bounds. */
-const inRange = (low: number, high: number) =>
-    and(
-        compare('EQ', v('evo_entry'), rounded(v('evo_entry'))),
-        and(compare('GTE', v('evo_entry'), num(low)), compare('LTE', v('evo_entry'), num(high)))
-    );
+const or = (a: string, b: string) =>
+    `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
 
 const INIT = chain([
     n => set('evo_entry', num(0), n),
@@ -54,38 +43,23 @@ const INIT = chain([
     n => set('evo_total', num(0), n),
 ]);
 
-const BUY_EVEN = `<block type="purchase"><field name="PURCHASE_LIST">DIGITEVEN</field></block>`;
-const BUY_ODD = `<block type="purchase"><field name="PURCHASE_LIST">DIGITODD</field></block>`;
+/** Default Even. Change this Purchase block to Odd to trade Odd. */
+const PURCHASE = `<block type="purchase"><field name="PURCHASE_LIST">DIGITEVEN</field></block>`;
 
-const buy = (sideName: string, purchase: string) =>
-    set(
-        'evo_entered',
-        num(1),
-        notify(
-            'info',
-            [text(sideName), text('| entry'), v('evo_entry'), text('| stake'), v('evo_amount')],
-            purchase
-        )
-    );
-
-/** 0, 2, 4, 6, 8 are Even. 1, 3, 5, 7, 9 are Odd. */
-const side = () => `<block type="controls_if">
-        <mutation elseif="1"></mutation>
-        <value name="IF0">${and(inRange(0, 8), compare('EQ', mod2(v('evo_entry')), num(0)))}</value>
-        <statement name="DO0">${buy('EVEN', BUY_EVEN)}</statement>
-        <value name="IF1">${and(inRange(1, 9), compare('NEQ', mod2(v('evo_entry')), num(0)))}</value>
-        <statement name="DO1">${buy('ODD', BUY_ODD)}</statement>
-      </block>`;
-
-/** First trade waits for Entry Point. Later trades buy the same side. */
+/**
+ * The entry digit is required only while Entry Used is still 0.
+ * After that purchase, later runs buy the contract the user selected.
+ */
 const BEFORE_PURCHASE = `<block type="controls_if">
-        <mutation else="1"></mutation>
-        <value name="IF0">${compare('EQ', v('evo_entered'), num(0))}</value>
-        <statement name="DO0"><block type="controls_if">
-            <value name="IF0">${compare('EQ', lastDigit(), v('evo_entry'))}</value>
-            <statement name="DO0">${side()}</statement>
-          </block></statement>
-        <statement name="ELSE">${side()}</statement>
+        <value name="IF0">${or(
+            compare('EQ', v('evo_entered'), num(1)),
+            compare('EQ', lastDigit(), v('evo_entry'))
+        )}</value>
+        <statement name="DO0">${set(
+            'evo_entered',
+            num(1),
+            notify('info', [text('Trade'), text('| stake'), v('evo_amount')], PURCHASE)
+        )}</statement>
       </block>`;
 
 const ON_WIN = set(

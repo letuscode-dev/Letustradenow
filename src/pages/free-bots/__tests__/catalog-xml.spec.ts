@@ -239,48 +239,34 @@ describe('free bot catalog XML', () => {
             expect(options?.querySelector('value[name="PREDICTION"]')).toBeNull();
         });
 
-        it('uses the entry digit once, then buys Even on an even entry and Odd on an odd entry', () => {
-            const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
+        it('waits for the entry digit once, then buys the contract the user selected', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const gate = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
             expect(gate?.getAttribute('type')).toBe('controls_if');
-            expect(gate?.querySelector(':scope > mutation')?.getAttribute('else')).toBe('1');
-            const waiting = gate?.querySelector(':scope > value[name="IF0"] > block');
-            expect(waiting?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
-            expect(waiting?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('evo_entered');
-            expect(waiting?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('0');
+            expect(gate?.querySelector(':scope > mutation')).toBeNull();
+            const condition = gate?.querySelector(':scope > value[name="IF0"] > block');
+            expect(condition?.getAttribute('type')).toBe('logic_operation');
+            expect(condition?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('OR');
 
-            const first = gate?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(first?.getAttribute('type')).toBe('controls_if');
-            const entry = first?.querySelector(':scope > value[name="IF0"] > block');
+            const compares = [...(condition?.querySelectorAll(':scope > value > block[type="logic_compare"]') || [])];
+            const alreadyIn = compares.find(
+                b => b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'evo_entered'
+            );
+            expect(alreadyIn?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
+            expect(alreadyIn?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('1');
+            const entry = compares.find(
+                b => b.querySelector(':scope > value[name="A"] > block')?.getAttribute('type') === 'last_digit'
+            );
             expect(entry?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
-            expect(entry?.querySelector(':scope > value[name="A"] > block')?.getAttribute('type')).toBe('last_digit');
             expect(entry?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('evo_entry');
-            const firstSide = first?.querySelector(':scope > statement[name="DO0"] > block');
 
-            const parityCompare = (root: Element | null | undefined, name: string) =>
-                [...(root?.querySelectorAll(`:scope > value[name="${name}"] block[type="logic_compare"]`) || [])].find(
-                    b => b.querySelector(':scope > value[name="A"] > block')?.getAttribute('type') === 'math_modulo'
-                );
-
-            const expectSide = (side: Element | null | undefined) => {
-                expect(side?.getAttribute('type')).toBe('controls_if');
-                const evenCompare = parityCompare(side ?? null, 'IF0');
-                expect(evenCompare?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
-                expect(evenCompare?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('0');
-                const even = side?.querySelector(':scope > statement[name="DO0"] > block');
-                expect(varId(even)).toBe('evo_entered');
-                expect(even?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('1');
-                expect(even?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITEVEN');
-                const oddCompare = parityCompare(side ?? null, 'IF1');
-                expect(oddCompare?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('NEQ');
-                const odd = side?.querySelector(':scope > statement[name="DO1"] > block');
-                expect(varId(odd)).toBe('evo_entered');
-                expect(odd?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITODD');
-            };
-
-            expectSide(firstSide ?? null);
-            const later = gate?.querySelector(':scope > statement[name="ELSE"] > block');
-            expectSide(later ?? null);
-            expect(later?.querySelector('block[type="last_digit"]')).toBeNull();
+            const purchases = [...(before?.querySelectorAll('block[type="purchase"]') || [])];
+            expect(purchases).toHaveLength(1);
+            expect(purchases[0]?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITEVEN');
+            expect(before?.querySelector('block[type="math_modulo"]')).toBeNull();
+            const mark = gate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(mark)).toBe('evo_entered');
+            expect(mark?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('1');
         });
 
         it('a win returns to the stake and a loss multiplies the amount by the martingale', () => {

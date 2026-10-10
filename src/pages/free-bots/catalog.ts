@@ -21,7 +21,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'even-odd-entry-v1',
         title: 'Even/Odd Entry',
         description:
-            'The first trade waits until the last digit equals Entry Point. An even entry buys Even and an odd entry buys Odd. Later trades buy that same side without waiting. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
+            'The first trade waits until the last digit equals Entry Point. Later trades do not wait. Choose Even or Odd on the Purchase block; it starts on Even. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
         tags: ['Even/Odd', 'Volatility', 'Entry', 'Martingale'],
         xml: EVEN_ODD_XML,
     },
