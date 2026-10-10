@@ -5,6 +5,7 @@ import { localize } from '@deriv-com/translations';
 import { getLast } from '../../../utils/binary-utils';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
+import { quietGapPipReady } from '../utils/digit-hedge';
 import { getDirection, getLastDigit } from '../utils/helpers';
 import { expectPositiveInteger } from '../utils/sanitize';
 import * as constants from './state/constants';
@@ -86,7 +87,18 @@ export default Engine =>
         }
 
         getLastDigit() {
-            return new Promise(resolve => this.getLastTick(false, true).then(tick => resolve(getLastDigit(tick))));
+            return this.getLastTick(false, true).then(tick => {
+                // Pip 0 rounds 4521.34 to 4521 and the last digit is no longer the
+                // traded digit. An integer quote is already exact, so it can pass.
+                if (!quietGapPipReady(this.getPipSize())) {
+                    const latest = this.$scope.ticksService.getLatestTick(this.symbol);
+                    const quote = latest && typeof latest === 'object' ? Number(latest.quote) : Number(latest);
+                    if (Number.isFinite(quote) && !Number.isInteger(quote)) {
+                        return -1;
+                    }
+                }
+                return getLastDigit(tick);
+            });
         }
 
         requestLastDigitList() {

@@ -2581,6 +2581,12 @@ const getBotInterface = tradeEngine => {
                     });
             }
 
+            // A missing pip size rounds every quote. Do not lock a 5-run signal on that.
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                tradeEngine.evenOddParitySignal = { ready: false, dominant: -1, entry: -1, side: -1 };
+                return 0;
+            }
+
             const result = analyzeEvenOddParity(digits || [], window_size);
             tradeEngine.evenOddParitySignal = result;
             return result.ready ? 1 : 0;
@@ -2620,6 +2626,12 @@ const getBotInterface = tradeEngine => {
                     .finally(() => {
                         tradeEngine._overUnderFreqFillPending = false;
                     });
+            }
+
+            // A missing pip size rounds every quote. Do not lock Over 2 / Under 7 on that.
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                tradeEngine.overUnderFrequencySignal = { ready: false, dominant: -1, entry: -1, side: -1 };
+                return 0;
             }
 
             const result = analyzeEvenOddParity(digits || [], window_size);
