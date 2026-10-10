@@ -55,6 +55,7 @@ import {
     evaluateDigitPairReturnDiffers,
     resetDigitPairReturnState,
 } from '../utils/digit-pair-return-differs';
+import { analyzeDigitFrequency, analyzeEvenOddParity, clampEvenOddWindow } from '../utils/digit-frequency-analysis';
 import {
     clampDigitPercentageWindow,
     getDigitPercentageValue,
@@ -2554,6 +2555,47 @@ const getBotInterface = tradeEngine => {
                 results,
             };
             return digit;
+        },
+        /**
+         * Even/Odd frequency scan of the last N ticks (default 1,000).
+         * Returns 1 when the window is full and stores the signal:
+         * dominant digit, entry digit (least frequent in that parity), and side
+         * (0 = trade Even, 1 = trade Odd). Returns 0 while history is still filling.
+         */
+        scanEvenOddParity: sample_size => {
+            const window_size = clampEvenOddWindow(sample_size);
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+
+            if (
+                (!digits || digits.length < window_size) &&
+                tradeEngine.ensureTickHistory &&
+                !tradeEngine._evenOddParityFillPending
+            ) {
+                tradeEngine._evenOddParityFillPending = true;
+                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                    .catch(() => {})
+                    .finally(() => {
+                        tradeEngine._evenOddParityFillPending = false;
+                    });
+            }
+
+            const result = analyzeEvenOddParity(digits || [], window_size);
+            tradeEngine.evenOddParitySignal = result;
+            return result.ready ? 1 : 0;
+        },
+        evenOddParityEntry: () => {
+            const signal = tradeEngine.evenOddParitySignal;
+            return signal && signal.ready ? signal.entry : -1;
+        },
+        evenOddParitySide: () => {
+            const signal = tradeEngine.evenOddParitySignal;
+            return signal && signal.ready ? signal.side : -1;
+        },
+        evenOddParityDominant: () => {
+            const signal = tradeEngine.evenOddParitySignal;
+            return signal && signal.ready ? signal.dominant : -1;
         },
         /**
          * Over / Under % of last N digits — returns a finite number 0–100.

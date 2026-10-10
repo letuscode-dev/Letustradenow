@@ -1,21 +1,25 @@
 /**
- * Even/Odd entry free bot (Volatility 75 (1s) Index).
+ * Even/Odd frequency free bot (Volatility 75 (1s) Index).
  *
- * Entry Point is checked once. The first trade waits until the last digit
- * equals it. Every later trade buys immediately. The user chooses Even or Odd
- * on the Purchase block. The default purchase is Even.
- *
- * Every tick already on screen is analysed, including the digit left after a
- * contract settles, so a tick is not skipped. A loss multiplies Amount by
- * Martingale (default 1.5) and rounds to the nearest cent. A win returns
- * Amount to Stake. Duration is 1 tick. The run stops at Take Profit or Stop Loss.
+ * Each signal scans the last Ticks (default 1,000). The most frequent digit
+ * chooses the opposite contract: even trades Odd, odd trades Even. The entry
+ * digit is the least frequent digit in that same even or odd group. Ties keep
+ * the lower digit. The first trade of the signal waits for that entry digit.
+ * Later trades in the signal buy immediately. After Runs trades the bot scans
+ * again. Every tick already on screen is analysed. A loss multiplies Amount by
+ * Martingale (default 1.5). A win returns Amount to Stake. Duration is 1 tick.
  */
 
 import { blockHelpers } from './blocks';
 
 const VARIABLES: [string, string][] = [
+    ['evo_ticks', 'Ticks'],
+    ['evo_runs', 'Runs'],
+    ['evo_left', 'Runs Left'],
+    ['evo_dominant', 'Most Frequent'],
     ['evo_entry', 'Entry Point'],
     ['evo_entered', 'Entry Used'],
+    ['evo_side', 'Trade Odd'],
     ['evo_stake', 'Stake'],
     ['evo_amount', 'Amount'],
     ['evo_martingale', 'Martingale'],
@@ -29,9 +33,10 @@ const VARIABLES: [string, string][] = [
 const { v, num, text, set, chain, arith, round2, compare, notify } = blockHelpers(VARIABLES, 'evo_msg');
 
 const lastDigit = () => `<block type="last_digit"></block>`;
-
-const or = (a: string, b: string) =>
-    `<block type="logic_operation"><field name="OP">OR</field><value name="A">${a}</value><value name="B">${b}</value></block>`;
+const scan = () => `<block type="even_odd_parity_scan"><value name="N">${v('evo_ticks')}</value></block>`;
+const parityEntry = () => `<block type="even_odd_parity_entry"></block>`;
+const paritySide = () => `<block type="even_odd_parity_side"></block>`;
+const parityDominant = () => `<block type="even_odd_parity_dominant"></block>`;
 
 /** 1 analyses the tick already on screen instead of waiting for the next one. */
 const setSpeed = (n = '') => `<block type="set_catch_every_tick">
@@ -41,8 +46,13 @@ const setSpeed = (n = '') => `<block type="set_catch_every_tick">
 
 const INIT = chain([
     n => setSpeed(n),
-    n => set('evo_entry', num(0), n),
+    n => set('evo_ticks', num(1000), n),
+    n => set('evo_runs', num(5), n),
+    n => set('evo_left', num(0), n),
+    n => set('evo_dominant', num(-1), n),
+    n => set('evo_entry', num(-1), n),
     n => set('evo_entered', num(0), n),
+    n => set('evo_side', num(-1), n),
     n => set('evo_stake', num(1), n),
     n => set('evo_amount', v('evo_stake'), n),
     n => set('evo_martingale', num(1.5), n),
@@ -51,24 +61,100 @@ const INIT = chain([
     n => set('evo_total', num(0), n),
 ]);
 
-/** Default Even. Change this Purchase block to Odd to trade Odd. */
-const PURCHASE = `<block type="purchase"><field name="PURCHASE_LIST">DIGITEVEN</field></block>`;
+const purchase = (contract: string) =>
+    `<block type="purchase"><field name="PURCHASE_LIST">${contract}</field></block>`;
 
-/**
- * The entry digit is required only while Entry Used is still 0.
- * After that purchase, later runs buy the contract the user selected.
- */
-const BEFORE_PURCHASE = `<block type="controls_if">
-        <value name="IF0">${or(
-            compare('EQ', v('evo_entered'), num(1)),
-            compare('EQ', lastDigit(), v('evo_entry'))
-        )}</value>
-        <statement name="DO0">${set(
-            'evo_entered',
-            num(1),
-            notify('info', [text('Trade'), text('| stake'), v('evo_amount')], PURCHASE)
+/** Trade Odd is 1 for Odd and 0 for Even. */
+const buySide = () => `<block type="controls_if">
+        <mutation elseif="1"></mutation>
+        <value name="IF0">${compare('EQ', v('evo_side'), num(1))}</value>
+        <statement name="DO0">${notify(
+            'info',
+            [text('Odd'), text('| stake'), v('evo_amount')],
+            purchase('DIGITODD')
+        )}</statement>
+        <value name="IF1">${compare('EQ', v('evo_side'), num(0))}</value>
+        <statement name="DO1">${notify(
+            'info',
+            [text('Even'), text('| stake'), v('evo_amount')],
+            purchase('DIGITEVEN')
         )}</statement>
       </block>`;
+
+const scanNotify = `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('EQ', v('evo_side'), num(1))}</value>
+        <statement name="DO0">${notify('info', [
+            text('Scan | most'),
+            v('evo_dominant'),
+            text('| entry'),
+            v('evo_entry'),
+            text('| trade Odd | runs'),
+            v('evo_left'),
+        ])}</statement>
+        <statement name="ELSE">${notify('info', [
+            text('Scan | most'),
+            v('evo_dominant'),
+            text('| entry'),
+            v('evo_entry'),
+            text('| trade Even | runs'),
+            v('evo_left'),
+        ])}</statement>
+      </block>`;
+
+/** A non-positive Runs value still places one trade so the signal is not stuck. */
+const applySignal = set(
+    'evo_dominant',
+    parityDominant(),
+    set(
+        'evo_entry',
+        parityEntry(),
+        set(
+            'evo_side',
+            paritySide(),
+            set(
+                'evo_entered',
+                num(0),
+                set(
+                    'evo_left',
+                    v('evo_runs'),
+                    `<block type="controls_if">
+        <value name="IF0">${compare('LT', v('evo_left'), num(1))}</value>
+        <statement name="DO0">${set('evo_left', num(1))}</statement>
+        <next>${scanNotify}</next>
+      </block>`
+                )
+            )
+        )
+    )
+);
+
+/**
+ * Runs Left is 0 until a scan is ready, then it counts the trades still owed
+ * by that signal. The entry digit is required only for the first of those trades.
+ */
+const BEFORE_PURCHASE = chain([
+    n => `<block type="controls_if">
+        <value name="IF0">${compare('LTE', v('evo_left'), num(0))}</value>
+        <statement name="DO0"><block type="controls_if">
+            <value name="IF0">${compare('EQ', scan(), num(1))}</value>
+            <statement name="DO0">${applySignal}</statement>
+          </block></statement>
+        ${n ? `<next>${n}</next>` : ''}
+      </block>`,
+    () => `<block type="controls_if">
+        <value name="IF0">${compare('GT', v('evo_left'), num(0))}</value>
+        <statement name="DO0"><block type="controls_if">
+            <mutation else="1"></mutation>
+            <value name="IF0">${compare('EQ', v('evo_entered'), num(0))}</value>
+            <statement name="DO0"><block type="controls_if">
+                <value name="IF0">${compare('EQ', lastDigit(), v('evo_entry'))}</value>
+                <statement name="DO0">${set('evo_entered', num(1), buySide())}</statement>
+              </block></statement>
+            <statement name="ELSE">${buySide()}</statement>
+          </block></statement>
+      </block>`,
+]);
 
 const ON_WIN = set(
     'evo_amount',
@@ -126,6 +212,7 @@ const AFTER_PURCHASE = chain([
         <statement name="ELSE">${ON_LOSS}</statement>
         ${n ? `<next>${n}</next>` : ''}
       </block>`,
+    n => set('evo_left', arith('MINUS', v('evo_left'), num(1)), n),
     () => LIMITS,
 ]);
 

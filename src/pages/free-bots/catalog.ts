@@ -19,10 +19,10 @@ export const FREE_BOTS: FreeBot[] = [
     },
     {
         id: 'even-odd-entry-v1',
-        title: 'Even/Odd Entry',
+        title: 'Even/Odd Frequency',
         description:
-            'The first trade waits until the last digit equals Entry Point. Later trades do not wait. Choose Even or Odd on the Purchase block; it starts on Even. It analyses every tick already on screen, so a tick is not skipped. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
-        tags: ['Even/Odd', 'Volatility', 'Entry', 'Martingale'],
+            'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Odd, and an odd hottest digit trades Even. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that side for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
+        tags: ['Even/Odd', 'Volatility', 'Frequency', 'Martingale'],
         xml: EVEN_ODD_XML,
     },
 ];
