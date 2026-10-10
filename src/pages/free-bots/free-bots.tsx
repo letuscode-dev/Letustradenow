@@ -12,7 +12,13 @@ import './free-bots.scss';
 
 /** Keep trade parameters visible; leave purchase/risk/scan stacks collapsed. */
 const VISIBLE_MAIN_TYPES = new Set(['trade_definition']);
-const FORCE_COLLAPSED_TYPES = new Set(['before_purchase', 'after_purchase', 'during_purchase']);
+const FORCE_COLLAPSED_TYPES = new Set([
+    'before_purchase',
+    'after_purchase',
+    'during_purchase',
+    'procedures_defnoreturn',
+    'procedures_defreturn',
+]);
 
 const applyFreeBotCollapseState = workspace => {
     if (!workspace?.getAllBlocks) return;

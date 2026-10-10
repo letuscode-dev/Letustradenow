@@ -10,7 +10,7 @@
  * Martingale (default 1.5). A win returns Amount to Stake. Duration is 1 tick.
  */
 
-import { blockHelpers } from './blocks';
+import { blockHelpers, callFunction, defineFunction } from './blocks';
 
 const VARIABLES: [string, string][] = [
     ['evo_ticks', 'Ticks'],
@@ -44,21 +44,32 @@ const setSpeed = (n = '') => `<block type="set_catch_every_tick">
         ${n ? `<next>${n}</next>` : ''}
       </block>`;
 
+const RESET_NAME = 'Reset Even Odd';
+
+/** Scan counters, the computed entry, and the live stake. The user does not set these. */
+const RESET = defineFunction(
+    RESET_NAME,
+    'evo_reset_fn',
+    chain([
+        n => setSpeed(n),
+        n => set('evo_left', num(0), n),
+        n => set('evo_dominant', num(-1), n),
+        n => set('evo_entry', num(-1), n),
+        n => set('evo_entered', num(0), n),
+        n => set('evo_side', num(-1), n),
+        n => set('evo_amount', v('evo_stake'), n),
+        () => set('evo_total', num(0)),
+    ])
+);
+
 const INIT = chain([
-    n => setSpeed(n),
     n => set('evo_ticks', num(1000), n),
     n => set('evo_runs', num(5), n),
-    n => set('evo_left', num(0), n),
-    n => set('evo_dominant', num(-1), n),
-    n => set('evo_entry', num(-1), n),
-    n => set('evo_entered', num(0), n),
-    n => set('evo_side', num(-1), n),
     n => set('evo_stake', num(1), n),
-    n => set('evo_amount', v('evo_stake'), n),
     n => set('evo_martingale', num(1.5), n),
     n => set('evo_take_profit', num(10), n),
     n => set('evo_stop_loss', num(50), n),
-    n => set('evo_total', num(0), n),
+    () => callFunction(RESET_NAME, 'evo_reset_call'),
 ]);
 
 const purchase = (contract: string) =>
@@ -276,4 +287,5 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
       ${AFTER_PURCHASE}
     </statement>
   </block>
+  ${RESET}
 </xml>`;

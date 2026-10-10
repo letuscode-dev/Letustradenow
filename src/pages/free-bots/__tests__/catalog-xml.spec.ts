@@ -39,18 +39,34 @@ describe('free bot catalog XML', () => {
             expect(setValue('oud_pred_before')).toEqual(['2']);
             expect(setValue('oud_pred_after')).toEqual(['7']);
             expect(setValue('oud_initial')).toEqual(['1']);
-            expect(setValue('oud_stake')).toEqual(['Initial Stake']);
             expect(setValue('oud_entry')).toEqual(['0']);
-            expect(setValue('oud_entered')).toEqual(['0']);
             expect(setValue('oud_speed')).toEqual(['1']);
             expect(setValue('oud_payout')).toEqual(['40']);
-            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
-            expect(speed).toHaveLength(1);
-            expect(speed[0]?.querySelector('value[name="ENABLED"] field')?.getAttribute('id')).toBe('oud_speed');
             expect(setValue('oud_take_profit')).toEqual(['10']);
             expect(setValue('oud_stop_loss')).toEqual(['50']);
-            expect(setValue('oud_prediction')).toEqual(['Prediction before loss']);
-            expect(setValue('oud_lost')).toEqual(['0']);
+            expect(setValue('oud_stake')).toEqual([]);
+            expect(setValue('oud_entered')).toEqual([]);
+            expect(setValue('oud_prediction')).toEqual([]);
+            expect(setValue('oud_lost')).toEqual([]);
+            const reset = doc.querySelector('block[id="oud_reset_fn"]');
+            expect(reset?.getAttribute('collapsed')).toBe('true');
+            expect(reset?.querySelector(':scope > field[name="NAME"]')?.textContent).toBe('Reset Over Under Entry');
+            const hidden = (var_id: string) =>
+                [...(reset?.querySelectorAll('statement[name="STACK"] block[type="variables_set"]') || [])]
+                    .filter(b => varId(b) === var_id)
+                    .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+            expect(hidden('oud_stake')).toEqual(['Initial Stake']);
+            expect(hidden('oud_entered')).toEqual(['0']);
+            expect(hidden('oud_prediction')).toEqual(['Prediction before loss']);
+            expect(hidden('oud_lost')).toEqual(['0']);
+            expect(hidden('oud_total')).toEqual(['0']);
+            const speed = reset?.querySelector('block[type="set_catch_every_tick"]');
+            expect(speed?.querySelector('value[name="ENABLED"] field')?.getAttribute('id')).toBe('oud_speed');
+            expect(doc.querySelector('statement[name="INITIALIZATION"] block[type="set_catch_every_tick"]')).toBeNull();
+            expect(
+                doc.querySelector('statement[name="INITIALIZATION"] block[type="procedures_callnoreturn"] mutation')
+                    ?.getAttribute('name')
+            ).toBe('Reset Over Under Entry');
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
@@ -232,20 +248,39 @@ describe('free bot catalog XML', () => {
             expect(field('RESTARTONERROR')).toBe('TRUE');
             expect(setValue('evo_ticks')).toEqual(['1000']);
             expect(setValue('evo_runs')).toEqual(['5']);
-            expect(setValue('evo_left')).toEqual(['0']);
-            expect(setValue('evo_dominant')).toEqual(['-1']);
-            expect(setValue('evo_entry')).toEqual(['-1']);
-            expect(setValue('evo_entered')).toEqual(['0']);
-            expect(setValue('evo_side')).toEqual(['-1']);
             expect(setValue('evo_stake')).toEqual(['1']);
-            expect(setValue('evo_amount')).toEqual(['Stake']);
             expect(setValue('evo_martingale')).toEqual(['1.5']);
             expect(setValue('evo_take_profit')).toEqual(['10']);
             expect(setValue('evo_stop_loss')).toEqual(['50']);
-            expect(setValue('evo_total')).toEqual(['0']);
-            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
-            expect(speed).toHaveLength(1);
-            expect(speed[0]?.querySelector('value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(setValue('evo_left')).toEqual([]);
+            expect(setValue('evo_dominant')).toEqual([]);
+            expect(setValue('evo_entry')).toEqual([]);
+            expect(setValue('evo_entered')).toEqual([]);
+            expect(setValue('evo_side')).toEqual([]);
+            expect(setValue('evo_amount')).toEqual([]);
+            expect(setValue('evo_total')).toEqual([]);
+            const reset = doc.querySelector('block[id="evo_reset_fn"]');
+            expect(reset?.getAttribute('collapsed')).toBe('true');
+            expect(reset?.querySelector(':scope > field[name="NAME"]')?.textContent).toBe('Reset Even Odd');
+            const hidden = (var_id: string) =>
+                [...(reset?.querySelectorAll('statement[name="STACK"] block[type="variables_set"]') || [])]
+                    .filter(b => varId(b) === var_id)
+                    .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+            expect(hidden('evo_left')).toEqual(['0']);
+            expect(hidden('evo_dominant')).toEqual(['-1']);
+            expect(hidden('evo_entry')).toEqual(['-1']);
+            expect(hidden('evo_entered')).toEqual(['0']);
+            expect(hidden('evo_side')).toEqual(['-1']);
+            expect(hidden('evo_amount')).toEqual(['Stake']);
+            expect(hidden('evo_total')).toEqual(['0']);
+            expect(reset?.querySelector('block[type="set_catch_every_tick"] value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            expect(doc.querySelector('statement[name="INITIALIZATION"] block[type="set_catch_every_tick"]')).toBeNull();
+            expect(
+                doc.querySelector('statement[name="INITIALIZATION"] block[type="procedures_callnoreturn"] mutation')
+                    ?.getAttribute('name')
+            ).toBe('Reset Even Odd');
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('false');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
@@ -406,21 +441,42 @@ describe('free bot catalog XML', () => {
             expect(field('RESTARTONERROR')).toBe('TRUE');
             expect(setValue('ouf_ticks')).toEqual(['1000']);
             expect(setValue('ouf_runs')).toEqual(['5']);
-            expect(setValue('ouf_left')).toEqual(['0']);
-            expect(setValue('ouf_entry')).toEqual(['-1']);
-            expect(setValue('ouf_entered')).toEqual(['0']);
-            expect(setValue('ouf_pred_before')).toEqual(['2']);
-            expect(setValue('ouf_pred_after')).toEqual(['3']);
-            expect(setValue('ouf_prediction')).toEqual(['Prediction before loss']);
             expect(setValue('ouf_initial')).toEqual(['1']);
-            expect(setValue('ouf_stake')).toEqual(['Initial Stake']);
-            expect(setValue('ouf_lost')).toEqual(['0']);
             expect(setValue('ouf_payout')).toEqual(['60']);
             expect(setValue('ouf_take_profit')).toEqual(['10']);
             expect(setValue('ouf_stop_loss')).toEqual(['50']);
-            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
-            expect(speed).toHaveLength(1);
-            expect(speed[0]?.querySelector('value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(setValue('ouf_left')).toEqual([]);
+            expect(setValue('ouf_entry')).toEqual([]);
+            expect(setValue('ouf_entered')).toEqual([]);
+            expect(setValue('ouf_pred_before')).toEqual([]);
+            expect(setValue('ouf_pred_after')).toEqual([]);
+            expect(setValue('ouf_prediction')).toEqual([]);
+            expect(setValue('ouf_stake')).toEqual([]);
+            expect(setValue('ouf_lost')).toEqual([]);
+            const reset = doc.querySelector('block[id="ouf_reset_fn"]');
+            expect(reset?.getAttribute('collapsed')).toBe('true');
+            expect(reset?.querySelector(':scope > field[name="NAME"]')?.textContent).toBe('Reset Over Under Frequency');
+            const hidden = (var_id: string) =>
+                [...(reset?.querySelectorAll('statement[name="STACK"] block[type="variables_set"]') || [])]
+                    .filter(b => varId(b) === var_id)
+                    .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+            expect(hidden('ouf_left')).toEqual(['0']);
+            expect(hidden('ouf_entry')).toEqual(['-1']);
+            expect(hidden('ouf_entered')).toEqual(['0']);
+            expect(hidden('ouf_pred_before')).toEqual(['2']);
+            expect(hidden('ouf_pred_after')).toEqual(['3']);
+            expect(hidden('ouf_prediction')).toEqual(['Prediction before loss']);
+            expect(hidden('ouf_stake')).toEqual(['Initial Stake']);
+            expect(hidden('ouf_lost')).toEqual(['0']);
+            expect(hidden('ouf_total')).toEqual(['0']);
+            expect(reset?.querySelector('block[type="set_catch_every_tick"] value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            expect(doc.querySelector('statement[name="INITIALIZATION"] block[type="set_catch_every_tick"]')).toBeNull();
+            expect(
+                doc.querySelector('statement[name="INITIALIZATION"] block[type="procedures_callnoreturn"] mutation')
+                    ?.getAttribute('name')
+            ).toBe('Reset Over Under Frequency');
             const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
             expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
             expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');

@@ -18,7 +18,7 @@
  * 1 tick. The run stops at Take Profit or Stop Loss.
  */
 
-import { blockHelpers } from './blocks';
+import { blockHelpers, callFunction, defineFunction } from './blocks';
 
 const VARIABLES: [string, string][] = [
     ['ouf_ticks', 'Ticks'],
@@ -75,24 +75,35 @@ const setSpeed = (n = '') => `<block type="set_catch_every_tick">
         ${n ? `<next>${n}</next>` : ''}
       </block>`;
 
+const RESET_NAME = 'Reset Over Under Frequency';
+
+/** Barriers, scan counters, and the live stake. The scan chooses Over 2 or Under 7. */
+const RESET = defineFunction(
+    RESET_NAME,
+    'ouf_reset_fn',
+    chain([
+        n => setSpeed(n),
+        n => set('ouf_left', num(0), n),
+        n => set('ouf_dominant', num(-1), n),
+        n => set('ouf_entry', num(-1), n),
+        n => set('ouf_entered', num(0), n),
+        n => set('ouf_pred_before', num(2), n),
+        n => set('ouf_pred_after', num(3), n),
+        n => set('ouf_prediction', v('ouf_pred_before'), n),
+        n => set('ouf_stake', v('ouf_initial'), n),
+        n => set('ouf_lost', num(0), n),
+        () => set('ouf_total', num(0)),
+    ])
+);
+
 const INIT = chain([
-    n => setSpeed(n),
     n => set('ouf_ticks', num(1000), n),
     n => set('ouf_runs', num(5), n),
-    n => set('ouf_left', num(0), n),
-    n => set('ouf_dominant', num(-1), n),
-    n => set('ouf_entry', num(-1), n),
-    n => set('ouf_entered', num(0), n),
-    n => set('ouf_pred_before', num(2), n),
-    n => set('ouf_pred_after', num(3), n),
-    n => set('ouf_prediction', v('ouf_pred_before'), n),
     n => set('ouf_initial', num(1), n),
-    n => set('ouf_stake', v('ouf_initial'), n),
-    n => set('ouf_lost', num(0), n),
     n => set('ouf_payout', num(60), n),
     n => set('ouf_take_profit', num(10), n),
     n => set('ouf_stop_loss', num(50), n),
-    n => set('ouf_total', num(0), n),
+    () => callFunction(RESET_NAME, 'ouf_reset_call'),
 ]);
 
 const BUY_UNDER = `<block type="purchase"><field name="PURCHASE_LIST">DIGITUNDER</field></block>`;
@@ -359,4 +370,5 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
       ${AFTER_PURCHASE}
     </statement>
   </block>
+  ${RESET}
 </xml>`;

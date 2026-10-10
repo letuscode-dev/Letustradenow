@@ -1,3 +1,13 @@
+/** A collapsed custom function. The body is generated; the user does not configure it. */
+export const defineFunction = (name: string, id: string, stack: string) =>
+    `<block type="procedures_defnoreturn" id="${id}" collapsed="true" x="720" y="700"><mutation></mutation><field name="NAME">${name}</field><statement name="STACK">${stack}</statement></block>`;
+
+/** Call a custom function. `name` must match the definition. */
+export const callFunction = (name: string, id: string, n = '') =>
+    `<block type="procedures_callnoreturn" id="${id}"><mutation name="${name}"></mutation>${
+        n ? `<next>${n}</next>` : ''
+    }</block>`;
+
 /** Small XML builders for free bots made from standard Bot Builder blocks. */
 export const blockHelpers = (variables: [string, string][], message_var: string) => {
     const name = (id: string) => variables.find(([vid]) => vid === id)![1];

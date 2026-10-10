@@ -21,7 +21,7 @@
  * prediction. Duration is 1 tick. The run stops at Take Profit or Stop Loss.
  */
 
-import { blockHelpers } from './blocks';
+import { blockHelpers, callFunction, defineFunction } from './blocks';
 
 const VARIABLES: [string, string][] = [
     ['oud_pred_before', 'Prediction before loss'],
@@ -74,21 +74,32 @@ const setSpeed = (n = '') => `<block type="set_catch_every_tick">
         ${n ? `<next>${n}</next>` : ''}
       </block>`;
 
+const RESET_NAME = 'Reset Over Under Entry';
+
+/** Stake, entry flag, barrier, and loss counters. The user does not set these. */
+const RESET = defineFunction(
+    RESET_NAME,
+    'oud_reset_fn',
+    chain([
+        n => set('oud_stake', v('oud_initial'), n),
+        n => set('oud_entered', num(0), n),
+        n => setSpeed(n),
+        n => set('oud_prediction', v('oud_pred_before'), n),
+        n => set('oud_lost', num(0), n),
+        () => set('oud_total', num(0)),
+    ])
+);
+
 const INIT = chain([
     n => set('oud_pred_before', num(2), n),
     n => set('oud_pred_after', num(7), n),
     n => set('oud_initial', num(1), n),
-    n => set('oud_stake', v('oud_initial'), n),
     n => set('oud_entry', num(0), n),
-    n => set('oud_entered', num(0), n),
     n => set('oud_speed', num(1), n),
-    n => setSpeed(n),
     n => set('oud_payout', num(40), n),
     n => set('oud_take_profit', num(10), n),
     n => set('oud_stop_loss', num(50), n),
-    n => set('oud_prediction', v('oud_pred_before'), n),
-    n => set('oud_lost', num(0), n),
-    n => set('oud_total', num(0), n),
+    () => callFunction(RESET_NAME, 'oud_reset_call'),
 ]);
 
 const BUY_UNDER = `<block type="purchase"><field name="PURCHASE_LIST">DIGITUNDER</field></block>`;
@@ -273,4 +284,5 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
       ${AFTER_PURCHASE}
     </statement>
   </block>
+  ${RESET}
 </xml>`;
