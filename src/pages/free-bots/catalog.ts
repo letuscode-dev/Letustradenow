@@ -1,6 +1,7 @@
 import { JUMP_DIFFERS_XML } from './bots/jump-differs';
 import { MIDDLE_GAP_DIFFERS_XML } from './bots/middle-gap-differ';
 import { OVER_TWO_XML } from './bots/over-two';
+import { OVER_UNDER_XML } from './bots/over-under';
 import type { FreeBot } from './types';
 
 /**
@@ -33,5 +34,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Differs on Volatility 75 (1s). The barrier is the last digit of the current seconds (09:54:01 differs on 1). A loss is recovered in 1 win at 9.6% payout. Stops at $5 take profit or after 5 losses in a row. $2, 1 tick.',
         tags: ['Differs', 'Volatility', 'Recovery'],
         xml: MIDDLE_GAP_DIFFERS_XML,
+    },
+    {
+        id: 'over-under-entry-v1',
+        title: 'Over/Under Entry',
+        description:
+            'Buys when the last digit equals the Entry Point. Prediction 5 or higher is Under; 4 or lower is Over. Before a loss the barrier is 2 (Over 2). After a loss it is 7 (Under 7) and the next stake recovers the full loss at 40% payout. A win returns to the initial stake. Volatility 75 (1s), $1, 1 tick.',
+        tags: ['Over/Under', 'Volatility', 'Entry', 'Recovery 40%'],
+        xml: OVER_UNDER_XML,
     },
 ];
