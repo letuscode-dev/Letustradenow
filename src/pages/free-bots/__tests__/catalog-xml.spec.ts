@@ -3,9 +3,14 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over/Under Entry and Even/Odd Frequency', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual(['over-under-entry-v1', 'even-odd-entry-v1']);
+    it('ships Over/Under Entry, Even/Odd Frequency, and Over/Under Frequency', () => {
+        expect(FREE_BOTS.map(bot => bot.id)).toEqual([
+            'over-under-entry-v1',
+            'even-odd-entry-v1',
+            'over-under-frequency-v1',
+        ]);
         expect(FREE_BOTS[1].title).toBe('Even/Odd Frequency');
+        expect(FREE_BOTS[2].title).toBe('Over/Under Frequency');
     });
 
     describe('Over/Under Entry', () => {
@@ -365,6 +370,188 @@ describe('free bot catalog XML', () => {
             expect(limits?.querySelector(':scope > statement[name="DO1"] block[type="trade_again"]')).toBeNull();
             expect(limits?.querySelector(':scope > value[name="IF1"] block[type="math_single"] > field[name="OP"]')?.textContent).toBe(
                 'NEG'
+            );
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Over/Under Frequency', () => {
+        const doc = parse(FREE_BOTS[2].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+        const numbersIn = (root: Element | null | undefined) =>
+            [
+                ...(root?.querySelectorAll(
+                    'block[type="variables_set"] > value[name="VALUE"] > block[type="math_number"] > field[name="NUM"]'
+                ) || []),
+            ].map(field => field.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s) Over/Under both, 1 tick, 1000 ticks, 5 runs, payout 60', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPECAT_LIST')).toBe('digits');
+            expect(field('TRADETYPE_LIST')).toBe('overunder');
+            expect(field('TYPE_LIST')).toBe('both');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
+            expect(field('RESTARTONERROR')).toBe('TRUE');
+            expect(setValue('ouf_ticks')).toEqual(['1000']);
+            expect(setValue('ouf_runs')).toEqual(['5']);
+            expect(setValue('ouf_left')).toEqual(['0']);
+            expect(setValue('ouf_entry')).toEqual(['-1']);
+            expect(setValue('ouf_entered')).toEqual(['0']);
+            expect(setValue('ouf_pred_before')).toEqual(['2']);
+            expect(setValue('ouf_pred_after')).toEqual(['3']);
+            expect(setValue('ouf_prediction')).toEqual(['Prediction before loss']);
+            expect(setValue('ouf_initial')).toEqual(['1']);
+            expect(setValue('ouf_stake')).toEqual(['Initial Stake']);
+            expect(setValue('ouf_lost')).toEqual(['0']);
+            expect(setValue('ouf_payout')).toEqual(['60']);
+            expect(setValue('ouf_take_profit')).toEqual(['10']);
+            expect(setValue('ouf_stop_loss')).toEqual(['50']);
+            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
+            expect(speed).toHaveLength(1);
+            expect(speed[0]?.querySelector('value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe('1');
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
+            expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('ouf_stake');
+            expect(options?.querySelector(':scope > value[name="PREDICTION"] field')?.getAttribute('id')).toBe(
+                'ouf_prediction'
+            );
+        });
+
+        it('scans when the signal is spent, then Over 2 or Under 7 from the hottest digit', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const scanGate = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(scanGate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('LTE');
+            expect(scanGate?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'ouf_left'
+            );
+            const scan = scanGate?.querySelector('block[type="over_under_frequency_scan"]');
+            expect(scan?.querySelector('value[name="N"] field')?.getAttribute('id')).toBe('ouf_ticks');
+            const assignments = [...(scanGate?.querySelectorAll('block[type="variables_set"]') || [])];
+            const assigned = (id: string) => assignments.find(b => varId(b) === id);
+            expect(assigned('ouf_dominant')?.querySelector('block[type="over_under_frequency_dominant"]')).not.toBeNull();
+            expect(assigned('ouf_entry')?.querySelector('block[type="over_under_frequency_entry"]')).not.toBeNull();
+            expect(assigned('ouf_entered')?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe(
+                '0'
+            );
+            expect(assigned('ouf_left')?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
+                'ouf_runs'
+            );
+
+            const evenBranch = [...(scanGate?.querySelectorAll('block[type="controls_if"]') || [])].find(b => {
+                const modulo = b.querySelector(':scope > value[name="IF0"] block[type="math_modulo"]');
+                return modulo?.querySelector('value[name="DIVIDEND"] field')?.getAttribute('id') === 'ouf_dominant';
+            });
+            expect(evenBranch?.querySelector(':scope > mutation')?.getAttribute('else')).toBe('1');
+            const evenSets = evenBranch?.querySelector(':scope > statement[name="DO0"]');
+            const oddSets = evenBranch?.querySelector(':scope > statement[name="ELSE"]');
+            expect(numbersIn(evenSets)).toEqual(['2', '3']);
+            expect(numbersIn(oddSets)).toEqual(['7', '6']);
+            expect(evenSets?.querySelector('block[type="variables_set"] field[id="ouf_prediction"]')).not.toBeNull();
+            expect(scanGate?.querySelector('block[type="refresh_trade_options"]')).not.toBeNull();
+
+            const tradeGate = scanGate?.querySelector(':scope > next > block');
+            expect(tradeGate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('GT');
+            const waiting = tradeGate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(waiting?.querySelector(':scope > mutation')?.getAttribute('else')).toBe('1');
+            const entry = waiting?.querySelector(':scope > statement[name="DO0"] block[type="logic_compare"]');
+            expect(entry?.querySelector(':scope > value[name="A"] > block')?.getAttribute('type')).toBe('last_digit');
+            expect(entry?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('ouf_entry');
+
+            const sides = [...(before?.querySelectorAll('block[type="controls_if"]') || [])].filter(
+                b =>
+                    b.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent === 'GTE' &&
+                    b.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent === '5'
+            );
+            expect(sides).toHaveLength(2);
+            sides.forEach(side => {
+                expect(side.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                    'DIGITUNDER'
+                );
+                expect(side.querySelector(':scope > value[name="IF1"] field[name="OP"]')?.textContent).toBe('LTE');
+                expect(side.querySelector(':scope > value[name="IF1"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
+                    '4'
+                );
+                expect(side.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                    'DIGITOVER'
+                );
+            });
+        });
+
+        it('a win restores the before-loss barrier and a loss recovers at 60 percent', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('ouf_lost');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.textContent).toBe('0');
+            const winStake = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ouf_stake'
+            );
+            expect(winStake?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('ouf_initial');
+            const winPrediction = [...(win?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ouf_prediction'
+            );
+            expect(winPrediction?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
+                'ouf_pred_before'
+            );
+
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('ouf_lost');
+            const recovery = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'DIVIDE' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'ouf_lost'
+            );
+            expect(recovery?.querySelector(':scope > value[name="B"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'ouf_payout'
+            );
+            expect(recovery?.querySelector(':scope > value[name="B"] value[name="B"] field')?.textContent).toBe('100');
+            expect(
+                [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].some(
+                    b =>
+                        b.querySelector(':scope > field[name="OP"]')?.textContent === 'ADD' &&
+                        b.querySelector(':scope > value[name="B"] field')?.getAttribute('id') === 'ouf_initial'
+                )
+            ).toBe(false);
+            const recoverySet = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ouf_stake' && b.querySelector(':scope > value block[type="math_round"]')
+            );
+            expect(recoverySet?.querySelector('block[type="math_round"] > field[name="OP"]')?.textContent).toBe(
+                'ROUNDUP'
+            );
+            const lossPrediction = [...(loss?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ouf_prediction'
+            );
+            expect(lossPrediction?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
+                'ouf_pred_after'
+            );
+            expect(
+                [...(after?.querySelectorAll('block[type="variables_set"]') || [])].some(b => varId(b) === 'ouf_entered')
+            ).toBe(false);
+            const spent = [...(after?.querySelectorAll('block[type="variables_set"]') || [])].find(
+                b => varId(b) === 'ouf_left'
+            );
+            expect(spent?.querySelector('block[type="math_arithmetic"] > field[name="OP"]')?.textContent).toBe('MINUS');
+
+            const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
+            );
+            expect(limits?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.getAttribute('id')).toBe(
+                'ouf_take_profit'
             );
             expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
         });

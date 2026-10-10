@@ -1,4 +1,5 @@
 import { EVEN_ODD_XML } from './bots/even-odd';
+import { OVER_UNDER_FREQUENCY_XML } from './bots/over-under-frequency';
 import { OVER_UNDER_XML } from './bots/over-under';
 import type { FreeBot } from './types';
 
@@ -24,5 +25,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Odd, and an odd hottest digit trades Even. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that side for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
         tags: ['Even/Odd', 'Volatility', 'Frequency', 'Martingale'],
         xml: EVEN_ODD_XML,
+    },
+    {
+        id: 'over-under-frequency-v1',
+        title: 'Over/Under Frequency',
+        description:
+            'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Over 2, and a loss on that signal switches to Over 3. An odd hottest digit trades Under 7, and a loss switches to Under 6. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that signal for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss sets the next stake so the profit at the payout percent pays back all the money lost. At 60% a $1 loss becomes $1.67. A win returns to the initial stake and the before-loss barrier. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
+        tags: ['Over/Under', 'Volatility', 'Frequency', 'Recovery 60%'],
+        xml: OVER_UNDER_FREQUENCY_XML,
     },
 ];

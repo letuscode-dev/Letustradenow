@@ -2598,6 +2598,43 @@ const getBotInterface = tradeEngine => {
             return signal && signal.ready ? signal.dominant : -1;
         },
         /**
+         * Over/Under frequency scan of the last N ticks (default 1,000).
+         * Same digit ranking as the Even/Odd scan: hottest digit, and the least
+         * frequent digit in that even or odd group. An even hottest digit trades
+         * Over; an odd hottest digit trades Under. Returns 1 when the window is full.
+         */
+        scanOverUnderFrequency: sample_size => {
+            const window_size = clampEvenOddWindow(sample_size);
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+
+            if (
+                (!digits || digits.length < window_size) &&
+                tradeEngine.ensureTickHistory &&
+                !tradeEngine._overUnderFreqFillPending
+            ) {
+                tradeEngine._overUnderFreqFillPending = true;
+                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                    .catch(() => {})
+                    .finally(() => {
+                        tradeEngine._overUnderFreqFillPending = false;
+                    });
+            }
+
+            const result = analyzeEvenOddParity(digits || [], window_size);
+            tradeEngine.overUnderFrequencySignal = result;
+            return result.ready ? 1 : 0;
+        },
+        overUnderFrequencyEntry: () => {
+            const signal = tradeEngine.overUnderFrequencySignal;
+            return signal && signal.ready ? signal.entry : -1;
+        },
+        overUnderFrequencyDominant: () => {
+            const signal = tradeEngine.overUnderFrequencySignal;
+            return signal && signal.ready ? signal.dominant : -1;
+        },
+        /**
          * Over / Under % of last N digits — returns a finite number 0–100.
          * Barrier: Over 5 → digits > 5; Under 4 → digits < 4.
          * Returns 0 while the tick window is still filling (so comparisons stay false).
