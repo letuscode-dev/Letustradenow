@@ -1,16 +1,18 @@
 /**
  * Over/Under entry free bot (Volatility 75 (1s) Index).
  *
- * Trades only when the latest last digit equals Entry Point. The active prediction
- * is the barrier: 5 or higher buys Under, 4 or lower buys Over. Before any loss
- * the barrier is Prediction before loss (default 2, so Over 2). After a loss it
- * switches to Prediction after loss (default 7, so Under 7) until a win.
+ * The user chooses both predictions. The active one is the barrier: 5 or higher
+ * buys Under, 4 or lower buys Over. Prediction before loss is used until a loss.
+ * Prediction after loss is used while recovering.
+ *
+ * Entry Point is checked once. The first trade waits until the last digit equals
+ * it. Every later trade skips that digit and buys from the active prediction.
  *
  * The next stake after a loss is the accumulated loss divided by the payout
- * percent (default 40, the usual profit on Over 2 and Under 7), rounded up to
- * the next cent, so one win covers the full amount lost. A win clears the loss,
- * returns Stake to Initial Stake, and restores the before-loss prediction.
- * Duration is 1 tick. The run stops at Take Profit or Stop Loss.
+ * percent (default 40), rounded up to the next cent, so one win covers the full
+ * amount lost. A win clears the loss, returns Stake to Initial Stake, and
+ * restores the before-loss prediction. Duration is 1 tick. The run stops at
+ * Take Profit or Stop Loss.
  */
 
 import { blockHelpers } from './blocks';
@@ -21,6 +23,7 @@ const VARIABLES: [string, string][] = [
     ['oud_initial', 'Initial Stake'],
     ['oud_stake', 'Stake'],
     ['oud_entry', 'Entry Point'],
+    ['oud_entered', 'Entry Used'],
     ['oud_payout', 'Payout %'],
     ['oud_take_profit', 'Take Profit'],
     ['oud_stop_loss', 'Stop Loss'],
@@ -59,6 +62,7 @@ const INIT = chain([
     n => set('oud_initial', num(1), n),
     n => set('oud_stake', v('oud_initial'), n),
     n => set('oud_entry', num(0), n),
+    n => set('oud_entered', num(0), n),
     n => set('oud_payout', num(40), n),
     n => set('oud_take_profit', num(10), n),
     n => set('oud_stop_loss', num(50), n),
@@ -71,16 +75,14 @@ const BUY_UNDER = `<block type="purchase"><field name="PURCHASE_LIST">DIGITUNDER
 const BUY_OVER = `<block type="purchase"><field name="PURCHASE_LIST">DIGITOVER</field></block>`;
 
 const sideMessage = (side: string) => [
-    text('Entry'),
-    v('oud_entry'),
-    text(`→ ${side}`),
+    text(side),
     v('oud_prediction'),
     text('| stake'),
     v('oud_stake'),
 ];
 
-/** 5+ is Under. 4 or lower is Over. Anything in between waits. */
-const SIDE = `<block type="controls_if">
+/** 5+ is Under. 4 or lower is Over. The prediction is the barrier the user set. */
+const side = () => `<block type="controls_if">
         <mutation elseif="1"></mutation>
         <value name="IF0">${compare('GTE', v('oud_prediction'), num(5))}</value>
         <statement name="DO0">${notify('info', sideMessage('UNDER'), BUY_UNDER)}</statement>
@@ -88,9 +90,15 @@ const SIDE = `<block type="controls_if">
         <statement name="DO1">${notify('info', sideMessage('OVER'), BUY_OVER)}</statement>
       </block>`;
 
+/** First trade waits for Entry Point and marks it used. Later trades follow the prediction. */
 const BEFORE_PURCHASE = `<block type="controls_if">
-        <value name="IF0">${compare('EQ', lastDigit(), v('oud_entry'))}</value>
-        <statement name="DO0">${SIDE}</statement>
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('EQ', v('oud_entered'), num(0))}</value>
+        <statement name="DO0"><block type="controls_if">
+            <value name="IF0">${compare('EQ', lastDigit(), v('oud_entry'))}</value>
+            <statement name="DO0">${set('oud_entered', num(1), side())}</statement>
+          </block></statement>
+        <statement name="ELSE">${side()}</statement>
       </block>`;
 
 const ON_WIN = set(

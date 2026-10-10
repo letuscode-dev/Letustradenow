@@ -39,7 +39,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-under-entry-v1',
         title: 'Over/Under Entry',
         description:
-            'Buys when the last digit equals the Entry Point. Prediction 5 or higher is Under; 4 or lower is Over. Before a loss the barrier is 2 (Over 2). After a loss it is 7 (Under 7) and the next stake recovers the full loss at 40% payout. A win returns to the initial stake. Volatility 75 (1s), $1, 1 tick.',
+            'You choose both predictions. The first trade waits until the last digit equals Entry Point. After that, 5 or higher buys Under and 4 or lower buys Over on the active prediction. A loss switches to the after-loss prediction and sizes the next stake from the payout percent so one win covers the full loss. A win returns to the initial stake. Volatility 75 (1s), $1, 1 tick.',
         tags: ['Over/Under', 'Volatility', 'Entry', 'Recovery 40%'],
         xml: OVER_UNDER_XML,
     },

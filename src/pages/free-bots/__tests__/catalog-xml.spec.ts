@@ -347,6 +347,7 @@ describe('free bot catalog XML', () => {
             expect(setValue('oud_initial')).toEqual(['1']);
             expect(setValue('oud_stake')).toEqual(['Initial Stake']);
             expect(setValue('oud_entry')).toEqual(['0']);
+            expect(setValue('oud_entered')).toEqual(['0']);
             expect(setValue('oud_payout')).toEqual(['40']);
             expect(setValue('oud_take_profit')).toEqual(['10']);
             expect(setValue('oud_stop_loss')).toEqual(['50']);
@@ -361,33 +362,47 @@ describe('free bot catalog XML', () => {
             );
         });
 
-        it('buys only when the last digit equals the entry point, Under at 5+ and Over at 4 or lower', () => {
+        it('uses the entry digit once, then buys Under at 5+ and Over at 4 or lower', () => {
             const gate = doc.querySelector('statement[name="BEFOREPURCHASE_STACK"] > block');
             expect(gate?.getAttribute('type')).toBe('controls_if');
-            const entry = gate?.querySelector(':scope > value[name="IF0"] > block');
-            expect(entry?.getAttribute('type')).toBe('logic_compare');
+            expect(gate?.querySelector(':scope > mutation')?.getAttribute('else')).toBe('1');
+            const waiting = gate?.querySelector(':scope > value[name="IF0"] > block');
+            expect(waiting?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
+            expect(waiting?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('oud_entered');
+            expect(waiting?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('0');
+
+            const first = gate?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(first?.getAttribute('type')).toBe('controls_if');
+            const entry = first?.querySelector(':scope > value[name="IF0"] > block');
             expect(entry?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('EQ');
             expect(entry?.querySelector(':scope > value[name="A"] > block')?.getAttribute('type')).toBe('last_digit');
             expect(entry?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('oud_entry');
+            const consume = first?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(consume)).toBe('oud_entered');
+            expect(consume?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('1');
 
-            const side = gate?.querySelector(':scope > statement[name="DO0"] > block');
-            expect(side?.getAttribute('type')).toBe('controls_if');
-            expect(side?.querySelector(':scope > mutation')?.getAttribute('elseif')).toBe('1');
-            const under = side?.querySelector(':scope > value[name="IF0"] > block');
-            expect(under?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('GTE');
-            expect(under?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('oud_prediction');
-            expect(under?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('5');
-            expect(side?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'DIGITUNDER'
-            );
-            const over = side?.querySelector(':scope > value[name="IF1"] > block');
-            expect(over?.querySelector(':scope > field[name="OP"]')?.textContent).toBe('LTE');
-            expect(over?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('oud_prediction');
-            expect(over?.querySelector(':scope > value[name="B"] field[name="NUM"]')?.textContent).toBe('4');
-            expect(side?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
-                'DIGITOVER'
-            );
-            expect(gate?.querySelector(':scope > statement[name="ELSE"]')).toBeNull();
+            const expectSide = (side: Element | null | undefined) => {
+                expect(side?.getAttribute('type')).toBe('controls_if');
+                expect(side?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('GTE');
+                expect(side?.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
+                    '5'
+                );
+                expect(side?.querySelector(':scope > statement[name="DO0"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                    'DIGITUNDER'
+                );
+                expect(side?.querySelector(':scope > value[name="IF1"] field[name="OP"]')?.textContent).toBe('LTE');
+                expect(side?.querySelector(':scope > value[name="IF1"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
+                    '4'
+                );
+                expect(side?.querySelector(':scope > statement[name="DO1"] field[name="PURCHASE_LIST"]')?.textContent).toBe(
+                    'DIGITOVER'
+                );
+            };
+
+            expectSide(consume?.querySelector(':scope > next > block') ?? null);
+            const later = gate?.querySelector(':scope > statement[name="ELSE"] > block');
+            expectSide(later ?? null);
+            expect(later?.querySelector('block[type="last_digit"]')).toBeNull();
         });
 
         it('a win restores the before-loss prediction and initial stake, a loss recovers at payout percent', () => {
@@ -438,6 +453,9 @@ describe('free bot catalog XML', () => {
             expect(lossPrediction?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe(
                 'oud_pred_after'
             );
+            expect(
+                [...(after?.querySelectorAll('block[type="variables_set"]') || [])].some(b => varId(b) === 'oud_entered')
+            ).toBe(false);
             const payoutGuard = [...(loss?.querySelectorAll('block[type="controls_if"]') || [])].find(
                 b =>
                     b.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent === 'LTE' &&
