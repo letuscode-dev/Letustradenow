@@ -258,10 +258,6 @@ const ensureFreeBotBlocksRegistered = async block_string => {
         imports.push(import('../blocks/Binary/Tick Analysis/only_ups_downs'));
     }
 
-    if (block_string.includes('middle_gap_differ')) {
-        imports.push(import('../blocks/Binary/Tick Analysis/middle_gap_differ'));
-    }
-
     if (block_string.includes('last_tick_digit_')) {
         imports.push(import('../blocks/Binary/Tick Analysis/last_tick_price_digit_differ'));
     }

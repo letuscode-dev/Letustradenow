@@ -269,7 +269,6 @@ import {
     onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
-import { secondsDifferBarrier } from '../utils/middle-gap-differ';
 import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
@@ -1440,22 +1439,6 @@ const getBotInterface = tradeEngine => {
                 tradeEngine.digitHedgeUnderBarrier = 4;
             }
             return report.trade ? 1 : 0;
-        },
-        /**
-         * Sets the Differs barrier from the clock and returns 1.
-         * 09:54:01 differs on 1. 09:54:15 differs on 5. No digit pattern is used.
-         */
-        middleGapDifferSignal: () => {
-            const now = new Date();
-            const barrier = secondsDifferBarrier(now);
-            if (barrier === null || !tradeEngine.tradeOptions) return 0;
-            tradeEngine.tradeOptions = { ...tradeEngine.tradeOptions, prediction: barrier };
-            const pad = value => String(value).padStart(2, '0');
-            notifyHedge(
-                `Seconds differs | ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} | differ ${barrier}`,
-                'journal__text--success'
-            );
-            return 1;
         },
         /**
          * 1 = Only Ups, -1 = Only Downs, 0 = no trade.

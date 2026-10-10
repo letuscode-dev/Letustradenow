@@ -13,14 +13,12 @@
  * Every tick (1) analyses the tick already on screen, so that digit is not
  * skipped. Normal speed (0) waits for the next tick before analysing again.
  *
- * The next stake after a loss is the accumulated loss divided by the payout
- * percent (default 40), plus the initial stake, rounded up to the next cent.
- * At 40% that is 3.5 times the stake just lost: one win pays back every loss
- * and the payout profit of the initial stake. Dividing the loss by 0.40 alone
- * only breaks even when the contract pays the full percent, so a lower live
- * payout leaves the loss uncovered. A win clears the loss, returns Stake to
- * Initial Stake, and restores the before-loss prediction. Duration is 1 tick.
- * The run stops at Take Profit or Stop Loss.
+ * The next stake after a loss is only the accumulated loss divided by the
+ * payout percent (default 40), rounded up to the next cent. One win's profit
+ * pays back all the money lost and is not short by a fraction of a cent.
+ * At 40% a $1 loss becomes $2.50, and $2.50 × 40% = $1. A win clears the
+ * loss, returns Stake to Initial Stake, and restores the before-loss
+ * prediction. Duration is 1 tick. The run stops at Take Profit or Stop Loss.
  */
 
 import { blockHelpers } from './blocks';
@@ -61,15 +59,11 @@ const roundUp2 = (x: string) =>
     );
 
 /**
- * Amount lost ÷ (payout% / 100), plus the initial stake.
- * 40% → lost / 0.40 + initial. A $1 loss becomes $3.50, and $3.50 × 40% = $1.40.
+ * Amount lost ÷ (payout% / 100). The profit of this stake is the lost amount.
+ * 40% → lost / 0.40. A $1 loss becomes $2.50, and $2.50 × 40% = $1.
  */
 const recoveryBase = roundUp2(
-    arith(
-        'ADD',
-        arith('DIVIDE', v('oud_lost'), arith('DIVIDE', v('oud_payout'), num(100))),
-        v('oud_initial')
-    )
+    arith('DIVIDE', v('oud_lost'), arith('DIVIDE', v('oud_payout'), num(100)))
 );
 
 const lastDigit = () => `<block type="last_digit"></block>`;
@@ -167,7 +161,7 @@ const lossNotify = notify('warn', [
     v('oud_total'),
 ]);
 
-/** Next stake is the loss divided by the payout percent, plus the initial stake. An invalid payout or a stake below the initial stake stays at the initial stake. */
+/** Next stake is only the loss divided by the payout percent. An invalid payout or a stake below the initial stake stays at the initial stake. */
 const ON_LOSS = set(
     'oud_lost',
     round2(arith('ADD', v('oud_lost'), abs(v('oud_profit')))),
