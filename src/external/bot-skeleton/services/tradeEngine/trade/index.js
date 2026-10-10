@@ -44,6 +44,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.digitHedgeLimitAction = HEDGE_LIMIT_NONE;
         this.digitHedgeImmediate = false;
         this.digitHedgeImmediateUsed = false;
+        this.catchEveryTick = false;
         this.digitHedgeOverBarrier = 5;
         this.digitHedgeUnderBarrier = 4;
         this.onlyUpsDownsTip = '';
@@ -125,7 +126,7 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
                 this.digitHedgeImmediateUsed = true;
                 return Promise.resolve(true);
             }
-            return watchBefore(this.store);
+            return watchBefore(this.store, this.catchEveryTick);
         }
         return watchDuring(this.store);
     }

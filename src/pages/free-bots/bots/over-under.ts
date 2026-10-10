@@ -8,6 +8,9 @@
  * Entry Point is checked once. The first trade waits until the last digit equals
  * it. Every later trade skips that digit and buys from the active prediction.
  *
+ * Every tick (1) analyses the tick already on screen, so that digit is not
+ * skipped. Normal speed (0) waits for the next tick before analysing again.
+ *
  * The next stake after a loss is the accumulated loss divided by the payout
  * percent (default 40), plus the initial stake, rounded up to the next cent.
  * At 40% that is 3.5 times the stake just lost: one win pays back every loss
@@ -27,6 +30,7 @@ const VARIABLES: [string, string][] = [
     ['oud_stake', 'Stake'],
     ['oud_entry', 'Entry Point'],
     ['oud_entered', 'Entry Used'],
+    ['oud_speed', 'Every tick (1 = yes, 0 = normal)'],
     ['oud_payout', 'Payout %'],
     ['oud_take_profit', 'Take Profit'],
     ['oud_stop_loss', 'Stop Loss'],
@@ -68,6 +72,12 @@ const recoveryBase = roundUp2(
 
 const lastDigit = () => `<block type="last_digit"></block>`;
 
+/** 1 catches the current tick. 0 is normal speed. */
+const setSpeed = (n = '') => `<block type="set_catch_every_tick">
+        <value name="ENABLED">${v('oud_speed')}</value>
+        ${n ? `<next>${n}</next>` : ''}
+      </block>`;
+
 const INIT = chain([
     n => set('oud_pred_before', num(2), n),
     n => set('oud_pred_after', num(7), n),
@@ -75,6 +85,8 @@ const INIT = chain([
     n => set('oud_stake', v('oud_initial'), n),
     n => set('oud_entry', num(0), n),
     n => set('oud_entered', num(0), n),
+    n => set('oud_speed', num(1), n),
+    n => setSpeed(n),
     n => set('oud_payout', num(40), n),
     n => set('oud_take_profit', num(10), n),
     n => set('oud_stop_loss', num(50), n),

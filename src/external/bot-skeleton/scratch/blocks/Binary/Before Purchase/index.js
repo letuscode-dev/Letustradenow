@@ -8,3 +8,4 @@ import './apollo_purchase2';
 import './purchase';
 import './ask_price';
 import './payout';
+import './set_catch_every_tick';

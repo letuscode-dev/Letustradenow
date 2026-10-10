@@ -15,9 +15,20 @@ export const resetWatchTick = () => {
     prevTick = undefined;
 };
 
-export const watchScope = ({ store, stopScope, passScope, passFlag }) => {
+const isReady = (state, passScope, passFlag) => state.scope === passScope && state[passFlag];
+
+export const watchScope = ({ store, stopScope, passScope, passFlag, catchCurrentTick = false }) => {
     if (store.getState().scope === stopScope) {
         return Promise.resolve(false);
+    }
+
+    // The tick is already on screen. Analyse it now instead of waiting for the next one.
+    if (catchCurrentTick) {
+        const now = store.getState();
+        if (isReady(now, passScope, passFlag) && now.newTick !== prevTick) {
+            prevTick = now.newTick;
+            return Promise.resolve(true);
+        }
     }
 
     return new Promise(resolve => {
@@ -32,10 +43,17 @@ export const watchScope = ({ store, stopScope, passScope, passFlag }) => {
                 return;
             }
 
-            if (newState.newTick === prevTick) return;
+            if (newState.newTick === prevTick) {
+                // Quotes arrived on the tick already seen. Normal speed skips it.
+                if (catchCurrentTick && isReady(newState, passScope, passFlag)) {
+                    unsubscribe();
+                    resolve(true);
+                }
+                return;
+            }
             prevTick = newState.newTick;
 
-            if (newState.scope === passScope && newState[passFlag]) {
+            if (isReady(newState, passScope, passFlag)) {
                 unsubscribe();
                 resolve(true);
             }
@@ -43,12 +61,13 @@ export const watchScope = ({ store, stopScope, passScope, passFlag }) => {
     });
 };
 
-export const watchBefore = store =>
+export const watchBefore = (store, catchCurrentTick = false) =>
     watchScope({
         store,
         stopScope: constants.DURING_PURCHASE,
         passScope: constants.BEFORE_PURCHASE,
         passFlag: 'proposalsReady',
+        catchCurrentTick,
     });
 
 export const watchDuring = store =>

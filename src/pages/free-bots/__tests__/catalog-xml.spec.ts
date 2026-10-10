@@ -348,7 +348,11 @@ describe('free bot catalog XML', () => {
             expect(setValue('oud_stake')).toEqual(['Initial Stake']);
             expect(setValue('oud_entry')).toEqual(['0']);
             expect(setValue('oud_entered')).toEqual(['0']);
+            expect(setValue('oud_speed')).toEqual(['1']);
             expect(setValue('oud_payout')).toEqual(['40']);
+            const speed = [...doc.querySelectorAll('block[type="set_catch_every_tick"]')];
+            expect(speed).toHaveLength(1);
+            expect(speed[0]?.querySelector('value[name="ENABLED"] field')?.getAttribute('id')).toBe('oud_speed');
             expect(setValue('oud_take_profit')).toEqual(['10']);
             expect(setValue('oud_stop_loss')).toEqual(['50']);
             expect(setValue('oud_prediction')).toEqual(['Prediction before loss']);

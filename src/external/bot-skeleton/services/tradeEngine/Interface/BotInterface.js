@@ -436,6 +436,13 @@ const getBotInterface = tradeEngine => {
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
+        /**
+         * 1 analyses the tick already on screen. 0 waits for the next tick.
+         * Other bots stay on normal speed because init clears the flag.
+         */
+        setCatchEveryTick: enabled => {
+            tradeEngine.catchEveryTick = Number(enabled) === 1;
+        },
         stop: (...args) => {
             releaseAdaptiveDigitGapActiveTrade(tradeEngine.adaptiveDigitGapState);
             tradeEngine.adaptiveDigitGapState = null;

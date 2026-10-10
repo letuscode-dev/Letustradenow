@@ -74,4 +74,37 @@ describe('trade watch scope', () => {
         store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 2 });
         await expect(pending).resolves.toBe(true);
     });
+
+    it('analyses the current tick when every-tick mode is on and quotes arrive late', async () => {
+        const store = fakeStore({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: false,
+            newTick: 1,
+        });
+        const pending = watchBefore(store, true);
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: false, newTick: 1 });
+        await Promise.resolve();
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 1 });
+        await expect(pending).resolves.toBe(true);
+    });
+
+    it('does not analyse the same tick twice in every-tick mode', async () => {
+        const store = fakeStore({
+            scope: constants.BEFORE_PURCHASE,
+            proposalsReady: true,
+            newTick: 3,
+        });
+        await expect(watchBefore(store, true)).resolves.toBe(true);
+
+        const again = watchBefore(store, true);
+        let settled = false;
+        again.then(() => {
+            settled = true;
+        });
+        await Promise.resolve();
+        expect(settled).toBe(false);
+
+        store.set({ scope: constants.BEFORE_PURCHASE, proposalsReady: true, newTick: 4 });
+        await expect(again).resolves.toBe(true);
+    });
 });
