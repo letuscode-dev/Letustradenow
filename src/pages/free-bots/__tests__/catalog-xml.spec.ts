@@ -3,14 +3,16 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over/Under Entry, Even/Odd Frequency, and Over/Under Frequency', () => {
+    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, and Even Only', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual([
             'over-under-entry-v1',
             'even-odd-entry-v1',
             'over-under-frequency-v1',
+            'even-only-v1',
         ]);
         expect(FREE_BOTS[1].title).toBe('Even/Odd Frequency');
         expect(FREE_BOTS[2].title).toBe('Over/Under Frequency');
+        expect(FREE_BOTS[3].title).toBe('Even Only');
     });
 
     describe('Over/Under Entry', () => {
@@ -608,6 +610,88 @@ describe('free bot catalog XML', () => {
             );
             expect(limits?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.getAttribute('id')).toBe(
                 'ouf_take_profit'
+            );
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Even Only', () => {
+        const doc = parse(FREE_BOTS[3].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s) Even only, 1 tick, candle interval 2 hours, martingale 2', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPECAT_LIST')).toBe('digits');
+            expect(field('TRADETYPE_LIST')).toBe('evenodd');
+            expect(field('TYPE_LIST')).toBe('DIGITEVEN');
+            expect(field('CANDLEINTERVAL_LIST')).toBe('7200');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
+            expect(field('RESTARTONERROR')).toBe('TRUE');
+            expect(setValue('eve_stake')).toEqual(['1']);
+            expect(setValue('eve_martingale')).toEqual(['2']);
+            expect(setValue('eve_take_profit')).toEqual(['10']);
+            expect(setValue('eve_stop_loss')).toEqual(['50']);
+            expect(setValue('eve_amount')).toEqual([]);
+            expect(setValue('eve_total')).toEqual([]);
+            const reset = doc.querySelector('block[id="eve_reset_fn"]');
+            expect(reset?.getAttribute('collapsed')).toBe('true');
+            expect(reset?.querySelector(':scope > field[name="NAME"]')?.textContent).toBe('Reset Even Only');
+            const hidden = (var_id: string) =>
+                [...(reset?.querySelectorAll('statement[name="STACK"] block[type="variables_set"]') || [])]
+                    .filter(b => varId(b) === var_id)
+                    .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+            expect(hidden('eve_amount')).toEqual(['Stake']);
+            expect(hidden('eve_total')).toEqual(['0']);
+            expect(reset?.querySelector('block[type="set_catch_every_tick"] value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('false');
+            expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('eve_amount');
+        });
+
+        it('buys Even when the last 2 digits are odd', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const gate = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(gate?.getAttribute('type')).toBe('last_digits_odd_even_condition');
+            expect(gate?.querySelector(':scope > field[name="TICK_COUNT0"]')?.textContent).toBe('2');
+            expect(gate?.querySelector(':scope > field[name="PARITY0"]')?.textContent).toBe('ODD');
+            const purchases = [...(before?.querySelectorAll('block[type="purchase"]') || [])];
+            expect(purchases).toHaveLength(1);
+            expect(purchases[0]?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITEVEN');
+            expect(before?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).not.toBe('DIGITODD');
+        });
+
+        it('a win returns to the stake and a loss multiplies the amount by 2', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('eve_amount');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field')?.getAttribute('id')).toBe('eve_stake');
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('eve_amount');
+            const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY'
+            );
+            expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('eve_amount');
+            expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('eve_martingale');
+            const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
             );
             expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
         });

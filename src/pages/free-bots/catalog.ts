@@ -1,4 +1,5 @@
 import { EVEN_ODD_XML } from './bots/even-odd';
+import { EVEN_ONLY_XML } from './bots/even-only';
 import { OVER_UNDER_FREQUENCY_XML } from './bots/over-under-frequency';
 import { OVER_UNDER_XML } from './bots/over-under';
 import type { FreeBot } from './types';
@@ -33,5 +34,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Over 2, and a loss on that signal switches to Over 3. An odd hottest digit trades Under 7, and a loss switches to Under 6. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that signal for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss sets the next stake so the profit at the payout percent pays back all the money lost. At 60% a $1 loss becomes $1.67. A win returns to the initial stake and the before-loss barrier. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
         tags: ['Over/Under', 'Volatility', 'Frequency', 'Recovery 60%'],
         xml: OVER_UNDER_FREQUENCY_XML,
+    },
+    {
+        id: 'even-only-v1',
+        title: 'Even Only',
+        description:
+            'Trades Even only on Volatility 75 (1s). It buys Even when the last 2 digits are both odd. A loss multiplies the stake by the martingale (default 2). A win returns to the stake. Candle interval is 2 hours. Duration is 1 tick. Stops at take profit or stop loss.',
+        tags: ['Even', 'Volatility', 'Martingale'],
+        xml: EVEN_ONLY_XML,
     },
 ];
