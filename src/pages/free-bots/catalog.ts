@@ -39,7 +39,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'even-only-v1',
         title: 'Odd Only',
         description:
-            'Trades Odd only on Volatility 75 (1s). It buys Odd when the last 2 digits are both odd. Tick speed follows every Deriv tick already on screen, so a tick is not skipped. A loss multiplies the stake by the martingale (default 2). A win returns to the stake. Candle interval is 2 hours. Duration is 1 tick. Stops at take profit or stop loss.',
+            'Trades Odd only on Volatility 75 (1s). It buys Odd when the last 2 digits are both odd. It reads only those two digits on the Deriv tick already on screen, so the check does not wait for another tick. A loss multiplies the stake by the martingale (default 2). A win returns to the stake. Candle interval is 2 hours. Duration is 1 tick. Stops at take profit or stop loss.',
         tags: ['Odd', 'Volatility', 'Martingale'],
         xml: EVEN_ONLY_XML,
     },

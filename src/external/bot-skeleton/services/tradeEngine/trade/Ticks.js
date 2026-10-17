@@ -144,6 +144,36 @@ export default Engine =>
         }
 
         /**
+         * Last digits of only the newest ticks. Does not walk the rest of the cache.
+         * Returns [] until that many ticks exist, and until a fractional quote has a pip size.
+         *
+         * @param {number} count
+         * @returns {number[]}
+         */
+        getTailLastDigits(count = 1) {
+            const requested = Math.floor(Number(count));
+            const n = Number.isFinite(requested) ? Math.min(1000, Math.max(1, requested)) : 1;
+            const cached_ticks = this.$scope.ticksService.getCachedTicks(this.symbol);
+
+            if (!cached_ticks || cached_ticks.length < n) {
+                return [];
+            }
+
+            const tail = cached_ticks.slice(-n);
+            if (!quietGapPipReady(this.getPipSize())) {
+                const quotes_are_exact = tail.every(tick => {
+                    const quote = typeof tick === 'object' && tick !== null ? Number(tick.quote) : Number(tick);
+                    return Number.isFinite(quote) && Number.isInteger(quote);
+                });
+                if (!quotes_are_exact) {
+                    return [];
+                }
+            }
+
+            return this.getLastDigitsFromList(tail);
+        }
+
+        /**
          * Ensure at least `minimum_tick_count` ticks are available.
          * Uses the live cache when it is already long enough (no API call).
          * Only requests a one-shot history fill when the buffer is short.

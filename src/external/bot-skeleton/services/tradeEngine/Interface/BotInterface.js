@@ -611,6 +611,28 @@ const getBotInterface = tradeEngine => {
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getCachedLastDigitList: tick_count => tradeEngine.getCachedLastDigitList(tick_count),
+        /**
+         * 1 when every one of the newest `count` digits is odd. Sync and limited to
+         * those ticks, so a purchase check does not remap history or wait a turn.
+         */
+        lastDigitsAllOdd: count => {
+            const requested = Math.floor(Number(count));
+            const n = Number.isFinite(requested) ? Math.min(1000, Math.max(1, requested)) : 2;
+            const digits = tradeEngine.getTailLastDigits(n);
+
+            if (!digits || digits.length < n) {
+                return 0;
+            }
+
+            for (let i = 0; i < digits.length; i++) {
+                const digit = Number(digits[i]);
+                if (!Number.isFinite(digit) || Math.abs(digit % 2) !== 1) {
+                    return 0;
+                }
+            }
+
+            return 1;
+        },
         configureRecovery: (initial_stake, payout_percent, recovery_splits) => {
             const is_new = !tradeEngine.recoveryState;
             if (is_new) {

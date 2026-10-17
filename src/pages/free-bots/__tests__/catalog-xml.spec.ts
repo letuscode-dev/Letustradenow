@@ -663,16 +663,22 @@ describe('free bot catalog XML', () => {
             expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('eve_amount');
         });
 
-        it('buys Odd when the last 2 digits are odd', () => {
+        it('buys Odd when the last 2 digits are odd, from those two ticks only', () => {
             const before = doc.querySelector('block[type="before_purchase"]');
             const gate = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
-            expect(gate?.getAttribute('type')).toBe('last_digits_odd_even_condition');
-            expect(gate?.querySelector(':scope > field[name="TICK_COUNT0"]')?.textContent).toBe('2');
-            expect(gate?.querySelector(':scope > field[name="PARITY0"]')?.textContent).toBe('ODD');
+            expect(gate?.getAttribute('type')).toBe('controls_if');
+            expect(before?.querySelector('block[type="last_digits_odd_even_condition"]')).toBeNull();
+            const tail = gate?.querySelector('block[type="tail_digits_all_odd"]');
+            expect(tail?.querySelector(':scope > field[name="TICK_COUNT"]')?.textContent).toBe('2');
+            expect(gate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('EQ');
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
             const purchases = [...(before?.querySelectorAll('block[type="purchase"]') || [])];
             expect(purchases).toHaveLength(1);
             expect(purchases[0]?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITODD');
             expect(before?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).not.toBe('DIGITEVEN');
+            expect(gate?.querySelector(':scope > statement[name="DO0"] > block')?.getAttribute('type')).toBe('purchase');
         });
 
         it('a win returns to the stake and a loss multiplies the amount by 2', () => {

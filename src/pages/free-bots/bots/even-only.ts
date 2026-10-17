@@ -1,8 +1,8 @@
 /**
  * Odd-only free bot (Volatility 75 (1s) Index).
  *
- * Buys Odd only when the last 2 digits are both odd. Tick speed is 1, so every
- * Deriv tick already on screen is analysed and none is skipped. A loss
+ * Buys Odd only when the last 2 digits are both odd. Tick speed is 1, and the
+ * check reads only those two digits on the tick already on screen. A loss
  * multiplies Amount by Martingale (default 2). A win returns Amount to Stake.
  * The candle interval is 2 hours. Duration is 1 tick. The run stops at Take
  * Profit or Stop Loss.
@@ -50,17 +50,14 @@ const INIT = chain([
     () => callFunction(RESET_NAME, 'eve_reset_call'),
 ]);
 
-const buyOdd = notify(
-    'info',
-    [text('Odd'), text('| stake'), v('eve_amount')],
-    `<block type="purchase"><field name="PURCHASE_LIST">DIGITODD</field></block>`
-);
-
-/** Both of the last 2 digits are odd. */
-const BEFORE_PURCHASE = `<block type="last_digits_odd_even_condition" id="eve_gate">
-        <field name="TICK_COUNT0">2</field>
-        <field name="PARITY0">ODD</field>
-        <statement name="DO0">${buyOdd}</statement>
+/** Both of the last 2 digits are odd. The read does not journal or rescan history. */
+const BEFORE_PURCHASE = `<block type="controls_if" id="eve_gate">
+        <value name="IF0">${compare(
+            'EQ',
+            `<block type="tail_digits_all_odd" id="eve_tail"><field name="TICK_COUNT">2</field></block>`,
+            num(1)
+        )}</value>
+        <statement name="DO0"><block type="purchase"><field name="PURCHASE_LIST">DIGITODD</field></block></statement>
       </block>`;
 
 const ON_WIN = set(

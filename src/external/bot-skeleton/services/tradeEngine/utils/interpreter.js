@@ -192,6 +192,15 @@ const Interpreter = () => {
         }
         // Digit % is intentionally sync — bots call Over/Under many times per tick.
         // Keep the nativeToPseudo binding from bot_interface (do not wrap in createAsync).
+        // Last-two odd check is sync for the same reason: wrapping it would wait a turn
+        // and the next Deriv tick could arrive before the digits were read.
+        if (typeof bot_interface.lastDigitsAllOdd === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'lastDigitsAllOdd',
+                js_interpreter.nativeToPseudo(bot_interface.lastDigitsAllOdd)
+            );
+        }
         if (typeof bot_interface.evaluateColdDigit === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

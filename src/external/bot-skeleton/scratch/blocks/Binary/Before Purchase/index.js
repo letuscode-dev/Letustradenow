@@ -9,3 +9,4 @@ import './purchase';
 import './ask_price';
 import './payout';
 import './set_catch_every_tick';
+import './tail_digits_all_odd';
