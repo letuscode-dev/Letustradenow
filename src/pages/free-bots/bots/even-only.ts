@@ -1,10 +1,11 @@
 /**
- * Even-only free bot (Volatility 75 (1s) Index).
+ * Odd-only free bot (Volatility 75 (1s) Index).
  *
- * Buys Even only when the last 2 digits are both odd. A loss multiplies
- * Amount by Martingale (default 2). A win returns Amount to Stake. The candle
- * interval is 2 hours. Duration is 1 tick. The run stops at Take Profit or
- * Stop Loss.
+ * Buys Odd only when the last 2 digits are both odd. Tick speed is 1, so every
+ * Deriv tick already on screen is analysed and none is skipped. A loss
+ * multiplies Amount by Martingale (default 2). A win returns Amount to Stake.
+ * The candle interval is 2 hours. Duration is 1 tick. The run stops at Take
+ * Profit or Stop Loss.
  */
 
 import { blockHelpers, callFunction, defineFunction } from './blocks';
@@ -28,7 +29,7 @@ const setSpeed = (n = '') => `<block type="set_catch_every_tick">
         ${n ? `<next>${n}</next>` : ''}
       </block>`;
 
-const RESET_NAME = 'Reset Even Only';
+const RESET_NAME = 'Reset Odd Only';
 
 /** Live stake and profit total. The user does not set these. */
 const RESET = defineFunction(
@@ -49,17 +50,17 @@ const INIT = chain([
     () => callFunction(RESET_NAME, 'eve_reset_call'),
 ]);
 
-const buyEven = notify(
+const buyOdd = notify(
     'info',
-    [text('Even'), text('| stake'), v('eve_amount')],
-    `<block type="purchase"><field name="PURCHASE_LIST">DIGITEVEN</field></block>`
+    [text('Odd'), text('| stake'), v('eve_amount')],
+    `<block type="purchase"><field name="PURCHASE_LIST">DIGITODD</field></block>`
 );
 
-/** Both of the last 2 digits are odd, so they are not even. */
+/** Both of the last 2 digits are odd. */
 const BEFORE_PURCHASE = `<block type="last_digits_odd_even_condition" id="eve_gate">
         <field name="TICK_COUNT0">2</field>
         <field name="PARITY0">ODD</field>
-        <statement name="DO0">${buyEven}</statement>
+        <statement name="DO0">${buyOdd}</statement>
       </block>`;
 
 const ON_WIN = set(
@@ -137,7 +138,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
             <field name="TRADETYPE_LIST">evenodd</field>
             <next>
               <block type="trade_definition_contracttype" id="eve_contract" deletable="false" movable="false">
-                <field name="TYPE_LIST">DIGITEVEN</field>
+                <field name="TYPE_LIST">DIGITODD</field>
                 <next>
                   <block type="trade_definition_candleinterval" id="eve_candle" deletable="false" movable="false">
                     <field name="CANDLEINTERVAL_LIST">7200</field>
