@@ -16,7 +16,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-under-entry-v1',
         title: 'Over/Under Entry',
         description:
-            'You choose both predictions. The first trade waits until the last digit equals Entry Point, and that entry stays open until the trade is bought. After that, 5 or higher buys Under and 4 or lower buys Over on the active prediction. Every tick is 1 so the digit already on screen is not skipped, including after a contract settles; set it to 0 for normal speed. A loss switches to the after-loss prediction and sets the next stake so the profit at the payout percent pays back all the money lost. At 40% a $1 loss becomes $2.50, and the win profit is $1. A win returns to the initial stake. Volatility 75 (1s), $1, 1 tick.',
+            'Buys Under from 5 up and Over from 4 down. The first trade waits for Entry Point, and a loss recovers the lost amount at the payout percent.',
         tags: ['Over/Under', 'Volatility', 'Entry', 'Recovery 40%'],
         xml: OVER_UNDER_XML,
     },
@@ -24,7 +24,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'even-odd-entry-v1',
         title: 'Even/Odd Frequency',
         description:
-            'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Odd, and an odd hottest digit trades Even. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that side for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss multiplies the stake by the martingale (default 1.5). A win returns to the stake. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
+            'An even hottest digit trades Odd, and an odd one trades Even. The first trade waits for the rarest digit in that group, and a loss multiplies the stake.',
         tags: ['Even/Odd', 'Volatility', 'Frequency', 'Martingale'],
         xml: EVEN_ODD_XML,
     },
@@ -32,15 +32,14 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'over-under-frequency-v1',
         title: 'Over/Under Frequency',
         description:
-            'Scans the last 1,000 ticks (change Ticks to use another count). An even hottest digit trades Over 2, and a loss on that signal switches to Over 3. An odd hottest digit trades Under 7, and a loss switches to Under 6. The first trade of that signal waits for the least frequent digit in the same even or odd group. A tie uses the lower digit. It keeps that signal for Runs trades (default 5), then scans again. It analyses every tick already on screen, so a tick is not skipped. A loss sets the next stake so the profit at the payout percent pays back all the money lost. At 60% a $1 loss becomes $1.67. A win returns to the initial stake and the before-loss barrier. Stops at take profit or stop loss. Volatility 75 (1s), $1, 1 tick.',
+            'An even hottest digit trades Over 2, and an odd one trades Under 7. A loss switches to Over 3 or Under 6 and recovers the lost amount at the payout percent.',
         tags: ['Over/Under', 'Volatility', 'Frequency', 'Recovery 60%'],
         xml: OVER_UNDER_FREQUENCY_XML,
     },
     {
         id: 'even-only-v1',
         title: 'Odd Only',
-        description:
-            'Trades Odd only on Volatility 75 (1s). It buys Odd when the last 2 digits are both odd. It reads only those two digits on the Deriv tick already on screen, so the check does not wait for another tick. A loss multiplies the stake by the martingale (default 2). A win returns to the stake. Candle interval is 2 hours. Duration is 1 tick. Stops at take profit or stop loss.',
+        description: 'Buys Odd when the last two digits are both odd. A loss multiplies the stake.',
         tags: ['Odd', 'Volatility', 'Martingale'],
         xml: EVEN_ONLY_XML,
     },
@@ -48,7 +47,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'differs-hot-v1',
         title: 'Hot Digit Differs',
         description:
-            'Requests the last 1,000 ticks on Volatility 75 (1s) instead of waiting to collect them, then updates each digit’s percentage as new ticks arrive. Change Ticks to use another count. It buys Differs on the most frequent digit when that digit is missing from the newest Absent Ticks (default 2). A tie uses the lower digit. It analyses every tick already on screen, so a tick is not skipped. A loss sets the next stake so the profit at the payout percent, split across Recovery Runs wins (default 1), pays back the money still lost. At 9.6% a $1 loss recovered in 1 run becomes $10.42. A win that clears the loss returns to the stake. Stops at take profit or stop loss. $1, 1 tick.',
+            'Buys Differs on the most frequent digit after it misses the newest ticks. A loss recovers the lost amount at the payout percent.',
         tags: ['Differs', 'Volatility', 'Frequency', 'Recovery 9.6%'],
         xml: DIFFERS_HOT_XML,
     },
