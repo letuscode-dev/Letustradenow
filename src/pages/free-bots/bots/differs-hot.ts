@@ -109,15 +109,15 @@ const floorStake = (n = '') => `<block type="controls_if">
 const applyRecoveryStake = (n = '') => set('dif_amount', recoveryStake, floorStake(n));
 
 /**
- * The barrier is stored before trade options run again, so this purchase uses
- * the digit from the tick just analysed.
+ * The scan writes the barrier onto the trade that is already open for this
+ * tick, then the purchase is sent. Trade setup is not started again.
  */
 const BEFORE_PURCHASE = `<block type="controls_if" id="dif_gate">
         <value name="IF0">${compare('EQ', scan(), num(1))}</value>
         <statement name="DO0">${set(
             'dif_prediction',
             hotDigit(),
-            `<block type="refresh_trade_options"><next><block type="purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block></next></block>`
+            `<block type="purchase"><field name="PURCHASE_LIST">DIGITDIFF</field></block>`
         )}</statement>
       </block>`;
 

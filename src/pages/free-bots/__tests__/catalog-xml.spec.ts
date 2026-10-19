@@ -772,7 +772,8 @@ describe('free bot catalog XML', () => {
             expect(scan?.querySelector('value[name="N"] field')?.getAttribute('id')).toBe('dif_ticks');
             expect(scan?.querySelector('value[name="GAP"] field')?.getAttribute('id')).toBe('dif_absent');
             expect(gate?.querySelector('block[type="differs_hot_digit"]')).not.toBeNull();
-            expect(gate?.querySelector('block[type="refresh_trade_options"]')).not.toBeNull();
+            expect(gate?.querySelector('block[type="refresh_trade_options"]')).toBeNull();
+            expect(gate?.querySelector(':scope > statement[name="DO0"] block[type="purchase"]')).not.toBeNull();
             const purchases = [...(before?.querySelectorAll('block[type="purchase"]') || [])];
             expect(purchases).toHaveLength(1);
             expect(purchases[0]?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITDIFF');

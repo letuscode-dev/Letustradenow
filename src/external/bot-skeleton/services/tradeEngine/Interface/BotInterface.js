@@ -56,10 +56,12 @@ import {
     resetDigitPairReturnState,
 } from '../utils/digit-pair-return-differs';
 import {
-    analyzeDiffersHotAbsence,
     analyzeDigitFrequency,
     analyzeEvenOddParity,
+    clampDiffersAbsence,
     clampEvenOddWindow,
+    differsHotSignalFromCounts,
+    rollDiffersHotDigits,
 } from '../utils/digit-frequency-analysis';
 import {
     clampDigitPercentageWindow,
@@ -2675,36 +2677,105 @@ const getBotInterface = tradeEngine => {
         },
         /**
          * Differs scan of the last N ticks (default 1,000). Requests that history
-         * once when the live cache is short, then recounts the newest N digits on
-         * every tick. Returns 1 when the most frequent digit is absent from the
-         * newest `absent_ticks` (default 2). Sync, so the check does not wait a turn.
+         * once when the live cache is short. After the window is full, each new
+         * tick updates the counts by one digit. Returns 1 when the most frequent
+         * digit is absent from the newest `absent_ticks` (default 2). Sync, so
+         * the check does not wait a turn. A ready signal writes the barrier onto
+         * the current trade options for the purchase that follows.
          */
         scanDiffersHotAbsence: (sample_size, absent_ticks) => {
             const window_size = clampEvenOddWindow(sample_size);
-            const digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(window_size)
-                : tradeEngine.getCachedLastDigitList(window_size);
-
-            if (
-                (!digits || digits.length < window_size) &&
-                tradeEngine.ensureTickHistory &&
-                !tradeEngine._differsHotFillPending
-            ) {
-                tradeEngine._differsHotFillPending = true;
-                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
-                    .catch(() => {})
-                    .finally(() => {
-                        tradeEngine._differsHotFillPending = false;
-                    });
+            let gap = clampDiffersAbsence(absent_ticks);
+            if (gap > window_size) {
+                gap = window_size;
             }
 
-            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
-                tradeEngine.differsHotSignal = { ready: false, digit: -1, percent: 0 };
+            const not_ready = { ready: false, digit: -1, percent: 0 };
+            const ticks_service = tradeEngine.$scope && tradeEngine.$scope.ticksService;
+            const ticks =
+                ticks_service && tradeEngine.symbol ? ticks_service.getCachedTicks(tradeEngine.symbol) || [] : [];
+
+            if (ticks.length < window_size) {
+                if (tradeEngine.ensureTickHistory && !tradeEngine._differsHotFillPending) {
+                    tradeEngine._differsHotFillPending = true;
+                    Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                        .catch(() => {})
+                        .finally(() => {
+                            tradeEngine._differsHotFillPending = false;
+                        });
+                }
+                tradeEngine.differsHotCache = null;
+                tradeEngine.differsHotSignal = not_ready;
                 return 0;
             }
 
-            const result = analyzeDiffersHotAbsence(digits || [], window_size, absent_ticks);
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                tradeEngine.differsHotCache = null;
+                tradeEngine.differsHotSignal = not_ready;
+                return 0;
+            }
+
+            const newest = ticks[ticks.length - 1];
+            const tip_epoch = newest && typeof newest === 'object' && newest.epoch != null ? newest.epoch : null;
+            const previous = ticks.length > 1 ? ticks[ticks.length - 2] : null;
+            const previous_epoch =
+                previous && typeof previous === 'object' && previous.epoch != null ? previous.epoch : null;
+            let cache = tradeEngine.differsHotCache;
+            let fresh = false;
+
+            if (
+                cache &&
+                cache.window_size === window_size &&
+                cache.digits &&
+                cache.digits.length === window_size &&
+                cache.counts &&
+                tip_epoch != null
+            ) {
+                if (cache.tip_epoch === tip_epoch) {
+                    fresh = true;
+                } else if (previous_epoch != null && cache.tip_epoch === previous_epoch) {
+                    const incoming_list = tradeEngine.getLastDigitsFromList([newest]);
+                    const incoming = incoming_list && incoming_list.length ? Number(incoming_list[0]) : NaN;
+                    if (rollDiffersHotDigits(cache.digits, cache.counts, incoming)) {
+                        cache.tip_epoch = tip_epoch;
+                        fresh = true;
+                    }
+                }
+            }
+
+            // A changed window, a jumped tick, or a bad digit rebuilds the newest
+            // window once. A single new tick only drops the oldest digit.
+            if (!fresh) {
+                const built = tradeEngine.getLastDigitsFromList(ticks.slice(-window_size));
+                if (!built || built.length < window_size) {
+                    tradeEngine.differsHotCache = null;
+                    tradeEngine.differsHotSignal = not_ready;
+                    return 0;
+                }
+                const counts = Array(10).fill(0);
+                for (let i = 0; i < built.length; i++) {
+                    const digit = built[i];
+                    if (!Number.isInteger(digit) || digit < 0 || digit > 9) {
+                        tradeEngine.differsHotCache = null;
+                        tradeEngine.differsHotSignal = not_ready;
+                        return 0;
+                    }
+                    counts[digit] += 1;
+                }
+                cache = {
+                    window_size,
+                    tip_epoch,
+                    digits: built,
+                    counts,
+                };
+                tradeEngine.differsHotCache = cache;
+            }
+
+            const result = differsHotSignalFromCounts(cache.digits, cache.counts, gap);
             tradeEngine.differsHotSignal = result;
+            if (result.ready && tradeEngine.tradeOptions) {
+                tradeEngine.tradeOptions.prediction = result.digit;
+            }
             return result.ready ? 1 : 0;
         },
         differsHotDigit: () => {

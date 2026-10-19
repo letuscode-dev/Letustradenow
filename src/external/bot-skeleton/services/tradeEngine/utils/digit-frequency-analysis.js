@@ -121,6 +121,69 @@ export const clampDiffersAbsence = value => {
     return n;
 };
 
+const DIFFERS_NOT_READY = { ready: false, digit: -1, percent: 0 };
+
+/**
+ * Hottest digit in a full window, and whether it is missing from the newest
+ * `gap` digits. Ties keep the lower digit.
+ *
+ * @param {number[]} digits
+ * @param {number[]} counts
+ * @param {number} gap
+ * @returns {{ ready: boolean, digit: number, percent: number }}
+ */
+export const differsHotSignalFromCounts = (digits, counts, gap) => {
+    if (!digits || !counts || digits.length < 1 || gap < 1 || gap > digits.length) {
+        return DIFFERS_NOT_READY;
+    }
+
+    let digit = 0;
+    for (let i = 1; i < counts.length; i++) {
+        if (counts[i] > counts[digit]) {
+            digit = i;
+        }
+    }
+
+    const start = digits.length - gap;
+    for (let i = start; i < digits.length; i++) {
+        if (digits[i] === digit) {
+            return DIFFERS_NOT_READY;
+        }
+    }
+
+    return {
+        ready: true,
+        digit,
+        percent: (counts[digit] / digits.length) * 100,
+    };
+};
+
+/**
+ * Drop the oldest digit and append one new digit. Returns false when the
+ * cached window cannot take that step.
+ *
+ * @param {number[]} digits
+ * @param {number[]} counts
+ * @param {number} incoming
+ * @returns {boolean}
+ */
+export const rollDiffersHotDigits = (digits, counts, incoming) => {
+    if (!digits || !counts || digits.length < 1 || !Number.isInteger(incoming) || incoming < 0 || incoming > 9) {
+        return false;
+    }
+
+    const outgoing = digits[0];
+    if (!Number.isInteger(outgoing) || outgoing < 0 || outgoing > 9 || counts[outgoing] <= 0) {
+        return false;
+    }
+
+    counts[outgoing] -= 1;
+    counts[incoming] += 1;
+    digits.copyWithin(0, 1);
+    digits[digits.length - 1] = incoming;
+    return true;
+};
+
 /**
  * Hottest digit in the last N ticks, and whether it is missing from the newest
  * `absent_ticks` of that same window. Ties keep the lower digit.
@@ -131,7 +194,6 @@ export const clampDiffersAbsence = value => {
  * @returns {{ ready: boolean, digit: number, percent: number }}
  */
 export const analyzeDiffersHotAbsence = (digits, sample_size, absent_ticks) => {
-    const empty = { ready: false, digit: -1, percent: 0 };
     const window_size = clampEvenOddWindow(sample_size);
     let gap = clampDiffersAbsence(absent_ticks);
     if (gap > window_size) {
@@ -140,7 +202,7 @@ export const analyzeDiffersHotAbsence = (digits, sample_size, absent_ticks) => {
 
     const sample = getSlidingDigitWindow(digits || [], window_size);
     if (sample.length < window_size) {
-        return empty;
+        return DIFFERS_NOT_READY;
     }
 
     const counts = Array(10).fill(0);
@@ -148,17 +210,5 @@ export const analyzeDiffersHotAbsence = (digits, sample_size, absent_ticks) => {
         counts[sample[i]] += 1;
     }
 
-    const digit = counts.reduce((best, count, index) => (count > counts[best] ? index : best), 0);
-    const tail = sample.slice(-gap);
-    for (let i = 0; i < tail.length; i++) {
-        if (tail[i] === digit) {
-            return empty;
-        }
-    }
-
-    return {
-        ready: true,
-        digit,
-        percent: (counts[digit] / window_size) * 100,
-    };
+    return differsHotSignalFromCounts(sample, counts, gap);
 };
