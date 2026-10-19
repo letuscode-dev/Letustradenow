@@ -3,16 +3,18 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, and Odd Only', () => {
+    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, Odd Only, and Hot Digit Differs', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual([
             'over-under-entry-v1',
             'even-odd-entry-v1',
             'over-under-frequency-v1',
             'even-only-v1',
+            'differs-hot-v1',
         ]);
         expect(FREE_BOTS[1].title).toBe('Even/Odd Frequency');
         expect(FREE_BOTS[2].title).toBe('Over/Under Frequency');
         expect(FREE_BOTS[3].title).toBe('Odd Only');
+        expect(FREE_BOTS[4].title).toBe('Hot Digit Differs');
     });
 
     describe('Over/Under Entry', () => {
@@ -696,6 +698,102 @@ describe('free bot catalog XML', () => {
             );
             expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('eve_amount');
             expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('eve_martingale');
+            const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
+            );
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Hot Digit Differs', () => {
+        const doc = parse(FREE_BOTS[4].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+        });
+
+        it('Volatility 75 (1s) Differs, 1000 ticks, absent 2, payout 9.6, one recovery run', () => {
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPECAT_LIST')).toBe('digits');
+            expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+            expect(field('TYPE_LIST')).toBe('DIGITDIFF');
+            expect(field('CANDLEINTERVAL_LIST')).toBe('60');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
+            expect(field('RESTARTONERROR')).toBe('TRUE');
+            expect(setValue('dif_ticks')).toEqual(['1000']);
+            expect(setValue('dif_absent')).toEqual(['2']);
+            expect(setValue('dif_stake')).toEqual(['1']);
+            expect(setValue('dif_payout')).toEqual(['9.6']);
+            expect(setValue('dif_runs')).toEqual(['1']);
+            expect(setValue('dif_take_profit')).toEqual(['10']);
+            expect(setValue('dif_stop_loss')).toEqual(['50']);
+            expect(setValue('dif_amount')).toEqual([]);
+            expect(setValue('dif_lost')).toEqual([]);
+            expect(setValue('dif_splits')).toEqual([]);
+            expect(setValue('dif_prediction')).toEqual([]);
+            expect(setValue('dif_total')).toEqual([]);
+            const reset = doc.querySelector('block[id="dif_reset_fn"]');
+            expect(reset?.getAttribute('collapsed')).toBe('true');
+            expect(reset?.querySelector(':scope > field[name="NAME"]')?.textContent).toBe('Reset Hot Digit Differs');
+            const hidden = (var_id: string) =>
+                [...(reset?.querySelectorAll('statement[name="STACK"] block[type="variables_set"]') || [])]
+                    .filter(b => varId(b) === var_id)
+                    .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+            expect(hidden('dif_amount')).toEqual(['Stake']);
+            expect(hidden('dif_lost')).toEqual(['0']);
+            expect(hidden('dif_splits')).toEqual(['0']);
+            expect(hidden('dif_total')).toEqual(['0']);
+            expect(reset?.querySelector('block[type="set_catch_every_tick"] value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
+            expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('dif_amount');
+            expect(options?.querySelector(':scope > value[name="PREDICTION"] field')?.getAttribute('id')).toBe(
+                'dif_prediction'
+            );
+        });
+
+        it('buys Differs on the hot digit when that digit missed the newest ticks', () => {
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const gate = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(gate?.getAttribute('type')).toBe('controls_if');
+            const scan = gate?.querySelector('block[type="differs_hot_scan"]');
+            expect(scan?.querySelector('value[name="N"] field')?.getAttribute('id')).toBe('dif_ticks');
+            expect(scan?.querySelector('value[name="GAP"] field')?.getAttribute('id')).toBe('dif_absent');
+            expect(gate?.querySelector('block[type="differs_hot_digit"]')).not.toBeNull();
+            expect(gate?.querySelector('block[type="refresh_trade_options"]')).not.toBeNull();
+            const purchases = [...(before?.querySelectorAll('block[type="purchase"]') || [])];
+            expect(purchases).toHaveLength(1);
+            expect(purchases[0]?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITDIFF');
+            expect(before?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).not.toBe('DIGITMATCH');
+        });
+
+        it('a loss recovers the lost amount across the configured runs', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
+                b.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('dif_lost');
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('dif_lost');
+            const roundUp = [...(loss?.querySelectorAll('block[type="math_round"]') || [])].find(
+                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'ROUNDUP'
+            );
+            expect(roundUp).toBeTruthy();
+            expect(loss?.querySelector('field[id="dif_runs"]')).not.toBeNull();
+            expect(loss?.querySelector('field[id="dif_payout"]')).not.toBeNull();
             const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
             );

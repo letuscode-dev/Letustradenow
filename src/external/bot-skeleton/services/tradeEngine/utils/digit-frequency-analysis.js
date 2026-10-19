@@ -108,3 +108,57 @@ export const analyzeEvenOddParity = (digits, sample_size) => {
         side: dominant_is_even ? EVEN_ODD_SIDE_ODD : EVEN_ODD_SIDE_EVEN,
     };
 };
+
+/** How many recent ticks the hottest digit must miss. Blank or invalid uses 2. */
+export const clampDiffersAbsence = value => {
+    const n = Math.floor(Number(value));
+    if (!Number.isFinite(n) || n < 1) {
+        return 2;
+    }
+    if (n > MAX_WINDOW) {
+        return MAX_WINDOW;
+    }
+    return n;
+};
+
+/**
+ * Hottest digit in the last N ticks, and whether it is missing from the newest
+ * `absent_ticks` of that same window. Ties keep the lower digit.
+ *
+ * @param {Array<number|string>} digits - oldest → newest
+ * @param {number} sample_size
+ * @param {number} absent_ticks
+ * @returns {{ ready: boolean, digit: number, percent: number }}
+ */
+export const analyzeDiffersHotAbsence = (digits, sample_size, absent_ticks) => {
+    const empty = { ready: false, digit: -1, percent: 0 };
+    const window_size = clampEvenOddWindow(sample_size);
+    let gap = clampDiffersAbsence(absent_ticks);
+    if (gap > window_size) {
+        gap = window_size;
+    }
+
+    const sample = getSlidingDigitWindow(digits || [], window_size);
+    if (sample.length < window_size) {
+        return empty;
+    }
+
+    const counts = Array(10).fill(0);
+    for (let i = 0; i < sample.length; i++) {
+        counts[sample[i]] += 1;
+    }
+
+    const digit = counts.reduce((best, count, index) => (count > counts[best] ? index : best), 0);
+    const tail = sample.slice(-gap);
+    for (let i = 0; i < tail.length; i++) {
+        if (tail[i] === digit) {
+            return empty;
+        }
+    }
+
+    return {
+        ready: true,
+        digit,
+        percent: (counts[digit] / window_size) * 100,
+    };
+};

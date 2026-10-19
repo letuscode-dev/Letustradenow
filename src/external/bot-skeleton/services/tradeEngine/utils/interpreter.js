@@ -201,6 +201,22 @@ const Interpreter = () => {
                 js_interpreter.nativeToPseudo(bot_interface.lastDigitsAllOdd)
             );
         }
+        // Hot-digit Differs recounts the requested window on the current tick.
+        // An async wrap would pause the interpreter and the next tick could pass.
+        if (typeof bot_interface.scanDiffersHotAbsence === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'scanDiffersHotAbsence',
+                js_interpreter.nativeToPseudo(bot_interface.scanDiffersHotAbsence)
+            );
+        }
+        if (typeof bot_interface.differsHotDigit === 'function') {
+            js_interpreter.setProperty(
+                pseudo_bot_interface,
+                'differsHotDigit',
+                js_interpreter.nativeToPseudo(bot_interface.differsHotDigit)
+            );
+        }
         if (typeof bot_interface.evaluateColdDigit === 'function') {
             js_interpreter.setProperty(
                 pseudo_bot_interface,

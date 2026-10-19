@@ -55,7 +55,12 @@ import {
     evaluateDigitPairReturnDiffers,
     resetDigitPairReturnState,
 } from '../utils/digit-pair-return-differs';
-import { analyzeDigitFrequency, analyzeEvenOddParity, clampEvenOddWindow } from '../utils/digit-frequency-analysis';
+import {
+    analyzeDiffersHotAbsence,
+    analyzeDigitFrequency,
+    analyzeEvenOddParity,
+    clampEvenOddWindow,
+} from '../utils/digit-frequency-analysis';
 import {
     clampDigitPercentageWindow,
     getDigitPercentageValue,
@@ -2667,6 +2672,44 @@ const getBotInterface = tradeEngine => {
         overUnderFrequencyDominant: () => {
             const signal = tradeEngine.overUnderFrequencySignal;
             return signal && signal.ready ? signal.dominant : -1;
+        },
+        /**
+         * Differs scan of the last N ticks (default 1,000). Requests that history
+         * once when the live cache is short, then recounts the newest N digits on
+         * every tick. Returns 1 when the most frequent digit is absent from the
+         * newest `absent_ticks` (default 2). Sync, so the check does not wait a turn.
+         */
+        scanDiffersHotAbsence: (sample_size, absent_ticks) => {
+            const window_size = clampEvenOddWindow(sample_size);
+            const digits = tradeEngine.getAvailableLastDigitList
+                ? tradeEngine.getAvailableLastDigitList(window_size)
+                : tradeEngine.getCachedLastDigitList(window_size);
+
+            if (
+                (!digits || digits.length < window_size) &&
+                tradeEngine.ensureTickHistory &&
+                !tradeEngine._differsHotFillPending
+            ) {
+                tradeEngine._differsHotFillPending = true;
+                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
+                    .catch(() => {})
+                    .finally(() => {
+                        tradeEngine._differsHotFillPending = false;
+                    });
+            }
+
+            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
+                tradeEngine.differsHotSignal = { ready: false, digit: -1, percent: 0 };
+                return 0;
+            }
+
+            const result = analyzeDiffersHotAbsence(digits || [], window_size, absent_ticks);
+            tradeEngine.differsHotSignal = result;
+            return result.ready ? 1 : 0;
+        },
+        differsHotDigit: () => {
+            const signal = tradeEngine.differsHotSignal;
+            return signal && signal.ready ? signal.digit : -1;
         },
         /**
          * Over / Under % of last N digits — returns a finite number 0–100.

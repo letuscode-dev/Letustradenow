@@ -11,6 +11,7 @@ import './lastDigitList';
 import './digit_frequency_analysis';
 import './even_odd_parity_scan';
 import './over_under_frequency_scan';
+import './differs_hot_scan';
 import './digit_transition_prediction';
 import './adaptive_digit_gap_prediction';
 import './increasing_digit_gap_prediction';

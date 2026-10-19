@@ -1,3 +1,4 @@
+import { DIFFERS_HOT_XML } from './bots/differs-hot';
 import { EVEN_ODD_XML } from './bots/even-odd';
 import { EVEN_ONLY_XML } from './bots/even-only';
 import { OVER_UNDER_FREQUENCY_XML } from './bots/over-under-frequency';
@@ -42,5 +43,13 @@ export const FREE_BOTS: FreeBot[] = [
             'Trades Odd only on Volatility 75 (1s). It buys Odd when the last 2 digits are both odd. It reads only those two digits on the Deriv tick already on screen, so the check does not wait for another tick. A loss multiplies the stake by the martingale (default 2). A win returns to the stake. Candle interval is 2 hours. Duration is 1 tick. Stops at take profit or stop loss.',
         tags: ['Odd', 'Volatility', 'Martingale'],
         xml: EVEN_ONLY_XML,
+    },
+    {
+        id: 'differs-hot-v1',
+        title: 'Hot Digit Differs',
+        description:
+            'Requests the last 1,000 ticks on Volatility 75 (1s) instead of waiting to collect them, then updates each digit’s percentage as new ticks arrive. Change Ticks to use another count. It buys Differs on the most frequent digit when that digit is missing from the newest Absent Ticks (default 2). A tie uses the lower digit. It analyses every tick already on screen, so a tick is not skipped. A loss sets the next stake so the profit at the payout percent, split across Recovery Runs wins (default 1), pays back the money still lost. At 9.6% a $1 loss recovered in 1 run becomes $10.42. A win that clears the loss returns to the stake. Stops at take profit or stop loss. $1, 1 tick.',
+        tags: ['Differs', 'Volatility', 'Frequency', 'Recovery 9.6%'],
+        xml: DIFFERS_HOT_XML,
     },
 ];
