@@ -66,8 +66,8 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         }
         if (responseEcho && !fromResponse) {
             const replayed = sameTick(data, responseEcho);
-            responseEcho = null;
             if (replayed) {
+                responseEcho = null;
                 journal({ type: 'replayed_subscription_response', epoch: data.tick.epoch });
                 return;
             }

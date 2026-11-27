@@ -99,6 +99,26 @@ describe('Deriv mirror stream', () => {
         expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 2, true]]);
     });
 
+    it('ignores the response echo even if a newer tick arrives first', async () => {
+        let listener;
+        const journal = jest.fn();
+        const runtime = { tick: jest.fn(), resetWindow: jest.fn(), stop: jest.fn(), settle: jest.fn() };
+        const first = { msg_type: 'tick', subscription: { id: 's' }, tick: { symbol: '1HZ75V', epoch: 1, quote: 1.27, pip_size: 2 } };
+        const api = { connection: { addEventListener: jest.fn(), removeEventListener: jest.fn() },
+            onMessage: () => ({ subscribe: callback => { listener = callback; return { unsubscribe: jest.fn() }; } }),
+            send: jest.fn().mockResolvedValue(first) };
+        const stream = createMirrorDerivStream({ runtime, getApi: () => api, journal, onDisconnect: jest.fn() });
+        await stream.attach();
+        listener({ data: { ...first, tick: { ...first.tick, epoch: 2, quote: 1.24 } } });
+        listener({ data: first });
+        listener({ data: { ...first, tick: { ...first.tick, epoch: 3, quote: 1.25 } } });
+        expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 2, true], [5, 3, true]]);
+        expect(journal).toHaveBeenCalledWith({ type: 'replayed_subscription_response', epoch: 1 });
+        expect(runtime.stop).not.toHaveBeenCalled();
+        listener({ data: first });
+        expect(runtime.stop).toHaveBeenCalledWith('Duplicate or out-of-order tick');
+    });
+
     it('processes the initial response before later buffered ticks', async () => {
         let listener;
         const runtime = { tick: jest.fn(), resetWindow: jest.fn(), stop: jest.fn(), settle: jest.fn() };
