@@ -48,6 +48,10 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         resetWatchTick();
         this.digitHedgeOverBarrier = 5;
         this.digitHedgeUnderBarrier = 4;
+        this.digitHedgeOverStake = undefined;
+        this.digitHedgeUnderStake = undefined;
+        this.digitHedgeStakePlan = null;
+        this.digitHedgeStakePlans = null;
         this.onlyUpsDownsTip = '';
         this.onlyUpsDownsTradedTip = '';
         this.startPromise = this.loginAndGetBalance(token);

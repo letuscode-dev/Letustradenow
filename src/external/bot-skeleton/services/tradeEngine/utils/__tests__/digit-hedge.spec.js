@@ -231,6 +231,15 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(buildDigitUnderProposal(trade, 2).barrier).toBe('2');
         expect(buildDigitOverProposal(trade, 15).barrier).toBe('5');
     });
+
+    it('preserves a different configured stake for each leg while keeping their duration and market aligned', () => {
+        const shared = { basis: 'stake', currency: 'USD', duration: 3, duration_unit: 't', symbol: '1HZ75V' };
+        const over = buildDigitOverProposal({ ...shared, amount: 2.5 });
+        const under = buildDigitUnderProposal({ ...shared, amount: 0.75 });
+
+        expect(over).toMatchObject({ amount: 2.5, duration: 3, duration_unit: 't', underlying_symbol: '1HZ75V' });
+        expect(under).toMatchObject({ amount: 0.75, duration: 3, duration_unit: 't', underlying_symbol: '1HZ75V' });
+    });
 });
 
 describe('Over 5 / Under 4 hedge is both sides or neither', () => {

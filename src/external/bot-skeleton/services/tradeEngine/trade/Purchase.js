@@ -538,10 +538,11 @@ export default Engine =>
         }
 
         /**
-         * Over 5 and Under 4 are one trade. Both are quoted together. Neither buy
-         * is sent unless both quotes share the same start tick and the balance
-         * covers both. Fills on different ticks are sold off and are not a hedge.
-         * A single fill is sold off. If that sell fails, the bot stops.
+         * Over 5 and Under 4 are one trade. Both legs are quoted and bought in
+         * parallel. Neither buy is sent unless both quotes share the same start
+         * tick and the balance covers both legs. Fills on different ticks are
+         * sold off and are not a hedge. A single fill is sold off; if that sell
+         * fails, the bot stops.
          */
         purchaseDigitHedge() {
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
@@ -555,7 +556,9 @@ export default Engine =>
             this.last_buy = null;
             this.isSold = false;
 
-            const stake = Number(this.tradeOptions?.amount);
+            const configured_stake = Number(this.tradeOptions?.amount);
+            const over_stake = Number(this.digitHedgeOverStake ?? configured_stake);
+            const under_stake = Number(this.digitHedgeUnderStake ?? configured_stake);
             const trade = {
                 ...this.tradeOptions,
                 currency: this.tradeOptions?.currency || api_base.account_info?.currency,
@@ -569,15 +572,18 @@ export default Engine =>
                 if (note) notify('journal__text--warn', note);
             };
             const halt = note => {
-                this.digitHedge = null;
                 this.digitHedgeHalt = true;
                 this.resetPurchaseAttempt();
                 notify('journal__text--error', note);
                 globalObserver.emit('bot.stop_button_click');
             };
 
-            if (!Number.isFinite(stake) || stake <= 0) {
-                release(`Hedge was not sent. Stake ${this.tradeOptions?.amount} is not a positive amount.`);
+            if (!Number.isFinite(over_stake) || over_stake <= 0 || !Number.isFinite(under_stake) || under_stake <= 0) {
+                release(
+                    `Hedge was not sent. Over stake ${this.digitHedgeOverStake ?? this.tradeOptions?.amount} and Under stake ${
+                        this.digitHedgeUnderStake ?? this.tradeOptions?.amount
+                    } must both be positive amounts.`
+                );
                 return Promise.resolve();
             }
 
@@ -588,8 +594,8 @@ export default Engine =>
             });
             const { over, under } = barriers;
             const pair = `Over ${over} and Under ${under}`;
-            const over_request = buildDigitOverProposal(trade, over);
-            const under_request = buildDigitUnderProposal(trade, under);
+            const over_request = buildDigitOverProposal({ ...trade, amount: over_stake }, over);
+            const under_request = buildDigitUnderProposal({ ...trade, amount: under_stake }, under);
             if (
                 over_request.contract_type !== 'DIGITOVER' ||
                 String(over_request.barrier) !== String(over) ||
@@ -600,16 +606,15 @@ export default Engine =>
                 return Promise.resolve();
             }
             if (
-                over_request.amount !== under_request.amount ||
                 over_request.duration !== under_request.duration ||
                 over_request.duration_unit !== under_request.duration_unit ||
                 over_request.underlying_symbol !== under_request.underlying_symbol
             ) {
-                release('Hedge was not sent. Both sides must use the same stake, duration, and market.');
+                release('Hedge was not sent. Both sides must use the same duration and market.');
                 return Promise.resolve();
             }
 
-            const quote = request =>
+            const quote = (request, stake) =>
                 api_base.api.send(request).then(response => {
                     const proposal = response?.proposal;
                     if (response?.error || !proposal?.id) {
@@ -653,7 +658,9 @@ export default Engine =>
                         under_bought: plan.cancel_ids.length > 1,
                         over_contract_id: plan.cancel_ids[0] || null,
                         under_contract_id: plan.cancel_ids[1] || null,
-                        stake,
+                        stake: over_stake,
+                        over_stake,
+                        under_stake,
                     };
                     halt(
                         `Hedge stopped. A one-sided contract could not be cancelled (${failed.join(
@@ -663,10 +670,11 @@ export default Engine =>
                     return;
                 }
                 this.digitHedgeLive = false;
-                const closed = plan.cancel_ids.length
-                    ? 'The filled side was closed. Stake unchanged.'
-                    : 'Nothing was bought. Stake unchanged.';
-                release(`Hedge was not opened on both sides. ${closed} ${why}`);
+                if (plan.cancel_ids.length) {
+                    halt(`Hedge stopped after closing the filled contract(s). ${why} Check the account for the final result.`);
+                } else {
+                    release(`Hedge was not opened on both sides. Nothing was bought. ${why}`);
+                }
             };
 
             const previousHedgeSettled = async () => {
@@ -699,11 +707,11 @@ export default Engine =>
                 this.digitHedge = null;
 
                 return Promise.all([
-                quote(over_request).then(
+                quote(over_request, over_stake).then(
                     quoted => ({ ok: true, quoted }),
                     error => ({ ok: false, error })
                 ),
-                quote(under_request).then(
+                quote(under_request, under_stake).then(
                     quoted => ({ ok: true, quoted }),
                     error => ({ ok: false, error })
                 ),
@@ -743,6 +751,11 @@ export default Engine =>
                     );
                     return;
                 }
+                if (this.store.getState().scope !== BEFORE_PURCHASE) {
+                    this.digitHedgeLive = false;
+                    release('Hedge was not sent because the bot is no longer ready to purchase.');
+                    return;
+                }
 
                 const [over_buy, under_buy] = await Promise.all([
                     buyQuoted(over_quote.quoted).then(
@@ -761,6 +774,12 @@ export default Engine =>
                     under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
                 });
                 if (plan.action !== DIGIT_HEDGE_OPEN) {
+                    if (!plan.cancel_ids.length) {
+                        // A failed request can be a lost response after the server
+                        // accepted an order. Never retry an unconfirmed pair.
+                        halt(`Hedge stopped. Neither buy was confirmed. Check the account for open contracts. Over: ${message(over_buy.error)}. Under: ${message(under_buy.error)}.`);
+                        return;
+                    }
                     await abandon(
                         plan,
                         `Over: ${over_buy.ok ? 'bought' : message(over_buy.error)}. Under: ${
@@ -799,11 +818,16 @@ export default Engine =>
                     under_bought: true,
                     under_contract_id: plan.under_contract_id,
                     over_contract_id: plan.over_contract_id,
-                    stake,
+                    // `stake` remains for saved single-stake hedge blocks.
+                    stake: over_stake,
+                    over_stake: Number(over_fill.buy_price ?? over_stake),
+                    under_stake: Number(under_fill.buy_price ?? under_stake),
                     over_error: '',
                     under_error: '',
                 };
                 this.digitHedgeLive = true;
+                this.digitHedgeStakePlan = null;
+                this.digitHedgeStakePlans = null;
                 this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
                 this.digitHedgeImmediate = false;
                 this.digitHedgeImmediateUsed = false;
@@ -812,7 +836,7 @@ export default Engine =>
                 api_base.api.send({ proposal_open_contract: 1, contract_id: plan.over_contract_id }).catch(() => {});
                 notify(
                     'journal__text--success',
-                    `HEDGE OPEN — ${pair} | ${plan.over_contract_id} + ${plan.under_contract_id} | stake ${stake} each`
+                    `HEDGE OPEN — ${pair} | ${plan.over_contract_id} + ${plan.under_contract_id} | Over stake ${over_stake} | Under stake ${under_stake}`
                 );
                 });
             });

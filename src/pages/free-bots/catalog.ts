@@ -1,4 +1,6 @@
 import { DIFFERS_HOT_XML } from './bots/differs-hot';
+import { CURRENT_DIGIT_PARITY_DIFFERS_XML } from './bots/current-digit-parity-differs';
+import { SIMULTANEOUS_OVER_UNDER_XML } from './bots/simultaneous-over-under';
 import { EVEN_ODD_XML } from './bots/even-odd';
 import { EVEN_ONLY_XML } from './bots/even-only';
 import { OVER_UNDER_FREQUENCY_XML } from './bots/over-under-frequency';
@@ -50,5 +52,21 @@ export const FREE_BOTS: FreeBot[] = [
             'Buys Differs on the most frequent digit after it misses the newest ticks. A loss recovers the lost amount at the payout percent.',
         tags: ['Differs', 'Volatility', 'Frequency', 'Recovery 9.6%'],
         xml: DIFFERS_HOT_XML,
+    },
+    {
+        id: 'current-digit-parity-differs-v1',
+        title: 'Current Digit Differs',
+        description:
+            'On every available tick, buys Differs against the current digit when it matches your Even or Odd target. Stops after the selected consecutive-loss limit.',
+        tags: ['Differs', 'Even/Odd Target', 'Current Tick', 'Martingale'],
+        xml: CURRENT_DIGIT_PARITY_DIFFERS_XML,
+    },
+    {
+        id: 'simultaneous-over-under-v1',
+        title: 'Simultaneous Over/Under',
+        description:
+            'Buys Over 5 and Under 4 concurrently with separate stakes. Both legs must share the same entry tick; after a double loss, each stake uses the Martingale.',
+        tags: ['Over/Under', 'Simultaneous', 'Independent Stakes', 'Martingale'],
+        xml: SIMULTANEOUS_OVER_UNDER_XML,
     },
 ];

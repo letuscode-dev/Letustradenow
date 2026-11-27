@@ -19,15 +19,17 @@ window.Blockly.Blocks.digit_hedge_purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase Over %1 + Under %2 hedge'),
+            message0: localize('Purchase Over %1 + Under %2 hedge | Over stake %3 | Under stake %4'),
             args0: [
                 { type: 'input_value', name: 'OVER' },
                 { type: 'input_value', name: 'UNDER' },
+                { type: 'input_value', name: 'OVER_STAKE', check: 'Number' },
+                { type: 'input_value', name: 'UNDER_STAKE', check: 'Number' },
             ],
             previousStatement: null,
             ...colours(),
             tooltip: localize(
-                'Buys the Over barrier and the Under barrier at the same time. Each barrier is a digit from 0 to 9. Defaults are Over 5 and Under 4. Each side uses the stake and duration from Trade options.'
+                'Buys the Over barrier and the Under barrier at the same time. Each barrier is a digit from 0 to 9. Defaults are Over 5 and Under 4. Set both positive leg stakes to use separate amounts; otherwise both legs use the Trade options stake. Both legs use the Trade options duration.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -50,7 +52,10 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = bl
     const value = name => window.Blockly.JavaScript.javascriptGenerator.valueToCode(block, name, order);
     const over = value('OVER') || '5';
     const under = value('UNDER') || '4';
-    return `Bot.digitHedgeSetBarriers(${over}, ${under});\nBot.purchaseDigitHedge();\n`;
+    const over_stake = value('OVER_STAKE');
+    const under_stake = value('UNDER_STAKE');
+    const set_stakes = over_stake && under_stake ? `Bot.digitHedgeSetStakes(${over_stake}, ${under_stake});\n` : '';
+    return `Bot.digitHedgeSetBarriers(${over}, ${under});\n${set_stakes}Bot.purchaseDigitHedge();\n`;
 };
 
 window.Blockly.Blocks.digit_hedge_result = {
@@ -125,8 +130,16 @@ window.Blockly.Blocks.digit_hedge_next_stake = {
     },
     definition() {
         return {
-            message0: localize('next hedge stake from bought %1 set %2 × %3'),
+            message0: localize('next %1 hedge stake from bought %2 set %3 × %4'),
             args0: [
+                {
+                    type: 'field_dropdown',
+                    name: 'LEG',
+                    options: [
+                        [localize('Over'), 'over'],
+                        [localize('Under'), 'under'],
+                    ],
+                },
                 { type: 'input_value', name: 'CURRENT', check: 'Number' },
                 { type: 'input_value', name: 'INITIAL', check: 'Number' },
                 { type: 'input_value', name: 'MULTIPLIER', check: 'Number' },
@@ -154,6 +167,7 @@ window.Blockly.Blocks.digit_hedge_next_stake = {
 };
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_next_stake = block => {
+    const leg = block.getFieldValue('LEG') === 'under' ? 'under' : 'over';
     const current =
         window.Blockly.JavaScript.javascriptGenerator.valueToCode(
             block,
@@ -173,7 +187,7 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_next_stake = 
             window.Blockly.JavaScript.javascriptGenerator.ORDER_NONE
         ) || '0';
     return [
-        `Bot.digitHedgeNextStake(${current}, ${initial}, ${multiplier})`,
+        `Bot.digitHedgeNextStake(${current}, ${initial}, ${multiplier}, '${leg}')`,
         window.Blockly.JavaScript.javascriptGenerator.ORDER_FUNCTION_CALL,
     ];
 };

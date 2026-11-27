@@ -3,18 +3,22 @@ import { FREE_BOTS } from '../catalog';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, Odd Only, and Hot Digit Differs', () => {
+    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, Odd Only, Hot Digit Differs, Current Digit Differs, and Simultaneous Over/Under', () => {
         expect(FREE_BOTS.map(bot => bot.id)).toEqual([
             'over-under-entry-v1',
             'even-odd-entry-v1',
             'over-under-frequency-v1',
             'even-only-v1',
             'differs-hot-v1',
+            'current-digit-parity-differs-v1',
+            'simultaneous-over-under-v1',
         ]);
         expect(FREE_BOTS[1].title).toBe('Even/Odd Frequency');
         expect(FREE_BOTS[2].title).toBe('Over/Under Frequency');
         expect(FREE_BOTS[3].title).toBe('Odd Only');
         expect(FREE_BOTS[4].title).toBe('Hot Digit Differs');
+        expect(FREE_BOTS[5].title).toBe('Current Digit Differs');
+        expect(FREE_BOTS[6].title).toBe('Simultaneous Over/Under');
     });
 
     describe('Over/Under Entry', () => {
@@ -374,7 +378,9 @@ describe('free bot catalog XML', () => {
                 'ROUND'
             );
             const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
-                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY'
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'evo_amount'
             );
             expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('evo_amount');
             expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('evo_martingale');
@@ -694,7 +700,9 @@ describe('free bot catalog XML', () => {
             const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
             expect(varId(loss)).toBe('eve_amount');
             const multiply = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
-                b => b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY'
+                b =>
+                    b.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
+                    b.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'eve_amount'
             );
             expect(multiply?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('eve_amount');
             expect(multiply?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('eve_martingale');
@@ -798,6 +806,108 @@ describe('free bot catalog XML', () => {
             const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(b =>
                 b.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
             );
+            expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
+        });
+    });
+
+    describe('Current Digit Differs', () => {
+        const doc = parse(FREE_BOTS[5].xml);
+        const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
+        const varId = (block: Element | null | undefined) =>
+            block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
+        const setValue = (var_id: string) =>
+            [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')]
+                .filter(b => varId(b) === var_id)
+                .map(b => b.querySelector(':scope > value[name="VALUE"] field')?.textContent);
+
+        it('is well-formed and uses a one-tick Digit Differs contract', () => {
+            expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
+            expect(field('SUBMARKET_LIST')).toBe('random_index');
+            expect(field('SYMBOL_LIST')).toBe('1HZ75V');
+            expect(field('TRADETYPECAT_LIST')).toBe('digits');
+            expect(field('TRADETYPE_LIST')).toBe('matchesdiffers');
+            expect(field('TYPE_LIST')).toBe('DIGITDIFF');
+            expect(field('DURATIONTYPE_LIST')).toBe('t');
+            expect(field('TIME_MACHINE_ENABLED')).toBe('FALSE');
+            expect(field('RESTARTONERROR')).toBe('TRUE');
+
+            const options = doc.querySelector('block[type="trade_definition_tradeoptions"]');
+            expect(options?.querySelector(':scope > mutation')?.getAttribute('has_prediction')).toBe('true');
+            expect(options?.querySelector(':scope > value[name="DURATION"] field[name="NUM"]')?.textContent).toBe('1');
+            expect(options?.querySelector(':scope > value[name="AMOUNT"] field')?.getAttribute('id')).toBe('pdd_amount');
+            expect(options?.querySelector(':scope > value[name="PREDICTION"] field')?.getAttribute('id')).toBe(
+                'pdd_prediction'
+            );
+        });
+
+        it('exposes the requested defaults and catches the current tick', () => {
+            expect(setValue('pdd_stake')).toEqual(['1']);
+            expect(setValue('pdd_target')).toEqual(['EVEN']);
+            expect(setValue('pdd_martingale')).toEqual(['10.5']);
+            expect(setValue('pdd_take_profit')).toEqual(['10']);
+            expect(setValue('pdd_loss_limit')).toEqual(['2']);
+
+            const reset = doc.querySelector('block[id="pdd_reset_fn"]');
+            expect(reset?.querySelector('block[type="set_catch_every_tick"] value[name="ENABLED"] field[name="NUM"]')?.textContent).toBe(
+                '1'
+            );
+            expect(doc.querySelector('statement[name="INITIALIZATION"] block[type="set_catch_every_tick"]')).toBeNull();
+            expect(reset?.querySelector('block[type="variables_set"] field[id="pdd_amount"]')).not.toBeNull();
+            expect(reset?.querySelector('block[type="variables_set"] field[id="pdd_losses"]')).not.toBeNull();
+        });
+
+        it('uses a parity dropdown and sends Differs only for a matching current digit', () => {
+            const target = [...doc.querySelectorAll('statement[name="INITIALIZATION"] block[type="variables_set"]')].find(
+                block => varId(block) === 'pdd_target'
+            );
+            expect(target?.querySelector('block[type="digit_parity_target"] field[name="PARITY"]')?.textContent).toBe('EVEN');
+
+            const before = doc.querySelector('block[type="before_purchase"]');
+            const setPrediction = before?.querySelector(':scope > statement[name="BEFOREPURCHASE_STACK"] > block');
+            expect(varId(setPrediction)).toBe('pdd_prediction');
+            expect(setPrediction?.querySelector('block[type="current_digit_for_parity"] value[name="TARGET"] field')?.getAttribute('id')).toBe(
+                'pdd_target'
+            );
+            expect(setPrediction?.querySelector('block[type="last_digit"]')).toBeNull();
+            expect(setPrediction?.querySelector('block[type="refresh_trade_options"]')).toBeNull();
+
+            const gate = setPrediction?.querySelector(':scope > next > block');
+            expect(gate?.querySelector(':scope > value[name="IF0"] field[name="OP"]')?.textContent).toBe('GTE');
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="A"] field')?.getAttribute('id')).toBe(
+                'pdd_prediction'
+            );
+            expect(gate?.querySelector(':scope > value[name="IF0"] value[name="B"] field[name="NUM"]')?.textContent).toBe('0');
+            expect(gate?.querySelector('field[name="PURCHASE_LIST"]')?.textContent).toBe('DIGITDIFF');
+        });
+
+        it('resets after a win and stops after the configured consecutive-loss count', () => {
+            const after = doc.querySelector('block[type="after_purchase"]');
+            const result = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > value[name="IF0"] > block[type="contract_check_result"]')
+            );
+            const win = result?.querySelector(':scope > statement[name="DO0"] > block');
+            expect(varId(win)).toBe('pdd_losses');
+            expect(win?.querySelector(':scope > value[name="VALUE"] field[name="NUM"]')?.textContent).toBe('0');
+            expect(win?.querySelector('block[type="variables_set"] field[id="pdd_amount"]')).not.toBeNull();
+
+            const loss = result?.querySelector(':scope > statement[name="ELSE"] > block');
+            expect(varId(loss)).toBe('pdd_losses');
+            const martingale = [...(loss?.querySelectorAll('block[type="math_arithmetic"]') || [])].find(
+                block =>
+                    block.querySelector(':scope > field[name="OP"]')?.textContent === 'MULTIPLY' &&
+                    block.querySelector(':scope > value[name="A"] field')?.getAttribute('id') === 'pdd_amount'
+            );
+            expect(martingale?.querySelector(':scope > value[name="A"] field')?.getAttribute('id')).toBe('pdd_amount');
+            expect(martingale?.querySelector(':scope > value[name="B"] field')?.getAttribute('id')).toBe('pdd_martingale');
+
+            const limits = [...(after?.querySelectorAll('block[type="controls_if"]') || [])].find(block =>
+                block.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')
+            );
+            expect(limits?.querySelector(':scope > value[name="IF0"] value[name="B"] field')?.getAttribute('id')).toBe(
+                'pdd_take_profit'
+            );
+            expect(limits?.querySelector(':scope > value[name="IF1"] block[type="logic_operation"]')).not.toBeNull();
+            expect(limits?.querySelector(':scope > value[name="IF1"] field[id="pdd_loss_limit"]')).not.toBeNull();
             expect(limits?.querySelector(':scope > statement[name="ELSE"] block[type="trade_again"]')).not.toBeNull();
         });
     });

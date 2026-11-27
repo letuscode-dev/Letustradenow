@@ -640,6 +640,27 @@ const getBotInterface = tradeEngine => {
 
             return 1;
         },
+        /**
+         * Hot path for Current Digit Differs. It reads only the latest cached
+         * digit, then stores a matching barrier on the active trade options
+         * immediately before the purchase block executes. Returning -1 avoids
+         * a contract call for a non-matching or not-yet-safe tick.
+         */
+        setCurrentDigitDiffersPrediction: target_parity => {
+            const target = Number(target_parity) === 1 ? 1 : 0;
+            const digits = tradeEngine.getTailLastDigits(1);
+            const digit = Number(digits?.[0]);
+
+            if (digits?.[0] == null || !Number.isInteger(digit) || digit < 0 || digit > 9 || digit % 2 !== target) {
+                return -1;
+            }
+
+            if (tradeEngine.tradeOptions) {
+                tradeEngine.tradeOptions.prediction = digit;
+            }
+
+            return digit;
+        },
         configureRecovery: (initial_stake, payout_percent, recovery_splits) => {
             const is_new = !tradeEngine.recoveryState;
             if (is_new) {
@@ -1362,21 +1383,31 @@ const getBotInterface = tradeEngine => {
          * is bought × multiplier, rounded to the cent. One winning side returns
          * the set stake. A second call does not multiply again.
          */
-        digitHedgeNextStake: (current, initial, multiplier) => {
+        digitHedgeNextStake: (current, initial, multiplier, leg = 'over') => {
             const decision = tradeEngine.digitHedgeDecision ?? HEDGE_STOP;
+            const side = String(leg).toLowerCase() === 'under' ? 'under' : 'over';
             const plan = {
                 decision,
-                bought: tradeEngine.digitHedge?.stake,
+                bought: tradeEngine.digitHedge?.[`${side}_stake`] ?? tradeEngine.digitHedge?.stake,
                 current,
                 initial,
                 multiplier,
             };
             const next = nextHedgeStake(plan);
             tradeEngine.digitHedgeStakePlan = { ...plan, next };
+            tradeEngine.digitHedgeStakePlans = {
+                ...(tradeEngine.digitHedgeStakePlans || {}),
+                [side]: { ...plan, next },
+            };
             return next;
         },
         /** True only when the hedge finished and the next stake matches the rule. */
-        digitHedgeContinues: () => hedgeMayContinue(tradeEngine.digitHedgeStakePlan),
+        digitHedgeContinues: () => {
+            const plans = Object.values(tradeEngine.digitHedgeStakePlans || {});
+            return plans.length > 1
+                ? plans.every(hedgeMayContinue)
+                : hedgeMayContinue(tradeEngine.digitHedgeStakePlan);
+        },
         /**
          * Adds the combined Over 5 + Under 4 profit to the running total.
          * Returns that total. A second call for the same settlement does not add again.
@@ -1410,6 +1441,15 @@ const getBotInterface = tradeEngine => {
             tradeEngine.digitHedgeOverBarrier = barriers.over;
             tradeEngine.digitHedgeUnderBarrier = barriers.under;
             return barriers.over;
+        },
+        /** Stores the independent stake for each leg immediately before purchase. */
+        digitHedgeSetStakes: (over, under) => {
+            tradeEngine.digitHedgeOverStake = Number(over);
+            tradeEngine.digitHedgeUnderStake = Number(under);
+            return Number.isFinite(tradeEngine.digitHedgeOverStake) && tradeEngine.digitHedgeOverStake > 0 &&
+                Number.isFinite(tradeEngine.digitHedgeUnderStake) && tradeEngine.digitHedgeUnderStake > 0
+                ? 1
+                : 0;
         },
         /**
          * 1 when the digits that lose both sides dominate the last `window`
