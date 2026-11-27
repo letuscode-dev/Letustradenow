@@ -8,6 +8,7 @@ import {
     releaseAdaptiveDigitGapActiveTrade,
 } from '../utils/adaptive-digit-gap';
 import { contractStatus, info, log, notify } from '../utils/broadcast';
+import { backoffHedgeQuotes, hedgePacingDelay, hedgePacingForAccount, isRateLimitError, recordHedgeAttempt } from '../utils/digit-hedge-pacing';
 import {
     buildDigitOverProposal,
     buildDigitUnderProposal,
@@ -549,6 +550,7 @@ export default Engine =>
             // shared API object rather than on the short-lived engine instance.
             const locks = api_base.digitHedgeLocks || (api_base.digitHedgeLocks = new Set());
             const account = api_base.account_info?.loginid || '__unknown_account__';
+            const pacing = hedgePacingForAccount(api_base, account);
             if (locks.has(account) || locks.has('__unknown_account__')) {
                 notify('journal__text--error', 'Hedge remains blocked because a previous pair is unresolved. Check the account for open contracts and reload before starting again.');
                 globalObserver.emit('bot.stop_button_click');
@@ -587,8 +589,8 @@ export default Engine =>
                 globalObserver.emit('bot.stop_button_click');
             };
 
-            if (this.digitHedgeInvalidBarriers || this.digitHedgeInvalidLimits) {
-                halt('Hedge was not sent. Predictions must be whole digits from 0 to 9, and take profit and stop loss must be positive.');
+            if (this.digitHedgeInvalidBarriers || this.digitHedgeInvalidLimits || pacing.invalid) {
+                halt('Hedge was not sent. Check predictions, positive profit/loss limits, positive whole-number runs per batch, and wait seconds (greater than 0 and at most 86400).');
                 return Promise.resolve();
             }
             if (!Number.isFinite(over_stake) || over_stake <= 0 || !Number.isFinite(under_stake) || under_stake <= 0) {
@@ -597,6 +599,16 @@ export default Engine =>
                         this.digitHedgeUnderStake ?? this.tradeOptions?.amount
                     } must both be positive amounts.`
                 );
+                return Promise.resolve();
+            }
+
+            const delay = hedgePacingDelay(pacing, Date.now());
+            if (delay > 0) {
+                if (pacing.loggedUntil !== pacing.until) {
+                    pacing.loggedUntil = pacing.until;
+                    notify('journal__text--warn', `Hedge paused for ${Math.ceil(delay / 1000)} seconds to reduce API requests.`);
+                }
+                this.resetPurchaseAttempt();
                 return Promise.resolve();
             }
 
@@ -723,6 +735,7 @@ export default Engine =>
                 this.digitHedgeLive = true;
                 this.digitHedge = null;
 
+                recordHedgeAttempt(pacing);
                 return Promise.all([
                 quote(over_request, over_stake).then(
                     quoted => ({ ok: true, quoted }),
@@ -734,6 +747,13 @@ export default Engine =>
                 ),
             ]).then(async ([over_quote, under_quote]) => {
                 if (!over_quote.ok || !under_quote.ok) {
+                    if ((!over_quote.ok && isRateLimitError(over_quote.error)) || (!under_quote.ok && isRateLimitError(under_quote.error))) {
+                        const delay_ms = backoffHedgeQuotes(pacing, Date.now());
+                        this.digitHedgeLive = false;
+                        pacing.loggedUntil = pacing.until;
+                        release(`Deriv rate limit reached. No contracts were bought; pausing quote attempts for ${Math.ceil(delay_ms / 1000)} seconds.`);
+                        return;
+                    }
                     await abandon(
                         planDigitHedgeBuys({
                             over_quoted: false,
@@ -877,6 +897,7 @@ export default Engine =>
                 this.digitHedgeLive = true;
                 this.digitHedgeStakePlan = null;
                 this.digitHedgeStakePlans = null;
+                pacing.backoffLevel = 0;
                 if (this.$scope?.stopped) {
                     this.resetPurchaseAttempt();
                     notify('journal__text--warn', `Both hedge orders completed after stop: Over ${plan.over_contract_id}, Under ${plan.under_contract_id}. Check the account for their results.`);

@@ -17,12 +17,14 @@ describe('Simultaneous Over/Under free bot', () => {
         expect(doc.getElementsByTagName('parsererror')).toHaveLength(0);
         expect(initialValue(doc, 'sou_over_stake')).toEqual(['1']);
         expect(initialValue(doc, 'sou_under_stake')).toEqual(['1']);
-        expect(initialValue(doc, 'sou_over_prediction')).toEqual(['3']);
-        expect(initialValue(doc, 'sou_under_prediction')).toEqual(['3']);
+        expect(initialValue(doc, 'sou_over_prediction')).toEqual(['2']);
+        expect(initialValue(doc, 'sou_under_prediction')).toEqual(['2']);
         expect(initialValue(doc, 'sou_martingale')).toEqual(['2']);
         expect(initialValue(doc, 'sou_duration')).toEqual(['1']);
         expect(initialValue(doc, 'sou_take_profit')).toEqual(['10']);
         expect(initialValue(doc, 'sou_stop_loss')).toEqual(['50']);
+        expect(initialValue(doc, 'sou_batch_runs')).toEqual(['5']);
+        expect(initialValue(doc, 'sou_wait_seconds')).toEqual(['60']);
         expect(initialValue(doc, 'sou_over_amount')).toEqual([]);
         expect(initialValue(doc, 'sou_under_amount')).toEqual([]);
     });
@@ -59,6 +61,8 @@ describe('Simultaneous Over/Under free bot', () => {
         expect(purchase?.querySelector(':scope > value[name="UNDER_STAKE"] field')?.getAttribute('id')).toBe('sou_under_amount');
         expect(purchase?.querySelector(':scope > value[name="TAKE_PROFIT"] field')?.getAttribute('id')).toBe('sou_take_profit');
         expect(purchase?.querySelector(':scope > value[name="STOP_LOSS"] field')?.getAttribute('id')).toBe('sou_stop_loss');
+        expect(purchase?.querySelector(':scope > value[name="RUNS_PER_BATCH"] field')?.getAttribute('id')).toBe('sou_batch_runs');
+        expect(purchase?.querySelector(':scope > value[name="WAIT_SECONDS"] field')?.getAttribute('id')).toBe('sou_wait_seconds');
 
         const after = doc.querySelector('block[type="after_purchase"]');
         expect(after?.querySelector('block[type="digit_hedge_result"]')).not.toBeNull();

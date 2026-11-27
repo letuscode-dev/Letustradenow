@@ -142,4 +142,13 @@ describe('digit hedge settlement', () => {
         expect(bot.digitHedgeSetLimits(10, 50)).toBe(1);
         expect(bot.digitHedgeSetLimits(10, 0)).toBe(0);
     });
+
+    it('applies and validates the user-selected batch pacing', () => {
+        api_base.digitHedgePacingByAccount = new Map();
+        const bot = getBotInterface({});
+        expect(bot.digitHedgeSetPacing(5, 60)).toBe(1);
+        expect(api_base.digitHedgePacingByAccount.get('__unknown_account__')).toMatchObject({ runs: 5, waitMs: 60000, invalid: false });
+        expect(bot.digitHedgeSetPacing(2.5, 60)).toBe(0);
+        expect(api_base.digitHedgePacingByAccount.get('__unknown_account__').invalid).toBe(true);
+    });
 });

@@ -2,6 +2,7 @@ import Purchase from '../Purchase';
 import { api_base } from '../../../api/api-base';
 import { observer } from '../../../../utils/observer';
 import { BEFORE_PURCHASE } from '../state/constants';
+import { configureHedgePacing, hedgePacingForAccount } from '../../utils/digit-hedge-pacing';
 
 jest.mock('../../../api/api-base', () => ({ api_base: { api: { send: jest.fn() }, account_info: { currency: 'USD' } } }));
 jest.mock('../../utils/broadcast', () => ({ contractStatus: jest.fn(), info: jest.fn(), log: jest.fn(), notify: jest.fn() }));
@@ -32,8 +33,10 @@ describe('paired digit hedge purchases', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         api_base.digitHedgeLocks = new Set();
+        api_base.digitHedgePacingByAccount = new Map();
         api_base.account_info = { currency: 'USD', loginid: 'account-a' };
     });
+    afterEach(() => jest.restoreAllMocks());
 
     it('sends both quotes and both buys concurrently with independent stakes', async () => {
         const engine = createEngine();
@@ -103,7 +106,7 @@ describe('paired digit hedge purchases', () => {
         expect(engine.digitHedgeHalt).toBe(true);
     });
 
-    it.each([[3, 3], [2, 7]])('sends the configured Over %s and Under %s predictions in the quotes', async (over, under) => {
+    it.each([[2, 2], [3, 3], [2, 7]])('sends the configured Over %s and Under %s predictions in the quotes', async (over, under) => {
         const engine = createEngine();
         engine.digitHedgeOverBarrier = over;
         engine.digitHedgeUnderBarrier = under;
@@ -152,6 +155,83 @@ describe('paired digit hedge purchases', () => {
         await engine.purchaseDigitHedge();
         expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
         expect(engine.handlePurchaseSuccess).not.toHaveBeenCalled();
+    });
+
+    it('pauses quote attempts after the configured batch, including rejected quotes and a new engine', async () => {
+        const clock = jest.spyOn(Date, 'now').mockReturnValue(100000);
+        const pacing = hedgePacingForAccount(api_base, 'account-a');
+        configureHedgePacing(pacing, 2, 60);
+        api_base.api.send.mockImplementation(() => Promise.resolve({ error: { code: 'InvalidContract', message: 'no quote' } }));
+        const engine = createEngine();
+        await engine.purchaseDigitHedge();
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(4);
+        await engine.purchaseDigitHedge();
+        await createEngine().purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(4);
+        clock.mockReturnValue(159999);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(4);
+        clock.mockReturnValue(160000);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(6);
+    });
+
+    it('waits after a batch of completed pairs before requesting the next quotes', async () => {
+        const clock = jest.spyOn(Date, 'now').mockReturnValue(100000);
+        configureHedgePacing(hedgePacingForAccount(api_base, 'account-a'), 2, 60);
+        api_base.api.send.mockImplementation(request => {
+            if (request.proposal) return Promise.resolve({ proposal: { id: request.contract_type, ask_price: request.amount, date_start: 100 } });
+            if (request.buy) return Promise.resolve({ buy: { contract_id: request.buy === 'DIGITOVER' ? 11 : 22, buy_price: request.price, start_time: 100 } });
+            return Promise.resolve({});
+        });
+        const engine = createEngine();
+        const settle = () => {
+            api_base.digitHedgeLocks.delete('account-a');
+            engine.digitHedgeLive = false;
+            engine.resetPurchaseAttempt();
+        };
+        await engine.purchaseDigitHedge();
+        settle();
+        await engine.purchaseDigitHedge();
+        settle();
+        expect(api_base.api.send.mock.calls.filter(([request]) => request.buy)).toHaveLength(4);
+        const calls = api_base.api.send.mock.calls.length;
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(calls);
+        clock.mockReturnValue(160000);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send.mock.calls.filter(([request]) => request.buy)).toHaveLength(6);
+    });
+
+    it('stops without requesting quotes when batch pacing inputs are invalid', async () => {
+        const pacing = hedgePacingForAccount(api_base, 'account-a');
+        configureHedgePacing(pacing, 0, 60);
+        const engine = createEngine();
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).not.toHaveBeenCalled();
+        expect(engine.digitHedgeHalt).toBe(true);
+    });
+
+    it('backs off rate-limited quote responses and never sends a buy', async () => {
+        const clock = jest.spyOn(Date, 'now').mockReturnValue(100000);
+        const pacing = hedgePacingForAccount(api_base, 'account-a');
+        configureHedgePacing(pacing, 5, 10);
+        api_base.api.send.mockImplementation(() => Promise.resolve({ error: { code: 'RateLimit', message: 'rate limit' } }));
+        const engine = createEngine();
+        await engine.purchaseDigitHedge();
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(2);
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        clock.mockReturnValue(160000);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(4);
+        clock.mockReturnValue(279999);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(4);
+        clock.mockReturnValue(280000);
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(6);
     });
 
     it('does not buy a second pair when another engine acquires the account lock during quoting', async () => {

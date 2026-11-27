@@ -9,6 +9,7 @@ import {
     saveHedgeHistory,
 } from './rise-fall-hedge';
 import { hedgeEntryLines, strategyBreakdownLines } from './rise-fall-hedge-entry';
+import { isRateLimitError } from './digit-hedge-pacing';
 
 const POLL_MS = 500;
 const SETTLE_TIMEOUT_MS = 120000;
@@ -19,18 +20,23 @@ export const notifyHedge = (message, className = 'journal__text') =>
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /** Poll Deriv until the contract has settled; resolves with the final contract (or the last seen). */
-export const pollUntilSettled = async (contract_id, timeout_ms = SETTLE_TIMEOUT_MS) => {
+export const pollUntilSettled = async (contract_id, timeout_ms = SETTLE_TIMEOUT_MS, poll_ms = POLL_MS) => {
     const started = Date.now();
     let last = null;
+    let rate_limit_count = 0;
     while (Date.now() - started < timeout_ms) {
+        let rate_limited = false;
         try {
             const response = await api_base.api.send({ proposal_open_contract: 1, contract_id });
+            rate_limited = isRateLimitError(response);
             last = response?.proposal_open_contract || last;
             if (isSettled(last)) return last;
-        } catch {
-            // Keep polling; a transient error must not lose the result.
+        } catch (error) {
+            rate_limited = isRateLimitError(error);
         }
-        await sleep(POLL_MS);
+        rate_limit_count = rate_limited ? Math.min(rate_limit_count + 1, 5) : 0;
+        const delay = rate_limited ? Math.min(60000 * 2 ** (rate_limit_count - 1), 300000) : poll_ms;
+        await sleep(Math.min(delay, Math.max(0, timeout_ms - (Date.now() - started))));
     }
     return last;
 };

@@ -27,6 +27,7 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
+import { configureHedgePacing, hedgePacingForAccount } from '../utils/digit-hedge-pacing';
 import {
     applyHedgeLimits,
     armImmediateRecovery,
@@ -1326,9 +1327,9 @@ const getBotInterface = tradeEngine => {
             const over_poc = over_matches
                 ? tracked
                 : hedge.over_contract_id
-                  ? await pollUntilSettled(hedge.over_contract_id)
+                  ? await pollUntilSettled(hedge.over_contract_id, 120000, 3000)
                   : null;
-            const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id) : null;
+            const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id, 120000, 3000) : null;
             if (isSettledContract(under_poc)) {
                 const under_sell = under_poc.sell_price == null || under_poc.sell_price === '' ? NaN : Number(under_poc.sell_price);
                 const under_buy = under_poc.buy_price == null || under_poc.buy_price === '' ? NaN : Number(under_poc.buy_price);
@@ -1451,6 +1452,10 @@ const getBotInterface = tradeEngine => {
             const loss = Number(stopLoss);
             tradeEngine.digitHedgeInvalidLimits = !Number.isFinite(target) || target <= 0 || !Number.isFinite(loss) || loss <= 0;
             return tradeEngine.digitHedgeInvalidLimits ? 0 : 1;
+        },
+        digitHedgeSetPacing: (runs, waitSeconds) => {
+            const account = api_base.account_info?.loginid || '__unknown_account__';
+            return configureHedgePacing(hedgePacingForAccount(api_base, account), runs, waitSeconds) ? 1 : 0;
         },
         /** Stores the independent stake for each leg immediately before purchase. */
         digitHedgeSetStakes: (over, under) => {

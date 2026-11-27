@@ -19,7 +19,7 @@ window.Blockly.Blocks.digit_hedge_purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase Over %1 + Under %2 hedge | Over stake %3 | Under stake %4 | Take profit %5 | Stop loss %6'),
+            message0: localize('Purchase Over %1 + Under %2 hedge | Over stake %3 | Under stake %4 | Take profit %5 | Stop loss %6 | Runs per batch %7 | Wait seconds %8'),
             args0: [
                 { type: 'input_value', name: 'OVER' },
                 { type: 'input_value', name: 'UNDER' },
@@ -27,11 +27,13 @@ window.Blockly.Blocks.digit_hedge_purchase = {
                 { type: 'input_value', name: 'UNDER_STAKE', check: 'Number' },
                 { type: 'input_value', name: 'TAKE_PROFIT', check: 'Number' },
                 { type: 'input_value', name: 'STOP_LOSS', check: 'Number' },
+                { type: 'input_value', name: 'RUNS_PER_BATCH', check: 'Number' },
+                { type: 'input_value', name: 'WAIT_SECONDS', check: 'Number' },
             ],
             previousStatement: null,
             ...colours(),
             tooltip: localize(
-                'Buys the Over barrier and the Under barrier at the same time. Each barrier is a digit from 0 to 9. Defaults are Over 5 and Under 4. Set both positive leg stakes to use separate amounts; otherwise both legs use the Trade options stake. Both legs use the Trade options duration.'
+                'Buys both legs concurrently. Set both stakes for separate amounts. If batch pacing is connected, quote attempts, including rejected quotes, count toward the batch before the wait. Both legs use the Trade options duration.'
             ),
             category: window.Blockly.Categories.Before_Purchase,
         };
@@ -58,9 +60,12 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = bl
     const under_stake = value('UNDER_STAKE');
     const take_profit = value('TAKE_PROFIT');
     const stop_loss = value('STOP_LOSS');
+    const runs = value('RUNS_PER_BATCH');
+    const wait = value('WAIT_SECONDS');
     const set_stakes = over_stake && under_stake ? `Bot.digitHedgeSetStakes(${over_stake}, ${under_stake});\n` : '';
     const set_limits = take_profit && stop_loss ? `Bot.digitHedgeSetLimits(${take_profit}, ${stop_loss});\n` : '';
-    return `Bot.digitHedgeSetBarriers(${over}, ${under});\n${set_stakes}${set_limits}Bot.purchaseDigitHedge();\n`;
+    const set_pacing = runs && wait ? `Bot.digitHedgeSetPacing(${runs}, ${wait});\n` : '';
+    return `Bot.digitHedgeSetBarriers(${over}, ${under});\n${set_stakes}${set_limits}${set_pacing}Bot.purchaseDigitHedge();\n`;
 };
 
 window.Blockly.Blocks.digit_hedge_result = {

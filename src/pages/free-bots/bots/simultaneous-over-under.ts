@@ -1,7 +1,7 @@
 /**
  * Simultaneous Over/Under hedge (Volatility 75 (1s) Index).
  *
- * Every available tick can start one pair: Over 3 and Under 3 by default. The runtime
+ * An available tick can start one pair: Over 2 and Under 2 by default. The runtime
  * quotes and buys both legs in parallel, then keeps the pair only when both
  * fills use the same entry tick. A partial or mismatched fill is cancelled and
  * the bot stops rather than leaving a one-sided position open.
@@ -9,8 +9,8 @@
  * The two stakes are independent. When both legs lose, each amount is
  * multiplied by Martingale; when either leg wins, both return to their base
  * stake. Take Profit and Stop Loss use the combined profit of settled pairs.
- * Duration is in ticks. The current-tick runner rechecks immediately
- * when a completed pair hands control back to Before Purchase.
+ * Duration is in ticks. Quote attempts count toward the configurable batch;
+ * after the batch, the next attempt waits for the configured number of seconds.
  */
 
 import { blockHelpers, callFunction, defineFunction } from './blocks';
@@ -24,6 +24,8 @@ const VARIABLES: [string, string][] = [
     ['sou_duration', 'Duration (ticks)'],
     ['sou_take_profit', 'Take Profit'],
     ['sou_stop_loss', 'Stop Loss'],
+    ['sou_batch_runs', 'Runs / quote attempts per batch'],
+    ['sou_wait_seconds', 'Wait between batches (seconds)'],
     ['sou_over_amount', 'Current Over Stake'],
     ['sou_under_amount', 'Current Under Stake'],
     ['sou_result', 'Last Hedge Result'],
@@ -55,12 +57,14 @@ const RESET = defineFunction(
 const INIT = chain([
     n => set('sou_over_stake', num(1), n),
     n => set('sou_under_stake', num(1), n),
-    n => set('sou_over_prediction', num(3), n),
-    n => set('sou_under_prediction', num(3), n),
+    n => set('sou_over_prediction', num(2), n),
+    n => set('sou_under_prediction', num(2), n),
     n => set('sou_martingale', num(2), n),
     n => set('sou_duration', num(1), n),
     n => set('sou_take_profit', num(10), n),
     n => set('sou_stop_loss', num(50), n),
+    n => set('sou_batch_runs', num(5), n),
+    n => set('sou_wait_seconds', num(60), n),
     () => callFunction(RESET_NAME, 'sou_reset_call'),
 ]);
 
@@ -71,6 +75,8 @@ const purchasePair = `<block type="digit_hedge_purchase">
         <value name="UNDER_STAKE">${v('sou_under_amount')}</value>
         <value name="TAKE_PROFIT">${v('sou_take_profit')}</value>
         <value name="STOP_LOSS">${v('sou_stop_loss')}</value>
+        <value name="RUNS_PER_BATCH">${v('sou_batch_runs')}</value>
+        <value name="WAIT_SECONDS">${v('sou_wait_seconds')}</value>
       </block>`;
 
 const nextStake = (leg: 'over' | 'under', amount: 'sou_over_amount' | 'sou_under_amount', initial: 'sou_over_stake' | 'sou_under_stake') =>
