@@ -32,6 +32,7 @@ describe('mirror bot event flow', () => {
         let nextId = 0;
         const journal = jest.fn();
         const onStop = jest.fn();
+        const onContract = jest.fn();
         const tick = (epoch, digit) => ({ msg_type: 'tick', subscription: { id: 'ticks' },
             tick: { symbol: '1HZ75V', epoch, quote: 100 + digit / 100, pip_size: 2 } });
         const api = {
@@ -46,7 +47,7 @@ describe('mirror bot event flow', () => {
             }),
         };
         const session = createMirrorBotSession({ getApi: () => api, getAccount: () => 'A', account: 'A', currency: 'USD',
-            settings: {}, journal, onStop, round: value => Math.round(value * 100) / 100 });
+            settings: {}, journal, onStop, onContract, round: value => Math.round(value * 100) / 100 });
         await session.attach();
         listener({ data: tick(2, 4) });
         listener({ data: tick(3, 7) });
@@ -54,10 +55,14 @@ describe('mirror bot event flow', () => {
         let buys = api.send.mock.calls.map(([request]) => request).filter(request => request.buy);
         expect(buys).toHaveLength(1);
         expect(buys[0]).toMatchObject({ price: 5, parameters: { contract_type: 'DIGITDIFF', barrier: '4', duration: 1 } });
+        expect(onContract).toHaveBeenCalledWith(expect.objectContaining({ accountID: 'A', contract_id: 1,
+            status: 'open', buy_price: 5, barrier: 4 }));
         listener({ data: { msg_type: 'proposal_open_contract', proposal_open_contract: {
             contract_id: 1, status: 'lost', sell_price: 0, profit: -5,
         } } });
         expect(session.runtime.risk.stake).toBe(52.08);
+        expect(onContract).toHaveBeenCalledWith(expect.objectContaining({ accountID: 'A', contract_id: 1,
+            status: 'lost', profit: -5, sell_price: 0, is_sold: 1 }));
         listener({ data: tick(4, 1) });
         listener({ data: tick(5, 4) });
         listener({ data: tick(6, 1) });

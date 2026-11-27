@@ -55,6 +55,21 @@ describe('mirror runtime', () => {
         expect(runtime.isEnabled()).toBe(false);
     });
 
+    it('continues tracking a confirmed trade even if the display callback fails', async () => {
+        const journal = jest.fn();
+        const runtime = createMirrorRuntime({ settings: {}, journal,
+            buy: async () => ({ buy: { contract_id: 91, buy_price: 5 } }),
+            refreshContract: async () => ({}),
+            onPurchase: () => { throw new Error('display unavailable'); },
+            onContractUpdate: () => { throw new Error('display unavailable'); } });
+        [7, 4, 7].forEach(digit => runtime.tick(digit, 1));
+        await flush();
+        runtime.settle({ contract_id: 91, status: 'lost', sell_price: 0, profit: -5 });
+        expect(runtime.risk.totalLoss).toBe(5);
+        expect(runtime.isEnabled()).toBe(true);
+        expect(journal.mock.calls.filter(([event]) => event.type === 'display_error')).toHaveLength(2);
+    });
+
     it('does not count a confirmed purchase as unconfirmed while its status request is pending', async () => {
         let resolveStatus;
         const runtime = createMirrorRuntime({ settings: {}, journal: jest.fn(),

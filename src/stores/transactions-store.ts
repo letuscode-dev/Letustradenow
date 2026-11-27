@@ -2,11 +2,12 @@
 import { action, computed, makeObservable, observable, reaction } from 'mobx';
 import { formatDate, isEnded } from '@/components/shared';
 import { LogTypes } from '@/external/bot-skeleton';
+import { observer as botObserver } from '@/external/bot-skeleton/utils/observer';
 import { ProposalOpenContract } from '@deriv/api-types';
 import { TPortfolioPosition, TStores } from '@deriv/stores/types';
 import { TContractInfo } from '../components/summary/summary-card.types';
 import { transaction_elements } from '../constants/transactions';
-import { getStoredItemsByKey, getStoredItemsByUser, setStoredItemsByKey } from '../utils/session-storage';
+import { getStoredItemsByKey, setStoredItemsByKey } from '../utils/session-storage';
 import RootStore from './root-store';
 
 type TTransaction = {
@@ -22,12 +23,12 @@ export default class TransactionsStore {
     root_store: RootStore;
     core: TStores;
     disposeReactionsFn: () => void;
+    disposeMirrorListener: () => void;
 
     constructor(root_store: RootStore, core: TStores) {
         this.root_store = root_store;
         this.core = core;
         this.is_transaction_details_modal_open = false;
-        this.disposeReactionsFn = this.registerReactions();
 
         makeObservable(this, {
             elements: observable,
@@ -46,10 +47,18 @@ export default class TransactionsStore {
             sortOutPositionsBeforeAction: action.bound,
             recoverPendingContractsById: action.bound,
         });
+        this.disposeReactionsFn = this.registerReactions();
+        const onMirrorContract = (contract: TContractInfo & { accountID?: string }) => {
+            if (contract.accountID) this.pushTransaction(contract, contract.accountID);
+        };
+        botObserver.register('mirror.contract', onMirrorContract);
+        this.disposeMirrorListener = () => {
+            if (botObserver.isRegistered('mirror.contract')) botObserver.unregister('mirror.contract', onMirrorContract);
+        };
     }
     TRANSACTION_CACHE = 'transaction_cache';
 
-    elements: TElement = getStoredItemsByUser(this.TRANSACTION_CACHE, this.core?.client?.loginid, []);
+    elements: TElement = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
     active_transaction_id: null | number = null;
     recovered_completed_transactions: number[] = [];
     recovered_transactions: number[] = [];
@@ -110,10 +119,11 @@ export default class TransactionsStore {
         this.pushTransaction(data);
     }
 
-    pushTransaction(data: TContractInfo) {
+    pushTransaction(data: TContractInfo, account_override?: string) {
         const is_completed = isEnded(data as ProposalOpenContract);
         const { run_id } = this.root_store.run_panel;
-        const current_account = this.core?.client?.loginid as string;
+        const current_account = account_override || (this.core?.client?.loginid as string);
+        if (!current_account) return;
 
         const contract: TContractInfo = {
             ...data,
@@ -136,11 +146,13 @@ export default class TransactionsStore {
 
         const same_contract_index = this.elements[current_account]?.findIndex(c => {
             if (typeof c.data === 'string') return false;
-            return (
-                c.type === transaction_elements.CONTRACT &&
-                c.data?.transaction_ids &&
-                c.data.transaction_ids.buy === data.transaction_ids?.buy
-            );
+            if (c.type !== transaction_elements.CONTRACT || !c.data) return false;
+            if (c.data.contract_id != null && data.contract_id != null) {
+                return String(c.data.contract_id) === String(data.contract_id);
+            }
+            const existing_buy = c.data.transaction_ids?.buy;
+            const incoming_buy = data.transaction_ids?.buy;
+            return existing_buy != null && incoming_buy != null && String(existing_buy) === String(incoming_buy);
         });
 
         if (same_contract_index === -1) {
@@ -167,6 +179,8 @@ export default class TransactionsStore {
             });
         } else {
             // If data belongs to existing contract in memory, update it.
+            const existing = this.elements[current_account][same_contract_index].data;
+            if (typeof existing === 'object' && existing?.run_id != null) contract.run_id = existing.run_id;
             this.elements[current_account]?.splice(same_contract_index, 1, {
                 type: transaction_elements.CONTRACT,
                 data: contract,
@@ -174,6 +188,11 @@ export default class TransactionsStore {
         }
 
         this.elements = { ...this.elements }; // force update
+        if (account_override) {
+            const stored_transactions = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
+            stored_transactions[account_override] = this.elements[account_override]?.slice(0, 5000) ?? [];
+            setStoredItemsByKey(this.TRANSACTION_CACHE, stored_transactions);
+        }
     }
 
     clear() {
@@ -190,7 +209,7 @@ export default class TransactionsStore {
 
         // Write transactions to session storage on each change in transaction elements.
         const disposeTransactionElementsListener = reaction(
-            () => this.elements[client?.loginid as string],
+            () => this.elements[client?.loginid as string]?.slice(),
             elements => {
                 const stored_transactions = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
                 stored_transactions[client.loginid as string] = elements?.slice(0, 5000) ?? [];

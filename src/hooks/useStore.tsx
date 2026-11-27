@@ -32,6 +32,8 @@ const StoreProvider: React.FC<TStoreProvider> = ({ children, mockStore }) => {
         }
     }, [store, mockStore]);
 
+    useEffect(() => () => store?.transactions?.disposeMirrorListener?.(), [store]);
+
     if (!store && mockStore) return null;
 
     return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;

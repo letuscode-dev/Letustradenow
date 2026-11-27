@@ -124,7 +124,9 @@ export default class JournalStore {
     }
 
     getServerTime() {
-        return this.core?.common.server_time.get();
+        const common = this.core?.common;
+        // Before the server clock is synchronised, its initial moment does not advance.
+        return common?.update_time_interval != null ? common.server_time.get() : new Date();
     }
 
     playAudio = (sound: string) => {

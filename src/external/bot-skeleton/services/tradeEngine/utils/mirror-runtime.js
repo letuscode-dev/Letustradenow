@@ -3,7 +3,7 @@ import { createMirrorContractTracker, recordMirrorSettlement, registerMirrorPurc
 import { applyMirrorSettlement, createMirrorRiskState } from './mirror-risk';
 
 /** Core runtime: transport supplies ordered live ticks, a direct buy, and settlement messages. */
-export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, round = value => value, onStop = () => {}, onChange = () => {} }) => {
+export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {} }) => {
     const risk = createMirrorRiskState(settings);
     const detector = createThreeDigitMirrorState();
     const tracker = createMirrorContractTracker();
@@ -47,6 +47,14 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     };
 
     const settle = contract => {
+        const id = contract?.contract_id;
+        const purchase = id === null || id === undefined ? null : tracker.active.get(String(id));
+        if (!purchase) return;
+        try {
+            onContractUpdate(contract, purchase.signal);
+        } catch (error) {
+            journal({ type: 'display_error', contractId: id, reason: error?.message || String(error) });
+        }
         const outcome = recordMirrorSettlement(tracker, contract);
         if (!outcome) return;
         settledOutcomes.set(outcome.signal.tickIndex, outcome);
@@ -94,6 +102,11 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             }
             if (!registerMirrorPurchase(tracker, signal, response)) throw new Error('Invalid purchase confirmation');
             signal.status = 'executed';
+            try {
+                onPurchase(response.buy, signal);
+            } catch (error) {
+                journal({ type: 'display_error', contractId: signal.contractId, reason: error?.message || String(error) });
+            }
             finishPurchase();
             journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
                 barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,

@@ -627,12 +627,13 @@ const getBotInterface = tradeEngine => {
                 settings: { stake, maxLosses, profitThreshold },
                 round: value => getRoundedNumber(value, currency),
                 journal: event => notifyHedge(`Mirror | ${JSON.stringify(event)}`, 'journal__text'),
+                onContract: contract => globalObserver.emit('mirror.contract', contract),
                 onStop: () => {
                     if (!tradeEngine.$scope.stopped) globalObserver.emit('bot.stop_button_click');
                 },
                 onCleanup: () => {
-                    globalObserver.unregister('bot.stop', userStop);
-                    globalObserver.unregister('api.authorize', authorized);
+                    if (globalObserver.isRegistered('bot.stop')) globalObserver.unregister('bot.stop', userStop);
+                    if (globalObserver.isRegistered('api.authorize')) globalObserver.unregister('api.authorize', authorized);
                 },
             });
             globalObserver.register('bot.stop', userStop);

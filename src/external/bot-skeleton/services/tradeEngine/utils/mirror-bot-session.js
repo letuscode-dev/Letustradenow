@@ -1,17 +1,22 @@
 import { createMirrorRuntime } from './mirror-runtime';
 import { createMirrorDerivStream } from './mirror-deriv-stream';
+import { mirrorContractForDisplay } from './mirror-contract-display';
 
 /** Connect the isolated mirror runtime to an authenticated Deriv session. */
-export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, getExistingSubscription, getInitialTicks }) => {
+export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, onContract = () => {}, getExistingSubscription, getInitialTicks }) => {
     let ended = false;
     let cleaned = false;
     let attached = false;
     const contractSubscriptions = new Map();
+    const confirmedBuys = new Map();
     let resolveStopped;
     const finished = new Promise(resolve => { resolveStopped = resolve; });
     let stream;
 
     const checkCleanup = () => {
+        confirmedBuys.forEach((_buy, id) => {
+            if (runtime.tracker.settled.has(id)) confirmedBuys.delete(id);
+        });
         contractSubscriptions.forEach((entry, id) => {
             if (!runtime.tracker.settled.has(id)) return;
             contractSubscriptions.delete(id);
@@ -33,6 +38,14 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         });
     };
     const runtime = createMirrorRuntime({ settings, journal, round, onChange: checkCleanup,
+        onPurchase: (buy, signal) => {
+            confirmedBuys.set(String(buy.contract_id), buy);
+            onContract(mirrorContractForDisplay({ account, currency, buy, signal }));
+        },
+        onContractUpdate: (contract, signal) => {
+            const buy = confirmedBuys.get(String(contract.contract_id));
+            if (buy) onContract(mirrorContractForDisplay({ account, currency, buy, signal, contract }));
+        },
         buy: ({ barrier, stake }) => request({ buy: '1', price: stake, parameters: {
             amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency,
             duration: 1, duration_unit: 't', underlying_symbol: '1HZ75V', barrier: String(barrier),
