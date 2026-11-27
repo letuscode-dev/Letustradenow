@@ -19,12 +19,14 @@ window.Blockly.Blocks.digit_hedge_purchase = {
     },
     definition() {
         return {
-            message0: localize('Purchase Over %1 + Under %2 hedge | Over stake %3 | Under stake %4'),
+            message0: localize('Purchase Over %1 + Under %2 hedge | Over stake %3 | Under stake %4 | Take profit %5 | Stop loss %6'),
             args0: [
                 { type: 'input_value', name: 'OVER' },
                 { type: 'input_value', name: 'UNDER' },
                 { type: 'input_value', name: 'OVER_STAKE', check: 'Number' },
                 { type: 'input_value', name: 'UNDER_STAKE', check: 'Number' },
+                { type: 'input_value', name: 'TAKE_PROFIT', check: 'Number' },
+                { type: 'input_value', name: 'STOP_LOSS', check: 'Number' },
             ],
             previousStatement: null,
             ...colours(),
@@ -54,8 +56,11 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.digit_hedge_purchase = bl
     const under = value('UNDER') || '4';
     const over_stake = value('OVER_STAKE');
     const under_stake = value('UNDER_STAKE');
+    const take_profit = value('TAKE_PROFIT');
+    const stop_loss = value('STOP_LOSS');
     const set_stakes = over_stake && under_stake ? `Bot.digitHedgeSetStakes(${over_stake}, ${under_stake});\n` : '';
-    return `Bot.digitHedgeSetBarriers(${over}, ${under});\n${set_stakes}Bot.purchaseDigitHedge();\n`;
+    const set_limits = take_profit && stop_loss ? `Bot.digitHedgeSetLimits(${take_profit}, ${stop_loss});\n` : '';
+    return `Bot.digitHedgeSetBarriers(${over}, ${under});\n${set_stakes}${set_limits}Bot.purchaseDigitHedge();\n`;
 };
 
 window.Blockly.Blocks.digit_hedge_result = {
@@ -68,14 +73,14 @@ window.Blockly.Blocks.digit_hedge_result = {
             output: 'Number',
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
-            tooltip: localize('Waits until Over 5 and Under 4 have both settled, then returns their combined profit.'),
+            tooltip: localize('Waits until both Over and Under contracts have settled, then returns their combined profit.'),
             category: window.Blockly.Categories.After_Purchase,
         };
     },
     meta() {
         return {
             display_name: localize('Over/Under hedge profit'),
-            description: localize('Combined profit of the Over 5 and Under 4 hedge.'),
+            description: localize('Combined profit of the Over and Under hedge.'),
             key_words: localize('hedge, profit'),
         };
     },
@@ -243,7 +248,7 @@ window.Blockly.Blocks.digit_hedge_book_profit = {
             outputShape: window.Blockly.OUTPUT_SHAPE_ROUND,
             ...colours(),
             tooltip: localize(
-                'Adds the combined Over 5 and Under 4 profit to the running total. Take profit stops the bot when that total reaches the target.'
+                'Adds the combined Over and Under profit to the running total and records whether either limit is reached.'
             ),
             category: window.Blockly.Categories.After_Purchase,
         };

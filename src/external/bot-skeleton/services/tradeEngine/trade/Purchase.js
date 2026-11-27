@@ -538,7 +538,7 @@ export default Engine =>
         }
 
         /**
-         * Over 5 and Under 4 are one trade. Both legs are quoted and bought in
+         * Over and Under form one trade. Both legs are quoted and bought in
          * parallel. Neither buy is sent unless both quotes share the same start
          * tick and the balance covers both legs. Fills on different ticks are
          * sold off and are not a hedge. A single fill is sold off; if that sell
@@ -587,6 +587,10 @@ export default Engine =>
                 globalObserver.emit('bot.stop_button_click');
             };
 
+            if (this.digitHedgeInvalidBarriers || this.digitHedgeInvalidLimits) {
+                halt('Hedge was not sent. Predictions must be whole digits from 0 to 9, and take profit and stop loss must be positive.');
+                return Promise.resolve();
+            }
             if (!Number.isFinite(over_stake) || over_stake <= 0 || !Number.isFinite(under_stake) || under_stake <= 0) {
                 halt(
                     `Hedge was not sent. Over stake ${this.digitHedgeOverStake ?? this.tradeOptions?.amount} and Under stake ${
@@ -709,7 +713,7 @@ export default Engine =>
                     this.resetPurchaseAttempt();
                     notify(
                         'journal__text--warn',
-                        'Hedge was not sent. The previous Over 5 and Under 4 contracts are still open.'
+                        'Hedge was not sent. The previous Over and Under contracts are still open.'
                     );
                     return undefined;
                 }

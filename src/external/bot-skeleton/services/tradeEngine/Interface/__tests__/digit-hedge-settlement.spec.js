@@ -46,4 +46,36 @@ describe('digit hedge settlement', () => {
         expect(bot.digitHedgeDecision()).toBe(0);
         expect(api_base.digitHedgeLocks.has('account')).toBe(true);
     });
+
+    it.each([
+        [9, 1, 10, 50, 10, 1],
+        [-49, -1, 10, 50, -50, -1],
+        [4, -1, 10, 50, 3, 0],
+    ])('books the combined result once and applies profit/loss limits', async (total, over, target, stop, expected, code) => {
+        const engine = {
+            data: { contract: settled(11, over) },
+            digitHedge: { account: 'account', over_contract_id: 11, under_contract_id: 22, under_bought: true },
+            digitHedgeLive: true,
+        };
+        pollUntilSettled.mockResolvedValue(settled(22, 0));
+        const bot = getBotInterface(engine);
+        const profit = await bot.settleDigitHedge();
+        expect(bot.digitHedgeBookProfit(total, profit, target, stop)).toBe(expected);
+        expect(bot.digitHedgeBookProfit(expected, profit, target, stop)).toBe(expected);
+        expect(bot.digitHedgeLimit()).toBe(code);
+        expect(Boolean(engine.digitHedgeHalt)).toBe(code !== 0);
+    });
+
+    it('keeps user-selected barriers and rejects invalid predictions and limits', () => {
+        const engine = {};
+        const bot = getBotInterface(engine);
+        bot.digitHedgeSetBarriers(3, 3);
+        expect(engine).toMatchObject({ digitHedgeOverBarrier: 3, digitHedgeUnderBarrier: 3, digitHedgeInvalidBarriers: false });
+        bot.digitHedgeSetBarriers(2, 7);
+        expect(engine).toMatchObject({ digitHedgeOverBarrier: 2, digitHedgeUnderBarrier: 7, digitHedgeInvalidBarriers: false });
+        bot.digitHedgeSetBarriers(3.5, 3);
+        expect(engine.digitHedgeInvalidBarriers).toBe(true);
+        expect(bot.digitHedgeSetLimits(10, 50)).toBe(1);
+        expect(bot.digitHedgeSetLimits(10, 0)).toBe(0);
+    });
 });

@@ -1,14 +1,15 @@
 /**
  * Simultaneous Over/Under hedge (Volatility 75 (1s) Index).
  *
- * Every available tick can start one pair: Over 5 and Under 4. The runtime
+ * Every available tick can start one pair: Over 3 and Under 3 by default. The runtime
  * quotes and buys both legs in parallel, then keeps the pair only when both
  * fills use the same entry tick. A partial or mismatched fill is cancelled and
  * the bot stops rather than leaving a one-sided position open.
  *
  * The two stakes are independent. When both legs lose, each amount is
  * multiplied by Martingale; when either leg wins, both return to their base
- * stake. Duration is in ticks. The current-tick runner rechecks immediately
+ * stake. Take Profit and Stop Loss use the combined profit of settled pairs.
+ * Duration is in ticks. The current-tick runner rechecks immediately
  * when a completed pair hands control back to Before Purchase.
  */
 
@@ -17,15 +18,20 @@ import { blockHelpers, callFunction, defineFunction } from './blocks';
 const VARIABLES: [string, string][] = [
     ['sou_over_stake', 'Over Stake'],
     ['sou_under_stake', 'Under Stake'],
+    ['sou_over_prediction', 'Over Prediction'],
+    ['sou_under_prediction', 'Under Prediction'],
     ['sou_martingale', 'Martingale'],
     ['sou_duration', 'Duration (ticks)'],
+    ['sou_take_profit', 'Take Profit'],
+    ['sou_stop_loss', 'Stop Loss'],
     ['sou_over_amount', 'Current Over Stake'],
     ['sou_under_amount', 'Current Under Stake'],
     ['sou_result', 'Last Hedge Result'],
+    ['sou_total', 'Total Hedge Profit'],
     ['sou_msg', 'Journal Message'],
 ];
 
-const { v, num, text, set, chain, notify } = blockHelpers(VARIABLES, 'sou_msg');
+const { v, num, text, set, chain, compare, notify } = blockHelpers(VARIABLES, 'sou_msg');
 
 const RESET_NAME = 'Reset Simultaneous Over Under';
 
@@ -41,23 +47,30 @@ const RESET = defineFunction(
         n => setEveryTick(n),
         n => set('sou_over_amount', v('sou_over_stake'), n),
         n => set('sou_under_amount', v('sou_under_stake'), n),
-        () => set('sou_result', num(0)),
+        n => set('sou_result', num(0), n),
+        () => set('sou_total', num(0)),
     ])
 );
 
 const INIT = chain([
     n => set('sou_over_stake', num(1), n),
     n => set('sou_under_stake', num(1), n),
+    n => set('sou_over_prediction', num(3), n),
+    n => set('sou_under_prediction', num(3), n),
     n => set('sou_martingale', num(2), n),
     n => set('sou_duration', num(1), n),
+    n => set('sou_take_profit', num(10), n),
+    n => set('sou_stop_loss', num(50), n),
     () => callFunction(RESET_NAME, 'sou_reset_call'),
 ]);
 
 const purchasePair = `<block type="digit_hedge_purchase">
-        <value name="OVER">${num(5)}</value>
-        <value name="UNDER">${num(4)}</value>
+        <value name="OVER">${v('sou_over_prediction')}</value>
+        <value name="UNDER">${v('sou_under_prediction')}</value>
         <value name="OVER_STAKE">${v('sou_over_amount')}</value>
         <value name="UNDER_STAKE">${v('sou_under_amount')}</value>
+        <value name="TAKE_PROFIT">${v('sou_take_profit')}</value>
+        <value name="STOP_LOSS">${v('sou_stop_loss')}</value>
       </block>`;
 
 const nextStake = (leg: 'over' | 'under', amount: 'sou_over_amount' | 'sou_under_amount', initial: 'sou_over_stake' | 'sou_under_stake') =>
@@ -68,8 +81,7 @@ const nextStake = (leg: 'over' | 'under', amount: 'sou_over_amount' | 'sou_under
         <value name="MULTIPLIER">${v('sou_martingale')}</value>
       </block>`;
 
-const AFTER_PURCHASE = chain([
-    n => set('sou_result', `<block type="digit_hedge_result"></block>`, n),
+const CONTINUE_AFTER_LIMITS = chain([
     n => set('sou_over_amount', nextStake('over', 'sou_over_amount', 'sou_over_stake'), n),
     n => set('sou_under_amount', nextStake('under', 'sou_under_amount', 'sou_under_stake'), n),
     () => `<block type="controls_if">
@@ -80,6 +92,8 @@ const AFTER_PURCHASE = chain([
             [
                 text('PAIR SETTLED | net'),
                 v('sou_result'),
+                text('| total'),
+                v('sou_total'),
                 text('| next Over'),
                 v('sou_over_amount'),
                 text('| next Under'),
@@ -92,6 +106,33 @@ const AFTER_PURCHASE = chain([
         ])}</statement>
       </block>`,
 ]);
+
+const bookProfit = `<block type="digit_hedge_book_profit">
+        <value name="TOTAL">${v('sou_total')}</value>
+        <value name="PROFIT">${v('sou_result')}</value>
+        <value name="TAKE_PROFIT">${v('sou_take_profit')}</value>
+        <value name="STOP_LOSS">${v('sou_stop_loss')}</value>
+      </block>`;
+
+const checkLimits = `<block type="controls_if">
+        <mutation elseif="1" else="1"></mutation>
+        <value name="IF0">${compare('EQ', '<block type="digit_hedge_limit"></block>', num(1))}</value>
+        <statement name="DO0">${notify('success', [text('Take profit reached | total'), v('sou_total')])}</statement>
+        <value name="IF1">${compare('EQ', '<block type="digit_hedge_limit"></block>', num(-1))}</value>
+        <statement name="DO1">${notify('error', [text('Stop loss reached | total'), v('sou_total')])}</statement>
+        <statement name="ELSE">${CONTINUE_AFTER_LIMITS}</statement>
+      </block>`;
+
+const AFTER_PURCHASE = set(
+    'sou_result',
+    '<block type="digit_hedge_result"></block>',
+    `<block type="controls_if">
+        <mutation else="1"></mutation>
+        <value name="IF0">${compare('NEQ', '<block type="digit_hedge_decision"></block>', num(0))}</value>
+        <statement name="DO0">${set('sou_total', bookProfit, checkLimits)}</statement>
+        <statement name="ELSE">${notify('error', [text('PAIR STOPPED | both results must be confirmed.')])}</statement>
+      </block>`
+);
 
 export const SIMULTANEOUS_OVER_UNDER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
@@ -140,7 +181,7 @@ ${VARIABLES.map(([id, label]) => `    <variable id="${id}">${label}</variable>`)
         <field name="DURATIONTYPE_LIST">t</field>
         <value name="DURATION">${v('sou_duration')}</value>
         <value name="AMOUNT">${v('sou_over_amount')}</value>
-        <value name="PREDICTION">${num(5)}</value>
+        <value name="PREDICTION">${v('sou_over_prediction')}</value>
       </block>
     </statement>
   </block>

@@ -48,6 +48,7 @@ import {
     isSettledContract,
     legProfit,
     nextHedgeStake,
+    parseDigitBarrier,
     resolveHedgeBarriers,
 } from '../utils/digit-hedge';
 import {
@@ -1300,7 +1301,7 @@ const getBotInterface = tradeEngine => {
         purchaseRiseFallHedge: () => tradeEngine.purchaseRiseFallHedge(),
         purchaseDigitHedge: () => tradeEngine.purchaseDigitHedge(),
         /**
-         * Waits for Over 5 and Under 4 to settle and returns their combined profit.
+         * Waits for both hedge legs to settle and returns their combined profit.
          * Also stores the stake decision: 1 reset, -1 both lost, 0 stop.
          */
         settleDigitHedge: async () => {
@@ -1346,7 +1347,7 @@ const getBotInterface = tradeEngine => {
                 return finish(
                     HEDGE_STOP,
                     broken ?? 0,
-                    `Hedge stopped. Over 5 and Under 4 did not share one entry and one exit (Over ${hedgeEntryPrice(over_poc) ?? '—'} → ${hedgeExitPrice(over_poc) ?? '—'}, Under ${hedgeEntryPrice(under_poc) ?? '—'} → ${hedgeExitPrice(under_poc) ?? '—'}). Stake was not changed.`,
+                    `Hedge stopped. Over and Under did not share one entry and one exit (Over ${hedgeEntryPrice(over_poc) ?? '—'} → ${hedgeExitPrice(over_poc) ?? '—'}, Under ${hedgeEntryPrice(under_poc) ?? '—'} → ${hedgeExitPrice(under_poc) ?? '—'}). Stake was not changed.`,
                     'journal__text--error'
                 );
             }
@@ -1410,7 +1411,7 @@ const getBotInterface = tradeEngine => {
                 : hedgeMayContinue(tradeEngine.digitHedgeStakePlan);
         },
         /**
-         * Adds the combined Over 5 + Under 4 profit to the running total.
+         * Adds the combined Over + Under profit to the running total.
          * Returns that total. A second call for the same settlement does not add again.
          */
         digitHedgeBookProfit: (total, profit, takeProfit, stopLoss) => {
@@ -1433,6 +1434,7 @@ const getBotInterface = tradeEngine => {
         digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
         /** Saves the Over and Under digits before the hedge is bought. */
         digitHedgeSetBarriers: (over, under) => {
+            tradeEngine.digitHedgeInvalidBarriers = parseDigitBarrier(over) === null || parseDigitBarrier(under) === null;
             const barriers = resolveHedgeBarriers({
                 over,
                 under,
@@ -1442,6 +1444,13 @@ const getBotInterface = tradeEngine => {
             tradeEngine.digitHedgeOverBarrier = barriers.over;
             tradeEngine.digitHedgeUnderBarrier = barriers.under;
             return barriers.over;
+        },
+        /** Validate positive account-currency limits before submitting either leg. */
+        digitHedgeSetLimits: (takeProfit, stopLoss) => {
+            const target = Number(takeProfit);
+            const loss = Number(stopLoss);
+            tradeEngine.digitHedgeInvalidLimits = !Number.isFinite(target) || target <= 0 || !Number.isFinite(loss) || loss <= 0;
+            return tradeEngine.digitHedgeInvalidLimits ? 0 : 1;
         },
         /** Stores the independent stake for each leg immediately before purchase. */
         digitHedgeSetStakes: (over, under) => {

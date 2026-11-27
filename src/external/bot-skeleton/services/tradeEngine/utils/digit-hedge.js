@@ -14,6 +14,7 @@ const round2 = value => Math.round(Number(value) * 100) / 100;
 
 /** A digit from 0 to 9, or null when the value is not a barrier. */
 export const parseDigitBarrier = value => {
+    if (value == null || value === '' || typeof value === 'boolean') return null;
     const n = Number(value);
     return Number.isInteger(n) && n >= 0 && n <= 9 ? n : null;
 };

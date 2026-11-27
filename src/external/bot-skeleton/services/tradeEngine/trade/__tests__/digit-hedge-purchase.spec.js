@@ -94,6 +94,27 @@ describe('paired digit hedge purchases', () => {
         expect(engine.handlePurchaseSuccess).not.toHaveBeenCalled();
     });
 
+    it.each(['digitHedgeInvalidBarriers', 'digitHedgeInvalidLimits'])('stops before requesting quotes when %s is set', async field => {
+        const engine = createEngine();
+        engine[field] = true;
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).not.toHaveBeenCalled();
+        expect(engine.digitHedgeHalt).toBe(true);
+    });
+
+    it.each([[3, 3], [2, 7]])('sends the configured Over %s and Under %s predictions in the quotes', async (over, under) => {
+        const engine = createEngine();
+        engine.digitHedgeOverBarrier = over;
+        engine.digitHedgeUnderBarrier = under;
+        api_base.api.send.mockImplementation(request => Promise.resolve({
+            proposal: { id: request.contract_type, ask_price: request.amount, date_start: request.contract_type === 'DIGITOVER' ? 100 : 101 },
+        }));
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledWith(expect.objectContaining({ contract_type: 'DIGITOVER', barrier: String(over) }));
+        expect(api_base.api.send).toHaveBeenCalledWith(expect.objectContaining({ contract_type: 'DIGITUNDER', barrier: String(under) }));
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+    });
+
     it('does not buy if the bot is stopped while quotes are in flight', async () => {
         const engine = createEngine();
         const quotes = [deferred(), deferred()];
