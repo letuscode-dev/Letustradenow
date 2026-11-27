@@ -8,6 +8,7 @@ import './check_direction';
 import './tick_analysis';
 import './last_digit';
 import './mirror_bot';
+import './fixed_digit_differs';
 import './current_digit_for_parity';
 import './lastDigitList';
 import './digit_frequency_analysis';

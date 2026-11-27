@@ -18,4 +18,13 @@ describe('Over/Under switch workspace', () => {
         window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
         expect(hasAllRequiredBlocks()).toBe(true);
     });
+
+    it('recognizes the fixed prediction Digit Differs purchase inside purchase conditions', () => {
+        const blocks = [
+            { type: 'trade_definition_tradeoptions' }, { type: 'trade_definition' }, { type: 'before_purchase' },
+            { type: 'fixed_digit_differs_run', isDescendantOf: type => type === 'before_purchase' },
+        ];
+        window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
+        expect(hasAllRequiredBlocks()).toBe(true);
+    });
 });

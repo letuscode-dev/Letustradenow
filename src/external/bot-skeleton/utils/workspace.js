@@ -9,6 +9,7 @@ const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'digit_hedge_purchase',
     'over_under_switch_purchase',
     'mirror_bot_run',
+    'fixed_digit_differs_run',
     'last_tick_digit_differ_purchase',
     'first_decimal_digit_differ_purchase',
 ];

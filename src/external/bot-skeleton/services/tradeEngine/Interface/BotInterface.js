@@ -3,6 +3,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
+import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
     createAscendingRankNextState,
@@ -445,6 +446,38 @@ const startLtdWatchdog = (state, ticks_service, symbol, scope) => {
 const getBotInterface = tradeEngine => {
     const getDetail = i => createDetails(tradeEngine.data.contract)[i];
 
+    const runTickDigitBot = async ({ settings, strategy = null, label = 'Mirror', seedHistory = true }) => {
+        const currency = api_base.account_info?.currency;
+        const getAccount = () => api_base.account_info?.loginid || api_base.account_id;
+        const account = getAccount();
+        if (!account || !currency || !api_base.api || tradeEngine.tradeOptions?.symbol !== '1HZ75V') {
+            throw new Error(`${label} bot requires an authenticated account and Volatility 75 (1s).`);
+        }
+        let session;
+        const userStop = () => session?.stop('Stopped by user');
+        const authorized = () => { session?.attach(); };
+        session = createMirrorBotSession({
+            getApi: () => api_base.api,
+            getExistingSubscription: () => tradeEngine.$scope.ticksService?.subscriptions?.getIn?.(['tick', '1HZ75V']),
+            getInitialTicks: () => seedHistory ? tradeEngine.$scope.ticksService?.getCachedTicks?.('1HZ75V') || [] : [],
+            account, getAccount, currency, settings, strategy,
+            round: value => getRoundedNumber(value, currency),
+            journal: event => notifyHedge(`${label} | ${JSON.stringify(event)}`, 'journal__text'),
+            onContract: contract => globalObserver.emit('mirror.contract', contract),
+            onStop: () => {
+                if (!tradeEngine.$scope.stopped) globalObserver.emit('bot.stop_button_click');
+            },
+            onCleanup: () => {
+                if (globalObserver.isRegistered('bot.stop')) globalObserver.unregister('bot.stop', userStop);
+                if (globalObserver.isRegistered('api.authorize')) globalObserver.unregister('api.authorize', authorized);
+            },
+        });
+        globalObserver.register('bot.stop', userStop);
+        globalObserver.register('api.authorize', authorized);
+        await session.attach();
+        await session.finished;
+    };
+
     return {
         init: (...args) => tradeEngine.init(...args),
         start: (...args) => tradeEngine.start(...args),
@@ -609,38 +642,11 @@ const getBotInterface = tradeEngine => {
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
         purchaseOverUnderOnce: contract_type => tradeEngine.purchaseOverUnderOnce(contract_type),
-        runMirrorBot: async (stake, maxLosses, profitThreshold) => {
-            const currency = api_base.account_info?.currency;
-            const getAccount = () => api_base.account_info?.loginid || api_base.account_id;
-            const account = getAccount();
-            if (!account || !currency || !api_base.api || tradeEngine.tradeOptions?.symbol !== '1HZ75V') {
-                throw new Error('Mirror bot requires an authenticated account and Volatility 75 (1s).');
-            }
-            let session;
-            const userStop = () => session?.stop('Stopped by user');
-            const authorized = () => { session?.attach(); };
-            session = createMirrorBotSession({
-                getApi: () => api_base.api,
-                getExistingSubscription: () => tradeEngine.$scope.ticksService?.subscriptions?.getIn?.(['tick', '1HZ75V']),
-                getInitialTicks: () => tradeEngine.$scope.ticksService?.getCachedTicks?.('1HZ75V') || [],
-                account, getAccount, currency,
-                settings: { stake, maxLosses, profitThreshold },
-                round: value => getRoundedNumber(value, currency),
-                journal: event => notifyHedge(`Mirror | ${JSON.stringify(event)}`, 'journal__text'),
-                onContract: contract => globalObserver.emit('mirror.contract', contract),
-                onStop: () => {
-                    if (!tradeEngine.$scope.stopped) globalObserver.emit('bot.stop_button_click');
-                },
-                onCleanup: () => {
-                    if (globalObserver.isRegistered('bot.stop')) globalObserver.unregister('bot.stop', userStop);
-                    if (globalObserver.isRegistered('api.authorize')) globalObserver.unregister('api.authorize', authorized);
-                },
-            });
-            globalObserver.register('bot.stop', userStop);
-            globalObserver.register('api.authorize', authorized);
-            await session.attach();
-            await session.finished;
-        },
+        runMirrorBot: (stake, maxLosses, profitThreshold) => runTickDigitBot({ settings: { stake, maxLosses, profitThreshold } }),
+        runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
+            settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,
+            label: 'Digit Differs', seedHistory: false,
+        }),
         roundOverUnderSwitchValue: value => getRoundedNumber(Number(value), tradeEngine.tradeOptions?.currency),
         validateOverUnderSwitchSettings: (over, under, stake, multiplier, target) => {
             if (validOverUnderSwitchSettings(over, under, stake, multiplier, target)) return true;

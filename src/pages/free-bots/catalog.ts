@@ -1,6 +1,7 @@
 import { SIMULTANEOUS_OVER_UNDER_XML } from './bots/simultaneous-over-under';
 import { OVER_UNDER_LOSS_SWITCH_XML } from './bots/over-under-loss-switch';
 import { THREE_DIGIT_MIRROR_XML } from './bots/three-digit-mirror';
+import { FIXED_DIGIT_DIFFERS_XML } from './bots/fixed-digit-differs';
 import type { FreeBot } from './types';
 
 /**
@@ -10,6 +11,13 @@ import type { FreeBot } from './types';
  * Users can Load it into Bot Builder to inspect, configure, and run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'fixed-digit-differs-v1',
+        title: 'Digit Differs — Fixed Prediction',
+        description: 'Trades one-tick Digit Differs on Volatility 75 (1s) with your prediction, 9.6% loss recovery, take profit, and stop loss. Signals wait for the previous contract to settle.',
+        tags: ['Digit Differs', 'Fixed Prediction', 'Recovery', 'Take Profit', 'Stop Loss'],
+        xml: FIXED_DIGIT_DIFFERS_XML,
+    },
     {
         id: 'three-digit-mirror-v1',
         title: 'Three-Digit Mirror Differs',

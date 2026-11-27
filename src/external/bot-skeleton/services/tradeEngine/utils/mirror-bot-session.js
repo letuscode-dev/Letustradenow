@@ -2,12 +2,46 @@ import { createMirrorRuntime } from './mirror-runtime';
 import { createMirrorDerivStream } from './mirror-deriv-stream';
 import { mirrorContractForDisplay } from './mirror-contract-display';
 
+const hasSettlement = contract => {
+    const present = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+    return Boolean(contract && (contract.status === 'won' || contract.status === 'lost') &&
+        present(contract.profit) && present(contract.sell_price) && Number(contract.sell_price) >= 0);
+};
+
+// The account-wide subscription belongs to the connection, not one bot run.
+// Keeping it until the socket closes prevents a stopped run from canceling a
+// later run's shared stream and avoids a new status request for every trade.
+const sharedContractStreams = new WeakMap();
+
+const ensureContractStream = (api, account, subscribe) => {
+    let accounts = sharedContractStreams.get(api);
+    if (!accounts) { accounts = new Map(); sharedContractStreams.set(api, accounts); }
+    if (accounts.has(account)) return accounts.get(account);
+    const pending = Promise.resolve().then(subscribe).then(response => {
+        if (!response?.subscription?.id) throw new Error('Contract status subscription was not confirmed');
+    }).catch(error => {
+        const code = error?.error?.code ?? error?.code;
+        if (code === 'AlreadySubscribed') {
+            // An existing app-owned stream may later be forgotten by the app;
+            // probe again on a subsequent run instead of caching its ownership.
+            if (accounts.get(account) === pending) accounts.delete(account);
+            return;
+        }
+        if (accounts.get(account) === pending) accounts.delete(account);
+        throw error;
+    });
+    accounts.set(account, pending);
+    return pending;
+};
+
 /** Connect the isolated mirror runtime to an authenticated Deriv session. */
-export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, onContract = () => {}, getExistingSubscription, getInitialTicks }) => {
+export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, onContract = () => {}, getExistingSubscription, getInitialTicks, strategy = null }) => {
     let ended = false;
     let cleaned = false;
     let attached = false;
     let attachVersion = 0;
+    const monitorAll = Boolean(strategy?.monitorAllContracts);
+    const settlementMonitors = new Map();
     const contractSubscriptions = new Map();
     const confirmedBuys = new Map();
     let resolveStopped;
@@ -34,16 +68,61 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         const api = getApi();
         if (!api || getAccount() !== account) return Promise.reject(new Error('The active account or connection changed'));
         return api.send(body).then(response => {
-            if (response?.error) throw new Error(response.error.message || 'Deriv request failed');
+            if (response?.error) {
+                const error = new Error(response.error.message || 'Deriv request failed');
+                error.code = response.error.code;
+                throw error;
+            }
             return response;
         });
     };
-    const runtime = createMirrorRuntime({ settings, journal, round, onChange: checkCleanup,
+
+    // The account-wide stream handles normal settlements. This request is only
+    // a fallback if a contract update is delayed or lost.
+    const monitorContract = contractId => {
+        const id = String(contractId);
+        if (settlementMonitors.has(id)) return settlementMonitors.get(id).promise;
+        let resolveMonitor;
+        let rejectMonitor;
+        const monitor = { timer: null, done: false };
+        monitor.promise = new Promise((resolve, reject) => { resolveMonitor = resolve; rejectMonitor = reject; });
+        const finish = (error, response) => {
+            if (monitor.done) return;
+            monitor.done = true;
+            clearTimeout(monitor.timer);
+            settlementMonitors.delete(id);
+            if (error) rejectMonitor(error);
+            else resolveMonitor(response);
+        };
+        monitor.finish = finish;
+        const check = () => {
+            const api = getApi();
+            request({ proposal_open_contract: 1, contract_id: contractId }).then(response => {
+                if (monitor.done) return;
+                const contract = response?.proposal_open_contract;
+                if (hasSettlement(contract)) finish(null, response);
+                else monitor.timer = setTimeout(check, 5000);
+            }).catch(error => {
+                if (!attached || getApi() !== api || api?.connection?.readyState > 1) {
+                    const interrupted = new Error('Connection interrupted while checking a confirmed contract');
+                    interrupted.code = 'MIRROR_CONNECTION_INTERRUPTED';
+                    finish(interrupted);
+                } else finish(error);
+            });
+        };
+        monitor.timer = setTimeout(check, 5000);
+        settlementMonitors.set(id, monitor);
+        return monitor.promise;
+    };
+    const runtime = createMirrorRuntime({ settings, journal, round, strategy, onChange: checkCleanup,
         onPurchase: (buy, signal) => {
             confirmedBuys.set(String(buy.contract_id), buy);
             onContract(mirrorContractForDisplay({ account, currency, buy, signal }));
         },
         onContractUpdate: (contract, signal) => {
+            if (monitorAll && hasSettlement(contract)) {
+                settlementMonitors.get(String(contract.contract_id))?.finish(null, { proposal_open_contract: contract });
+            }
             const buy = confirmedBuys.get(String(contract.contract_id));
             if (buy) onContract(mirrorContractForDisplay({ account, currency, buy, signal, contract }));
         },
@@ -52,6 +131,7 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             duration: 1, duration_unit: 't', underlying_symbol: '1HZ75V', barrier: String(barrier),
         } }),
         refreshContract: async contractId => {
+            if (monitorAll) return monitorContract(contractId);
             const api = getApi();
             let response;
             try {
@@ -75,11 +155,17 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             checkCleanup();
         },
     });
+    if (monitorAll) runtime.pauseExecution();
     stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks, onDisconnect: () => {
         attachVersion += 1;
         attached = false;
         runtime.pauseExecution();
         contractSubscriptions.clear();
+        settlementMonitors.forEach(monitor => {
+            const interrupted = new Error('Connection interrupted while checking a confirmed contract');
+            interrupted.code = 'MIRROR_CONNECTION_INTERRUPTED';
+            monitor.finish(interrupted);
+        });
         if (runtime.pendingBuys()) runtime.stop('Connection lost while a purchase was unconfirmed');
     } });
 
@@ -100,6 +186,20 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             if (cleaned || version !== attachVersion) return;
             if (stream.whenReady) await stream.whenReady();
             if (cleaned || version !== attachVersion) return;
+            if (monitorAll) {
+                const api = getApi();
+                await ensureContractStream(api, account, () => request({ proposal_open_contract: 1, subscribe: 1 }));
+                if (cleaned || version !== attachVersion) return;
+                reconnectingContracts.filter(contract => runtime.tracker.active.has(String(contract.contract_id))).forEach(contract => {
+                    monitorContract(contract.contract_id).then(response => runtime.settle(response?.proposal_open_contract)).catch(error => {
+                        if (error?.code !== 'MIRROR_CONNECTION_INTERRUPTED' && runtime.tracker.active.has(String(contract.contract_id))) {
+                            runtime.stop('Could not confirm contract settlement; check account before restarting');
+                        }
+                    });
+                });
+                runtime.resumeExecution();
+                return;
+            }
             // Restore each tracked contract subscription when the API connection changes.
             await Promise.all(reconnectingContracts.filter(contract =>
                 runtime.tracker.active.has(String(contract.contract_id))

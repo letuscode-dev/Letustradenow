@@ -11,8 +11,9 @@ import { OVER_UNDER_LOSS_SWITCH_XML } from '../bots/over-under-loss-switch';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('lists the mirror bot and both Over/Under bots', () => {
-        expect(FREE_BOTS).toHaveLength(3);
+    it('lists the fixed prediction, mirror and both Over/Under bots', () => {
+        expect(FREE_BOTS).toHaveLength(4);
+        expect(FREE_BOTS.find(bot => bot.id === 'fixed-digit-differs-v1')).toMatchObject({ title: 'Digit Differs — Fixed Prediction' });
         expect(FREE_BOTS.find(bot => bot.id === 'simultaneous-over-under-v1')).toMatchObject({
             id: 'simultaneous-over-under-v1',
             title: 'Simultaneous Over/Under',

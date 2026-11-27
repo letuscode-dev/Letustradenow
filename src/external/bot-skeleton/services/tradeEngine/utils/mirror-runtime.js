@@ -3,14 +3,15 @@ import { createMirrorContractTracker, recordMirrorSettlement, registerMirrorPurc
 import { applyMirrorSettlement, createMirrorRiskState } from './mirror-risk';
 
 /** Core runtime: transport supplies ordered live ticks, a direct buy, and settlement messages. */
-export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {} }) => {
-    const risk = createMirrorRiskState(settings);
-    const detector = createThreeDigitMirrorState();
+export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {}, strategy = null }) => {
+    const risk = strategy ? strategy.createRisk(settings) : createMirrorRiskState(settings);
+    const detector = strategy ? strategy.createDetector() : createThreeDigitMirrorState();
     const tracker = createMirrorContractTracker();
     const signals = [];
     const waitingSignals = [];
     const executionOrder = [];
     const settledOutcomes = new Map();
+    const earlySettlements = new Map();
     let nextSettlementIndex = 0;
     let enabled = true;
     let executionPaused = false;
@@ -42,7 +43,8 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             const outcome = settledOutcomes.get(key);
             settledOutcomes.delete(key);
             try {
-                applyMirrorSettlement(risk, outcome, round);
+                if (strategy) strategy.applySettlement(risk, outcome, round);
+                else applyMirrorSettlement(risk, outcome, round);
                 journal({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
                     totalLoss: risk.totalLoss, totalProfit: risk.totalProfit, nextStake: risk.stake });
                 if (risk.stopped) stop(risk.stopReason);
@@ -57,7 +59,16 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     const settle = contract => {
         const id = contract?.contract_id;
         const purchase = id === null || id === undefined ? null : tracker.active.get(String(id));
-        if (!purchase) return;
+        if (!purchase) {
+            const hasAmount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+            if (strategy?.bufferEarlySettlements && pendingBuys && id != null &&
+                (contract?.status === 'won' || contract?.status === 'lost') &&
+                hasAmount(contract.profit) && hasAmount(contract.sell_price) && Number(contract.sell_price) >= 0) {
+                if (earlySettlements.size >= 100) earlySettlements.delete(earlySettlements.keys().next().value);
+                earlySettlements.set(String(id), contract);
+            }
+            return;
+        }
         try {
             onContractUpdate(contract, purchase.signal);
         } catch (error) {
@@ -110,6 +121,9 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             } catch (error) {
                 journal({ type: 'display_error', contractId: signal.contractId, reason: error?.message || String(error) });
             }
+            const earlySettlement = earlySettlements.get(String(signal.contractId));
+            earlySettlements.clear();
+            if (earlySettlement) settle(earlySettlement);
             finishPurchase();
             journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
                 barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
@@ -123,6 +137,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
                     stop('Could not confirm contract settlement; check account before restarting');
                 }
             } else {
+                earlySettlements.clear();
                 signal.status = 'unconfirmed';
                 signal.reason = error?.error?.message || error?.message || String(error);
                 journal({ type: 'purchase_error', signal, reason: signal.reason });
@@ -134,9 +149,11 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
 
     const tick = (digit, timestamp, executable = true) => {
         if (!enabled) return;
-        const pattern = processThreeDigitMirrorTick(detector, digit);
+        const pattern = strategy ? strategy.evaluate(detector, digit, risk) : processThreeDigitMirrorTick(detector, digit);
         if (!pattern) return;
-        const signal = { ...pattern, timestamp, symbol: '1HZ75V', pattern: `${pattern.first}-${pattern.middle}-${pattern.third}`, status: 'detected' };
+        const signal = { ...pattern, timestamp, symbol: '1HZ75V',
+            pattern: strategy ? `Digit Differs ${pattern.barrier}` : `${pattern.first}-${pattern.middle}-${pattern.third}`,
+            status: 'detected' };
         signals.push(signal);
         if (!executable) {
             signal.status = 'restricted';
@@ -156,6 +173,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     const pauseExecution = () => { executionPaused = true; };
     const resumeExecution = () => { executionPaused = false; submitNext(); };
 
-    return { tick, settle, stop, pauseExecution, resumeExecution, resetWindow: () => resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
+    return { tick, settle, stop, pauseExecution, resumeExecution,
+        resetWindow: () => strategy ? strategy.reset(detector) : resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
         isEnabled: () => enabled, pendingBuys: () => pendingBuys, queuedSignals: () => waitingSignals.length };
 };
