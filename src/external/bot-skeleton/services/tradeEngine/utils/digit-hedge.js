@@ -125,10 +125,10 @@ export const isSettledContract = poc =>
 
 export const legProfit = poc => {
     if (!isSettledContract(poc)) return null;
-    const reported = Number(poc.profit);
+    const reported = poc.profit == null || poc.profit === '' ? NaN : Number(poc.profit);
     if (Number.isFinite(reported)) return round2(reported);
-    const sell = Number(poc.sell_price);
-    const buy = Number(poc.buy_price);
+    const sell = poc.sell_price == null || poc.sell_price === '' ? NaN : Number(poc.sell_price);
+    const buy = poc.buy_price == null || poc.buy_price === '' ? NaN : Number(poc.buy_price);
     if (Number.isFinite(sell) && Number.isFinite(buy)) return round2(sell - buy);
     return null;
 };
@@ -331,6 +331,10 @@ export const sameHedgeClock = (over, under) => {
     const over_start = hedgeStartEpoch(over);
     const under_start = hedgeStartEpoch(under);
     if (over_start == null || under_start == null || over_start !== under_start) return false;
+
+    const over_spot_time = epochOf(over.spot_time);
+    const under_spot_time = epochOf(under.spot_time);
+    if (over_spot_time != null && under_spot_time != null && over_spot_time !== under_spot_time) return false;
 
     const over_end = firstEpoch(over, END_KEYS);
     const under_end = firstEpoch(under, END_KEYS);

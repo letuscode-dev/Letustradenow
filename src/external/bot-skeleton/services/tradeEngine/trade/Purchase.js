@@ -545,6 +545,15 @@ export default Engine =>
          * fails, the bot stops.
          */
         purchaseDigitHedge() {
+            // DBot constructs a new engine on stop, so the lock must live on the
+            // shared API object rather than on the short-lived engine instance.
+            const locks = api_base.digitHedgeLocks || (api_base.digitHedgeLocks = new Set());
+            const account = api_base.account_info?.loginid || '__unknown_account__';
+            if (locks.has(account) || locks.has('__unknown_account__')) {
+                notify('journal__text--error', 'Hedge remains blocked because a previous pair is unresolved. Check the account for open contracts and reload before starting again.');
+                globalObserver.emit('bot.stop_button_click');
+                return Promise.resolve();
+            }
             if (this.digitHedgeHalt || this.digitHedgeLimitAction === 'take_profit' || this.digitHedgeLimitAction === 'stop_loss') {
                 return Promise.resolve();
             }
@@ -579,7 +588,7 @@ export default Engine =>
             };
 
             if (!Number.isFinite(over_stake) || over_stake <= 0 || !Number.isFinite(under_stake) || under_stake <= 0) {
-                release(
+                halt(
                     `Hedge was not sent. Over stake ${this.digitHedgeOverStake ?? this.tradeOptions?.amount} and Under stake ${
                         this.digitHedgeUnderStake ?? this.tradeOptions?.amount
                     } must both be positive amounts.`
@@ -629,6 +638,7 @@ export default Engine =>
                         price,
                         date_start: proposal.date_start,
                         date_expiry: proposal.date_expiry,
+                        spot_time: proposal.spot_time,
                     };
                 });
             const buyQuoted = quoted =>
@@ -643,7 +653,7 @@ export default Engine =>
                 for (const contract_id of ids) {
                     try {
                         const sold = await api_base.api.send({ sell: contract_id, price: 0 });
-                        if (sold?.error) throw sold.error;
+                        if (sold?.error || !sold?.sell) throw sold?.error || new Error('Sell was not confirmed.');
                     } catch (error) {
                         failed.push(`${contract_id} (${message(error)})`);
                     }
@@ -655,9 +665,9 @@ export default Engine =>
                 if (failed.length) {
                     this.digitHedgeLive = true;
                     this.digitHedge = {
-                        under_bought: plan.cancel_ids.length > 1,
-                        over_contract_id: plan.cancel_ids[0] || null,
-                        under_contract_id: plan.cancel_ids[1] || null,
+                        under_bought: Boolean(plan.under_contract_id),
+                        over_contract_id: plan.over_contract_id || null,
+                        under_contract_id: plan.under_contract_id || null,
                         stake: over_stake,
                         over_stake,
                         under_stake,
@@ -751,12 +761,13 @@ export default Engine =>
                     );
                     return;
                 }
-                if (this.store.getState().scope !== BEFORE_PURCHASE) {
+                if (this.$scope?.stopped || this.store.getState().scope !== BEFORE_PURCHASE) {
                     this.digitHedgeLive = false;
                     release('Hedge was not sent because the bot is no longer ready to purchase.');
                     return;
                 }
 
+                locks.add(account);
                 const [over_buy, under_buy] = await Promise.all([
                     buyQuoted(over_quote.quoted).then(
                         response => ({ ok: true, response }),
@@ -774,6 +785,8 @@ export default Engine =>
                     under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
                 });
                 if (plan.action !== DIGIT_HEDGE_OPEN) {
+                    // A lost response may hide an accepted order even if the
+                    // other leg can be closed. Keep this lock across bot restarts.
                     if (!plan.cancel_ids.length) {
                         // A failed request can be a lost response after the server
                         // accepted an order. Never retry an unconfirmed pair.
@@ -781,7 +794,11 @@ export default Engine =>
                         return;
                     }
                     await abandon(
-                        plan,
+                        {
+                            ...plan,
+                            over_contract_id: over_buy.ok ? over_buy.response.buy.contract_id : null,
+                            under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
+                        },
                         `Over: ${over_buy.ok ? 'bought' : message(over_buy.error)}. Under: ${
                             under_buy.ok ? 'bought' : message(under_buy.error)
                         }.`
@@ -808,13 +825,14 @@ export default Engine =>
                 }
                 if (!same_tick) {
                     await abandon(
-                        { cancel_ids: [plan.over_contract_id, plan.under_contract_id] },
+                        { ...plan, cancel_ids: [plan.over_contract_id, plan.under_contract_id] },
                         `${pair} filled on different ticks (start ${over_fill.start_time ?? 'none'} vs ${under_fill.start_time ?? 'none'}).`
                     );
                     return;
                 }
 
                 this.digitHedge = {
+                    account,
                     under_bought: true,
                     under_contract_id: plan.under_contract_id,
                     over_contract_id: plan.over_contract_id,
@@ -828,6 +846,11 @@ export default Engine =>
                 this.digitHedgeLive = true;
                 this.digitHedgeStakePlan = null;
                 this.digitHedgeStakePlans = null;
+                if (this.$scope?.stopped) {
+                    this.resetPurchaseAttempt();
+                    notify('journal__text--warn', `Both hedge orders completed after stop: Over ${plan.over_contract_id}, Under ${plan.under_contract_id}. Check the account for their results.`);
+                    return;
+                }
                 this.handlePurchaseSuccess(over_buy.response, 'DIGITOVER');
                 this.digitHedgeImmediate = false;
                 this.digitHedgeImmediateUsed = false;

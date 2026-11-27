@@ -1329,8 +1329,8 @@ const getBotInterface = tradeEngine => {
                   : null;
             const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id) : null;
             if (isSettledContract(under_poc)) {
-                const under_sell = Number(under_poc.sell_price);
-                const under_buy = Number(under_poc.buy_price);
+                const under_sell = under_poc.sell_price == null || under_poc.sell_price === '' ? NaN : Number(under_poc.sell_price);
+                const under_buy = under_poc.buy_price == null || under_poc.buy_price === '' ? NaN : Number(under_poc.buy_price);
                 if (Number.isFinite(under_sell) && Number.isFinite(under_buy)) {
                     emitContract(under_poc);
                     if (typeof tradeEngine.updateTotals === 'function') {
@@ -1369,6 +1369,7 @@ const getBotInterface = tradeEngine => {
             const label = decision === HEDGE_STOP ? 'STOP' : over_profit < 0 && under_profit < 0 ? 'BOTH LOST' : 'HEDGE';
             const className = net < 0 ? 'journal__text--error' : 'journal__text--success';
             tradeEngine.digitHedgeLive = false;
+            if (hedge.account) api_base.digitHedgeLocks?.delete(hedge.account);
             return finish(
                 decision,
                 net,

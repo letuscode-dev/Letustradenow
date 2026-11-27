@@ -170,6 +170,9 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(hedgeDecision({ over: settled({ profit: -1 }), under: null, under_bought: false })).toBe(HEDGE_STOP);
         expect(hedgeNet({ over: { profit: 1 }, under: settled({ profit: -1 }), under_bought: true })).toBeNull();
         expect(hedgeDecision({ over: settled({ profit: 1 }), under: null, under_bought: true })).toBe(HEDGE_STOP);
+        expect(hedgeNet({ over: settled({ profit: null }), under: settled({ profit: -1 }), under_bought: true })).toBeNull();
+        expect(hedgeDecision({ over: settled({ profit: null }), under: settled({ profit: -1 }), under_bought: true })).toBe(HEDGE_STOP);
+        expect(hedgeNet({ over: settled({ profit: null, buy_price: 1, sell_price: 0 }), under: settled({ profit: -1 }), under_bought: true })).toBe(-2);
     });
 
     it('keeps Over 5 and Under 4 only when they share one entry tick and one exit tick', () => {
@@ -178,6 +181,7 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(sameHedgeClock(tick, { date_start: 1700000001, date_expiry: 1700000002 })).toBe(false);
         expect(sameHedgeClock({ date_start: 1700000000 }, { date_expiry: 1700000001 })).toBe(false);
         expect(sameHedgeClock({ start_time: 1700000000 }, { start_time: '1700000000' })).toBe(true);
+        expect(sameHedgeClock({ date_start: 100, spot_time: 99 }, { date_start: 100, spot_time: 100 })).toBe(false);
         expect(
             sameHedgeClock(
                 { date_start: 1700000000, entry_spot: '4521.31', exit_tick: '4521.48' },

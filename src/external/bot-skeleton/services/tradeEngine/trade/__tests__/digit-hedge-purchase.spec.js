@@ -11,6 +11,7 @@ const createEngine = () => {
     const engine = new (Purchase(class {}))();
     engine.store = { getState: () => ({ scope: BEFORE_PURCHASE }) };
     engine.tradeOptions = { amount: 1, basis: 'stake', currency: 'USD', duration: 1, duration_unit: 't', symbol: '1HZ75V' };
+    engine.$scope = { stopped: false };
     engine.digitHedgeOverStake = 2;
     engine.digitHedgeUnderStake = 3;
     engine.getBalance = () => 100;
@@ -28,7 +29,10 @@ const deferred = () => {
 const flush = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
 
 describe('paired digit hedge purchases', () => {
-    beforeEach(() => jest.clearAllMocks());
+    beforeEach(() => {
+        jest.clearAllMocks();
+        api_base.digitHedgeLocks = new Set();
+    });
 
     it('sends both quotes and both buys concurrently with independent stakes', async () => {
         const engine = createEngine();
@@ -87,6 +91,68 @@ describe('paired digit hedge purchases', () => {
         await engine.purchaseDigitHedge();
         expect(engine.digitHedgeHalt).toBe(true);
         expect(observer.emit).toHaveBeenCalledWith('bot.stop_button_click');
+        expect(engine.handlePurchaseSuccess).not.toHaveBeenCalled();
+    });
+
+    it('does not buy if the bot is stopped while quotes are in flight', async () => {
+        const engine = createEngine();
+        const quotes = [deferred(), deferred()];
+        api_base.api.send.mockImplementation(request => quotes[request.contract_type === 'DIGITOVER' ? 0 : 1].promise);
+        const pending = engine.purchaseDigitHedge();
+        await flush();
+        engine.$scope.stopped = true;
+        quotes[0].resolve({ proposal: { id: 'over', ask_price: 2, date_start: 100 } });
+        quotes[1].resolve({ proposal: { id: 'under', ask_price: 3, date_start: 100 } });
+        await pending;
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        expect(engine.digitHedgeLive).toBe(false);
+    });
+
+    it('does not buy when quotes report different spot ticks', async () => {
+        const engine = createEngine();
+        api_base.api.send.mockImplementation(request => Promise.resolve({
+            proposal: { id: request.contract_type, ask_price: request.amount, date_start: 100, spot_time: request.contract_type === 'DIGITOVER' ? 99 : 100 },
+        }));
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+    });
+
+    it('preserves an under-only fill when its sale is not confirmed and blocks a restart', async () => {
+        const engine = createEngine();
+        api_base.api.send.mockImplementation(request => {
+            if (request.proposal) return Promise.resolve({ proposal: { id: request.contract_type, ask_price: request.amount, date_start: 100 } });
+            if (request.buy === 'DIGITOVER') return Promise.reject(new Error('connection lost'));
+            if (request.buy === 'DIGITUNDER') return Promise.resolve({ buy: { contract_id: 22, start_time: 100 } });
+            return Promise.resolve({});
+        });
+        await engine.purchaseDigitHedge();
+        expect(engine.digitHedge).toMatchObject({ over_contract_id: null, under_contract_id: 22, under_bought: true });
+        expect(engine.digitHedgeHalt).toBe(true);
+        const new_engine = createEngine(); // DBot replaces the engine on stop.
+        const calls = api_base.api.send.mock.calls.length;
+        await new_engine.purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(calls);
+        expect(api_base.digitHedgeLocks.size).toBe(1);
+    });
+
+    it('preserves both confirmed IDs if stop happens after the buys are sent', async () => {
+        const engine = createEngine();
+        const buys = [deferred(), deferred()];
+        api_base.api.send.mockImplementation(request => {
+            if (request.proposal) return Promise.resolve({ proposal: { id: request.contract_type, ask_price: request.amount, date_start: 100 } });
+            return buys[request.buy === 'DIGITOVER' ? 0 : 1].promise;
+        });
+        const pending = engine.purchaseDigitHedge();
+        await flush();
+        engine.$scope.stopped = true;
+        const calls = api_base.api.send.mock.calls.length;
+        await createEngine().purchaseDigitHedge();
+        expect(api_base.api.send).toHaveBeenCalledTimes(calls);
+        buys[0].resolve({ buy: { contract_id: 11, buy_price: 2, start_time: 100 } });
+        buys[1].resolve({ buy: { contract_id: 22, buy_price: 3, start_time: 100 } });
+        await pending;
+        expect(engine.digitHedge).toMatchObject({ over_contract_id: 11, under_contract_id: 22 });
+        expect(engine.digitHedgeLive).toBe(true);
         expect(engine.handlePurchaseSuccess).not.toHaveBeenCalled();
     });
 });
