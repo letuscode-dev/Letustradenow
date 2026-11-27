@@ -67,4 +67,64 @@ describe('mirror Deriv session', () => {
         expect(session.runtime.risk.totalProfit).toBe(0.48);
         expect(session.runtime.tracker.active.size).toBe(0);
     });
+
+    it('does not buy a queued recovery until reconnection finishes', async () => {
+        let disconnect;
+        let finishReconnect;
+        const stream = { attach: jest.fn().mockResolvedValueOnce().mockImplementationOnce(
+            () => new Promise(resolve => { finishReconnect = resolve; })
+        ), detach: jest.fn() };
+        createMirrorDerivStream.mockImplementation(options => { disconnect = options.onDisconnect; return stream; });
+        let api = { connection: { readyState: 1 }, send: jest.fn(async request => request.buy
+            ? { buy: { contract_id: 1, buy_price: request.price } }
+            : { proposal_open_contract: { contract_id: 1, status: 'open' } }) };
+        const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD',
+            settings: {}, journal: jest.fn(), round: value => Math.round(value * 100) / 100, onStop: jest.fn() });
+        await session.attach();
+        [7, 4, 7, 4].forEach(digit => session.runtime.tick(digit, 1));
+        await flush();
+        expect(session.runtime.queuedSignals()).toBe(1);
+        api.connection.readyState = 3;
+        disconnect();
+        api = { connection: { readyState: 1 }, send: jest.fn(async request => request.buy
+            ? { buy: { contract_id: 2, buy_price: request.price } }
+            : { proposal_open_contract: { contract_id: 1, status: 'lost', sell_price: 0, profit: -5 } }) };
+        const reconnect = session.attach();
+        await flush();
+        expect(api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        finishReconnect();
+        await reconnect;
+        const buy = api.send.mock.calls.map(([request]) => request).find(request => request.buy);
+        expect(buy).toMatchObject({ price: 52.08, parameters: { barrier: '7' } });
+    });
+
+    it('waits for tick-history recovery before submitting a queued recovery', async () => {
+        let disconnect;
+        let finishHistory;
+        const stream = { attach: jest.fn().mockResolvedValue(), detach: jest.fn(),
+            whenReady: jest.fn().mockResolvedValueOnce().mockImplementationOnce(
+                () => new Promise(resolve => { finishHistory = resolve; })
+            ) };
+        createMirrorDerivStream.mockImplementation(options => { disconnect = options.onDisconnect; return stream; });
+        let api = { connection: { readyState: 1 }, send: jest.fn(async request => request.buy
+            ? { buy: { contract_id: 1, buy_price: request.price } }
+            : { proposal_open_contract: { contract_id: 1, status: 'open' } }) };
+        const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD',
+            settings: {}, journal: jest.fn(), round: value => Math.round(value * 100) / 100, onStop: jest.fn() });
+        await session.attach();
+        [7, 4, 7, 4].forEach(digit => session.runtime.tick(digit, 1));
+        await flush();
+        api.connection.readyState = 3;
+        disconnect();
+        api = { connection: { readyState: 1 }, send: jest.fn(async request => request.buy
+            ? { buy: { contract_id: 2, buy_price: request.price } }
+            : { proposal_open_contract: { contract_id: 1, status: 'lost', sell_price: 0, profit: -5 } }) };
+        const reconnect = session.attach();
+        await flush();
+        expect(api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        finishHistory();
+        await reconnect;
+        expect(api.send.mock.calls.map(([request]) => request).find(request => request.buy))
+            .toMatchObject({ price: 52.08, parameters: { barrier: '7' } });
+    });
 });

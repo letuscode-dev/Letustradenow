@@ -8,15 +8,23 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     const detector = createThreeDigitMirrorState();
     const tracker = createMirrorContractTracker();
     const signals = [];
+    const waitingSignals = [];
     const executionOrder = [];
     const settledOutcomes = new Map();
     let nextSettlementIndex = 0;
     let enabled = true;
+    let executionPaused = false;
     let pendingBuys = 0;
 
     const stop = reason => {
         if (!enabled) return;
         enabled = false;
+        while (waitingSignals.length) {
+            const signal = waitingSignals.shift();
+            signal.status = 'restricted';
+            signal.reason = `Bot stopped: ${reason}`;
+            journal({ type: 'signal', ...signal });
+        }
         journal({ type: 'stop', reason });
         onStop(reason);
     };
@@ -64,22 +72,16 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         }
         flushSettlements();
         onChange();
+        submitNext();
     };
 
-    const tick = (digit, timestamp, executable = true) => {
-        if (!enabled) return;
-        const pattern = processThreeDigitMirrorTick(detector, digit);
-        if (!pattern) return;
-        const signal = { ...pattern, timestamp, symbol: '1HZ75V', pattern: `${pattern.first}-${pattern.middle}-${pattern.third}`, status: 'detected' };
-        signals.push(signal);
-        if (!executable) {
-            signal.status = 'restricted';
-            signal.reason = 'Recovered historical tick';
-            journal({ type: 'signal', ...signal });
-            return;
-        }
+    const submitNext = () => {
+        if (!enabled || executionPaused || pendingBuys || tracker.active.size ||
+            nextSettlementIndex < executionOrder.length || !waitingSignals.length) return;
+        const signal = waitingSignals.shift();
         signal.stake = risk.stake;
         signal.status = 'submitted';
+        delete signal.reason;
         executionOrder.push(signal);
         pendingBuys += 1;
         let purchasePending = true;
@@ -88,6 +90,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             purchasePending = false;
             pendingBuys -= 1;
             onChange();
+            submitNext();
         };
         let request;
         try {
@@ -111,11 +114,12 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
                 barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
                 confirmed: true });
+            if (tracker.settled.has(String(signal.contractId))) return;
             return Promise.resolve(refreshContract(signal.contractId)).then(result => settle(result?.proposal_open_contract));
         }).catch(error => {
             if (signal.status === 'executed') {
                 journal({ type: 'settlement_check_error', contractId: signal.contractId, reason: error?.message || String(error) });
-                if (error?.code !== 'MIRROR_CONNECTION_INTERRUPTED') {
+                if (!tracker.settled.has(String(signal.contractId)) && error?.code !== 'MIRROR_CONNECTION_INTERRUPTED') {
                     stop('Could not confirm contract settlement; check account before restarting');
                 }
             } else {
@@ -128,6 +132,30 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         }).finally(finishPurchase);
     };
 
-    return { tick, settle, stop, resetWindow: () => resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
-        isEnabled: () => enabled, pendingBuys: () => pendingBuys };
+    const tick = (digit, timestamp, executable = true) => {
+        if (!enabled) return;
+        const pattern = processThreeDigitMirrorTick(detector, digit);
+        if (!pattern) return;
+        const signal = { ...pattern, timestamp, symbol: '1HZ75V', pattern: `${pattern.first}-${pattern.middle}-${pattern.third}`, status: 'detected' };
+        signals.push(signal);
+        if (!executable) {
+            signal.status = 'restricted';
+            signal.reason = 'Recovered historical tick';
+            journal({ type: 'signal', ...signal });
+            return;
+        }
+        signal.status = 'queued';
+        waitingSignals.push(signal);
+        submitNext();
+        if (signal.status === 'queued') {
+            signal.reason = executionPaused ? 'Waiting for connection recovery' : 'Waiting for the previous contract to settle';
+            journal({ type: 'signal', ...signal });
+        }
+    };
+
+    const pauseExecution = () => { executionPaused = true; };
+    const resumeExecution = () => { executionPaused = false; submitNext(); };
+
+    return { tick, settle, stop, pauseExecution, resumeExecution, resetWindow: () => resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
+        isEnabled: () => enabled, pendingBuys: () => pendingBuys, queuedSignals: () => waitingSignals.length };
 };

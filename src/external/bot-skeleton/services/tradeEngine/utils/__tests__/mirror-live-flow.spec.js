@@ -25,6 +25,8 @@ describe('mirror bot event flow', () => {
         await session.attach();
         const buy = api.send.mock.calls.map(([request]) => request).find(request => request.buy);
         expect(buy).toMatchObject({ parameters: { barrier: '4', contract_type: 'DIGITDIFF' } });
+        await flush();
+        expect(api.send.mock.calls.filter(([request]) => request.proposal_open_contract && request.subscribe)).toHaveLength(1);
     });
 
     it('trades the middle digit, applies confirmed recovery, and stops after two losses', async () => {
@@ -76,5 +78,32 @@ describe('mirror bot event flow', () => {
         expect(onStop).toHaveBeenCalledWith('Maximum consecutive losses reached');
         expect(session.runtime.isEnabled()).toBe(false);
         expect(journal.mock.calls.filter(([event]) => event.type === 'settlement')).toHaveLength(2);
+    });
+
+    it('uses the loss recovery stake for a signal detected while the first contract is active', async () => {
+        let listener;
+        let nextId = 0;
+        const tick = (epoch, digit) => ({ msg_type: 'tick', subscription: { id: 'ticks' },
+            tick: { symbol: '1HZ75V', epoch, quote: 100 + digit / 100, pip_size: 2 } });
+        const api = { connection: { readyState: 1, addEventListener: jest.fn(), removeEventListener: jest.fn() },
+            onMessage: () => ({ subscribe: callback => { listener = callback; return { unsubscribe: jest.fn() }; } }),
+            send: jest.fn(async request => {
+                if (request.ticks) { const first = tick(1, 7); listener({ data: first }); return first; }
+                if (request.buy) return { buy: { contract_id: ++nextId, buy_price: request.price } };
+                if (request.proposal_open_contract) return { proposal_open_contract: { contract_id: request.contract_id, status: 'open' } };
+                return {};
+            }) };
+        const session = createMirrorBotSession({ getApi: () => api, getAccount: () => 'A', account: 'A', currency: 'USD',
+            settings: {}, journal: jest.fn(), onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
+        await session.attach();
+        [tick(2, 4), tick(3, 7), tick(4, 4)].forEach(data => listener({ data }));
+        await flush();
+        expect(api.send.mock.calls.filter(([request]) => request.buy)).toHaveLength(1);
+        listener({ data: { msg_type: 'proposal_open_contract', proposal_open_contract: {
+            contract_id: 1, status: 'lost', sell_price: 0, profit: -5,
+        } } });
+        const buys = api.send.mock.calls.map(([request]) => request).filter(request => request.buy);
+        expect(buys).toHaveLength(2);
+        expect(buys[1]).toMatchObject({ price: 52.08, parameters: { barrier: '7', duration: 1 } });
     });
 });

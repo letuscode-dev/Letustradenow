@@ -154,6 +154,7 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
 
     const detach = () => {
         generation += 1;
+        stream.cancelWaiters();
         if (ownsTickSubscription && tickSubscriptionId && getApi() === ownerApi && connection?.readyState === 1) {
             Promise.resolve(ownerApi.send({ forget: tickSubscriptionId })).catch(() => {});
         }
@@ -163,5 +164,5 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         connection = null;
         ownerApi = null;
     };
-    return { attach, detach };
+    return { attach, detach, whenReady: stream.whenReady };
 };

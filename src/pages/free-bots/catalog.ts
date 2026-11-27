@@ -13,7 +13,7 @@ export const FREE_BOTS: FreeBot[] = [
     {
         id: 'three-digit-mirror-v1',
         title: 'Three-Digit Mirror Differs',
-        description: 'Trades Digit Differs on the middle digit when three consecutive digits form A-B-A. Uses payout-based loss recovery and configurable limits.',
+        description: 'Trades Digit Differs on the middle digit when three consecutive digits form A-B-A. Queues signals until the previous contract settles so the next stake reflects its result.',
         tags: ['Digit Differs', 'Mirror', 'Recovery', 'Take Profit'],
         xml: THREE_DIGIT_MIRROR_XML,
     },

@@ -10,10 +10,27 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
     let paused = false;
     let generation = 0;
     const queue = [];
+    let waiters = [];
+    let failureReason = '';
+
+    const rejectWaiters = reason => {
+        const pending = waiters;
+        waiters = [];
+        pending.forEach(({ reject }) => reject(new Error(reason)));
+    };
+
+    const resolveWaiters = () => {
+        if (paused || recovering || failed || queue.length) return;
+        const pending = waiters;
+        waiters = [];
+        pending.forEach(({ resolve }) => resolve());
+    };
 
     const fail = reason => {
         if (failed) return;
         failed = true;
+        failureReason = reason;
+        rejectWaiters(reason);
         runtime.resetWindow();
         journal({ type: 'stream_error', reason });
         runtime.stop(reason);
@@ -59,6 +76,7 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
             }
             process(tick, true);
         }
+        resolveWaiters();
     };
 
     return {
@@ -73,9 +91,16 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
             generation += 1;
             paused = true;
             recovering = false;
+            rejectWaiters('Connection interrupted while restoring tick history');
             journal({ type: 'stream_disconnected', lastEpoch });
         },
         resume: () => { if (!failed) { paused = false; drain(); } },
+        whenReady: () => {
+            if (failed) return Promise.reject(new Error(failureReason));
+            if (!paused && !recovering && !queue.length) return Promise.resolve();
+            return new Promise((resolve, reject) => { waiters.push({ resolve, reject }); });
+        },
+        cancelWaiters: () => rejectWaiters('Tick stream stopped'),
         fail,
         isRecovering: () => recovering,
     };

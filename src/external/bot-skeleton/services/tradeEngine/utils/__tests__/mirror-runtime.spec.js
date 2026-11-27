@@ -3,24 +3,32 @@ import { createMirrorRuntime } from '../mirror-runtime';
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('mirror runtime', () => {
-    it('submits overlapping patterns while earlier buys are still pending', async () => {
+    it('records overlapping patterns and submits them after each settlement in order', async () => {
         const requests = [];
         const journal = jest.fn();
         const buy = jest.fn(order => new Promise(resolve => requests.push({ order, resolve })));
         const runtime = createMirrorRuntime({ buy, journal, refreshContract: async () => ({}), settings: {} });
         [7, 4, 7, 4, 7].forEach((digit, index) => runtime.tick(digit, index));
-        expect(buy.mock.calls.map(([order]) => order.barrier)).toEqual([4, 7, 4]);
-        expect(runtime.pendingBuys()).toBe(3);
-        requests.forEach((request, index) => request.resolve({ buy: { contract_id: index + 1, buy_price: 5 } }));
+        expect(buy.mock.calls.map(([order]) => order.barrier)).toEqual([4]);
+        expect(runtime.pendingBuys()).toBe(1);
+        expect(runtime.queuedSignals()).toBe(2);
+        requests[0].resolve({ buy: { contract_id: 1, buy_price: 5 } });
         await flush();
-        expect(runtime.tracker.active.size).toBe(3);
-        expect(journal.mock.calls.filter(([event]) => event.type === 'purchase')).toHaveLength(3);
-        runtime.settle({ contract_id: 2, status: 'lost', sell_price: 0, profit: -5 });
-        expect(runtime.risk.stake).toBe(5);
-        runtime.settle({ contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 });
+        expect(runtime.tracker.active.size).toBe(1);
+        expect(buy).toHaveBeenCalledTimes(1);
+        runtime.settle({ contract_id: 1, status: 'lost', sell_price: 0, profit: -5 });
         expect(runtime.risk.stake).toBeCloseTo(52.0833333);
+        expect(buy.mock.calls[1][0].barrier).toBe(7);
+        expect(buy.mock.calls[1][0].stake).toBeCloseTo(52.0833333);
+        requests[1].resolve({ buy: { contract_id: 2, buy_price: 52.08 } });
+        await flush();
+        runtime.settle({ contract_id: 2, status: 'won', sell_price: 57.08, profit: 5 });
+        expect(buy.mock.calls[2][0]).toEqual({ barrier: 4, stake: 5 });
+        requests[2].resolve({ buy: { contract_id: 3, buy_price: 5 } });
+        await flush();
         runtime.settle({ contract_id: 3, status: 'won', sell_price: 5.48, profit: 0.48 });
         expect(runtime.risk.stake).toBe(5);
+        expect(journal.mock.calls.filter(([event]) => event.type === 'purchase')).toHaveLength(3);
     });
 
     it('records recovered signals without buying them', () => {
@@ -83,48 +91,51 @@ describe('mirror runtime', () => {
         await flush();
     });
 
-    it('records confirmed settlements after a preceding purchase was rejected', async () => {
+    it('cancels queued signals when the pending purchase is rejected', async () => {
         let rejectFirst;
         const journal = jest.fn();
-        let index = 0;
         const runtime = createMirrorRuntime({ settings: {}, journal,
-            buy: () => ++index === 1 ? new Promise((_, reject) => { rejectFirst = reject; }) :
-                Promise.resolve({ buy: { contract_id: 2, buy_price: 5 } }),
+            buy: () => new Promise((_, reject) => { rejectFirst = reject; }),
             refreshContract: async () => ({}) });
         [7, 4, 7, 4].forEach(digit => runtime.tick(digit, 1));
-        await flush();
-        runtime.settle({ contract_id: 2, status: 'lost', sell_price: 0, profit: -5 });
+        expect(runtime.queuedSignals()).toBe(1);
         rejectFirst(new Error('Purchase rejected'));
         await flush();
-        expect(journal.mock.calls.some(([event]) => event.type === 'settlement' && event.contract_id === 2)).toBe(true);
+        expect(runtime.isEnabled()).toBe(false);
+        expect(runtime.queuedSignals()).toBe(0);
+        expect(journal.mock.calls.some(([event]) => event.type === 'signal' && event.status === 'restricted')).toBe(true);
     });
 
-    it('journals a later settlement immediately while an earlier purchase is still unresolved', async () => {
-        let index = 0;
+    it('queues signals without submitting them when execution is paused', async () => {
         const journal = jest.fn();
+        const buy = jest.fn(async () => ({ buy: { contract_id: 2, buy_price: 5 } }));
         const runtime = createMirrorRuntime({ settings: {}, journal,
-            buy: () => ++index === 1 ? new Promise(() => {}) : Promise.resolve({ buy: { contract_id: 2, buy_price: 5 } }),
+            buy,
             refreshContract: async () => ({}) });
-        [7, 4, 7, 4].forEach(digit => runtime.tick(digit, 1));
-        await flush();
-        runtime.settle({ contract_id: 2, status: 'lost', sell_price: 0, profit: -5 });
-        expect(journal.mock.calls.some(([event]) => event.type === 'settlement_pending_order' && event.contract_id === 2)).toBe(true);
-        expect(runtime.risk.totalProfit).toBe(0);
+        runtime.pauseExecution();
+        [7, 4, 7].forEach(digit => runtime.tick(digit, 1));
+        expect(buy).not.toHaveBeenCalled();
+        expect(runtime.queuedSignals()).toBe(1);
+        expect(journal.mock.calls.some(([event]) => event.status === 'queued' && event.reason === 'Waiting for connection recovery')).toBe(true);
+        runtime.resumeExecution();
+        expect(buy).toHaveBeenCalledWith({ barrier: 4, stake: 5 });
     });
 
-    it('applies consecutive-loss limits in signal order even when results arrive out of order', async () => {
+    it('stops before another queued trade after the consecutive-loss limit', async () => {
         let id = 0;
         const onStop = jest.fn();
         const runtime = createMirrorRuntime({ settings: {}, journal: jest.fn(), onStop,
             buy: async () => ({ buy: { contract_id: ++id, buy_price: 5 } }), refreshContract: async () => ({}) });
         [7, 4, 7, 4, 7].forEach((digit, index) => runtime.tick(digit, index));
         await flush();
-        runtime.settle({ contract_id: 2, status: 'lost', sell_price: 0, profit: -5 });
-        runtime.settle({ contract_id: 3, status: 'lost', sell_price: 0, profit: -5 });
+        runtime.settle({ contract_id: 1, status: 'lost', sell_price: 0, profit: -5 });
+        await flush();
         expect(runtime.isEnabled()).toBe(true);
-        runtime.settle({ contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 });
+        runtime.settle({ contract_id: 2, status: 'lost', sell_price: 0, profit: -5 });
         expect(runtime.isEnabled()).toBe(false);
         expect(onStop).toHaveBeenCalledWith('Maximum consecutive losses reached');
+        expect(id).toBe(2);
+        expect(runtime.queuedSignals()).toBe(0);
     });
 
     it('stops submitting new orders when confirmed total profit reaches the target', async () => {
@@ -132,7 +143,7 @@ describe('mirror runtime', () => {
         const onStop = jest.fn();
         const runtime = createMirrorRuntime({ settings: { profitThreshold: 10 }, journal: jest.fn(), onStop,
             buy, refreshContract: async () => ({}) });
-        [7, 4, 7].forEach(digit => runtime.tick(digit, 1));
+        [7, 4, 7, 4].forEach(digit => runtime.tick(digit, 1));
         await flush();
         runtime.settle({ contract_id: 1, status: 'won', sell_price: 15, profit: 10 });
         [4, 7, 4].forEach(digit => runtime.tick(digit, 2));

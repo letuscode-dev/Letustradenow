@@ -7,6 +7,7 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
     let ended = false;
     let cleaned = false;
     let attached = false;
+    let attachVersion = 0;
     const contractSubscriptions = new Map();
     const confirmedBuys = new Map();
     let resolveStopped;
@@ -75,7 +76,9 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         },
     });
     stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks, onDisconnect: () => {
+        attachVersion += 1;
         attached = false;
+        runtime.pauseExecution();
         contractSubscriptions.clear();
         if (runtime.pendingBuys()) runtime.stop('Connection lost while a purchase was unconfirmed');
     } });
@@ -84,22 +87,31 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         if (cleaned || attached) return;
         if (getAccount() !== account) return runtime.stop('The active account changed');
         attached = true;
+        const version = ++attachVersion;
         try {
             // Reconcile already-confirmed contracts before accepting new ticks.
-            await Promise.all([...runtime.tracker.active.values()].map(async contract => {
+            const reconnectingContracts = [...runtime.tracker.active.values()];
+            await Promise.all(reconnectingContracts.map(async contract => {
                 const response = await request({ proposal_open_contract: 1, contract_id: contract.contract_id });
                 runtime.settle(response?.proposal_open_contract);
             }));
-            if (cleaned) return;
+            if (cleaned || version !== attachVersion) return;
             await stream.attach();
+            if (cleaned || version !== attachVersion) return;
+            if (stream.whenReady) await stream.whenReady();
+            if (cleaned || version !== attachVersion) return;
             // Restore each tracked contract subscription when the API connection changes.
-            await Promise.all([...runtime.tracker.active.values()].map(async contract => {
+            await Promise.all(reconnectingContracts.filter(contract =>
+                runtime.tracker.active.has(String(contract.contract_id))
+            ).map(async contract => {
                 const response = await request({ proposal_open_contract: 1, contract_id: contract.contract_id, subscribe: 1 });
                 if (response?.subscription?.id) contractSubscriptions.set(String(contract.contract_id), { api: getApi(), subscriptionId: response.subscription.id });
                 runtime.settle(response?.proposal_open_contract);
                 checkCleanup();
             }));
+            if (!cleaned && version === attachVersion) runtime.resumeExecution();
         } catch (error) {
+            if (cleaned || version !== attachVersion) return;
             attached = false;
             runtime.stop(`Unable to restore the Deriv stream: ${error.message}`);
         }

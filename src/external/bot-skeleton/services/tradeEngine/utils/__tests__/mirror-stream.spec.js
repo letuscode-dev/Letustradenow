@@ -64,4 +64,36 @@ describe('mirror tick stream ordering', () => {
         stream.ingest({ epoch: 1, digit: 6, quote: 123.46, snapshot: true });
         expect(runtime.stop).toHaveBeenCalledWith('Duplicate or out-of-order tick');
     });
+
+    it('reports readiness only after missing ticks have been restored', async () => {
+        const runtime = makeRuntime();
+        let resolveHistory;
+        const stream = createMirrorStream({ runtime, journal: jest.fn(),
+            history: () => new Promise(resolve => { resolveHistory = resolve; }) });
+        stream.ingest({ epoch: 1, digit: 7 });
+        stream.ingest({ epoch: 3, digit: 7 });
+        await Promise.resolve();
+        let ready = false;
+        const waiting = stream.whenReady().then(() => { ready = true; });
+        await Promise.resolve();
+        expect(ready).toBe(false);
+        resolveHistory([{ epoch: 2, digit: 4 }]);
+        await waiting;
+        expect(ready).toBe(true);
+        expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 2, false], [7, 3, true]]);
+    });
+
+    it('rejects readiness when tick history cannot restore the gap', async () => {
+        const runtime = makeRuntime();
+        let resolveHistory;
+        const stream = createMirrorStream({ runtime, journal: jest.fn(),
+            history: () => new Promise(resolve => { resolveHistory = resolve; }) });
+        stream.ingest({ epoch: 1, digit: 7 });
+        stream.ingest({ epoch: 3, digit: 7 });
+        await Promise.resolve();
+        const waiting = stream.whenReady();
+        resolveHistory([]);
+        await expect(waiting).rejects.toThrow('Tick history did not fully restore the missing sequence');
+        expect(runtime.stop).toHaveBeenCalledWith('Tick history did not fully restore the missing sequence');
+    });
 });
