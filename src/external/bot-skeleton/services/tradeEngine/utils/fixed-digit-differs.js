@@ -11,6 +11,7 @@ const numericInput = (value, label) => {
 export const fixedDigitDiffersStrategy = {
     bufferEarlySettlements: true,
     monitorAllContracts: true,
+    prioritizeExecution: true,
     createRisk(settings = {}) {
         const prediction = numericInput(settings.prediction, 'Prediction');
         const stake = numericInput(settings.stake, 'Stake');

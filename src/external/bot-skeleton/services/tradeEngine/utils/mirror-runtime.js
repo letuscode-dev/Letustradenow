@@ -30,11 +30,12 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         onStop(reason);
     };
 
-    const flushSettlements = () => {
+    const flushSettlements = deferredEvents => {
+        const emit = event => deferredEvents ? deferredEvents.push(event) : journal(event);
         while (nextSettlementIndex < executionOrder.length) {
             const signal = executionOrder[nextSettlementIndex];
             if (signal.status === 'unconfirmed') {
-                journal({ type: 'settlement_order_incomplete', signal, reason: 'Purchase was rejected or its outcome is unknown; subsequent confirmed results are still recorded.' });
+                emit({ type: 'settlement_order_incomplete', signal, reason: 'Purchase was rejected or its outcome is unknown; subsequent confirmed results are still recorded.' });
                 nextSettlementIndex += 1;
                 continue;
             }
@@ -45,18 +46,22 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             try {
                 if (strategy) strategy.applySettlement(risk, outcome, round);
                 else applyMirrorSettlement(risk, outcome, round);
-                journal({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
+                emit({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
                     totalLoss: risk.totalLoss, totalProfit: risk.totalProfit, nextStake: risk.stake });
-                if (risk.stopped) stop(risk.stopReason);
+                if (risk.stopped) {
+                    if (deferredEvents) return risk.stopReason;
+                    stop(risk.stopReason);
+                }
             } catch (error) {
-                journal({ type: 'settlement_error', contractId: outcome.contract_id, reason: error.message });
+                emit({ type: 'settlement_error', contractId: outcome.contract_id, reason: error.message });
+                if (deferredEvents) return 'Unable to process a confirmed settlement';
                 stop('Unable to process a confirmed settlement');
                 return;
             }
         }
     };
 
-    const settle = contract => {
+    const settle = (contract, beforeDisplay = () => {}) => {
         const id = contract?.contract_id;
         const purchase = id === null || id === undefined ? null : tracker.active.get(String(id));
         if (!purchase) {
@@ -69,26 +74,50 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             }
             return;
         }
-        try {
-            onContractUpdate(contract, purchase.signal);
-        } catch (error) {
-            journal({ type: 'display_error', contractId: id, reason: error?.message || String(error) });
-        }
+        const updateDisplay = () => {
+            try {
+                beforeDisplay();
+                onContractUpdate(contract, purchase.signal);
+            } catch (error) {
+                journal({ type: 'display_error', contractId: id, reason: error?.message || String(error) });
+            }
+        };
+        if (!strategy?.prioritizeExecution) updateDisplay();
         const outcome = recordMirrorSettlement(tracker, contract);
-        if (!outcome) return;
-        settledOutcomes.set(outcome.signal.tickIndex, outcome);
-        if (executionOrder[nextSettlementIndex]?.tickIndex !== outcome.signal.tickIndex) {
-            journal({ type: 'settlement_pending_order', ...outcome,
-                reason: 'An earlier purchase has not settled; risk totals will update in purchase order.' });
+        if (!outcome) {
+            if (strategy?.prioritizeExecution) updateDisplay();
+            return;
         }
-        flushSettlements();
+        settledOutcomes.set(outcome.signal.tickIndex, outcome);
+        const deferredEvents = strategy?.prioritizeExecution ? [] : null;
+        if (executionOrder[nextSettlementIndex]?.tickIndex !== outcome.signal.tickIndex) {
+            const event = { type: 'settlement_pending_order', ...outcome,
+                reason: 'An earlier purchase has not settled; risk totals will update in purchase order.' };
+            if (deferredEvents) deferredEvents.push(event);
+            else journal(event);
+        }
+        const stopReason = flushSettlements(deferredEvents);
+        if (deferredEvents) {
+            const finishSettlement = () => {
+                updateDisplay();
+                deferredEvents.forEach(journal);
+                if (stopReason) stop(stopReason);
+                onChange();
+            };
+            if (stopReason) finishSettlement();
+            else submitNext(finishSettlement);
+            return;
+        }
         onChange();
         submitNext();
     };
 
-    const submitNext = () => {
+    const submitNext = (afterRequest = () => {}) => {
         if (!enabled || executionPaused || pendingBuys || tracker.active.size ||
-            nextSettlementIndex < executionOrder.length || !waitingSignals.length) return;
+            nextSettlementIndex < executionOrder.length || !waitingSignals.length) {
+            afterRequest();
+            return;
+        }
         const signal = waitingSignals.shift();
         signal.stake = risk.stake;
         signal.status = 'submitted';
@@ -96,12 +125,14 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         executionOrder.push(signal);
         pendingBuys += 1;
         let purchasePending = true;
-        const finishPurchase = () => {
+        const finishPurchase = (deferChange = false) => {
             if (!purchasePending) return;
             purchasePending = false;
             pendingBuys -= 1;
-            onChange();
-            submitNext();
+            if (!deferChange) {
+                onChange();
+                submitNext();
+            }
         };
         let request;
         try {
@@ -109,6 +140,8 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         } catch (error) {
             request = Promise.reject(error);
         }
+        // Send the next eligible buy before updating the display or writing the journal.
+        afterRequest();
         journal({ type: 'signal', ...signal });
         Promise.resolve(request).then(response => {
             if (response?.buy?.contract_id !== undefined && response?.buy?.contract_id !== null) {
@@ -116,15 +149,25 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             }
             if (!registerMirrorPurchase(tracker, signal, response)) throw new Error('Invalid purchase confirmation');
             signal.status = 'executed';
-            try {
-                onPurchase(response.buy, signal);
-            } catch (error) {
-                journal({ type: 'display_error', contractId: signal.contractId, reason: error?.message || String(error) });
-            }
+            const displayPurchase = () => {
+                try {
+                    onPurchase(response.buy, signal);
+                } catch (error) {
+                    journal({ type: 'display_error', contractId: signal.contractId, reason: error?.message || String(error) });
+                }
+            };
             const earlySettlement = earlySettlements.get(String(signal.contractId));
             earlySettlements.clear();
-            if (earlySettlement) settle(earlySettlement);
-            finishPurchase();
+            if (earlySettlement && strategy?.prioritizeExecution) {
+                // A terminal update can precede the buy response. Confirm the buy,
+                // apply that result, and send any recovery before display work.
+                finishPurchase(true);
+                settle(earlySettlement, displayPurchase);
+            } else {
+                displayPurchase();
+                if (earlySettlement) settle(earlySettlement);
+                finishPurchase();
+            }
             journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
                 barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
                 confirmed: true });
