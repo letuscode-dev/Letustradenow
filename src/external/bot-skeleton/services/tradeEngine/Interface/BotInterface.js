@@ -622,6 +622,7 @@ const getBotInterface = tradeEngine => {
             session = createMirrorBotSession({
                 getApi: () => api_base.api,
                 getExistingSubscription: () => tradeEngine.$scope.ticksService?.subscriptions?.getIn?.(['tick', '1HZ75V']),
+                getInitialTicks: () => tradeEngine.$scope.ticksService?.getCachedTicks?.('1HZ75V') || [],
                 account, getAccount, currency,
                 settings: { stake, maxLosses, profitThreshold },
                 round: value => getRoundedNumber(value, currency),

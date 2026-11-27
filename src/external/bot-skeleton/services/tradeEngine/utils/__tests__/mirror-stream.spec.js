@@ -35,4 +35,33 @@ describe('mirror tick stream ordering', () => {
         second.ingest({ epoch: 2, digit: 2 });
         expect(other.stop).toHaveBeenCalledWith('Duplicate or out-of-order tick');
     });
+
+    it('retries interrupted history recovery after reconnect without processing ticks early', async () => {
+        const runtime = makeRuntime();
+        let rejectOldHistory;
+        const history = jest.fn()
+            .mockImplementationOnce(() => new Promise((_, reject) => { rejectOldHistory = reject; }))
+            .mockResolvedValueOnce([{ epoch: 2, digit: 4 }]);
+        const stream = createMirrorStream({ runtime, history, journal: jest.fn() });
+        stream.ingest({ epoch: 1, digit: 7 });
+        stream.ingest({ epoch: 3, digit: 7 });
+        await Promise.resolve();
+        stream.disconnect();
+        stream.ingest({ epoch: 4, digit: 4 });
+        rejectOldHistory(new Error('socket closed'));
+        await flush();
+        expect(runtime.stop).not.toHaveBeenCalled();
+        expect(runtime.tick).toHaveBeenCalledTimes(1);
+        stream.resume();
+        await flush();
+        expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 2, false], [7, 3, true], [4, 4, true]]);
+    });
+
+    it('does not treat a different price in the same second as a replayed snapshot', () => {
+        const runtime = makeRuntime();
+        const stream = createMirrorStream({ runtime, history: jest.fn(), journal: jest.fn() });
+        stream.ingest({ epoch: 1, digit: 5, quote: 123.45 });
+        stream.ingest({ epoch: 1, digit: 6, quote: 123.46, snapshot: true });
+        expect(runtime.stop).toHaveBeenCalledWith('Duplicate or out-of-order tick');
+    });
 });

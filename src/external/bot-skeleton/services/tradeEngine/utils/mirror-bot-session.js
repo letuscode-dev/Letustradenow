@@ -2,7 +2,7 @@ import { createMirrorRuntime } from './mirror-runtime';
 import { createMirrorDerivStream } from './mirror-deriv-stream';
 
 /** Connect the isolated mirror runtime to an authenticated Deriv session. */
-export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, getExistingSubscription }) => {
+export const createMirrorBotSession = ({ getApi, account, getAccount, currency, settings, journal, round, onStop, onCleanup = () => {}, getExistingSubscription, getInitialTicks }) => {
     let ended = false;
     let cleaned = false;
     let attached = false;
@@ -39,7 +39,17 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         } }),
         refreshContract: async contractId => {
             const api = getApi();
-            const response = await request({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+            let response;
+            try {
+                response = await request({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
+            } catch (error) {
+                if (!attached || getApi() !== api || api?.connection?.readyState > 1) {
+                    const interrupted = new Error('Connection interrupted while checking a confirmed contract');
+                    interrupted.code = 'MIRROR_CONNECTION_INTERRUPTED';
+                    throw interrupted;
+                }
+                throw error;
+            }
             if (response?.subscription?.id) contractSubscriptions.set(String(contractId), { api, subscriptionId: response.subscription.id });
             checkCleanup();
             return response;
@@ -51,7 +61,7 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             checkCleanup();
         },
     });
-    stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, onDisconnect: () => {
+    stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks, onDisconnect: () => {
         attached = false;
         contractSubscriptions.clear();
         if (runtime.pendingBuys()) runtime.stop('Connection lost while a purchase was unconfirmed');

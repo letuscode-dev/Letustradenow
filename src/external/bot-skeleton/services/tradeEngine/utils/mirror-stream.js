@@ -4,8 +4,11 @@
  */
 export const createMirrorStream = ({ runtime, history, journal }) => {
     let lastEpoch = null;
+    let lastQuote = null;
     let recovering = false;
     let failed = false;
+    let paused = false;
+    let generation = 0;
     const queue = [];
 
     const fail = reason => {
@@ -19,22 +22,29 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
     const valid = tick => Number.isInteger(tick?.epoch) && Number.isInteger(tick?.digit) && tick.digit >= 0 && tick.digit <= 9;
     const process = (tick, live) => {
         lastEpoch = tick.epoch;
+        lastQuote = tick.quote === undefined || tick.quote === null ? null : Number(tick.quote);
         runtime.tick(tick.digit, tick.epoch, live);
     };
 
     const drain = () => {
-        if (recovering || failed) return;
+        if (recovering || failed || paused) return;
         while (queue.length) {
             const tick = queue.shift();
             if (!valid(tick)) return fail('Invalid tick; continuity cannot be verified');
+            if (tick.snapshot && tick.epoch === lastEpoch && lastQuote !== null && Number(tick.quote) === lastQuote) {
+                journal({ type: 'replayed_subscription_snapshot', epoch: tick.epoch });
+                continue;
+            }
             if (lastEpoch !== null && tick.epoch <= lastEpoch) return fail('Duplicate or out-of-order tick');
             if (lastEpoch !== null && tick.epoch > lastEpoch + 1) {
                 const start = lastEpoch + 1;
                 const end = tick.epoch - 1;
+                const recoveryGeneration = generation;
                 recovering = true;
                 queue.unshift(tick);
                 journal({ type: 'tick_gap', start, end });
                 Promise.resolve().then(() => history(start, end)).then(ticks => {
+                    if (recoveryGeneration !== generation || failed) return;
                     if (!Array.isArray(ticks) || ticks.length !== end - start + 1 ||
                         !ticks.every((item, index) => valid(item) && item.epoch === start + index)) {
                         throw new Error('Tick history did not fully restore the missing sequence');
@@ -42,7 +52,9 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
                     ticks.forEach(item => process(item, false));
                     recovering = false;
                     drain();
-                }).catch(error => fail(error?.message || 'Unable to recover tick history'));
+                }).catch(error => {
+                    if (recoveryGeneration === generation && !failed) fail(error?.message || 'Unable to recover tick history');
+                });
                 return;
             }
             process(tick, true);
@@ -50,8 +62,20 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
     };
 
     return {
+        seed: ticks => {
+            if (lastEpoch !== null || queue.length || recovering || failed || !Array.isArray(ticks) ||
+                ticks.length !== 2 || !ticks.every(valid) || ticks[1].epoch !== ticks[0].epoch + 1) return false;
+            ticks.forEach(tick => process(tick, false));
+            return true;
+        },
         ingest: tick => { if (!failed) { queue.push(tick); drain(); } },
-        disconnect: () => { journal({ type: 'stream_disconnected', lastEpoch }); },
+        disconnect: () => {
+            generation += 1;
+            paused = true;
+            recovering = false;
+            journal({ type: 'stream_disconnected', lastEpoch });
+        },
+        resume: () => { if (!failed) { paused = false; drain(); } },
         fail,
         isRecovering: () => recovering,
     };

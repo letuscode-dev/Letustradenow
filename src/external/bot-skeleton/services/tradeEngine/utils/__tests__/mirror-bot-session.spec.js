@@ -40,4 +40,31 @@ describe('mirror Deriv session', () => {
         expect(onStop).toHaveBeenCalledWith('The active account changed');
         expect(api.send).not.toHaveBeenCalled();
     });
+
+    it('reconciles a confirmed contract after its status request is interrupted', async () => {
+        let rejectStatus;
+        let disconnect;
+        const stream = { attach: jest.fn().mockResolvedValue(), detach: jest.fn() };
+        createMirrorDerivStream.mockImplementation(options => { disconnect = options.onDisconnect; return stream; });
+        let api = { connection: { readyState: 1 }, send: jest.fn(body => body.buy
+            ? Promise.resolve({ buy: { contract_id: 11, buy_price: 5 } })
+            : new Promise((_, reject) => { rejectStatus = reject; })) };
+        const onStop = jest.fn();
+        const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A',
+            currency: 'USD', settings: {}, journal: jest.fn(), round: x => x, onStop });
+        await session.attach();
+        [7, 4, 7].forEach((digit, index) => session.runtime.tick(digit, index));
+        await flush();
+        api.connection.readyState = 3;
+        disconnect();
+        rejectStatus(new Error('Connection closed'));
+        await flush();
+        expect(onStop).not.toHaveBeenCalled();
+        api = { connection: { readyState: 1 }, send: jest.fn(async () => ({
+            proposal_open_contract: { contract_id: 11, status: 'won', sell_price: 5.48, profit: 0.48 },
+        })) };
+        await session.attach();
+        expect(session.runtime.risk.totalProfit).toBe(0.48);
+        expect(session.runtime.tracker.active.size).toBe(0);
+    });
 });

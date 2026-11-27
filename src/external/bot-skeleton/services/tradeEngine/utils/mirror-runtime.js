@@ -22,15 +22,22 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     };
 
     const flushSettlements = () => {
-        while (settledOutcomes.has(executionOrder[nextSettlementIndex]?.tickIndex)) {
+        while (nextSettlementIndex < executionOrder.length) {
+            const signal = executionOrder[nextSettlementIndex];
+            if (signal.status === 'unconfirmed') {
+                journal({ type: 'settlement_order_incomplete', signal, reason: 'Purchase was rejected or its outcome is unknown; subsequent confirmed results are still recorded.' });
+                nextSettlementIndex += 1;
+                continue;
+            }
+            if (!settledOutcomes.has(signal.tickIndex)) break;
             const key = executionOrder[nextSettlementIndex++].tickIndex;
             const outcome = settledOutcomes.get(key);
             settledOutcomes.delete(key);
             try {
-            applyMirrorSettlement(risk, outcome, round);
-            journal({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
-                totalLoss: risk.totalLoss, totalProfit: risk.totalProfit, nextStake: risk.stake });
-            if (risk.stopped) stop(risk.stopReason);
+                applyMirrorSettlement(risk, outcome, round);
+                journal({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
+                    totalLoss: risk.totalLoss, totalProfit: risk.totalProfit, nextStake: risk.stake });
+                if (risk.stopped) stop(risk.stopReason);
             } catch (error) {
                 journal({ type: 'settlement_error', contractId: outcome.contract_id, reason: error.message });
                 stop('Unable to process a confirmed settlement');
@@ -43,6 +50,10 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         const outcome = recordMirrorSettlement(tracker, contract);
         if (!outcome) return;
         settledOutcomes.set(outcome.signal.tickIndex, outcome);
+        if (executionOrder[nextSettlementIndex]?.tickIndex !== outcome.signal.tickIndex) {
+            journal({ type: 'settlement_pending_order', ...outcome,
+                reason: 'An earlier purchase has not settled; risk totals will update in purchase order.' });
+        }
         flushSettlements();
         onChange();
     };
@@ -63,6 +74,13 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         signal.status = 'submitted';
         executionOrder.push(signal);
         pendingBuys += 1;
+        let purchasePending = true;
+        const finishPurchase = () => {
+            if (!purchasePending) return;
+            purchasePending = false;
+            pendingBuys -= 1;
+            onChange();
+        };
         let request;
         try {
             request = buy({ barrier: signal.barrier, stake: signal.stake });
@@ -71,9 +89,12 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         }
         journal({ type: 'signal', ...signal });
         Promise.resolve(request).then(response => {
+            if (response?.buy?.contract_id !== undefined && response?.buy?.contract_id !== null) {
+                signal.contractId = response.buy.contract_id;
+            }
             if (!registerMirrorPurchase(tracker, signal, response)) throw new Error('Invalid purchase confirmation');
             signal.status = 'executed';
-            signal.contractId = response.buy.contract_id;
+            finishPurchase();
             journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
                 barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
                 confirmed: true });
@@ -81,14 +102,17 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         }).catch(error => {
             if (signal.status === 'executed') {
                 journal({ type: 'settlement_check_error', contractId: signal.contractId, reason: error?.message || String(error) });
-                stop('Could not confirm contract settlement; check account before restarting');
+                if (error?.code !== 'MIRROR_CONNECTION_INTERRUPTED') {
+                    stop('Could not confirm contract settlement; check account before restarting');
+                }
             } else {
                 signal.status = 'unconfirmed';
                 signal.reason = error?.error?.message || error?.message || String(error);
                 journal({ type: 'purchase_error', signal, reason: signal.reason });
                 stop('Purchase was rejected or not confirmed; check account before restarting');
+                flushSettlements();
             }
-        }).finally(() => { pendingBuys -= 1; onChange(); });
+        }).finally(finishPurchase);
     };
 
     return { tick, settle, stop, resetWindow: () => resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
