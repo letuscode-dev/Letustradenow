@@ -1,3 +1,4 @@
+import { getRoundedNumber } from '@/components/shared';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
@@ -115,6 +116,7 @@ import {
     syncFddSettings,
 } from '../utils/first-decimal-digit-differ';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
+import { validOverUnderSwitchSettings } from '../utils/over-under-loss-switch';
 import { createDetails, getLastDigit } from '../utils/helpers';
 import {
     applyHybridMultiScanSettlement,
@@ -605,6 +607,17 @@ const getBotInterface = tradeEngine => {
             return tradeEngine.stop(...args);
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
+        purchaseOverUnderOnce: contract_type => tradeEngine.purchaseOverUnderOnce(contract_type),
+        roundOverUnderSwitchValue: value => getRoundedNumber(Number(value), tradeEngine.tradeOptions?.currency),
+        validateOverUnderSwitchSettings: (over, under, stake, multiplier, target) => {
+            if (validOverUnderSwitchSettings(over, under, stake, multiplier, target)) return true;
+            notifyHedge(
+                'Bot stopped: Over must be a whole digit 0–8, Under a whole digit 1–9, and stake, Martingale, and take profit must be positive.',
+                'journal__text--error'
+            );
+            globalObserver.emit('bot.stop_button_click');
+            return false;
+        },
         purchaseOverrideContractType: (contract_type, prediction) => {
             if (prediction !== undefined && prediction !== null && prediction !== '') {
                 const n = Number(prediction);

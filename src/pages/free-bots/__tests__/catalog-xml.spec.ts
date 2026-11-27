@@ -6,16 +6,22 @@ import { EVEN_ONLY_XML } from '../bots/even-only';
 import { OVER_UNDER_FREQUENCY_XML } from '../bots/over-under-frequency';
 import { OVER_UNDER_XML } from '../bots/over-under';
 import { SIMULTANEOUS_OVER_UNDER_XML } from '../bots/simultaneous-over-under';
+import { OVER_UNDER_LOSS_SWITCH_XML } from '../bots/over-under-loss-switch';
 
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('lists only Simultaneous Over/Under with its loadable XML', () => {
-        expect(FREE_BOTS).toHaveLength(1);
+    it('lists the simultaneous hedge and Over to Under on Loss', () => {
+        expect(FREE_BOTS).toHaveLength(2);
         expect(FREE_BOTS[0]).toMatchObject({
             id: 'simultaneous-over-under-v1',
             title: 'Simultaneous Over/Under',
             xml: SIMULTANEOUS_OVER_UNDER_XML,
+        });
+        expect(FREE_BOTS[1]).toMatchObject({
+            id: 'over-under-loss-switch-v1',
+            title: 'Over to Under on Loss',
+            xml: OVER_UNDER_LOSS_SWITCH_XML,
         });
     });
 

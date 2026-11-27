@@ -399,6 +399,61 @@ export default Engine =>
 
             return this.purchaseDirect(contract_type);
         }
+
+        /** Send one stake-based digit buy immediately; do not retry an uncertain buy. */
+        purchaseOverUnderOnce(contract_type) {
+            if (!['DIGITOVER', 'DIGITUNDER'].includes(contract_type)) {
+                return Promise.reject(new Error('Invalid Over/Under contract type.'));
+            }
+            if (!this.canAttemptPurchase(contract_type) || this.$scope?.stopped) return Promise.resolve();
+            if (this.is_proposal_subscription_required || this.tradeOptions?.basis !== 'stake' || this.options?.timeMachineEnabled) {
+                return Promise.reject(new Error('This bot requires a stake-based direct purchase.'));
+            }
+            const amount = Number(this.tradeOptions?.amount);
+            const prediction = Number(this.tradeOptions?.prediction);
+            const min_prediction = contract_type === 'DIGITUNDER' ? 1 : 0;
+            const max_prediction = contract_type === 'DIGITUNDER' ? 9 : 8;
+            if (this.tradeOptions?.prediction == null || this.tradeOptions.prediction === '' ||
+                !Number.isFinite(amount) || amount <= 0 || !Number.isInteger(prediction) || prediction < min_prediction || prediction > max_prediction) {
+                return Promise.reject(new Error('Current stake or prediction is invalid; no purchase was sent.'));
+            }
+            this.markPurchaseAttempt();
+            this.isSold = false;
+            const account = api_base.account_info?.loginid;
+            let request;
+            let pending;
+            try {
+                request = tradeOptionToBuy(contract_type, this.tradeOptions);
+                contractStatus({ id: 'contract.purchase_sent', data: this.tradeOptions.amount });
+                pending = api_base.api.send(request);
+            } catch (error) {
+                return Promise.reject(error).catch(failure => this.resetPurchaseAttemptOnError(failure));
+            }
+            return Promise.resolve(pending).then(response => {
+                if (response?.error || !response?.buy?.contract_id) {
+                    throw response?.error ? response : new Error('Buy was not confirmed. Check the account before restarting.');
+                }
+                const account_changed = account !== api_base.account_info?.loginid;
+                if (this.$scope?.stopped || account_changed) {
+                    this.last_buy = response.buy;
+                    this.contractId = response.buy.contract_id;
+                    this.resetPurchaseAttempt();
+                    notify('journal__text--warn', `Order ${response.buy.contract_id} completed after stop or account change. Check the original account for its result.`);
+                    if (account_changed) globalObserver.emit('bot.stop_button_click');
+                    return;
+                }
+                this.handlePurchaseSuccess(response, contract_type);
+                // The 1-tick contract may have settled before its id was tracked.
+                try {
+                    Promise.resolve(api_base.api.send({ proposal_open_contract: 1, contract_id: response.buy.contract_id })).catch(() => {});
+                } catch {
+                    notify('journal__text--warn', `Could not refresh contract ${response.buy.contract_id}; check the account if its result is delayed.`);
+                }
+            }).catch(error => {
+                notify('journal__text--error', 'Purchase was not confirmed. Check the account for an open contract before restarting.');
+                return this.resetPurchaseAttemptOnError(error);
+            });
+        }
         /**
          * Rise/Fall Hedge: Rise goes through the normal purchase (tracked by the engine,
          * After Purchase runs when it settles) and Fall is bought from the live PUT

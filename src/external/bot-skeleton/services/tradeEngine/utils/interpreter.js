@@ -133,6 +133,11 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
+            'purchaseOverUnderOnce',
+            createAsync(js_interpreter, bot_interface.purchaseOverUnderOnce)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
             'purchaseOverrideContractType',
             createAsync(js_interpreter, bot_interface.purchaseOverrideContractType)
         );
