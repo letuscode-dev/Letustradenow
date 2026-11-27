@@ -65,7 +65,7 @@ export const FREE_BOTS: FreeBot[] = [
         id: 'simultaneous-over-under-v1',
         title: 'Simultaneous Over/Under',
         description:
-            'Buys Over and Under concurrently with configurable predictions and separate stakes. Stops at take profit or stop loss based on combined pair results.',
+            'Buys Over and Under concurrently with separate stakes. After both lose, each stake is multiplied by Martingale; combined profit controls take profit and stop loss.',
         tags: ['Over/Under', 'Simultaneous', 'Independent Stakes', 'Martingale'],
         xml: SIMULTANEOUS_OVER_UNDER_XML,
     },

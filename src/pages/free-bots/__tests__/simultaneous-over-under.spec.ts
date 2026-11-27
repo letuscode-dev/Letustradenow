@@ -67,6 +67,14 @@ describe('Simultaneous Over/Under free bot', () => {
             'over',
             'under',
         ]);
+        expect(nextStakeBlocks.map(block => block.querySelector(':scope > value[name="CURRENT"] field')?.getAttribute('id'))).toEqual([
+            'sou_over_amount',
+            'sou_under_amount',
+        ]);
+        expect(nextStakeBlocks.map(block => block.querySelector(':scope > value[name="INITIAL"] field')?.getAttribute('id'))).toEqual([
+            'sou_over_stake',
+            'sou_under_stake',
+        ]);
         expect(nextStakeBlocks.every(block => block.querySelector(':scope > value[name="MULTIPLIER"] field')?.getAttribute('id') === 'sou_martingale')).toBe(
             true
         );

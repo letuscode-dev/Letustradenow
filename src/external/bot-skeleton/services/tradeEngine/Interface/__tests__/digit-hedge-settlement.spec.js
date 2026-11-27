@@ -34,6 +34,54 @@ describe('digit hedge settlement', () => {
         expect(bot.digitHedgeContinues()).toBe(true);
     });
 
+    it('multiplies each purchased stake after consecutive double losses, then resets both when either leg wins', async () => {
+        const engine = { data: {}, digitHedgeLive: true };
+        const bot = getBotInterface(engine);
+        const initialOver = 1;
+        const initialUnder = 2;
+        const multiplier = 2.5;
+        let over = initialOver;
+        let under = initialUnder;
+
+        const settle = async (overProfit, underProfit) => {
+            engine.digitHedge = {
+                account: 'account', over_contract_id: 11, under_contract_id: 22,
+                under_bought: true, over_stake: over, under_stake: under,
+            };
+            engine.digitHedgeStakePlans = null;
+            engine.data.contract = settled(11, overProfit);
+            pollUntilSettled.mockResolvedValue(settled(22, underProfit));
+            const net = await bot.settleDigitHedge();
+            const nextOver = bot.digitHedgeNextStake(over, initialOver, multiplier, 'over');
+            const nextUnder = bot.digitHedgeNextStake(under, initialUnder, multiplier, 'under');
+            expect(bot.digitHedgeContinues()).toBe(true);
+            over = nextOver;
+            under = nextUnder;
+            return net;
+        };
+
+        expect(await settle(-1, -2)).toBe(-3);
+        expect([over, under]).toEqual([2.5, 5]);
+        expect(await settle(-2.5, -5)).toBe(-7.5);
+        expect([over, under]).toEqual([6.25, 12.5]);
+        expect(await settle(2, -12.5)).toBe(-10.5);
+        expect([over, under]).toEqual([1, 2]);
+    });
+
+    it('stops at the configured combined loss limit even when both sides lose', async () => {
+        const engine = {
+            data: { contract: settled(11, -2) },
+            digitHedge: { account: 'account', over_contract_id: 11, under_contract_id: 22, under_bought: true, over_stake: 2, under_stake: 3 },
+        };
+        pollUntilSettled.mockResolvedValue(settled(22, -3));
+        const bot = getBotInterface(engine);
+        const net = await bot.settleDigitHedge();
+        expect(bot.digitHedgeDecision()).toBe(-1);
+        expect(bot.digitHedgeBookProfit(-5, net, 10, 10)).toBe(-10);
+        expect(bot.digitHedgeLimit()).toBe(-1);
+        expect(engine.digitHedgeHalt).toBe(true);
+    });
+
     it('keeps the lock when a settled leg has no usable profit or prices', async () => {
         const engine = {
             data: { contract: settled(11, -2) },
