@@ -1,28 +1,26 @@
 import { FREE_BOTS } from '../catalog';
+import { CURRENT_DIGIT_PARITY_DIFFERS_XML } from '../bots/current-digit-parity-differs';
+import { DIFFERS_HOT_XML } from '../bots/differs-hot';
+import { EVEN_ODD_XML } from '../bots/even-odd';
+import { EVEN_ONLY_XML } from '../bots/even-only';
+import { OVER_UNDER_FREQUENCY_XML } from '../bots/over-under-frequency';
+import { OVER_UNDER_XML } from '../bots/over-under';
+import { SIMULTANEOUS_OVER_UNDER_XML } from '../bots/simultaneous-over-under';
 
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('ships Over/Under Entry, Even/Odd Frequency, Over/Under Frequency, Odd Only, Hot Digit Differs, Current Digit Differs, and Simultaneous Over/Under', () => {
-        expect(FREE_BOTS.map(bot => bot.id)).toEqual([
-            'over-under-entry-v1',
-            'even-odd-entry-v1',
-            'over-under-frequency-v1',
-            'even-only-v1',
-            'differs-hot-v1',
-            'current-digit-parity-differs-v1',
-            'simultaneous-over-under-v1',
-        ]);
-        expect(FREE_BOTS[1].title).toBe('Even/Odd Frequency');
-        expect(FREE_BOTS[2].title).toBe('Over/Under Frequency');
-        expect(FREE_BOTS[3].title).toBe('Odd Only');
-        expect(FREE_BOTS[4].title).toBe('Hot Digit Differs');
-        expect(FREE_BOTS[5].title).toBe('Current Digit Differs');
-        expect(FREE_BOTS[6].title).toBe('Simultaneous Over/Under');
+    it('lists only Simultaneous Over/Under with its loadable XML', () => {
+        expect(FREE_BOTS).toHaveLength(1);
+        expect(FREE_BOTS[0]).toMatchObject({
+            id: 'simultaneous-over-under-v1',
+            title: 'Simultaneous Over/Under',
+            xml: SIMULTANEOUS_OVER_UNDER_XML,
+        });
     });
 
     describe('Over/Under Entry', () => {
-        const doc = parse(FREE_BOTS[0].xml);
+        const doc = parse(OVER_UNDER_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
@@ -232,7 +230,7 @@ describe('free bot catalog XML', () => {
     });
 
     describe('Even/Odd Frequency', () => {
-        const doc = parse(FREE_BOTS[1].xml);
+        const doc = parse(EVEN_ODD_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
@@ -421,7 +419,7 @@ describe('free bot catalog XML', () => {
     });
 
     describe('Over/Under Frequency', () => {
-        const doc = parse(FREE_BOTS[2].xml);
+        const doc = parse(OVER_UNDER_FREQUENCY_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
@@ -624,7 +622,7 @@ describe('free bot catalog XML', () => {
     });
 
     describe('Odd Only', () => {
-        const doc = parse(FREE_BOTS[3].xml);
+        const doc = parse(EVEN_ONLY_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
@@ -714,7 +712,7 @@ describe('free bot catalog XML', () => {
     });
 
     describe('Hot Digit Differs', () => {
-        const doc = parse(FREE_BOTS[4].xml);
+        const doc = parse(DIFFERS_HOT_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
@@ -811,7 +809,7 @@ describe('free bot catalog XML', () => {
     });
 
     describe('Current Digit Differs', () => {
-        const doc = parse(FREE_BOTS[5].xml);
+        const doc = parse(CURRENT_DIGIT_PARITY_DIFFERS_XML);
         const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
         const varId = (block: Element | null | undefined) =>
             block?.querySelector(':scope > field[name="VAR"]')?.getAttribute('id');
