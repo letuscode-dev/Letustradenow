@@ -633,9 +633,12 @@ export default Engine =>
                     if (response?.error || !proposal?.id) {
                         throw response?.error ? response : new Error('Proposal was not quoted.');
                     }
-                    const price = toBuyPrice(proposal.ask_price, proposal.display_value, stake);
+                    const price = toBuyPrice(proposal.ask_price, proposal.display_value);
                     if (price === undefined) {
                         throw new Error('Price was not quoted.');
+                    }
+                    if (price > stake + 1e-8) {
+                        throw new Error(`Quoted price ${price} exceeds the configured stake ${stake}.`);
                     }
                     return {
                         id: proposal.id,
@@ -770,6 +773,19 @@ export default Engine =>
                     release('Hedge was not sent because the bot is no longer ready to purchase.');
                     return;
                 }
+                if ((api_base.account_info?.loginid || '__unknown_account__') !== account) {
+                    this.digitHedgeLive = false;
+                    halt('Hedge was not sent because the active account changed while quoting.');
+                    return;
+                }
+
+                // Another engine can finish quoting while this pair is in
+                // flight; acquire the account lock only if it is still free.
+                if (locks.has(account) || locks.has('__unknown_account__')) {
+                    this.digitHedgeLive = false;
+                    release('Hedge was not sent because another pair is already in progress.');
+                    return;
+                }
 
                 locks.add(account);
                 const [over_buy, under_buy] = await Promise.all([
@@ -788,6 +804,17 @@ export default Engine =>
                     over_contract_id: over_buy.ok ? over_buy.response.buy.contract_id : null,
                     under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
                 });
+                if ((api_base.account_info?.loginid || '__unknown_account__') !== account) {
+                    this.digitHedgeLive = true;
+                    this.digitHedge = {
+                        account,
+                        over_contract_id: over_buy.ok ? over_buy.response.buy.contract_id : null,
+                        under_contract_id: under_buy.ok ? under_buy.response.buy.contract_id : null,
+                        under_bought: under_buy.ok,
+                    };
+                    halt(`Hedge stopped because the active account changed while buying. Check the original account ${account} for contracts (Over ${this.digitHedge.over_contract_id ?? 'unconfirmed'}, Under ${this.digitHedge.under_contract_id ?? 'unconfirmed'}).`);
+                    return;
+                }
                 if (plan.action !== DIGIT_HEDGE_OPEN) {
                     // A lost response may hide an accepted order even if the
                     // other leg can be closed. Keep this lock across bot restarts.

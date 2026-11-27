@@ -182,6 +182,14 @@ describe('Over 5 / Under 4 hedge result', () => {
         expect(sameHedgeClock({ date_start: 1700000000 }, { date_expiry: 1700000001 })).toBe(false);
         expect(sameHedgeClock({ start_time: 1700000000 }, { start_time: '1700000000' })).toBe(true);
         expect(sameHedgeClock({ date_start: 100, spot_time: 99 }, { date_start: 100, spot_time: 100 })).toBe(false);
+        const reported = { date_start: 100, date_expiry: 110, entry_tick_time: 101, exit_tick_time: 102 };
+        const differentEntry = { ...reported, entry_tick_time: 102 };
+        const differentExit = { ...reported, exit_tick_time: 103 };
+        expect(sameHedgeClock(reported, differentEntry)).toBe(false);
+        expect(sameHedgeClock(reported, differentExit)).toBe(false);
+        expect(hedgeTicksDiffer(reported, differentEntry)).toBe(true);
+        expect(hedgeTicksDiffer(reported, differentExit)).toBe(true);
+        expect(sameHedgeClock(reported, { ...reported })).toBe(true);
         expect(
             sameHedgeClock(
                 { date_start: 1700000000, entry_spot: '4521.31', exit_tick: '4521.48' },

@@ -32,6 +32,7 @@ describe('paired digit hedge purchases', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         api_base.digitHedgeLocks = new Set();
+        api_base.account_info = { currency: 'USD', loginid: 'account-a' };
     });
 
     it('sends both quotes and both buys concurrently with independent stakes', async () => {
@@ -136,6 +137,67 @@ describe('paired digit hedge purchases', () => {
         }));
         await engine.purchaseDigitHedge();
         expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+    });
+
+    it.each(['overpriced', 'missing'])('does not buy either side when one quote is %s', async reason => {
+        const engine = createEngine();
+        api_base.api.send.mockImplementation(request => {
+            const proposal = { id: request.contract_type, date_start: 100, ask_price: request.amount };
+            if (request.contract_type === 'DIGITUNDER') {
+                if (reason === 'overpriced') proposal.ask_price = request.amount + 1;
+                else delete proposal.ask_price;
+            }
+            return Promise.resolve({ proposal });
+        });
+        await engine.purchaseDigitHedge();
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        expect(engine.handlePurchaseSuccess).not.toHaveBeenCalled();
+    });
+
+    it('does not buy a second pair when another engine acquires the account lock during quoting', async () => {
+        const engine = createEngine();
+        const quotes = [deferred(), deferred()];
+        api_base.api.send.mockImplementation(request => quotes[request.contract_type === 'DIGITOVER' ? 0 : 1].promise);
+        const pending = engine.purchaseDigitHedge();
+        await flush();
+        api_base.digitHedgeLocks.add('account-a');
+        quotes[0].resolve({ proposal: { id: 'over', ask_price: 2, date_start: 100 } });
+        quotes[1].resolve({ proposal: { id: 'under', ask_price: 3, date_start: 100 } });
+        await pending;
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+    });
+
+    it('does not buy when the active account changes during quoting', async () => {
+        const engine = createEngine();
+        const quotes = [deferred(), deferred()];
+        api_base.api.send.mockImplementation(request => quotes[request.contract_type === 'DIGITOVER' ? 0 : 1].promise);
+        const pending = engine.purchaseDigitHedge();
+        await flush();
+        api_base.account_info = { currency: 'USD', loginid: 'account-b' };
+        quotes[0].resolve({ proposal: { id: 'over', ask_price: 2, date_start: 100 } });
+        quotes[1].resolve({ proposal: { id: 'under', ask_price: 3, date_start: 100 } });
+        await pending;
+        expect(api_base.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+        expect(engine.digitHedgeHalt).toBe(true);
+    });
+
+    it('preserves original-account contract IDs and does not sell on the new account', async () => {
+        const engine = createEngine();
+        const buys = [deferred(), deferred()];
+        api_base.api.send.mockImplementation(request => {
+            if (request.proposal) return Promise.resolve({ proposal: { id: request.contract_type, ask_price: request.amount, date_start: 100 } });
+            return buys[request.buy === 'DIGITOVER' ? 0 : 1].promise;
+        });
+        const pending = engine.purchaseDigitHedge();
+        await flush();
+        api_base.account_info = { currency: 'USD', loginid: 'account-b' };
+        buys[0].resolve({ buy: { contract_id: 11, buy_price: 2, start_time: 100 } });
+        buys[1].resolve({ buy: { contract_id: 22, buy_price: 3, start_time: 100 } });
+        await pending;
+        expect(engine.digitHedge).toMatchObject({ account: 'account-a', over_contract_id: 11, under_contract_id: 22 });
+        expect(engine.digitHedgeHalt).toBe(true);
+        expect(api_base.digitHedgeLocks.has('account-a')).toBe(true);
+        expect(api_base.api.send.mock.calls.some(([request]) => request.sell)).toBe(false);
     });
 
     it('preserves an under-only fill when its sale is not confirmed and blocks a restart', async () => {

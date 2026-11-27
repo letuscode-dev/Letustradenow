@@ -95,6 +95,22 @@ describe('digit hedge settlement', () => {
         expect(api_base.digitHedgeLocks.has('account')).toBe(true);
     });
 
+    it.each(['entry_tick_time', 'exit_tick_time'])(
+        'stops when %s differs even if start and expiry dates match',
+        async field => {
+            const engine = {
+                data: { contract: { ...settled(11, -2), date_expiry: 110, [field]: 101 } },
+                digitHedge: { account: 'account', over_contract_id: 11, under_contract_id: 22, under_bought: true },
+                digitHedgeLive: true,
+            };
+            pollUntilSettled.mockResolvedValue({ ...settled(22, -3), date_expiry: 110, [field]: 102 });
+            const bot = getBotInterface(engine);
+            await bot.settleDigitHedge();
+            expect(bot.digitHedgeDecision()).toBe(0);
+            expect(api_base.digitHedgeLocks.has('account')).toBe(true);
+        }
+    );
+
     it.each([
         [9, 1, 10, 50, 10, 1],
         [-49, -1, 10, 50, -50, -1],

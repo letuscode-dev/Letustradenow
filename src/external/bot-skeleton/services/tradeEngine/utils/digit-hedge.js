@@ -282,6 +282,8 @@ const buildDigitLegProposal = (trade_option, contract_type, barrier) => ({
 
 const START_KEYS = ['date_start', 'start_time', 'entry_tick_time', 'entry_spot_time'];
 const END_KEYS = ['date_expiry', 'exit_tick_time'];
+const ENTRY_TICK_TIME_KEYS = ['entry_tick_time', 'entry_spot_time'];
+const EXIT_TICK_TIME_KEYS = ['exit_tick_time', 'exit_spot_time'];
 const ENTRY_PRICE_KEYS = ['entry_spot_display_value', 'entry_spot'];
 const EXIT_PRICE_KEYS = ['exit_tick_display_value', 'exit_spot', 'exit_tick'];
 
@@ -297,6 +299,12 @@ const firstEpoch = (record, keys) => {
         if (n != null) return n;
     }
     return null;
+};
+
+const epochsDiffer = (over, under, keys) => {
+    const over_time = firstEpoch(over, keys);
+    const under_time = firstEpoch(under, keys);
+    return over_time != null && under_time != null && over_time !== under_time;
 };
 
 /** A whole digit 0–9 is not the contract price. */
@@ -332,6 +340,7 @@ export const sameHedgeClock = (over, under) => {
     const over_start = hedgeStartEpoch(over);
     const under_start = hedgeStartEpoch(under);
     if (over_start == null || under_start == null || over_start !== under_start) return false;
+    if (epochsDiffer(over, under, ENTRY_TICK_TIME_KEYS) || epochsDiffer(over, under, EXIT_TICK_TIME_KEYS)) return false;
 
     const over_spot_time = epochOf(over.spot_time);
     const under_spot_time = epochOf(under.spot_time);
@@ -358,6 +367,7 @@ export const hedgeTicksDiffer = (over, under) => {
     const over_start = hedgeStartEpoch(over);
     const under_start = hedgeStartEpoch(under);
     if (over_start != null && under_start != null && over_start !== under_start) return true;
+    if (epochsDiffer(over, under, ENTRY_TICK_TIME_KEYS) || epochsDiffer(over, under, EXIT_TICK_TIME_KEYS)) return true;
 
     const over_end = firstEpoch(over, END_KEYS);
     const under_end = firstEpoch(under, END_KEYS);
