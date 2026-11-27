@@ -7,6 +7,7 @@ import './get_ohlc';
 import './check_direction';
 import './tick_analysis';
 import './last_digit';
+import './mirror_bot';
 import './current_digit_for_parity';
 import './lastDigitList';
 import './digit_frequency_analysis';

@@ -11,18 +11,19 @@ import { OVER_UNDER_LOSS_SWITCH_XML } from '../bots/over-under-loss-switch';
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 
 describe('free bot catalog XML', () => {
-    it('lists the simultaneous hedge and Over to Under on Loss', () => {
-        expect(FREE_BOTS).toHaveLength(2);
-        expect(FREE_BOTS[0]).toMatchObject({
+    it('lists the mirror bot and both Over/Under bots', () => {
+        expect(FREE_BOTS).toHaveLength(3);
+        expect(FREE_BOTS.find(bot => bot.id === 'simultaneous-over-under-v1')).toMatchObject({
             id: 'simultaneous-over-under-v1',
             title: 'Simultaneous Over/Under',
             xml: SIMULTANEOUS_OVER_UNDER_XML,
         });
-        expect(FREE_BOTS[1]).toMatchObject({
+        expect(FREE_BOTS.find(bot => bot.id === 'over-under-loss-switch-v1')).toMatchObject({
             id: 'over-under-loss-switch-v1',
             title: 'Over to Under on Loss',
             xml: OVER_UNDER_LOSS_SWITCH_XML,
         });
+        expect(FREE_BOTS.find(bot => bot.id === 'three-digit-mirror-v1')).toMatchObject({ title: 'Three-Digit Mirror Differs' });
     });
 
     describe('Over/Under Entry', () => {

@@ -138,6 +138,11 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
+            'runMirrorBot',
+            createAsync(js_interpreter, bot_interface.runMirrorBot)
+        );
+        js_interpreter.setProperty(
+            pseudo_bot_interface,
             'purchaseOverrideContractType',
             createAsync(js_interpreter, bot_interface.purchaseOverrideContractType)
         );

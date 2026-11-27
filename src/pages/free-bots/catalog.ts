@@ -1,5 +1,6 @@
 import { SIMULTANEOUS_OVER_UNDER_XML } from './bots/simultaneous-over-under';
 import { OVER_UNDER_LOSS_SWITCH_XML } from './bots/over-under-loss-switch';
+import { THREE_DIGIT_MIRROR_XML } from './bots/three-digit-mirror';
 import type { FreeBot } from './types';
 
 /**
@@ -9,6 +10,13 @@ import type { FreeBot } from './types';
  * Users can Load it into Bot Builder to inspect, configure, and run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'three-digit-mirror-v1',
+        title: 'Three-Digit Mirror Differs',
+        description: 'Trades Digit Differs on the middle digit when three consecutive digits form A-B-A. Uses payout-based loss recovery and configurable limits.',
+        tags: ['Digit Differs', 'Mirror', 'Recovery', 'Take Profit'],
+        xml: THREE_DIGIT_MIRROR_XML,
+    },
     {
         id: 'simultaneous-over-under-v1',
         title: 'Simultaneous Over/Under',
