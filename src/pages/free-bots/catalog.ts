@@ -2,6 +2,7 @@ import { SIMULTANEOUS_OVER_UNDER_XML } from './bots/simultaneous-over-under';
 import { OVER_UNDER_LOSS_SWITCH_XML } from './bots/over-under-loss-switch';
 import { THREE_DIGIT_MIRROR_XML } from './bots/three-digit-mirror';
 import { FIXED_DIGIT_DIFFERS_XML } from './bots/fixed-digit-differs';
+import { TRIPLE_HIT_CONCENTRATION_XML } from './bots/triple-hit-concentration';
 import type { FreeBot } from './types';
 
 /**
@@ -11,6 +12,13 @@ import type { FreeBot } from './types';
  * Users can Load it into Bot Builder to inspect, configure, and run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'triple-hit-concentration-v1',
+        title: 'Triple-Hit Concentration',
+        description: 'Trades one-tick Digit Differs when the latest digit is the unique most frequent digit in the last 10 ticks and occurs at least three times. Skips signals while a contract is unsettled.',
+        tags: ['Digit Differs', '10-Tick Frequency', 'Recovery', 'Take Profit'],
+        xml: TRIPLE_HIT_CONCENTRATION_XML,
+    },
     {
         id: 'fixed-digit-differs-v1',
         title: 'Digit Differs — Fixed Prediction',

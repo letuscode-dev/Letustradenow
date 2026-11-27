@@ -3,8 +3,9 @@ import { createMirrorContractTracker, recordMirrorSettlement, registerMirrorPurc
 import { applyMirrorSettlement, createMirrorRiskState } from './mirror-risk';
 
 /** Core runtime: transport supplies ordered live ticks, a direct buy, and settlement messages. */
-export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {}, strategy = null }) => {
+export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: writeJournal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {}, strategy = null }) => {
     const risk = strategy ? strategy.createRisk(settings) : createMirrorRiskState(settings);
+    const journal = event => writeJournal(strategy?.statistics ? { ...event, statistics: strategy.statistics(risk) } : event);
     const detector = strategy ? strategy.createDetector() : createThreeDigitMirrorState();
     const tracker = createMirrorContractTracker();
     const signals = [];
@@ -149,6 +150,10 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             }
             if (!registerMirrorPurchase(tracker, signal, response)) throw new Error('Invalid purchase confirmation');
             signal.status = 'executed';
+            if (strategy?.recordPurchase) {
+                signal.executed = true;
+                strategy.recordPurchase(risk);
+            }
             const displayPurchase = () => {
                 try {
                     onPurchase(response.buy, signal);
@@ -182,6 +187,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
             } else {
                 earlySettlements.clear();
                 signal.status = 'unconfirmed';
+                strategy?.recordUnconfirmed?.(risk);
                 signal.reason = error?.error?.message || error?.message || String(error);
                 journal({ type: 'purchase_error', signal, reason: signal.reason });
                 stop('Purchase was rejected or not confirmed; check account before restarting');
@@ -194,13 +200,30 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
         if (!enabled) return;
         const pattern = strategy ? strategy.evaluate(detector, digit, risk) : processThreeDigitMirrorTick(detector, digit);
         if (!pattern) return;
+        strategy?.recordEvaluation?.(risk);
         const signal = { ...pattern, timestamp, symbol: '1HZ75V',
             pattern: strategy ? `Digit Differs ${pattern.barrier}` : `${pattern.first}-${pattern.middle}-${pattern.third}`,
             status: 'detected' };
+        if (strategy?.statistics) signal.market = 'Volatility 75 (1s)';
         signals.push(signal);
+        if (pattern.entryPassed === false) {
+            signal.status = 'skipped';
+            strategy?.recordSkip?.(risk);
+            journal({ type: 'signal', ...signal });
+            return;
+        }
         if (!executable) {
             signal.status = 'restricted';
-            signal.reason = 'Recovered historical tick';
+            signal.reason = strategy?.staleBufferedAnalysisOnly ? 'Recovered or buffered historical tick' : 'Recovered historical tick';
+            strategy?.recordSkip?.(risk);
+            journal({ type: 'signal', ...signal });
+            return;
+        }
+        if (strategy?.skipBusySignals && (executionPaused || pendingBuys || tracker.active.size ||
+            nextSettlementIndex < executionOrder.length)) {
+            signal.status = 'skipped';
+            signal.reason = executionPaused ? 'Waiting for connection recovery' : 'Previous contract is not settled';
+            strategy.recordSkip(risk);
             journal({ type: 'signal', ...signal });
             return;
         }
@@ -217,6 +240,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal, r
     const resumeExecution = () => { executionPaused = false; submitNext(); };
 
     return { tick, settle, stop, pauseExecution, resumeExecution,
+        staleBufferedAnalysisOnly: Boolean(strategy?.staleBufferedAnalysisOnly),
         resetWindow: () => strategy ? strategy.reset(detector) : resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
         isEnabled: () => enabled, pendingBuys: () => pendingBuys, queuedSignals: () => waitingSignals.length };
 };

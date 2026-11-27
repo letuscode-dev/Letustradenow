@@ -4,6 +4,7 @@ import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
+import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
     createAscendingRankNextState,
@@ -646,6 +647,10 @@ const getBotInterface = tradeEngine => {
         runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
             settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,
             label: 'Digit Differs', seedHistory: false,
+        }),
+        runTripleHitConcentrationBot: (stake, maxLosses, profitThreshold, recoveryMultiplier) => runTickDigitBot({
+            settings: { stake, maxLosses, profitThreshold, recoveryMultiplier }, strategy: tripleHitConcentrationStrategy,
+            label: 'Triple-Hit Concentration', seedHistory: false,
         }),
         roundOverUnderSwitchValue: value => getRoundedNumber(Number(value), tradeEngine.tradeOptions?.currency),
         validateOverUnderSwitchSettings: (over, under, stake, multiplier, target) => {

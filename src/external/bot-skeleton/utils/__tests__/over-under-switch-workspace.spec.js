@@ -27,4 +27,13 @@ describe('Over/Under switch workspace', () => {
         window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
         expect(hasAllRequiredBlocks()).toBe(true);
     });
+
+    it('recognizes the Triple-Hit Concentration purchase inside purchase conditions', () => {
+        const blocks = [
+            { type: 'trade_definition_tradeoptions' }, { type: 'trade_definition' }, { type: 'before_purchase' },
+            { type: 'triple_hit_concentration_run', isDescendantOf: type => type === 'before_purchase' },
+        ];
+        window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
+        expect(hasAllRequiredBlocks()).toBe(true);
+    });
 });

@@ -74,7 +74,9 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
                 });
                 return;
             }
-            process(tick, true);
+            // During gap recovery later ticks may already be buffered. Analyze
+            // each in order, but only the latest can still be an immediate entry.
+            process(tick, !(runtime.staleBufferedAnalysisOnly && queue.length));
         }
         resolveWaiters();
     };
