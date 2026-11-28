@@ -3,7 +3,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
-import { fourDigitMirrorStrategy, parseMirrorMarkets } from '../utils/four-digit-mirror';
+import { fourDigitMirrorStrategy, resolveMirrorMarkets } from '../utils/four-digit-mirror';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
 import { digitPercentageIncreaseStrategy } from '../utils/digit-percentage-increase';
@@ -665,9 +665,16 @@ const getBotInterface = tradeEngine => {
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
         purchaseOverUnderOnce: contract_type => tradeEngine.purchaseOverUnderOnce(contract_type),
-        runMirrorBot: async (stake, maxLosses, profitThreshold, markets) => runTickDigitBot({
-            settings: { stake, maxLosses, profitThreshold, symbols: parseMirrorMarkets(markets) }, strategy: fourDigitMirrorStrategy,
-        }),
+        runMirrorBot: async (stake, maxLosses, profitThreshold, markets) => {
+            const api = api_base.api;
+            const account = api_base.account_info?.loginid || api_base.account_id;
+            const symbols = await resolveMirrorMarkets(markets, api);
+            if (tradeEngine.$scope?.stopped) return;
+            if (api !== api_base.api || account !== (api_base.account_info?.loginid || api_base.account_id)) {
+                throw new Error('The account or connection changed while loading Volatility markets. Restart the bot.');
+            }
+            return runTickDigitBot({ settings: { stake, maxLosses, profitThreshold, symbols }, strategy: fourDigitMirrorStrategy });
+        },
         runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
             settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,
             label: 'Digit Differs', seedHistory: false,

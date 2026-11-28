@@ -225,7 +225,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
         if (strategy?.skipBusySignals && (executionPaused || pendingBuys || tracker.active.size ||
             nextSettlementIndex < executionOrder.length)) {
             signal.status = 'skipped';
-            signal.reason = executionPaused ? 'Waiting for connection recovery' : 'Previous contract is not settled';
+            signal.reason = executionPaused ? (strategy?.multiMarket ? 'Waiting for market subscriptions or connection recovery' : 'Waiting for connection recovery') : 'Previous contract is not settled';
             strategy.recordSkip(risk);
             journal({ type: 'signal', ...signal });
             return;

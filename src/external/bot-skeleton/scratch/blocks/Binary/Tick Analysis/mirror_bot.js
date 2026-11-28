@@ -13,7 +13,7 @@ window.Blockly.Blocks.mirror_bot_run = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             category: window.Blockly.Categories.Before_Purchase,
-            tooltip: localize('Trades one-tick Digit Differs on B when four ticks form A-B-A-B. Enter comma-separated Volatility symbols.'),
+            tooltip: localize('Trades one-tick Digit Differs on B when four ticks form A-B-A-B. Use ALL or enter comma-separated Volatility symbols.'),
         };
     },
     customContextMenu(menu) { modifyContextMenu(menu); },

@@ -1,6 +1,15 @@
 import { createMirrorDerivStream, mirrorTickDigit } from '../mirror-deriv-stream';
 
 describe('Deriv mirror stream', () => {
+    it('preserves the rate-limit error code from a rejected subscription response', async () => {
+        const api = { connection: { addEventListener: jest.fn(), removeEventListener: jest.fn() },
+            onMessage: () => ({ subscribe: () => ({ unsubscribe: jest.fn() }) }),
+            send: jest.fn().mockResolvedValue({ error: { code: 'RateLimit', message: 'Too many requests' } }) };
+        const runtime = { tick: jest.fn(), resetWindow: jest.fn(), stop: jest.fn(), settle: jest.fn() };
+        const stream = createMirrorDerivStream({ runtime, getApi: () => api, journal: jest.fn(), onDisconnect: jest.fn() });
+        await expect(stream.attach()).rejects.toMatchObject({ code: 'RateLimit', message: 'Too many requests' });
+        stream.detach();
+    });
     it('uses the displayed pip precision for the last digit', () => {
         expect(mirrorTickDigit(123.4, 2)).toBe(0);
         expect(mirrorTickDigit(123.45, 2)).toBe(5);

@@ -1,5 +1,5 @@
 import { createMirrorBotSession } from '../mirror-bot-session';
-import { fourDigitMirrorStrategy } from '../four-digit-mirror';
+import { fourDigitMirrorStrategy, resolveMirrorMarkets } from '../four-digit-mirror';
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -22,6 +22,7 @@ const createApi = (initialTicks = {}, options = {}) => {
                 return first;
             }
             if (request.buy) return options.buy ? options.buy(request) : { buy: { contract_id: nextContract++, buy_price: request.price } };
+            if (request.active_symbols) return { active_symbols: options.activeSymbols || [] };
             if (request.proposal_open_contract && request.subscribe) return { subscription: { id: 'contracts' } };
             if (request.proposal_open_contract) return { proposal_open_contract: { contract_id: request.contract_id, status: 'open' } };
             return {};
@@ -60,6 +61,45 @@ it('buys B on the market that produced the pattern, skips busy signals, and appl
     expect(session.runtime.risk.stake).toBe(5);
     session.stop();
     expect(session.isCleaned()).toBe(true);
+});
+
+it('subscribes to and trades a discovered market beyond the old ten-market limit', async () => {
+    const activeSymbols = [...Array.from({ length: 11 }, (_, index) => ({ symbol: `1HZ${index + 10}V` })), { symbol: 'R_10' }];
+    const live = createApi({}, { activeSymbols });
+    const symbols = await resolveMirrorMarkets('ALL', live.api);
+    const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: fourDigitMirrorStrategy,
+        journal: jest.fn(), onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
+    await session.attach();
+    expect(live.api.send.mock.calls.map(([request]) => request.ticks).filter(Boolean)).toEqual(symbols);
+    [3, 9, 3].forEach((digit, index) => live.emit(live.tick('R_10', 3 + index * 2, digit)));
+    await flush();
+    const buy = live.api.send.mock.calls.map(([request]) => request).find(request => request.buy);
+    expect(buy).toMatchObject({ parameters: { underlying_symbol: 'R_10', barrier: '3' } });
+    live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 } });
+    session.stop();
+});
+
+it('does not trade a partial market set while subscriptions are still starting', async () => {
+    const symbols = Array.from({ length: 6 }, (_, index) => `1HZ${index + 10}V`);
+    const live = createApi();
+    const journal = jest.fn();
+    const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: fourDigitMirrorStrategy,
+        journal, onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
+    const attaching = session.attach();
+    await flush();
+    [1, 2, 1, 2].forEach((digit, index) => live.emit(live.tick(symbols[0], index + 2, digit)));
+    expect(live.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
+    expect(journal).toHaveBeenCalledWith(expect.objectContaining({ type: 'signal', status: 'skipped',
+        reason: 'Waiting for market subscriptions or connection recovery' }));
+    await attaching;
+    live.emit(live.tick(symbols[0], 6, 1));
+    await flush();
+    const buy = live.api.send.mock.calls.map(([request]) => request).find(request => request.buy);
+    expect(buy).toMatchObject({ parameters: { underlying_symbol: symbols[0], barrier: '1' } });
+    live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 } });
+    session.stop();
 });
 
 it('applies a settlement received before its buy response before accepting the next market signal', async () => {

@@ -1,6 +1,7 @@
 import { createMirrorRuntime } from './mirror-runtime';
 import { createMirrorDerivStream } from './mirror-deriv-stream';
 import { mirrorContractForDisplay } from './mirror-contract-display';
+import { attachMirrorStreams } from './mirror-subscription-pacing';
 
 const hasSettlement = contract => {
     const present = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
@@ -203,9 +204,13 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
                 const api = getApi();
                 await ensureContractStream(api, account, () => request({ proposal_open_contract: 1, subscribe: 1 }));
                 if (cleaned || version !== attachVersion) return;
-                runtime.resumeExecution();
+                if (!strategy?.multiMarket) runtime.resumeExecution();
             }
-            await Promise.all(streams.map(stream => stream.attach()));
+            if (strategy?.multiMarket && streams.length > 5) {
+                await attachMirrorStreams({ streams, symbols, isCurrent: () => !cleaned && version === attachVersion, journal });
+            } else {
+                await Promise.all(streams.map(stream => stream.attach()));
+            }
             if (cleaned || version !== attachVersion) return;
             await Promise.all(streams.map(stream => stream.whenReady?.()));
             if (cleaned || version !== attachVersion) return;

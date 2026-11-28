@@ -45,7 +45,7 @@ export const FREE_BOTS: FreeBot[] = [
     {
         id: 'three-digit-mirror-v1',
         title: 'Three-Digit Mirror Differs',
-        description: 'Scans selected Volatility markets for A-B-A-B and trades Digit Differs on B. Waits for settlement before the next trade.',
+        description: 'Scans all available Volatility markets for A-B-A-B and trades Digit Differs on B. Waits for settlement before the next trade.',
         tags: ['Digit Differs', 'Multi-Market', 'Mirror', 'Recovery', 'Take Profit'],
         xml: THREE_DIGIT_MIRROR_XML,
     },

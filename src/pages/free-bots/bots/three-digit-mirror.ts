@@ -4,14 +4,14 @@ const VARIABLES: [string, string][] = [
     ['mirror_stake', 'Stake'],
     ['mirror_losses', 'Maximum Consecutive Losses'],
     ['mirror_target', 'Profit Threshold'],
-    ['mirror_markets', 'Markets (comma-separated symbols)'],
+    ['mirror_markets', 'Markets (ALL or comma-separated symbols)'],
 ];
 const { v, num, text, set, chain } = blockHelpers(VARIABLES, 'mirror_message');
 const INIT = chain([
     n => set('mirror_stake', num(5), n),
     n => set('mirror_losses', num(2), n),
     n => set('mirror_target', num(10), n),
-    () => set('mirror_markets', text('1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V')),
+    () => set('mirror_markets', text('ALL')),
 ]);
 
 /** Runtime processes live ticks and manages all confirmed contracts independently. */

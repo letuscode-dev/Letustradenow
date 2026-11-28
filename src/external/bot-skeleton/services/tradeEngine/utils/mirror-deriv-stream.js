@@ -181,7 +181,11 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
             tickSubscriptionId = getExistingSubscription() || matchingTick?.subscription?.id || matchingTick?.tick?.id || null;
             reuseFirstTick = !tickSubscriptionId;
         } else {
-            if (response?.error || !response?.subscription?.id) throw new Error(response?.error?.message || 'Tick subscription failed');
+            if (response?.error || !response?.subscription?.id) {
+                const error = new Error(response?.error?.message || 'Tick subscription failed');
+                error.code = response?.error?.code;
+                throw error;
+            }
             tickSubscriptionId = response.subscription.id;
             ownsTickSubscription = true;
         }
