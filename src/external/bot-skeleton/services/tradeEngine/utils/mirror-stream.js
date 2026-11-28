@@ -76,19 +76,22 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
             }
             // During gap recovery later ticks may already be buffered. Analyze
             // each in order, but only the latest can still be an immediate entry.
-            process(tick, !(runtime.staleBufferedAnalysisOnly && queue.length));
+            const stale = tick.receivedAt != null && Date.now() - tick.receivedAt >= 1000;
+            process(tick, !(runtime.staleBufferedAnalysisOnly && (queue.length || stale)));
         }
         resolveWaiters();
     };
 
     return {
-        seed: ticks => {
+        seed: (ticks, expected = 2) => {
             if (lastEpoch !== null || queue.length || recovering || failed || !Array.isArray(ticks) ||
-                ticks.length !== 2 || !ticks.every(valid) || ticks[1].epoch !== ticks[0].epoch + 1) return false;
+                !Number.isInteger(expected) || expected < 1 || ticks.length !== expected ||
+                !ticks.every((tick, index) => valid(tick) && (index === 0 || tick.epoch === ticks[index - 1].epoch + 1))) return false;
             ticks.forEach(tick => process(tick, false));
             return true;
         },
         ingest: tick => { if (!failed) { queue.push(tick); drain(); } },
+        ingestBatch: ticks => { if (!failed) { queue.push(...ticks); drain(); } },
         disconnect: () => {
             generation += 1;
             paused = true;

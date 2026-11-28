@@ -26,6 +26,7 @@ const PURCHASE_SUBSTITUTE_BLOCK_TYPES = [
     'mirror_bot_run',
     'fixed_digit_differs_run',
     'triple_hit_concentration_run',
+    'digit_percentage_increase_run',
     'last_tick_digit_differ_purchase',
     'first_decimal_digit_differ_purchase',
 ];

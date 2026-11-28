@@ -10,6 +10,7 @@ import './last_digit';
 import './mirror_bot';
 import './fixed_digit_differs';
 import './triple_hit_concentration';
+import './digit_percentage_increase_bot';
 import './current_digit_for_parity';
 import './lastDigitList';
 import './digit_frequency_analysis';

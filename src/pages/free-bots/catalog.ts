@@ -3,6 +3,7 @@ import { OVER_UNDER_LOSS_SWITCH_XML } from './bots/over-under-loss-switch';
 import { THREE_DIGIT_MIRROR_XML } from './bots/three-digit-mirror';
 import { FIXED_DIGIT_DIFFERS_XML } from './bots/fixed-digit-differs';
 import { TRIPLE_HIT_CONCENTRATION_XML } from './bots/triple-hit-concentration';
+import { DIGIT_PERCENTAGE_INCREASE_XML } from './bots/digit-percentage-increase';
 import type { FreeBot } from './types';
 
 /**
@@ -12,6 +13,13 @@ import type { FreeBot } from './types';
  * Users can Load it into Bot Builder to inspect, configure, and run it.
  */
 export const FREE_BOTS: FreeBot[] = [
+    {
+        id: 'digit-percentage-increase-v1',
+        title: 'Digit Percentage Increase Differs',
+        description: 'Trades one-tick Digit Differs when a digit’s share rises by the configured percentage points between consecutive 1,000-tick windows. Includes recovery, profit and loss limits.',
+        tags: ['Digit Differs', '1,000 Ticks', 'Recovery', 'Take Profit', 'Stop Loss'],
+        xml: DIGIT_PERCENTAGE_INCREASE_XML,
+    },
     {
         id: 'triple-hit-concentration-v1',
         title: 'Triple-Hit Concentration',

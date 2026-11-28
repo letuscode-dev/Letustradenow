@@ -11,7 +11,7 @@ export const mirrorTickDigit = (quote, pipSize) => {
 };
 
 /** Attach to a Deriv connection; the caller reattaches after reconnection. */
-export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect, getExistingSubscription = () => null, getInitialTicks = () => [] }) => {
+export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect, getExistingSubscription = () => null, getInitialTicks = () => [], initialHistoryTicks = 0 }) => {
     let subscription = null;
     let tickSubscriptionId = null;
     let connection = null;
@@ -24,8 +24,11 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
     let responseEcho = null;
     let initialSeedAttempted = false;
     let generation = 0;
+    let bootstrapPromise = null;
+    let cancelBootstrap = null;
+    let bootstrapQueue = [];
 
-    const stream = createMirrorStream({ runtime, journal, history: async (start, end) => {
+    const fetchHistory = async (start, end, precision = pipSize) => {
         if (end - start >= 1000) throw new Error('Tick gap is too large to recover safely');
         const api = getApi();
         const response = await api.send({ ticks_history: '1HZ75V', start, end: String(end), count: end - start + 1, style: 'ticks' });
@@ -33,13 +36,53 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         const values = response?.history?.prices;
         const times = response?.history?.times;
         if (!Array.isArray(values) || !Array.isArray(times) || values.length !== times.length) throw new Error('Invalid tick history');
-        return values.map((quote, index) => ({ epoch: Number(times[index]), quote, digit: mirrorTickDigit(quote, pipSize) }));
-    } });
+        if (response.pip_size != null && Number(response.pip_size) !== Number(precision)) throw new Error('Tick history precision does not match the live stream');
+        return values.map((quote, index) => ({ epoch: times[index] == null || times[index] === '' ? null : Number(times[index]),
+            quote, digit: mirrorTickDigit(quote, precision) }));
+    };
+    const stream = createMirrorStream({ runtime, journal, history: (start, end) => fetchHistory(start, end) });
+
+    const startBootstrap = (tick, precision) => {
+        const version = generation;
+        bootstrapQueue.push(tick);
+        let timer;
+        const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Initial tick history timed out')), 5000); });
+        const cancelled = new Promise(resolve => { cancelBootstrap = () => resolve(null); });
+        bootstrapPromise = Promise.race([
+            Promise.resolve().then(() => fetchHistory(tick.epoch - initialHistoryTicks, tick.epoch - 1, precision)),
+            timeout, cancelled,
+        ]).then(ticks => {
+            if (version !== generation || ticks === null) return;
+            if (ticks.length !== initialHistoryTicks || ticks[0]?.epoch !== tick.epoch - initialHistoryTicks ||
+                ticks[ticks.length - 1]?.epoch !== tick.epoch - 1 || !stream.seed(ticks, initialHistoryTicks)) {
+                throw new Error('Initial tick history is incomplete or out of order');
+            }
+            journal({ type: 'initial_history_ready', count: initialHistoryTicks });
+        }).catch(error => {
+            if (version === generation) journal({ type: 'initial_tick_history_unavailable', reason: `${error?.message || String(error)}; collecting live ticks instead` });
+        }).finally(() => {
+            clearTimeout(timer);
+            if (version !== generation) return;
+            bootstrapPromise = null;
+            cancelBootstrap = null;
+            const buffered = bootstrapQueue;
+            bootstrapQueue = [];
+            stream.ingestBatch(buffered);
+        });
+    };
 
     const close = () => {
         generation += 1;
         disconnected = true;
         stream.disconnect();
+        if (bootstrapPromise) {
+            cancelBootstrap?.();
+            cancelBootstrap = null;
+            bootstrapPromise = null;
+            const buffered = bootstrapQueue;
+            bootstrapQueue = [];
+            stream.ingestBatch(buffered);
+        }
         onDisconnect();
     };
 
@@ -76,8 +119,14 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         if (pip !== null && pip !== undefined && Number.isInteger(Number(pip))) pipSize = Number(pip);
         const epoch = data.tick.epoch === null || data.tick.epoch === undefined || data.tick.epoch === ''
             ? null : Number(data.tick.epoch);
+        const tick = { epoch, quote: data.tick.quote, snapshot, digit: mirrorTickDigit(data.tick.quote, pip),
+            receivedAt: initialHistoryTicks > 0 ? Date.now() : null };
         if (!initialSeedAttempted) {
             initialSeedAttempted = true;
+            if (initialHistoryTicks > 0 && Number.isInteger(epoch) && tick.digit !== null) {
+                startBootstrap(tick, Number(pip));
+                return;
+            }
             try {
                 const cached = getInitialTicks();
                 const list = Array.isArray(cached) ? cached : [];
@@ -92,7 +141,8 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
                 journal({ type: 'initial_tick_history_unavailable', reason: error?.message || String(error) });
             }
         }
-        stream.ingest({ epoch, quote: data.tick.quote, snapshot, digit: mirrorTickDigit(data.tick.quote, pip) });
+        if (bootstrapPromise) bootstrapQueue.push(tick);
+        else stream.ingest(tick);
     };
 
     const attach = async () => {
@@ -154,6 +204,10 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
 
     const detach = () => {
         generation += 1;
+        cancelBootstrap?.();
+        cancelBootstrap = null;
+        bootstrapPromise = null;
+        bootstrapQueue = [];
         stream.cancelWaiters();
         if (ownsTickSubscription && tickSubscriptionId && getApi() === ownerApi && connection?.readyState === 1) {
             Promise.resolve(ownerApi.send({ forget: tickSubscriptionId })).catch(() => {});
@@ -164,5 +218,9 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         connection = null;
         ownerApi = null;
     };
-    return { attach, detach, whenReady: stream.whenReady };
+    const whenReady = async () => {
+        if (bootstrapPromise) await bootstrapPromise;
+        return stream.whenReady();
+    };
+    return { attach, detach, whenReady };
 };

@@ -5,6 +5,8 @@ import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
+import { digitPercentageIncreaseStrategy } from '../utils/digit-percentage-increase';
+import { formatDigitPercentageIncreaseJournal } from '../utils/digit-percentage-increase-journal';
 import { formatTripleHitJournal } from '../utils/triple-hit-journal';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
@@ -465,7 +467,10 @@ const getBotInterface = tradeEngine => {
             account, getAccount, currency, settings, strategy,
             round: value => getRoundedNumber(value, currency),
             journal: event => {
-                if (strategy === tripleHitConcentrationStrategy) {
+                if (strategy === digitPercentageIncreaseStrategy) {
+                    const notice = formatDigitPercentageIncreaseJournal(event, currency);
+                    notifyHedge(notice.message, notice.className);
+                } else if (strategy === tripleHitConcentrationStrategy) {
                     const notice = formatTripleHitJournal(event, currency);
                     notifyHedge(notice.message, notice.className);
                 } else notifyHedge(`${label} | ${JSON.stringify(event)}`, 'journal__text');
@@ -483,6 +488,10 @@ const getBotInterface = tradeEngine => {
         globalObserver.register('api.authorize', authorized);
         if (strategy === tripleHitConcentrationStrategy) {
             notifyHedge(`Triple-Hit Concentration | STARTING — Volatility 75 (1s), 1HZ75V | Initial stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Profit threshold: ${settings.profitThreshold} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier} | Waiting for 10 completed ticks.`);
+        }
+        if (strategy === digitPercentageIncreaseStrategy) {
+            notifyHedge(`Digit Percentage Increase | STARTING — Volatility 75 (1s), 1HZ75V | Window: 1,000 ticks | Minimum increase: ${settings.minimumIncrease} percentage points | Stake: ${settings.stake} ${currency} | Max consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency} | Stop loss: ${settings.stopLoss} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier}.`);
+            if (Number(settings.minimumIncrease) > 0.1) notifyHedge('Digit Percentage Increase | The maximum increase between consecutive 1,000-tick windows is 0.1 percentage point; this threshold will not produce signals.', 'journal__text--warn');
         }
         await session.attach();
         await session.finished;
@@ -660,6 +669,10 @@ const getBotInterface = tradeEngine => {
         runTripleHitConcentrationBot: (stake, maxLosses, profitThreshold, recoveryMultiplier) => runTickDigitBot({
             settings: { stake, maxLosses, profitThreshold, recoveryMultiplier }, strategy: tripleHitConcentrationStrategy,
             label: 'Triple-Hit Concentration', seedHistory: false,
+        }),
+        runDigitPercentageIncreaseBot: (minimumIncrease, stake, maxLosses, profitThreshold, stopLoss, recoveryMultiplier) => runTickDigitBot({
+            settings: { minimumIncrease, stake, maxLosses, profitThreshold, stopLoss, recoveryMultiplier },
+            strategy: digitPercentageIncreaseStrategy, label: 'Digit Percentage Increase', seedHistory: false,
         }),
         roundOverUnderSwitchValue: value => getRoundedNumber(Number(value), tradeEngine.tradeOptions?.currency),
         validateOverUnderSwitchSettings: (over, under, stake, multiplier, target) => {

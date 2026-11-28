@@ -156,7 +156,8 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         },
     });
     if (monitorAll) runtime.pauseExecution();
-    stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks, onDisconnect: () => {
+    stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks,
+        initialHistoryTicks: strategy?.initialHistoryTicks || 0, onDisconnect: () => {
         attachVersion += 1;
         attached = false;
         runtime.pauseExecution();
@@ -182,6 +183,14 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
                 runtime.settle(response?.proposal_open_contract);
             }));
             if (cleaned || version !== attachVersion) return;
+            // Establish settlement monitoring before processing the initial
+            // history and live ticks, so a fresh signal can be sent immediately.
+            if (monitorAll && strategy?.initialHistoryTicks) {
+                const api = getApi();
+                await ensureContractStream(api, account, () => request({ proposal_open_contract: 1, subscribe: 1 }));
+                if (cleaned || version !== attachVersion) return;
+                runtime.resumeExecution();
+            }
             await stream.attach();
             if (cleaned || version !== attachVersion) return;
             if (stream.whenReady) await stream.whenReady();
