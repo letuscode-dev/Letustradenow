@@ -101,6 +101,25 @@ describe('mirror Deriv session', () => {
         expect(buy).toMatchObject({ price: 52.08, parameters: { barrier: '7' } });
     });
 
+    it('restores the account-wide settlement stream when the API wrapper gets a new connection', async () => {
+        let disconnect;
+        const stream = { attach: jest.fn().mockResolvedValue(), detach: jest.fn(), whenReady: jest.fn().mockResolvedValue() };
+        createMirrorDerivStream.mockImplementation(options => { disconnect = options.onDisconnect; return stream; });
+        const api = { connection: { readyState: 1 }, send: jest.fn(async request =>
+            request.proposal_open_contract && request.subscribe ? { subscription: { id: 'contracts' } } : {}) };
+        const strategy = { ...createTestSignalStrategy(), multiMarket: true, monitorAllContracts: true };
+        const session = createMirrorBotSession({ strategy, getApi: () => api, account: 'A', getAccount: () => 'A',
+            currency: 'USD', settings: { symbols: ['1HZ10V'] }, journal: jest.fn(), onStop: jest.fn() });
+        await session.attach();
+        expect(api.send.mock.calls.filter(([request]) => request.proposal_open_contract && request.subscribe)).toHaveLength(1);
+        api.connection.readyState = 3;
+        disconnect();
+        api.connection = { readyState: 1 };
+        await session.attach();
+        expect(api.send.mock.calls.filter(([request]) => request.proposal_open_contract && request.subscribe)).toHaveLength(2);
+        session.stop();
+    });
+
     it('waits for tick-history recovery before submitting a queued recovery', async () => {
         let disconnect;
         let finishHistory;

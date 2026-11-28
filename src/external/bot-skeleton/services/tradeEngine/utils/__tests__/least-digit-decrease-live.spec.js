@@ -52,9 +52,6 @@ it('loads 1,000 ticks per market and buys the falling least digit on the correct
         expect.objectContaining({ ticks_history: '1HZ10V', start: 1001, end: '2000', count: 1000 }),
         expect.objectContaining({ ticks_history: 'R_10', start: 2001, end: '3999', count: 1000 }),
     ]));
-    expect(live.api.send.mock.calls.some(([request]) => request.buy)).toBe(false);
-    live.emit(live.tick('1HZ10V', 2002, 9));
-    live.emit(live.tick('R_10', 4003, 9));
     await flush();
     const buys = () => live.api.send.mock.calls.map(([request]) => request).filter(request => request.buy);
     expect(buys()).toHaveLength(1);
@@ -62,7 +59,7 @@ it('loads 1,000 ticks per market and buys the falling least digit on the correct
     expect(onContract).toHaveBeenCalledWith(expect.objectContaining({ contract_id: 1, underlying_symbol: '1HZ10V', barrier: 0 }));
     expect(journal).toHaveBeenCalledWith(expect.objectContaining({ type: 'signal', symbol: 'R_10', barrier: 0, status: 'skipped' }));
     live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 1, status: 'lost', sell_price: 0, profit: -5 } });
-    live.emit(live.tick('R_10', 4005, 9));
+    live.emit(live.tick('R_10', 4003, 9));
     await flush();
     expect(buys()[1]).toMatchObject({ price: 52.08, parameters: { underlying_symbol: 'R_10', barrier: '0' } });
     live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 2, status: 'won', sell_price: 57.08, profit: 5 } });
@@ -83,5 +80,29 @@ it('waits for 1,000 live ticks when history cannot be loaded', async () => {
     expect(buy).toMatchObject({ parameters: { underlying_symbol: '1HZ10V', barrier: '0' } });
     expect(journal).toHaveBeenCalledWith(expect.objectContaining({ type: 'initial_tick_history_unavailable', symbol: '1HZ10V' }));
     live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 } });
+    session.stop();
+});
+
+
+it('trades a ready market while another market subscription is still starting', async () => {
+    const live = makeApi();
+    const send = live.api.send.getMockImplementation();
+    let releaseSecond;
+    live.api.send.mockImplementation(request => {
+        if (request.ticks === 'R_10') return new Promise(resolve => { releaseSecond = () => resolve(send(request)); });
+        return send(request);
+    });
+    const journal = jest.fn();
+    const session = makeSession(live, ['1HZ10V', 'R_10'], journal);
+    const attaching = session.attach();
+    await flush();
+    expect(releaseSecond).toBeDefined();
+    const buys = live.api.send.mock.calls.map(([request]) => request).filter(request => request.buy);
+    expect(buys).toHaveLength(1);
+    expect(buys[0]).toMatchObject({ price: 5, parameters: { underlying_symbol: '1HZ10V', barrier: '0' } });
+    live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 1, status: 'won', sell_price: 5.48, profit: 0.48 } });
+    releaseSecond();
+    await attaching;
+    live.emit({ msg_type: 'proposal_open_contract', proposal_open_contract: { contract_id: 2, status: 'won', sell_price: 5.48, profit: 0.48 } });
     session.stop();
 });

@@ -7,7 +7,10 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
     const journal = event => writeJournal(strategy?.statistics ? { ...event, statistics: event.statistics ?? strategy.statistics(risk) } : event);
     const detector = strategy.createDetector();
     const tracker = createMirrorContractTracker();
+    // Journal entries are persisted separately; keep only a bounded recent
+    // diagnostic sample in memory during long multi-market sessions.
     const signals = [];
+    const maxRecentSignals = 1000;
     const waitingSignals = [];
     const executionOrder = [];
     const settledOutcomes = new Map();
@@ -207,6 +210,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
             status: 'detected' };
         if (strategy?.statistics) signal.market = 'Volatility 75 (1s)';
         signals.push(signal);
+        if (signals.length > maxRecentSignals) signals.shift();
         if (pattern.entryPassed === false) {
             signal.status = 'skipped';
             strategy?.recordSkip?.(risk);

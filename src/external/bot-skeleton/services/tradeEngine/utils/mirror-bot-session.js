@@ -15,8 +15,11 @@ const hasSettlement = contract => {
 const sharedContractStreams = new WeakMap();
 
 const ensureContractStream = (api, account, subscribe) => {
-    let accounts = sharedContractStreams.get(api);
-    if (!accounts) { accounts = new Map(); sharedContractStreams.set(api, accounts); }
+    // An API wrapper may survive a reconnect while its WebSocket is replaced.
+    // A subscription belongs to the socket, not to the wrapper object.
+    const connection = api.connection || api;
+    let accounts = sharedContractStreams.get(connection);
+    if (!accounts) { accounts = new Map(); sharedContractStreams.set(connection, accounts); }
     if (accounts.has(account)) return accounts.get(account);
     const pending = Promise.resolve().then(subscribe).then(response => {
         if (!response?.subscription?.id) throw new Error('Contract status subscription was not confirmed');
@@ -204,7 +207,10 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
                 const api = getApi();
                 await ensureContractStream(api, account, () => request({ proposal_open_contract: 1, subscribe: 1 }));
                 if (cleaned || version !== attachVersion) return;
-                if (!strategy?.multiMarket) runtime.resumeExecution();
+                // Each market stream validates and seeds its own tick history before
+                // emitting executable ticks. Do not hold ready markets back while
+                // the remaining subscriptions are paced and initialized.
+                runtime.resumeExecution();
             }
             if (strategy?.multiMarket && streams.length > 5) {
                 await attachMirrorStreams({ streams, symbols, isCurrent: () => !cleaned && version === attachVersion, journal });

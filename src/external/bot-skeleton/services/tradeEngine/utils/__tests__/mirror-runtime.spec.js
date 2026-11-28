@@ -43,6 +43,19 @@ describe('mirror runtime', () => {
         expect(runtime.signals[0]).toMatchObject({ status: 'restricted', reason: 'Recovered historical tick' });
     });
 
+    it('bounds recent diagnostic signals while retaining every journal event', () => {
+        const strategy = { ...createTestSignalStrategy(), skipBusySignals: true,
+            evaluate: (_detector, digit, _risk, _symbol, timestamp) => ({ tickIndex: timestamp, barrier: digit }) };
+        const journal = jest.fn();
+        const runtime = createMirrorRuntime({ strategy, buy: jest.fn(), journal, refreshContract: jest.fn(), settings: {} });
+        runtime.pauseExecution();
+        for (let index = 0; index < 1200; index++) runtime.tick(index % 10, index);
+        expect(runtime.signals).toHaveLength(1000);
+        expect(runtime.signals[0].timestamp).toBe(200);
+        expect(runtime.signals[999].timestamp).toBe(1199);
+        expect(journal).toHaveBeenCalledTimes(1200);
+    });
+
     it('halts after an unconfirmed purchase without retrying', async () => {
         const buy = jest.fn().mockRejectedValue(new Error('disconnected'));
         const onStop = jest.fn();
