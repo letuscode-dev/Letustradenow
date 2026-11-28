@@ -1,7 +1,7 @@
-import { THREE_DIGIT_MIRROR_XML } from '../bots/three-digit-mirror';
+import { LEAST_DIGIT_DECREASE_XML } from '../bots/least-digit-decrease';
 
-describe('three-digit mirror bot template', () => {
-    const doc = new DOMParser().parseFromString(THREE_DIGIT_MIRROR_XML, 'text/xml');
+describe('least digit decrease bot template', () => {
+    const doc = new DOMParser().parseFromString(LEAST_DIGIT_DECREASE_XML, 'text/xml');
     const field = (name: string) => doc.querySelector(`field[name="${name}"]`)?.textContent;
     it('uses Volatility 75 (1s), Digit Differs and one tick', () => {
         expect(doc.querySelector('parsererror')).toBeNull();

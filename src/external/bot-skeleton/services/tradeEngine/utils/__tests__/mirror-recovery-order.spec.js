@@ -1,4 +1,7 @@
-import { createMirrorRuntime } from '../mirror-runtime';
+import { createMirrorRuntime as createSharedRuntime } from '../mirror-runtime';
+import { createTestSignalStrategy } from '../../../../../../test-utils/trade-signal-strategy';
+
+const createMirrorRuntime = options => createSharedRuntime({ strategy: createTestSignalStrategy(), ...options });
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 const round = value => Math.round(value * 100) / 100;

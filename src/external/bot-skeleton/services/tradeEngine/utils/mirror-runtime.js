@@ -1,12 +1,11 @@
-import { createThreeDigitMirrorState, processThreeDigitMirrorTick, resetThreeDigitMirrorWindow } from './three-digit-mirror';
 import { createMirrorContractTracker, recordMirrorSettlement, registerMirrorPurchase } from './mirror-contract-tracker';
-import { applyMirrorSettlement, createMirrorRiskState } from './mirror-risk';
 
 /** Core runtime: transport supplies ordered live ticks, a direct buy, and settlement messages. */
 export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: writeJournal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {}, strategy = null }) => {
-    const risk = strategy ? strategy.createRisk(settings) : createMirrorRiskState(settings);
+    if (!strategy) throw new Error('A trading strategy is required.');
+    const risk = strategy.createRisk(settings);
     const journal = event => writeJournal(strategy?.statistics ? { ...event, statistics: event.statistics ?? strategy.statistics(risk) } : event);
-    const detector = strategy ? strategy.createDetector() : createThreeDigitMirrorState();
+    const detector = strategy.createDetector();
     const tracker = createMirrorContractTracker();
     const signals = [];
     const waitingSignals = [];
@@ -45,8 +44,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
             const outcome = settledOutcomes.get(key);
             settledOutcomes.delete(key);
             try {
-                if (strategy) strategy.applySettlement(risk, outcome, round);
-                else applyMirrorSettlement(risk, outcome, round);
+                strategy.applySettlement(risk, outcome, round);
                 emit({ type: 'settlement', ...outcome, inARow: risk.inARow, lossCount: risk.lossCount,
                     totalLoss: risk.totalLoss, totalProfit: risk.totalProfit, nextStake: risk.stake });
                 if (risk.stopped) {
@@ -201,11 +199,11 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
 
     const tick = (digit, timestamp, executable = true, symbol = '1HZ75V') => {
         if (!enabled) return;
-        const pattern = strategy ? strategy.evaluate(detector, digit, risk, symbol, timestamp) : processThreeDigitMirrorTick(detector, digit);
+        const pattern = strategy.evaluate(detector, digit, risk, symbol, timestamp);
         if (!pattern) return;
         strategy?.recordEvaluation?.(risk);
         const signal = { ...pattern, timestamp, symbol,
-            pattern: strategy?.formatPattern ? strategy.formatPattern(pattern) : strategy ? `Digit Differs ${pattern.barrier}` : `${pattern.first}-${pattern.middle}-${pattern.third}`,
+            pattern: strategy?.formatPattern ? strategy.formatPattern(pattern) : `Digit Differs ${pattern.barrier}`,
             status: 'detected' };
         if (strategy?.statistics) signal.market = 'Volatility 75 (1s)';
         signals.push(signal);
@@ -244,6 +242,6 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
 
     return { tick, settle, stop, pauseExecution, resumeExecution,
         staleBufferedAnalysisOnly: Boolean(strategy?.staleBufferedAnalysisOnly),
-        resetWindow: symbol => strategy ? strategy.reset(detector, symbol) : resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
+        resetWindow: symbol => strategy.reset(detector, symbol), risk, tracker, signals,
         isEnabled: () => enabled, pendingBuys: () => pendingBuys, queuedSignals: () => waitingSignals.length };
 };

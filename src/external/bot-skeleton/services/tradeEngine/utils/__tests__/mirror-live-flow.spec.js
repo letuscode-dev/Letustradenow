@@ -1,4 +1,7 @@
-import { createMirrorBotSession } from '../mirror-bot-session';
+import { createMirrorBotSession as createSharedSession } from '../mirror-bot-session';
+import { createTestSignalStrategy } from '../../../../../../test-utils/trade-signal-strategy';
+
+const createMirrorBotSession = options => createSharedSession({ strategy: createTestSignalStrategy(), ...options });
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 

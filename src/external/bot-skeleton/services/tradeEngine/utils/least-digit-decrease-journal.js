@@ -1,4 +1,4 @@
-import { formatTripleHitJournal } from './triple-hit-journal';
+import { formatTradeEventJournal } from './trade-event-journal';
 
 export const formatLeastDigitDecreaseJournal = (event, currency) => {
     const label = 'Least Digit Decrease Differs';
@@ -9,7 +9,7 @@ export const formatLeastDigitDecreaseJournal = (event, currency) => {
     if (event.type === 'initial_history_ready') {
         return { message: `${label} | ${event.symbol} | Loaded ${event.count} historical ticks.`, className: 'journal__text' };
     }
-    const result = formatTripleHitJournal(event, currency);
+    const result = formatTradeEventJournal(event, currency, label);
     const symbol = event.symbol || event.signal?.symbol;
-    return { ...result, message: `${result.message.replace(/^Triple-Hit Concentration/, label)}${symbol ? ` | Market: ${symbol}` : ''}` };
+    return { ...result, message: `${result.message}${symbol ? ` | Market: ${symbol}` : ''}` };
 };

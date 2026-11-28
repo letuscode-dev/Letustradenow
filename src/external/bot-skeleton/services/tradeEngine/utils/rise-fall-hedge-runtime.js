@@ -9,7 +9,7 @@ import {
     saveHedgeHistory,
 } from './rise-fall-hedge';
 import { hedgeEntryLines, strategyBreakdownLines } from './rise-fall-hedge-entry';
-import { isRateLimitError } from './digit-hedge-pacing';
+import { isRateLimitError } from './rate-limit-error';
 
 const POLL_MS = 500;
 const SETTLE_TIMEOUT_MS = 120000;

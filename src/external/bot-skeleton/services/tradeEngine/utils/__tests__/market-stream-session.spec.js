@@ -1,5 +1,8 @@
 import { createMirrorBotSession } from '../mirror-bot-session';
-import { fourDigitMirrorStrategy, resolveMirrorMarkets } from '../four-digit-mirror';
+import { resolveMirrorMarkets } from '../volatility-markets';
+import { createTestSignalStrategy } from '../../../../../../test-utils/trade-signal-strategy';
+
+const testStrategy = createTestSignalStrategy(true);
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -31,12 +34,12 @@ const createApi = (initialTicks = {}, options = {}) => {
     return { api, emit, tick, disconnect: () => { api.connection.readyState = 3; [...closeListeners].forEach(fn => fn()); } };
 };
 
-it('buys B on the market that produced the pattern, skips busy signals, and applies confirmed recovery', async () => {
+it('buys the test signal on the market that produced it, skips busy signals, and applies confirmed recovery', async () => {
     const live = createApi();
     const journal = jest.fn();
     const display = jest.fn();
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: testStrategy,
         journal, onContract: display, onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     await session.attach();
     const a = '1HZ10V'; const b = '1HZ75V';
@@ -68,7 +71,7 @@ it('subscribes to and trades a discovered market beyond the old ten-market limit
     const live = createApi({}, { activeSymbols });
     const symbols = await resolveMirrorMarkets('ALL', live.api);
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: testStrategy,
         journal: jest.fn(), onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     await session.attach();
     expect(live.api.send.mock.calls.map(([request]) => request.ticks).filter(Boolean)).toEqual(symbols);
@@ -85,7 +88,7 @@ it('does not trade a partial market set while subscriptions are still starting',
     const live = createApi();
     const journal = jest.fn();
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols }, strategy: testStrategy,
         journal, onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     const attaching = session.attach();
     await flush();
@@ -110,7 +113,7 @@ it('applies a settlement received before its buy response before accepting the n
         ? new Promise(resolve => { confirmBuy = () => resolve({ buy: { contract_id: 1, buy_price: request.price } }); })
         : Promise.resolve({ buy: { contract_id: 2, buy_price: request.price } }) });
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: testStrategy,
         journal, onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     await session.attach();
     [1, 2, 1, 2].forEach((digit, index) => live.emit(live.tick('1HZ10V', index + 2, digit)));
@@ -132,10 +135,10 @@ it('applies a settlement received before its buy response before accepting the n
     session.stop();
 });
 
-it('detects a four-tick pattern on a standard two-second market', async () => {
+it('detects a test signal on a standard two-second market', async () => {
     const live = createApi();
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['R_10'] }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['R_10'] }, strategy: testStrategy,
         journal: jest.fn(), onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     await session.attach();
     [3, 9, 3].forEach((digit, index) => live.emit(live.tick('R_10', 3 + index * 2, digit)));
@@ -149,7 +152,7 @@ it('detects a four-tick pattern on a standard two-second market', async () => {
 it('resumes multiple markets after reconnect without replaying their subscription snapshots', async () => {
     let live = createApi();
     const session = createMirrorBotSession({ getApi: () => live.api, getAccount: () => 'A', account: 'A', currency: 'USD',
-        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: fourDigitMirrorStrategy,
+        settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ10V', '1HZ75V'] }, strategy: testStrategy,
         journal: jest.fn(), onStop: jest.fn(), round: value => Math.round(value * 100) / 100 });
     await session.attach();
     [1, 2, 1].forEach((digit, index) => live.emit(live.tick('1HZ10V', index + 2, digit)));

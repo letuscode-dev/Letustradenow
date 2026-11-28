@@ -3,14 +3,9 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
-import { resolveMirrorMarkets } from '../utils/four-digit-mirror';
+import { resolveMirrorMarkets } from '../utils/volatility-markets';
 import { leastDigitDecreaseStrategy } from '../utils/least-digit-decrease';
 import { formatLeastDigitDecreaseJournal } from '../utils/least-digit-decrease-journal';
-import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
-import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
-import { digitPercentageIncreaseStrategy } from '../utils/digit-percentage-increase';
-import { formatDigitPercentageIncreaseJournal } from '../utils/digit-percentage-increase-journal';
-import { formatTripleHitJournal } from '../utils/triple-hit-journal';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
     createAscendingRankNextState,
@@ -37,31 +32,7 @@ import {
     releaseConditionalHighLowActiveTrade,
 } from '../utils/conditional-high-low-differs';
 import { evaluateConsecutiveDigitsOver } from '../utils/consecutive-digits-over';
-import { configureHedgePacing, hedgePacingForAccount } from '../utils/digit-hedge-pacing';
-import {
-    applyHedgeLimits,
-    armImmediateRecovery,
-    deadDigitCount,
-    deadDigitsDominate,
-    evaluateQuietGap,
-    quietGapPipReady,
-    quietGapWindow,
-    hedgeDecision,
-    hedgeLimitCode,
-    hedgeMayContinue,
-    hedgeEntryPrice,
-    hedgeExitPrice,
-    hedgeNet,
-    hedgeTicksDiffer,
-    HEDGE_LIMIT_NONE,
-    HEDGE_RECOVER,
-    HEDGE_STOP,
-    isSettledContract,
-    legProfit,
-    nextHedgeStake,
-    parseDigitBarrier,
-    resolveHedgeBarriers,
-} from '../utils/digit-hedge';
+import { quietGapPipReady } from '../utils/pip-size';
 import {
     createDigitPairReturnState,
     evaluateDigitPairReturnDiffers,
@@ -70,10 +41,7 @@ import {
 import {
     analyzeDigitFrequency,
     analyzeEvenOddParity,
-    clampDiffersAbsence,
     clampEvenOddWindow,
-    differsHotSignalFromCounts,
-    rollDiffersHotDigits,
 } from '../utils/digit-frequency-analysis';
 import {
     clampDigitPercentageWindow,
@@ -125,7 +93,7 @@ import {
     syncFddSettings,
 } from '../utils/first-decimal-digit-differ';
 import { evaluateOverZeroGapFilter } from '../utils/gap-filter';
-import { validOverUnderSwitchSettings } from '../utils/over-under-loss-switch';
+import { validOverUnderSwitchSettings } from '../utils/over-under-validation';
 import { createDetails, getLastDigit } from '../utils/helpers';
 import {
     applyHybridMultiScanSettlement,
@@ -290,7 +258,7 @@ import {
     onlyUpsDownsLimitCode,
     resolveOnlyUpsDownsCall,
 } from '../utils/only-ups-downs';
-import { notifyHedge, pollUntilSettled, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
+import { notifyHedge, settleCurrentHedge } from '../utils/rise-fall-hedge-runtime';
 import {
     applySequentialDiffersTradeResult,
     armSequentialDiffersPrediction,
@@ -473,12 +441,6 @@ const getBotInterface = tradeEngine => {
                 if (strategy === leastDigitDecreaseStrategy) {
                     const notice = formatLeastDigitDecreaseJournal(event, currency);
                     notifyHedge(notice.message, notice.className);
-                } else if (strategy === digitPercentageIncreaseStrategy) {
-                    const notice = formatDigitPercentageIncreaseJournal(event, currency);
-                    notifyHedge(notice.message, notice.className);
-                } else if (strategy === tripleHitConcentrationStrategy) {
-                    const notice = formatTripleHitJournal(event, currency);
-                    notifyHedge(notice.message, notice.className);
                 } else notifyHedge(`${label} | ${JSON.stringify(event)}`, 'journal__text');
             },
             onContract: contract => globalObserver.emit('mirror.contract', contract),
@@ -494,13 +456,6 @@ const getBotInterface = tradeEngine => {
         globalObserver.register('api.authorize', authorized);
         if (strategy === leastDigitDecreaseStrategy) {
             notifyHedge(`Least Digit Decrease Differs | STARTING — 1,000-tick rolling window | Markets: ${settings.symbols.join(', ')} | Stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency}.`);
-        }
-        if (strategy === tripleHitConcentrationStrategy) {
-            notifyHedge(`Triple-Hit Concentration | STARTING — Volatility 75 (1s), 1HZ75V | Initial stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Profit threshold: ${settings.profitThreshold} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier} | Waiting for 10 completed ticks.`);
-        }
-        if (strategy === digitPercentageIncreaseStrategy) {
-            notifyHedge(`Digit Percentage Increase | STARTING — Volatility 75 (1s), 1HZ75V | Window: 1,000 ticks | Minimum increase: ${settings.minimumIncrease} percentage points | Stake: ${settings.stake} ${currency} | Max consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency} | Stop loss: ${settings.stopLoss} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier}.`);
-            if (Number(settings.minimumIncrease) > 0.1) notifyHedge('Digit Percentage Increase | The maximum increase between consecutive 1,000-tick windows is 0.1 percentage point; this threshold will not produce signals.', 'journal__text--warn');
         }
         await session.attach();
         await session.finished;
@@ -681,18 +636,6 @@ const getBotInterface = tradeEngine => {
             return runTickDigitBot({ settings: { stake, maxLosses, profitThreshold, symbols }, strategy: leastDigitDecreaseStrategy,
                 label: 'Least Digit Decrease Differs' });
         },
-        runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
-            settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,
-            label: 'Digit Differs', seedHistory: false,
-        }),
-        runTripleHitConcentrationBot: (stake, maxLosses, profitThreshold, recoveryMultiplier) => runTickDigitBot({
-            settings: { stake, maxLosses, profitThreshold, recoveryMultiplier }, strategy: tripleHitConcentrationStrategy,
-            label: 'Triple-Hit Concentration', seedHistory: false,
-        }),
-        runDigitPercentageIncreaseBot: (minimumIncrease, stake, maxLosses, profitThreshold, stopLoss, recoveryMultiplier) => runTickDigitBot({
-            settings: { minimumIncrease, stake, maxLosses, profitThreshold, stopLoss, recoveryMultiplier },
-            strategy: digitPercentageIncreaseStrategy, label: 'Digit Percentage Increase', seedHistory: false,
-        }),
         roundOverUnderSwitchValue: value => getRoundedNumber(Number(value), tradeEngine.tradeOptions?.currency),
         validateOverUnderSwitchSettings: (over, under, stake, multiplier, target) => {
             if (validOverUnderSwitchSettings(over, under, stake, multiplier, target)) return true;
@@ -1398,231 +1341,6 @@ const getBotInterface = tradeEngine => {
             return 1;
         },
         purchaseRiseFallHedge: () => tradeEngine.purchaseRiseFallHedge(),
-        purchaseDigitHedge: () => tradeEngine.purchaseDigitHedge(),
-        /**
-         * Waits for both hedge legs to settle and returns their combined profit.
-         * Also stores the stake decision: 1 reset, -1 both lost, 0 stop.
-         */
-        settleDigitHedge: async () => {
-            const hedge = tradeEngine.digitHedge;
-            tradeEngine.digitHedgeResultId = (tradeEngine.digitHedgeResultId || 0) + 1;
-            const finish = (decision, net, message, className) => {
-                tradeEngine.digitHedgeDecision = decision;
-                if (message) notifyHedge(message, className);
-                return net;
-            };
-            if (!hedge) {
-                tradeEngine.digitHedgeLive = false;
-                return finish(HEDGE_STOP, 0, 'No Over/Under hedge is open — stopped.', 'journal__text--error');
-            }
-
-            const tracked = tradeEngine.data?.contract;
-            const over_matches =
-                tracked &&
-                hedge.over_contract_id &&
-                String(tracked.contract_id) === String(hedge.over_contract_id) &&
-                isSettledContract(tracked);
-            const over_poc = over_matches
-                ? tracked
-                : hedge.over_contract_id
-                  ? await pollUntilSettled(hedge.over_contract_id, 120000, 3000)
-                  : null;
-            const under_poc = hedge.under_contract_id ? await pollUntilSettled(hedge.under_contract_id, 120000, 3000) : null;
-            if (isSettledContract(under_poc)) {
-                const under_sell = under_poc.sell_price == null || under_poc.sell_price === '' ? NaN : Number(under_poc.sell_price);
-                const under_buy = under_poc.buy_price == null || under_poc.buy_price === '' ? NaN : Number(under_poc.buy_price);
-                if (Number.isFinite(under_sell) && Number.isFinite(under_buy)) {
-                    emitContract(under_poc);
-                    if (typeof tradeEngine.updateTotals === 'function') {
-                        tradeEngine.updateTotals(under_poc);
-                    }
-                }
-            }
-
-            const legs = { over: over_poc, under: under_poc, under_bought: Boolean(hedge.under_bought) };
-            if (isSettledContract(over_poc) && isSettledContract(under_poc) && hedgeTicksDiffer(over_poc, under_poc)) {
-                tradeEngine.digitHedgeLive = false;
-                const broken = hedgeNet(legs);
-                return finish(
-                    HEDGE_STOP,
-                    broken ?? 0,
-                    `Hedge stopped. Over and Under did not share one entry and one exit (Over ${hedgeEntryPrice(over_poc) ?? '—'} → ${hedgeExitPrice(over_poc) ?? '—'}, Under ${hedgeEntryPrice(under_poc) ?? '—'} → ${hedgeExitPrice(under_poc) ?? '—'}). Stake was not changed.`,
-                    'journal__text--error'
-                );
-            }
-            const decision = hedgeDecision(legs);
-            const net = hedgeNet(legs);
-            if (decision === HEDGE_STOP || net === null) {
-                if (isSettledContract(over_poc) && isSettledContract(under_poc)) {
-                    tradeEngine.digitHedgeLive = false;
-                }
-                return finish(
-                    HEDGE_STOP,
-                    0,
-                    'Hedge did not finish on both sides — stopped so the stake is not changed.',
-                    'journal__text--error'
-                );
-            }
-
-            const over_profit = legProfit(over_poc);
-            const under_profit = legProfit(under_poc);
-            const label = decision === HEDGE_STOP ? 'STOP' : over_profit < 0 && under_profit < 0 ? 'BOTH LOST' : 'HEDGE';
-            const className = net < 0 ? 'journal__text--error' : 'journal__text--success';
-            tradeEngine.digitHedgeLive = false;
-            if (hedge.account) api_base.digitHedgeLocks?.delete(hedge.account);
-            return finish(
-                decision,
-                net,
-                `HEDGE ${label} | Over ${over_profit} | Under ${under_profit} | net ${net}`,
-                className
-            );
-        },
-        /** 1 = return to the set stake, -1 = both sides lost, 0 = do not trade again. */
-        digitHedgeDecision: () => tradeEngine.digitHedgeDecision ?? 0,
-        /**
-         * Next stake from the stake that was actually bought. A both-lost hedge
-         * is bought × multiplier, rounded to the cent. One winning side returns
-         * the set stake. A second call does not multiply again.
-         */
-        digitHedgeNextStake: (current, initial, multiplier, leg = 'over') => {
-            const decision = tradeEngine.digitHedgeDecision ?? HEDGE_STOP;
-            const side = String(leg).toLowerCase() === 'under' ? 'under' : 'over';
-            const plan = {
-                decision,
-                bought: tradeEngine.digitHedge?.[`${side}_stake`] ?? tradeEngine.digitHedge?.stake,
-                current,
-                initial,
-                multiplier,
-            };
-            const next = nextHedgeStake(plan);
-            tradeEngine.digitHedgeStakePlan = { ...plan, next };
-            tradeEngine.digitHedgeStakePlans = {
-                ...(tradeEngine.digitHedgeStakePlans || {}),
-                [side]: { ...plan, next },
-            };
-            return next;
-        },
-        /** True only when the hedge finished and the next stake matches the rule. */
-        digitHedgeContinues: () => {
-            const plans = Object.values(tradeEngine.digitHedgeStakePlans || {});
-            return plans.length > 1
-                ? plans.every(hedgeMayContinue)
-                : hedgeMayContinue(tradeEngine.digitHedgeStakePlan);
-        },
-        /**
-         * Adds the combined Over + Under profit to the running total.
-         * Returns that total. A second call for the same settlement does not add again.
-         */
-        digitHedgeBookProfit: (total, profit, takeProfit, stopLoss) => {
-            const id = tradeEngine.digitHedgeResultId ?? 0;
-            if (tradeEngine.digitHedgeBookedId === id && tradeEngine.digitHedgeBooked) {
-                return tradeEngine.digitHedgeBooked.total;
-            }
-            const booked = applyHedgeLimits({ total, profit, takeProfit, stopLoss });
-            tradeEngine.digitHedgeBooked = booked;
-            tradeEngine.digitHedgeBookedId = id;
-            tradeEngine.digitHedgeLimitAction = booked.action;
-            if (booked.action !== HEDGE_LIMIT_NONE) {
-                tradeEngine.digitHedgeHalt = true;
-                tradeEngine.digitHedgeImmediate = false;
-                tradeEngine.digitHedgeImmediateUsed = false;
-            }
-            return booked.total;
-        },
-        /** 1 = take profit reached, -1 = stop loss reached, 0 = trade again is allowed. */
-        digitHedgeLimit: () => hedgeLimitCode(tradeEngine.digitHedgeLimitAction),
-        /** Saves the Over and Under digits before the hedge is bought. */
-        digitHedgeSetBarriers: (over, under) => {
-            tradeEngine.digitHedgeInvalidBarriers = parseDigitBarrier(over) === null || parseDigitBarrier(under) === null;
-            const barriers = resolveHedgeBarriers({
-                over,
-                under,
-                fallbackOver: tradeEngine.digitHedgeOverBarrier,
-                fallbackUnder: tradeEngine.digitHedgeUnderBarrier,
-            });
-            tradeEngine.digitHedgeOverBarrier = barriers.over;
-            tradeEngine.digitHedgeUnderBarrier = barriers.under;
-            return barriers.over;
-        },
-        /** Validate positive account-currency limits before submitting either leg. */
-        digitHedgeSetLimits: (takeProfit, stopLoss) => {
-            const target = Number(takeProfit);
-            const loss = Number(stopLoss);
-            tradeEngine.digitHedgeInvalidLimits = !Number.isFinite(target) || target <= 0 || !Number.isFinite(loss) || loss <= 0;
-            return tradeEngine.digitHedgeInvalidLimits ? 0 : 1;
-        },
-        digitHedgeSetPacing: (runs, waitSeconds) => {
-            const account = api_base.account_info?.loginid || '__unknown_account__';
-            return configureHedgePacing(hedgePacingForAccount(api_base, account), runs, waitSeconds) ? 1 : 0;
-        },
-        /** Stores the independent stake for each leg immediately before purchase. */
-        digitHedgeSetStakes: (over, under) => {
-            tradeEngine.digitHedgeOverStake = Number(over);
-            tradeEngine.digitHedgeUnderStake = Number(under);
-            return Number.isFinite(tradeEngine.digitHedgeOverStake) && tradeEngine.digitHedgeOverStake > 0 &&
-                Number.isFinite(tradeEngine.digitHedgeUnderStake) && tradeEngine.digitHedgeUnderStake > 0
-                ? 1
-                : 0;
-        },
-        /**
-         * 1 when the digits that lose both sides dominate the last `window`
-         * cached ticks. Over 5 and Under 4 lose on 4 and 5. Reads the live
-         * cache only, so it does not wait on a history request.
-         */
-        digitHedgeSignal: (window, over, under) => {
-            const barriers = resolveHedgeBarriers({
-                over,
-                under,
-                fallbackOver: tradeEngine.digitHedgeOverBarrier ?? tradeEngine.tradeOptions?.prediction,
-                fallbackUnder: tradeEngine.digitHedgeUnderBarrier,
-            });
-            const over_barrier = barriers.over;
-            const under_barrier = barriers.under;
-            tradeEngine.digitHedgeOverBarrier = over_barrier;
-            tradeEngine.digitHedgeUnderBarrier = under_barrier;
-            let digits = [];
-            try {
-                digits = tradeEngine.getAvailableLastDigitList?.(window) || [];
-            } catch {
-                digits = [];
-            }
-            tradeEngine.digitHedgeDeadCount = deadDigitCount(digits, window, over_barrier, under_barrier);
-            return deadDigitsDominate(digits, window, over_barrier, under_barrier) ? 1 : 0;
-        },
-        /** Count stored by the last signal check. */
-        digitHedgeDeadCount: () => tradeEngine.digitHedgeDeadCount ?? 0,
-        /** 1 when the newest ticks contain no 4 or 5. Default range is 1. */
-        digitHedgeQuietSignal: range => {
-            const window = quietGapWindow(range);
-            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
-                const line = 'Quiet gap | waiting for the market digit size | NO TRADE';
-                if (tradeEngine.quietGapWaitLine !== line) {
-                    tradeEngine.quietGapWaitLine = line;
-                    notifyHedge(line, 'journal__text');
-                }
-                return 0;
-            }
-            tradeEngine.quietGapWaitLine = '';
-            let digits = [];
-            try {
-                digits = tradeEngine.getAvailableLastDigitList?.(window) || [];
-            } catch {
-                digits = [];
-            }
-            const report = evaluateQuietGap(digits, window);
-            const detail = report.ready
-                ? `last digit ${report.last} | 4 or 5 x ${report.gapCount}`
-                : `have ${Math.min(report.have, report.window)} of ${report.window}`;
-            notifyHedge(
-                `Quiet gap | last ${report.window} | ${detail} | ${report.trade ? 'PASS' : 'NO TRADE'}`,
-                report.trade ? 'journal__text--success' : 'journal__text'
-            );
-            if (report.trade) {
-                tradeEngine.digitHedgeOverBarrier = 5;
-                tradeEngine.digitHedgeUnderBarrier = 4;
-            }
-            return report.trade ? 1 : 0;
-        },
         /**
          * 1 = Only Ups, -1 = Only Downs, 0 = no trade.
          * Journals the four-digit check once per tick. The same tick cannot trade twice.
@@ -1662,21 +1380,6 @@ const getBotInterface = tradeEngine => {
         /** 1 = take profit, -1 = too many losses in a row, 0 = keep trading. */
         onlyUpsDownsLimit: (total, takeProfit, losses, maxLosses) =>
             onlyUpsDownsLimitCode({ total, takeProfit, losses, maxLosses }),
-        /** 1 when a both-sides loss is waiting to buy again without a new digit check. */
-        digitHedgeSkipAnalysis: () => (tradeEngine.digitHedgeImmediate ? 1 : 0),
-        /**
-         * Arms an immediate Over 5 + Under 4 buy when both sides lost and the
-         * option is on. A win, a stop, or option 0 clears it.
-         */
-        digitHedgeArmRecovery: enabled => {
-            const armed = armImmediateRecovery({
-                decision: tradeEngine.digitHedgeDecision ?? HEDGE_STOP,
-                enabled,
-            });
-            tradeEngine.digitHedgeImmediate = armed;
-            tradeEngine.digitHedgeImmediateUsed = false;
-            return armed ? 1 : 0;
-        },
         /** Last-Tick Price Digit Differ — digit before the decimal of the latest tick (0 if unavailable). */
         getLastTickDigitBarrier: () => {
             const symbol = tradeEngine.tradeOptions?.symbol || tradeEngine.symbol;
@@ -2784,156 +2487,6 @@ const getBotInterface = tradeEngine => {
         evenOddParityDominant: () => {
             const signal = tradeEngine.evenOddParitySignal;
             return signal && signal.ready ? signal.dominant : -1;
-        },
-        /**
-         * Over/Under frequency scan of the last N ticks (default 1,000).
-         * Same digit ranking as the Even/Odd scan: hottest digit, and the least
-         * frequent digit in that even or odd group. An even hottest digit trades
-         * Over; an odd hottest digit trades Under. Returns 1 when the window is full.
-         */
-        scanOverUnderFrequency: sample_size => {
-            const window_size = clampEvenOddWindow(sample_size);
-            const digits = tradeEngine.getAvailableLastDigitList
-                ? tradeEngine.getAvailableLastDigitList(window_size)
-                : tradeEngine.getCachedLastDigitList(window_size);
-
-            if (
-                (!digits || digits.length < window_size) &&
-                tradeEngine.ensureTickHistory &&
-                !tradeEngine._overUnderFreqFillPending
-            ) {
-                tradeEngine._overUnderFreqFillPending = true;
-                Promise.resolve(tradeEngine.ensureTickHistory(window_size))
-                    .catch(() => {})
-                    .finally(() => {
-                        tradeEngine._overUnderFreqFillPending = false;
-                    });
-            }
-
-            // A missing pip size rounds every quote. Do not lock Over 2 / Under 7 on that.
-            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
-                tradeEngine.overUnderFrequencySignal = { ready: false, dominant: -1, entry: -1, side: -1 };
-                return 0;
-            }
-
-            const result = analyzeEvenOddParity(digits || [], window_size);
-            tradeEngine.overUnderFrequencySignal = result;
-            return result.ready ? 1 : 0;
-        },
-        overUnderFrequencyEntry: () => {
-            const signal = tradeEngine.overUnderFrequencySignal;
-            return signal && signal.ready ? signal.entry : -1;
-        },
-        overUnderFrequencyDominant: () => {
-            const signal = tradeEngine.overUnderFrequencySignal;
-            return signal && signal.ready ? signal.dominant : -1;
-        },
-        /**
-         * Differs scan of the last N ticks (default 1,000). Requests that history
-         * once when the live cache is short. After the window is full, each new
-         * tick updates the counts by one digit. Returns 1 when the most frequent
-         * digit is absent from the newest `absent_ticks` (default 2). Sync, so
-         * the check does not wait a turn. A ready signal writes the barrier onto
-         * the current trade options for the purchase that follows.
-         */
-        scanDiffersHotAbsence: (sample_size, absent_ticks) => {
-            const window_size = clampEvenOddWindow(sample_size);
-            let gap = clampDiffersAbsence(absent_ticks);
-            if (gap > window_size) {
-                gap = window_size;
-            }
-
-            const not_ready = { ready: false, digit: -1, percent: 0 };
-            const ticks_service = tradeEngine.$scope && tradeEngine.$scope.ticksService;
-            const ticks =
-                ticks_service && tradeEngine.symbol ? ticks_service.getCachedTicks(tradeEngine.symbol) || [] : [];
-
-            if (ticks.length < window_size) {
-                if (tradeEngine.ensureTickHistory && !tradeEngine._differsHotFillPending) {
-                    tradeEngine._differsHotFillPending = true;
-                    Promise.resolve(tradeEngine.ensureTickHistory(window_size))
-                        .catch(() => {})
-                        .finally(() => {
-                            tradeEngine._differsHotFillPending = false;
-                        });
-                }
-                tradeEngine.differsHotCache = null;
-                tradeEngine.differsHotSignal = not_ready;
-                return 0;
-            }
-
-            if (!quietGapPipReady(tradeEngine.getPipSize?.())) {
-                tradeEngine.differsHotCache = null;
-                tradeEngine.differsHotSignal = not_ready;
-                return 0;
-            }
-
-            const newest = ticks[ticks.length - 1];
-            const tip_epoch = newest && typeof newest === 'object' && newest.epoch != null ? newest.epoch : null;
-            const previous = ticks.length > 1 ? ticks[ticks.length - 2] : null;
-            const previous_epoch =
-                previous && typeof previous === 'object' && previous.epoch != null ? previous.epoch : null;
-            let cache = tradeEngine.differsHotCache;
-            let fresh = false;
-
-            if (
-                cache &&
-                cache.window_size === window_size &&
-                cache.digits &&
-                cache.digits.length === window_size &&
-                cache.counts &&
-                tip_epoch != null
-            ) {
-                if (cache.tip_epoch === tip_epoch) {
-                    fresh = true;
-                } else if (previous_epoch != null && cache.tip_epoch === previous_epoch) {
-                    const incoming_list = tradeEngine.getLastDigitsFromList([newest]);
-                    const incoming = incoming_list && incoming_list.length ? Number(incoming_list[0]) : NaN;
-                    if (rollDiffersHotDigits(cache.digits, cache.counts, incoming)) {
-                        cache.tip_epoch = tip_epoch;
-                        fresh = true;
-                    }
-                }
-            }
-
-            // A changed window, a jumped tick, or a bad digit rebuilds the newest
-            // window once. A single new tick only drops the oldest digit.
-            if (!fresh) {
-                const built = tradeEngine.getLastDigitsFromList(ticks.slice(-window_size));
-                if (!built || built.length < window_size) {
-                    tradeEngine.differsHotCache = null;
-                    tradeEngine.differsHotSignal = not_ready;
-                    return 0;
-                }
-                const counts = Array(10).fill(0);
-                for (let i = 0; i < built.length; i++) {
-                    const digit = built[i];
-                    if (!Number.isInteger(digit) || digit < 0 || digit > 9) {
-                        tradeEngine.differsHotCache = null;
-                        tradeEngine.differsHotSignal = not_ready;
-                        return 0;
-                    }
-                    counts[digit] += 1;
-                }
-                cache = {
-                    window_size,
-                    tip_epoch,
-                    digits: built,
-                    counts,
-                };
-                tradeEngine.differsHotCache = cache;
-            }
-
-            const result = differsHotSignalFromCounts(cache.digits, cache.counts, gap);
-            tradeEngine.differsHotSignal = result;
-            if (result.ready && tradeEngine.tradeOptions) {
-                tradeEngine.tradeOptions.prediction = result.digit;
-            }
-            return result.ready ? 1 : 0;
-        },
-        differsHotDigit: () => {
-            const signal = tradeEngine.differsHotSignal;
-            return signal && signal.ready ? signal.digit : -1;
         },
         /**
          * Over / Under % of last N digits — returns a finite number 0–100.

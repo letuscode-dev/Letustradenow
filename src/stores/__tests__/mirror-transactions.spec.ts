@@ -3,7 +3,8 @@ import { observer as botObserver } from '@/external/bot-skeleton/utils/observer'
 import { getStoredItemsByKey } from '@/utils/session-storage';
 import * as sessionStorageUtils from '@/utils/session-storage';
 import { createMirrorBotSession } from '@/external/bot-skeleton/services/tradeEngine/utils/mirror-bot-session';
-import { tripleHitConcentrationStrategy } from '@/external/bot-skeleton/services/tradeEngine/utils/triple-hit-concentration';
+import { leastDigitDecreaseStrategy } from '@/external/bot-skeleton/services/tradeEngine/utils/least-digit-decrease';
+import { createTestSignalStrategy } from '../../test-utils/trade-signal-strategy';
 import TransactionsStore from '../transactions-store';
 
 jest.mock('@/components/shared', () => ({
@@ -109,7 +110,7 @@ describe('mirror contracts in Transactions', () => {
             }),
         };
         const session = createMirrorBotSession({ getApi: () => api, getAccount: () => 'A', account: 'A', currency: 'USD',
-            settings: { stake: 0.62 }, journal: jest.fn(), onStop: jest.fn(), round: (value: number) => value,
+            settings: { stake: 0.62 }, strategy: createTestSignalStrategy(), journal: jest.fn(), onStop: jest.fn(), round: (value: number) => value,
             onContract: (contract: any) => botObserver.emit('mirror.contract', contract) });
         await session.attach();
         for (const [epoch, quote] of [[2, 100.04], [3, 100.07]]) {
@@ -130,7 +131,7 @@ describe('mirror contracts in Transactions', () => {
         store.disposeMirrorListener();
     });
 
-    it('shows a confirmed Triple-Hit purchase immediately and updates its final result', async () => {
+    it('shows a confirmed least-digit purchase immediately and updates its final result', async () => {
         const client = observable({ loginid: 'A' });
         const store = new TransactionsStore({ run_panel: { run_id: 'run-1' } } as any, { client } as any);
         let listener: (message: any) => void = () => {};
@@ -142,18 +143,23 @@ describe('mirror contracts in Transactions', () => {
                 listener = callback; return { unsubscribe: jest.fn() };
             } }),
             send: jest.fn(async (request: any) => {
-                if (request.ticks) { const first = tick(1, 0); listener({ data: first }); return first; }
+                if (request.ticks) { const first = tick(1001, 9); listener({ data: first }); return first; }
+                if (request.ticks_history) {
+                    const digits = [...Array(81).fill(0), ...Array(80).fill(1),
+                        ...Array.from({ length: 7 }, (_, i) => Array(105).fill(i + 2)).flat(), ...Array(104).fill(9)];
+                    return { pip_size: 2, history: { times: digits.map((_, i) => i + 1), prices: digits.map(digit => 100 + digit / 100) } };
+                }
                 if (request.proposal_open_contract && !request.contract_id) return { subscription: { id: 'all' } };
                 if (request.buy) return { buy: { contract_id: 777, buy_price: request.price } };
                 return {};
             }),
         };
         const session = createMirrorBotSession({ getApi: () => api, getAccount: () => 'A', account: 'A', currency: 'USD',
-            settings: { stake: 5, maxLosses: 2, profitThreshold: 10, recoveryMultiplier: 100 / 9.6 },
-            strategy: tripleHitConcentrationStrategy, journal: jest.fn(), onStop: jest.fn(), round: (value: number) => value,
+            settings: { stake: 5, maxLosses: 2, profitThreshold: 10, symbols: ['1HZ75V'] },
+            strategy: leastDigitDecreaseStrategy, journal: jest.fn(), onStop: jest.fn(), round: (value: number) => value,
             onContract: (contract: any) => botObserver.emit('mirror.contract', contract) });
         await session.attach();
-        [7, 0, 2, 0, 9, 1, 0, 6, 0].forEach((digit, index) => listener({ data: tick(index + 2, digit) }));
+        listener({ data: tick(1002, 9) });
         await new Promise(resolve => setTimeout(resolve, 0));
         expect(store.transactions).toHaveLength(1);
         expect(store.transactions[0].data).toMatchObject({ contract_id: 777, contract_type: 'DIGITDIFF',

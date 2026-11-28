@@ -5,7 +5,7 @@ import { localize } from '@deriv-com/translations';
 import { getLast } from '../../../utils/binary-utils';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
-import { quietGapPipReady } from '../utils/digit-hedge';
+import { quietGapPipReady } from '../utils/pip-size';
 import { getDirection, getLastDigit } from '../utils/helpers';
 import { expectPositiveInteger } from '../utils/sanitize';
 import * as constants from './state/constants';

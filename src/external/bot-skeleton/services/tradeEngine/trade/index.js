@@ -5,7 +5,6 @@ import { createError } from '../../../utils/error';
 import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { checkBlocksForProposalRequest, doUntilDone } from '../utils/helpers';
-import { HEDGE_LIMIT_NONE } from '../utils/digit-hedge';
 import { expectInitArg } from '../utils/sanitize';
 import { proposalsReady, start } from './state/actions';
 import rootReducer from './state/reducers';
@@ -17,7 +16,6 @@ import Sell from './Sell';
 import Ticks from './Ticks';
 import Total from './Total';
 import { resetWatchTick, settledBeforeReentry, watchBefore, watchDuring } from './watch-scope';
-import { BEFORE_PURCHASE } from './state/constants';
 
 export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Proposal(Ticks(Total(class {}))))))) {
     constructor($scope) {
@@ -40,20 +38,8 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
 
         this.initArgs = args;
         this.options = options;
-        this.digitHedgeHalt = false;
-        this.digitHedgeLimitAction = HEDGE_LIMIT_NONE;
-        this.digitHedgeImmediate = false;
-        this.digitHedgeImmediateUsed = false;
         this.catchEveryTick = false;
         resetWatchTick();
-        this.digitHedgeOverBarrier = 5;
-        this.digitHedgeUnderBarrier = 4;
-        this.digitHedgeInvalidBarriers = false;
-        this.digitHedgeInvalidLimits = false;
-        this.digitHedgeOverStake = undefined;
-        this.digitHedgeUnderStake = undefined;
-        this.digitHedgeStakePlan = null;
-        this.digitHedgeStakePlans = null;
         this.onlyUpsDownsTip = '';
         this.onlyUpsDownsTradedTip = '';
         this.startPromise = this.loginAndGetBalance(token);
@@ -127,11 +113,6 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
             const { scope } = this.store.getState();
             if (settledBeforeReentry(scope, this.isSold)) {
                 return Promise.resolve(false);
-            }
-            // A both-sides loss can buy again without waiting for the next tick.
-            if (scope === BEFORE_PURCHASE && this.digitHedgeImmediate && !this.digitHedgeImmediateUsed && !this.digitHedgeHalt) {
-                this.digitHedgeImmediateUsed = true;
-                return Promise.resolve(true);
             }
             return watchBefore(this.store, this.catchEveryTick);
         }

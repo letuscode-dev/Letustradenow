@@ -9,18 +9,9 @@ const time = epoch => {
 const statistics = stats => stats ? ` | Trades: ${stats.executedTrades}; wins: ${stats.wins}; losses: ${stats.losses}; win rate: ${Number(stats.winRate || 0).toFixed(1)}%; signals: ${stats.totalSignals}; skipped: ${stats.skippedSignals}; unconfirmed: ${stats.unconfirmedPurchases}; max consecutive losses: ${stats.maxConsecutiveLosses}` : '';
 
 /** Format the structured audit events without implying that an unconfirmed buy succeeded. */
-export const formatTripleHitJournal = (event, currency) => {
-    const prefix = 'Triple-Hit Concentration';
+export const formatTradeEventJournal = (event, currency, prefix) => {
     const stats = statistics(event.statistics);
     switch (event.type) {
-        case 'signal': {
-            const digits = Array.isArray(event.digits) ? event.digits.join(', ') : 'unavailable';
-            const counts = Array.isArray(event.frequencies) ? event.frequencies.map((count, digit) => `${digit}:${count}`).join(' ') : 'unavailable';
-            const leader = event.dominantDigit == null ? 'none (tie)' : `${event.dominantDigit} (${event.dominantCount} times)`;
-            const result = event.status === 'submitted' ? `BUY REQUEST SENT — Digit Differs ${event.barrier}, stake ${amount(event.stake, currency)}; awaiting confirmation`
-                : event.entryPassed ? `SIGNAL SKIPPED — ${value(event.reason)}` : `NO TRADE — ${value(event.reason)}`;
-            return { message: `${prefix} | ${result} | Volatility 75 (1s), 1HZ75V | Tick: ${time(event.timestamp)} | Last ${event.digits?.length ?? 0} digits: ${digits} | Counts: ${counts} | Leader: ${leader} | Latest: ${value(event.latestDigit)} | Entry conditions: ${event.entryPassed ? 'passed' : 'not met'}${stats}`, className: 'journal__text' };
-        }
         case 'purchase':
             return { message: `${prefix} | CONTRACT BOUGHT — confirmed by Deriv | Contract ID: ${value(event.contractId)} | Digit Differs barrier: ${value(event.barrier)} | Stake: ${amount(event.stake, currency)} | Duration: ${value(event.duration)} tick | Entry time: ${time(event.entryTimestamp)} | See Transactions for the contract.${stats}`, className: 'journal__text--success' };
         case 'settlement': {

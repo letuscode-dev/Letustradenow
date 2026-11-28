@@ -143,21 +143,6 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
-            'runFixedDigitDiffersBot',
-            createAsync(js_interpreter, bot_interface.runFixedDigitDiffersBot)
-        );
-        js_interpreter.setProperty(
-            pseudo_bot_interface,
-            'runTripleHitConcentrationBot',
-            createAsync(js_interpreter, bot_interface.runTripleHitConcentrationBot)
-        );
-        js_interpreter.setProperty(
-            pseudo_bot_interface,
-            'runDigitPercentageIncreaseBot',
-            createAsync(js_interpreter, bot_interface.runDigitPercentageIncreaseBot)
-        );
-        js_interpreter.setProperty(
-            pseudo_bot_interface,
             'purchaseOverrideContractType',
             createAsync(js_interpreter, bot_interface.purchaseOverrideContractType)
         );
@@ -193,16 +178,6 @@ const Interpreter = () => {
         );
         js_interpreter.setProperty(
             pseudo_bot_interface,
-            'purchaseDigitHedge',
-            createAsync(js_interpreter, bot_interface.purchaseDigitHedge)
-        );
-        js_interpreter.setProperty(
-            pseudo_bot_interface,
-            'settleDigitHedge',
-            createAsync(js_interpreter, bot_interface.settleDigitHedge)
-        );
-        js_interpreter.setProperty(
-            pseudo_bot_interface,
             'sellAtMarket',
             createAsync(js_interpreter, bot_interface.sellAtMarket)
         );
@@ -224,22 +199,6 @@ const Interpreter = () => {
                 pseudo_bot_interface,
                 'lastDigitsAllOdd',
                 js_interpreter.nativeToPseudo(bot_interface.lastDigitsAllOdd)
-            );
-        }
-        // Hot-digit Differs recounts the requested window on the current tick.
-        // An async wrap would pause the interpreter and the next tick could pass.
-        if (typeof bot_interface.scanDiffersHotAbsence === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'scanDiffersHotAbsence',
-                js_interpreter.nativeToPseudo(bot_interface.scanDiffersHotAbsence)
-            );
-        }
-        if (typeof bot_interface.differsHotDigit === 'function') {
-            js_interpreter.setProperty(
-                pseudo_bot_interface,
-                'differsHotDigit',
-                js_interpreter.nativeToPseudo(bot_interface.differsHotDigit)
             );
         }
         if (typeof bot_interface.evaluateColdDigit === 'function') {

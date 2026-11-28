@@ -15,7 +15,7 @@ const INIT = chain([
 ]);
 
 /** Runtime processes live ticks and manages all confirmed contracts independently. */
-export const THREE_DIGIT_MIRROR_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+export const LEAST_DIGIT_DECREASE_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>${VARIABLES.map(([id, label]) => `<variable id="${id}">${label}</variable>`).join('')}</variables>
   <block type="trade_definition" id="mirror_trade_def" deletable="false" collapsed="false" x="0" y="60">
     <statement name="TRADE_OPTIONS">

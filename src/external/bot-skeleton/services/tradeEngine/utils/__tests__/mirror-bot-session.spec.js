@@ -1,5 +1,8 @@
-import { createMirrorBotSession } from '../mirror-bot-session';
+import { createMirrorBotSession as createSharedSession } from '../mirror-bot-session';
 import { createMirrorDerivStream } from '../mirror-deriv-stream';
+import { createTestSignalStrategy } from '../../../../../../test-utils/trade-signal-strategy';
+
+const createMirrorBotSession = options => createSharedSession({ strategy: createTestSignalStrategy(), ...options });
 
 jest.mock('../mirror-deriv-stream', () => ({
     createMirrorDerivStream: jest.fn(),

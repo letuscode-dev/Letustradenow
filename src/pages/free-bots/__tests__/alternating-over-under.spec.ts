@@ -1,5 +1,5 @@
 import { ALTERNATING_OVER_UNDER_XML } from '../bots/alternating-over-under';
-import { validOverUnderSwitchSettings } from '../../../external/bot-skeleton/services/tradeEngine/utils/over-under-loss-switch';
+import { validOverUnderSwitchSettings } from '../../../external/bot-skeleton/services/tradeEngine/utils/over-under-validation';
 
 const documentForBot = () => new DOMParser().parseFromString(ALTERNATING_OVER_UNDER_XML, 'text/xml');
 const childBlock = (parent: Element | null, selector: string) =>

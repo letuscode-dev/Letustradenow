@@ -19,19 +19,10 @@ describe('Over/Under switch workspace', () => {
         expect(hasAllRequiredBlocks()).toBe(true);
     });
 
-    it('recognizes the fixed prediction Digit Differs purchase inside purchase conditions', () => {
+    it('recognizes the least-digit bot inside purchase conditions', () => {
         const blocks = [
             { type: 'trade_definition_tradeoptions' }, { type: 'trade_definition' }, { type: 'before_purchase' },
-            { type: 'fixed_digit_differs_run', isDescendantOf: type => type === 'before_purchase' },
-        ];
-        window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
-        expect(hasAllRequiredBlocks()).toBe(true);
-    });
-
-    it('recognizes the Triple-Hit Concentration purchase inside purchase conditions', () => {
-        const blocks = [
-            { type: 'trade_definition_tradeoptions' }, { type: 'trade_definition' }, { type: 'before_purchase' },
-            { type: 'triple_hit_concentration_run', isDescendantOf: type => type === 'before_purchase' },
+            { type: 'mirror_bot_run', isDescendantOf: type => type === 'before_purchase' },
         ];
         window.Blockly = { derivWorkspace: { getAllBlocks: () => blocks } };
         expect(hasAllRequiredBlocks()).toBe(true);

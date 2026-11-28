@@ -1,12 +1,20 @@
 import { createMirrorBotSession } from '../mirror-bot-session';
-import { fixedDigitDiffersStrategy } from '../fixed-digit-differs';
+import { applyMirrorSettlement, createMirrorRiskState } from '../mirror-risk';
 import { createMirrorDerivStream } from '../mirror-deriv-stream';
 
 jest.mock('../mirror-deriv-stream', () => ({ createMirrorDerivStream: jest.fn() }));
 
-const settings = { prediction: 2, stake: 1, takeProfit: 10, stopLoss: 1 };
+const settings = { stake: 1, maxLosses: 1, profitThreshold: 10 };
+const testStrategy = {
+    monitorAllContracts: true,
+    createRisk: createMirrorRiskState,
+    createDetector: () => ({ tickIndex: 0 }),
+    evaluate: detector => ({ tickIndex: ++detector.tickIndex, barrier: 2 }),
+    reset() {},
+    applySettlement: applyMirrorSettlement,
+};
 
-describe('fixed Digit Differs status monitoring', () => {
+describe('contract status monitoring', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         createMirrorDerivStream.mockReturnValue({ attach: jest.fn().mockResolvedValue(), detach: jest.fn() });
@@ -19,7 +27,7 @@ describe('fixed Digit Differs status monitoring', () => {
             return {};
         }) };
         const options = { getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD', settings,
-            strategy: fixedDigitDiffersStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() };
+            strategy: testStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() };
         const first = createMirrorBotSession(options);
         const second = createMirrorBotSession(options);
         await Promise.all([first.attach(), second.attach()]);
@@ -29,7 +37,7 @@ describe('fixed Digit Differs status monitoring', () => {
         second.stop();
     });
 
-    it('checks a delayed result and applies stop loss without retrying a buy', async () => {
+    it('checks a delayed result and applies the loss limit without retrying a buy', async () => {
         const api = { connection: { readyState: 1 }, send: jest.fn(async request => {
             if (request.proposal_open_contract && request.subscribe) return { subscription: { id: 'all' } };
             if (request.buy) return { buy: { contract_id: 1, buy_price: 1 } };
@@ -38,12 +46,12 @@ describe('fixed Digit Differs status monitoring', () => {
         }) };
         const onStop = jest.fn();
         const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD',
-            settings, strategy: fixedDigitDiffersStrategy, journal: jest.fn(), round: value => value, onStop });
+            settings, strategy: testStrategy, journal: jest.fn(), round: value => value, onStop });
         await session.attach();
         session.runtime.tick(3, 1);
         session.runtime.tick(4, 2);
         await jest.advanceTimersByTimeAsync(5000);
-        expect(onStop).toHaveBeenCalledWith('Stop loss reached');
+        expect(onStop).toHaveBeenCalledWith('Maximum consecutive losses reached');
         expect(api.send.mock.calls.filter(([request]) => request.buy)).toHaveLength(1);
         expect(api.send.mock.calls.filter(([request]) => request.proposal_open_contract && request.contract_id)).toHaveLength(1);
         expect(session.runtime.queuedSignals()).toBe(0);
@@ -56,7 +64,7 @@ describe('fixed Digit Differs status monitoring', () => {
             return {};
         }) };
         const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD',
-            settings, strategy: fixedDigitDiffersStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() });
+            settings, strategy: testStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() });
         await session.attach();
         session.runtime.tick(3, 1);
         await jest.advanceTimersByTimeAsync(0);
@@ -73,7 +81,7 @@ describe('fixed Digit Differs status monitoring', () => {
         }) };
         const onStop = jest.fn();
         const session = createMirrorBotSession({ getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD',
-            settings, strategy: fixedDigitDiffersStrategy, journal: jest.fn(), round: value => value, onStop });
+            settings, strategy: testStrategy, journal: jest.fn(), round: value => value, onStop });
         session.runtime.tick(3, 1);
         await session.attach();
         expect(onStop).toHaveBeenCalledWith('Unable to restore the Deriv stream: Rate limited');
@@ -91,7 +99,7 @@ describe('fixed Digit Differs status monitoring', () => {
             return {};
         }) };
         const options = { getApi: () => api, account: 'A', getAccount: () => 'A', currency: 'USD', settings,
-            strategy: fixedDigitDiffersStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() };
+            strategy: testStrategy, journal: jest.fn(), round: value => value, onStop: jest.fn() };
         const first = createMirrorBotSession(options);
         await first.attach();
         first.stop();

@@ -1,4 +1,4 @@
-import { validOverUnderSwitchSettings } from '../over-under-loss-switch';
+import { validOverUnderSwitchSettings } from '../over-under-validation';
 import { tradeOptionToBuy } from '../helpers';
 
 describe('Over to Under loss switch', () => {
