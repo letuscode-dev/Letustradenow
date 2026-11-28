@@ -3,7 +3,9 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
-import { fourDigitMirrorStrategy, resolveMirrorMarkets } from '../utils/four-digit-mirror';
+import { resolveMirrorMarkets } from '../utils/four-digit-mirror';
+import { leastDigitDecreaseStrategy } from '../utils/least-digit-decrease';
+import { formatLeastDigitDecreaseJournal } from '../utils/least-digit-decrease-journal';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
 import { digitPercentageIncreaseStrategy } from '../utils/digit-percentage-increase';
@@ -468,7 +470,10 @@ const getBotInterface = tradeEngine => {
             account, getAccount, currency, settings, strategy,
             round: value => getRoundedNumber(value, currency),
             journal: event => {
-                if (strategy === digitPercentageIncreaseStrategy) {
+                if (strategy === leastDigitDecreaseStrategy) {
+                    const notice = formatLeastDigitDecreaseJournal(event, currency);
+                    notifyHedge(notice.message, notice.className);
+                } else if (strategy === digitPercentageIncreaseStrategy) {
                     const notice = formatDigitPercentageIncreaseJournal(event, currency);
                     notifyHedge(notice.message, notice.className);
                 } else if (strategy === tripleHitConcentrationStrategy) {
@@ -487,8 +492,8 @@ const getBotInterface = tradeEngine => {
         });
         globalObserver.register('bot.stop', userStop);
         globalObserver.register('api.authorize', authorized);
-        if (strategy === fourDigitMirrorStrategy) {
-            notifyHedge(`Mirror | STARTING — A-B-A-B, Digit Differs B | Markets: ${settings.symbols.join(', ')} | Stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency}.`);
+        if (strategy === leastDigitDecreaseStrategy) {
+            notifyHedge(`Least Digit Decrease Differs | STARTING — 1,000-tick rolling window | Markets: ${settings.symbols.join(', ')} | Stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency}.`);
         }
         if (strategy === tripleHitConcentrationStrategy) {
             notifyHedge(`Triple-Hit Concentration | STARTING — Volatility 75 (1s), 1HZ75V | Initial stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Profit threshold: ${settings.profitThreshold} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier} | Waiting for 10 completed ticks.`);
@@ -673,7 +678,8 @@ const getBotInterface = tradeEngine => {
             if (api !== api_base.api || account !== (api_base.account_info?.loginid || api_base.account_id)) {
                 throw new Error('The account or connection changed while loading Volatility markets. Restart the bot.');
             }
-            return runTickDigitBot({ settings: { stake, maxLosses, profitThreshold, symbols }, strategy: fourDigitMirrorStrategy });
+            return runTickDigitBot({ settings: { stake, maxLosses, profitThreshold, symbols }, strategy: leastDigitDecreaseStrategy,
+                label: 'Least Digit Decrease Differs' });
         },
         runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
             settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,

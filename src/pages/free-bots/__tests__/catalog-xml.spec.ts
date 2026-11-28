@@ -27,7 +27,7 @@ describe('free bot catalog XML', () => {
             title: 'Over to Under on Loss',
             xml: OVER_UNDER_LOSS_SWITCH_XML,
         });
-        expect(FREE_BOTS.find(bot => bot.id === 'three-digit-mirror-v1')).toMatchObject({ title: 'Three-Digit Mirror Differs' });
+        expect(FREE_BOTS.find(bot => bot.id === 'three-digit-mirror-v1')).toMatchObject({ title: 'Least Digit Decrease Differs' });
     });
 
     describe('Over/Under Entry', () => {

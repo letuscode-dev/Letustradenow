@@ -5,7 +5,7 @@ window.Blockly.Blocks.mirror_bot_run = {
     init() { this.jsonInit(this.definition()); this.setNextStatement(false); },
     definition() {
         return {
-            message0: localize('run mirror A-B-A-B bot stake %1 max consecutive losses %2 take profit %3 markets %4'),
+            message0: localize('run least digit decrease Differs bot stake %1 max consecutive losses %2 take profit %3 markets %4'),
             args0: [...['STAKE', 'LOSSES', 'TARGET'].map(name => ({ type: 'input_value', name, check: 'Number' })),
                 { type: 'input_value', name: 'MARKETS', check: 'String' }],
             previousStatement: null,
@@ -13,7 +13,7 @@ window.Blockly.Blocks.mirror_bot_run = {
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             category: window.Blockly.Categories.Before_Purchase,
-            tooltip: localize('Trades one-tick Digit Differs on B when four ticks form A-B-A-B. Use ALL or enter comma-separated Volatility symbols.'),
+            tooltip: localize('Trades one-tick Digit Differs on a least-frequent digit when its percentage falls in a rolling 1,000-tick window. Use ALL or enter comma-separated Volatility symbols.'),
         };
     },
     customContextMenu(menu) { modifyContextMenu(menu); },
