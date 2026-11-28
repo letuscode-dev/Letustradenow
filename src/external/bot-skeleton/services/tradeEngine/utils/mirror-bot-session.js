@@ -46,7 +46,7 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
     const confirmedBuys = new Map();
     let resolveStopped;
     const finished = new Promise(resolve => { resolveStopped = resolve; });
-    let stream;
+    let streams = [];
 
     const checkCleanup = () => {
         confirmedBuys.forEach((_buy, id) => {
@@ -61,7 +61,7 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         });
         if (!ended || cleaned || runtime.pendingBuys() || runtime.tracker.active.size) return;
         cleaned = true;
-        stream.detach();
+        streams.forEach(stream => stream.detach());
         onCleanup();
     };
     const request = body => {
@@ -126,9 +126,9 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             const buy = confirmedBuys.get(String(contract.contract_id));
             if (buy) onContract(mirrorContractForDisplay({ account, currency, buy, signal, contract }));
         },
-        buy: ({ barrier, stake }) => request({ buy: '1', price: stake, parameters: {
+        buy: ({ barrier, stake, symbol = '1HZ75V' }) => request({ buy: '1', price: stake, parameters: {
             amount: stake, basis: 'stake', contract_type: 'DIGITDIFF', currency,
-            duration: 1, duration_unit: 't', underlying_symbol: '1HZ75V', barrier: String(barrier),
+            duration: 1, duration_unit: 't', underlying_symbol: symbol, barrier: String(barrier),
         } }),
         refreshContract: async contractId => {
             if (monitorAll) return monitorContract(contractId);
@@ -156,8 +156,8 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
         },
     });
     if (monitorAll) runtime.pauseExecution();
-    stream = createMirrorDerivStream({ runtime, getApi, journal, getExistingSubscription, getInitialTicks,
-        initialHistoryTicks: strategy?.initialHistoryTicks || 0, onDisconnect: () => {
+    const onDisconnect = () => {
+        if (!attached) return;
         attachVersion += 1;
         attached = false;
         runtime.pauseExecution();
@@ -168,7 +168,21 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             monitor.finish(interrupted);
         });
         if (runtime.pendingBuys()) runtime.stop('Connection lost while a purchase was unconfirmed');
-    } });
+    };
+    const symbols = strategy?.multiMarket ? settings.symbols : ['1HZ75V'];
+    streams = symbols.map((symbol, index) => {
+        const marketRuntime = strategy?.multiMarket ? {
+            ...runtime,
+            tick: (digit, epoch, live) => runtime.tick(digit, epoch, live, symbol),
+            resetWindow: () => runtime.resetWindow(symbol),
+        } : runtime;
+        return createMirrorDerivStream({ runtime: marketRuntime, getApi,
+            journal: strategy?.multiMarket ? event => journal({ ...event, symbol }) : journal,
+            getExistingSubscription: () => getExistingSubscription?.(symbol),
+            getInitialTicks: () => getInitialTicks?.(symbol) || [], symbol,
+            initialHistoryTicks: strategy?.initialHistoryTicks || 0,
+            initialCachedTicks: strategy?.initialCachedTicks || 2, monitorContracts: index === 0, onDisconnect });
+    });
 
     const attach = async () => {
         if (cleaned || attached) return;
@@ -185,15 +199,15 @@ export const createMirrorBotSession = ({ getApi, account, getAccount, currency, 
             if (cleaned || version !== attachVersion) return;
             // Establish settlement monitoring before processing the initial
             // history and live ticks, so a fresh signal can be sent immediately.
-            if (monitorAll && strategy?.initialHistoryTicks) {
+            if (monitorAll && (strategy?.initialHistoryTicks || strategy?.multiMarket)) {
                 const api = getApi();
                 await ensureContractStream(api, account, () => request({ proposal_open_contract: 1, subscribe: 1 }));
                 if (cleaned || version !== attachVersion) return;
                 runtime.resumeExecution();
             }
-            await stream.attach();
+            await Promise.all(streams.map(stream => stream.attach()));
             if (cleaned || version !== attachVersion) return;
-            if (stream.whenReady) await stream.whenReady();
+            await Promise.all(streams.map(stream => stream.whenReady?.()));
             if (cleaned || version !== attachVersion) return;
             if (monitorAll) {
                 const api = getApi();

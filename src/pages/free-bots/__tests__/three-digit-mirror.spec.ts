@@ -17,5 +17,8 @@ describe('three-digit mirror bot template', () => {
             expect(variable?.parentElement?.querySelector('value[name="VALUE"] field')?.textContent).toBe(expected);
         }
         expect(doc.querySelector('block[type="mirror_bot_run"]')).not.toBeNull();
+        expect(doc.querySelector('statement[name="INITIALIZATION"] field[id="mirror_markets"]')?.parentElement?.querySelector('value[name="VALUE"] field')?.textContent)
+            .toBe('1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V');
+        expect(doc.querySelector('block[type="mirror_bot_run"] value[name="MARKETS"] field')?.getAttribute('id')).toBe('mirror_markets');
     });
 });

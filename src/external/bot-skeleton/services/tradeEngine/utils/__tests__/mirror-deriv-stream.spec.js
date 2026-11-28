@@ -7,6 +7,22 @@ describe('Deriv mirror stream', () => {
         expect(mirrorTickDigit(123.45, null)).toBeNull();
     });
 
+    it('requests the correct symbol and tick count when recovering a standard market gap', async () => {
+        let listener;
+        const runtime = { tick: jest.fn(), resetWindow: jest.fn(), stop: jest.fn(), settle: jest.fn() };
+        const first = { msg_type: 'tick', subscription: { id: 'standard' }, tick: { symbol: 'R_10', epoch: 1, quote: 1.27, pip_size: 2 } };
+        const api = { connection: { addEventListener: jest.fn(), removeEventListener: jest.fn() },
+            onMessage: () => ({ subscribe: callback => { listener = callback; return { unsubscribe: jest.fn() }; } }),
+            send: jest.fn(async request => request.ticks ? first : { history: { times: [3], prices: [1.24] }, pip_size: 2 }) };
+        const stream = createMirrorDerivStream({ runtime, getApi: () => api, journal: jest.fn(), onDisconnect: jest.fn(), symbol: 'R_10' });
+        await stream.attach();
+        listener({ data: { ...first, tick: { ...first.tick, epoch: 5, quote: 1.27 } } });
+        await stream.whenReady();
+        expect(api.send).toHaveBeenCalledWith({ ticks_history: 'R_10', start: 3, end: '3', count: 1, style: 'ticks' });
+        expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 3, false], [7, 5, true]]);
+        stream.detach();
+    });
+
     it('accepts only the dedicated subscription and forwards settlement updates', async () => {
         let listener;
         const runtime = { tick: jest.fn(), resetWindow: jest.fn(), stop: jest.fn(), settle: jest.fn() };

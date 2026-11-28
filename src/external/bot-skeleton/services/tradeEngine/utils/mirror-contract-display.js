@@ -20,7 +20,7 @@ export const mirrorContractForDisplay = ({ account, currency, buy, signal, contr
         id: contract.id ?? String(buy.contract_id),
         currency: contract.currency ?? currency,
         contract_type: contract.contract_type ?? 'DIGITDIFF',
-        underlying_symbol: contract.underlying_symbol ?? contract.underlying ?? '1HZ75V',
+        underlying_symbol: contract.underlying_symbol ?? contract.underlying ?? signal.symbol ?? '1HZ75V',
         date_start: contract.date_start ?? buy.start_time ?? buy.purchase_time ?? null,
         barrier: contract.barrier ?? signal.barrier,
         tick_count: contract.tick_count ?? 1,

@@ -5,14 +5,15 @@ window.Blockly.Blocks.mirror_bot_run = {
     init() { this.jsonInit(this.definition()); this.setNextStatement(false); },
     definition() {
         return {
-            message0: localize('run three-digit mirror bot stake %1 max consecutive losses %2 take profit %3'),
-            args0: ['STAKE', 'LOSSES', 'TARGET'].map(name => ({ type: 'input_value', name, check: 'Number' })),
+            message0: localize('run mirror A-B-A-B bot stake %1 max consecutive losses %2 take profit %3 markets %4'),
+            args0: [...['STAKE', 'LOSSES', 'TARGET'].map(name => ({ type: 'input_value', name, check: 'Number' })),
+                { type: 'input_value', name: 'MARKETS', check: 'String' }],
             previousStatement: null,
             colour: window.Blockly.Colours.Special1.colour,
             colourSecondary: window.Blockly.Colours.Special1.colourSecondary,
             colourTertiary: window.Blockly.Colours.Special1.colourTertiary,
             category: window.Blockly.Categories.Before_Purchase,
-            tooltip: localize('Trades one-tick Digit Differs on the middle digit of a three-tick mirror pattern.'),
+            tooltip: localize('Trades one-tick Digit Differs on B when four ticks form A-B-A-B. Enter comma-separated Volatility symbols.'),
         };
     },
     customContextMenu(menu) { modifyContextMenu(menu); },
@@ -21,6 +22,6 @@ window.Blockly.Blocks.mirror_bot_run = {
 
 window.Blockly.JavaScript.javascriptGenerator.forBlock.mirror_bot_run = block => {
     const generator = window.Blockly.JavaScript.javascriptGenerator;
-    const args = ['STAKE', 'LOSSES', 'TARGET'].map(name => generator.valueToCode(block, name, generator.ORDER_NONE) || 'null');
+    const args = ['STAKE', 'LOSSES', 'TARGET', 'MARKETS'].map(name => generator.valueToCode(block, name, generator.ORDER_NONE) || 'null');
     return `Bot.runMirrorBot(${args.join(', ')});\n`;
 };

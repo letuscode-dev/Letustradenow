@@ -3,6 +3,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { api_base } from '../../api/api-base';
 import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
+import { fourDigitMirrorStrategy, parseMirrorMarkets } from '../utils/four-digit-mirror';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
 import { digitPercentageIncreaseStrategy } from '../utils/digit-percentage-increase';
@@ -454,16 +455,16 @@ const getBotInterface = tradeEngine => {
         const currency = api_base.account_info?.currency;
         const getAccount = () => api_base.account_info?.loginid || api_base.account_id;
         const account = getAccount();
-        if (!account || !currency || !api_base.api || tradeEngine.tradeOptions?.symbol !== '1HZ75V') {
-            throw new Error(`${label} bot requires an authenticated account and Volatility 75 (1s).`);
+        if (!account || !currency || !api_base.api || (!strategy?.multiMarket && tradeEngine.tradeOptions?.symbol !== '1HZ75V')) {
+            throw new Error(strategy?.multiMarket ? `${label} bot requires an authenticated account.` : `${label} bot requires an authenticated account and Volatility 75 (1s).`);
         }
         let session;
         const userStop = () => session?.stop('Stopped by user');
         const authorized = () => { session?.attach(); };
         session = createMirrorBotSession({
             getApi: () => api_base.api,
-            getExistingSubscription: () => tradeEngine.$scope.ticksService?.subscriptions?.getIn?.(['tick', '1HZ75V']),
-            getInitialTicks: () => seedHistory ? tradeEngine.$scope.ticksService?.getCachedTicks?.('1HZ75V') || [] : [],
+            getExistingSubscription: (symbol = '1HZ75V') => tradeEngine.$scope.ticksService?.subscriptions?.getIn?.(['tick', symbol]),
+            getInitialTicks: (symbol = '1HZ75V') => seedHistory ? tradeEngine.$scope.ticksService?.getCachedTicks?.(symbol) || [] : [],
             account, getAccount, currency, settings, strategy,
             round: value => getRoundedNumber(value, currency),
             journal: event => {
@@ -486,6 +487,9 @@ const getBotInterface = tradeEngine => {
         });
         globalObserver.register('bot.stop', userStop);
         globalObserver.register('api.authorize', authorized);
+        if (strategy === fourDigitMirrorStrategy) {
+            notifyHedge(`Mirror | STARTING — A-B-A-B, Digit Differs B | Markets: ${settings.symbols.join(', ')} | Stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Take profit: ${settings.profitThreshold} ${currency}.`);
+        }
         if (strategy === tripleHitConcentrationStrategy) {
             notifyHedge(`Triple-Hit Concentration | STARTING — Volatility 75 (1s), 1HZ75V | Initial stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Profit threshold: ${settings.profitThreshold} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier} | Waiting for 10 completed ticks.`);
         }
@@ -661,7 +665,9 @@ const getBotInterface = tradeEngine => {
         },
         purchase: contract_type => tradeEngine.purchase(contract_type),
         purchaseOverUnderOnce: contract_type => tradeEngine.purchaseOverUnderOnce(contract_type),
-        runMirrorBot: (stake, maxLosses, profitThreshold) => runTickDigitBot({ settings: { stake, maxLosses, profitThreshold } }),
+        runMirrorBot: async (stake, maxLosses, profitThreshold, markets) => runTickDigitBot({
+            settings: { stake, maxLosses, profitThreshold, symbols: parseMirrorMarkets(markets) }, strategy: fourDigitMirrorStrategy,
+        }),
         runFixedDigitDiffersBot: (prediction, stake, takeProfit, stopLoss) => runTickDigitBot({
             settings: { prediction, stake, takeProfit, stopLoss }, strategy: fixedDigitDiffersStrategy,
             label: 'Digit Differs', seedHistory: false,

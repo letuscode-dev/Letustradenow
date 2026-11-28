@@ -137,7 +137,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
         };
         let request;
         try {
-            request = buy({ barrier: signal.barrier, stake: signal.stake });
+            request = buy({ barrier: signal.barrier, stake: signal.stake, ...(strategy?.multiMarket ? { symbol: signal.symbol } : {}) });
         } catch (error) {
             request = Promise.reject(error);
         }
@@ -199,13 +199,13 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
         }).finally(finishPurchase);
     };
 
-    const tick = (digit, timestamp, executable = true) => {
+    const tick = (digit, timestamp, executable = true, symbol = '1HZ75V') => {
         if (!enabled) return;
-        const pattern = strategy ? strategy.evaluate(detector, digit, risk) : processThreeDigitMirrorTick(detector, digit);
+        const pattern = strategy ? strategy.evaluate(detector, digit, risk, symbol, timestamp) : processThreeDigitMirrorTick(detector, digit);
         if (!pattern) return;
         strategy?.recordEvaluation?.(risk);
-        const signal = { ...pattern, timestamp, symbol: '1HZ75V',
-            pattern: strategy ? `Digit Differs ${pattern.barrier}` : `${pattern.first}-${pattern.middle}-${pattern.third}`,
+        const signal = { ...pattern, timestamp, symbol,
+            pattern: strategy?.formatPattern ? strategy.formatPattern(pattern) : strategy ? `Digit Differs ${pattern.barrier}` : `${pattern.first}-${pattern.middle}-${pattern.third}`,
             status: 'detected' };
         if (strategy?.statistics) signal.market = 'Volatility 75 (1s)';
         signals.push(signal);
@@ -244,6 +244,6 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
 
     return { tick, settle, stop, pauseExecution, resumeExecution,
         staleBufferedAnalysisOnly: Boolean(strategy?.staleBufferedAnalysisOnly),
-        resetWindow: () => strategy ? strategy.reset(detector) : resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
+        resetWindow: symbol => strategy ? strategy.reset(detector, symbol) : resetThreeDigitMirrorWindow(detector), risk, tracker, signals,
         isEnabled: () => enabled, pendingBuys: () => pendingBuys, queuedSignals: () => waitingSignals.length };
 };

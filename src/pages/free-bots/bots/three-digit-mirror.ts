@@ -4,12 +4,14 @@ const VARIABLES: [string, string][] = [
     ['mirror_stake', 'Stake'],
     ['mirror_losses', 'Maximum Consecutive Losses'],
     ['mirror_target', 'Profit Threshold'],
+    ['mirror_markets', 'Markets (comma-separated symbols)'],
 ];
-const { v, num, set, chain } = blockHelpers(VARIABLES, 'mirror_message');
+const { v, num, text, set, chain } = blockHelpers(VARIABLES, 'mirror_message');
 const INIT = chain([
     n => set('mirror_stake', num(5), n),
     n => set('mirror_losses', num(2), n),
-    () => set('mirror_target', num(10)),
+    n => set('mirror_target', num(10), n),
+    () => set('mirror_markets', text('1HZ10V, 1HZ25V, 1HZ50V, 1HZ75V, 1HZ100V')),
 ]);
 
 /** Runtime processes live ticks and manages all confirmed contracts independently. */
@@ -46,6 +48,7 @@ export const THREE_DIGIT_MIRROR_XML = `<xml xmlns="https://developers.google.com
   <block type="before_purchase" id="mirror_before" deletable="false" x="0" y="700">
     <statement name="BEFOREPURCHASE_STACK"><block type="mirror_bot_run">
       <value name="STAKE">${v('mirror_stake')}</value><value name="LOSSES">${v('mirror_losses')}</value><value name="TARGET">${v('mirror_target')}</value>
+      <value name="MARKETS">${v('mirror_markets')}</value>
     </block></statement>
   </block>
   <block type="after_purchase" id="mirror_after" x="900" y="60"></block>

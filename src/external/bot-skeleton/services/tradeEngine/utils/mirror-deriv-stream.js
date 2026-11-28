@@ -11,7 +11,8 @@ export const mirrorTickDigit = (quote, pipSize) => {
 };
 
 /** Attach to a Deriv connection; the caller reattaches after reconnection. */
-export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect, getExistingSubscription = () => null, getInitialTicks = () => [], initialHistoryTicks = 0 }) => {
+export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect, getExistingSubscription = () => null, getInitialTicks = () => [], initialHistoryTicks = 0, symbol = '1HZ75V', initialCachedTicks = 2, monitorContracts = true }) => {
+    const tickInterval = symbol.startsWith('R_') ? 2 : 1;
     let subscription = null;
     let tickSubscriptionId = null;
     let connection = null;
@@ -29,9 +30,10 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
     let bootstrapQueue = [];
 
     const fetchHistory = async (start, end, precision = pipSize) => {
-        if (end - start >= 1000) throw new Error('Tick gap is too large to recover safely');
+        const count = (end - start) / tickInterval + 1;
+        if (!Number.isInteger(count) || count < 1 || count > 1000) throw new Error('Tick gap is too large to recover safely');
         const api = getApi();
-        const response = await api.send({ ticks_history: '1HZ75V', start, end: String(end), count: end - start + 1, style: 'ticks' });
+        const response = await api.send({ ticks_history: symbol, start, end: String(end), count, style: 'ticks' });
         if (response?.error) throw new Error(response.error.message || 'Tick history request failed');
         const values = response?.history?.prices;
         const times = response?.history?.times;
@@ -40,7 +42,7 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         return values.map((quote, index) => ({ epoch: times[index] == null || times[index] === '' ? null : Number(times[index]),
             quote, digit: mirrorTickDigit(quote, precision) }));
     };
-    const stream = createMirrorStream({ runtime, journal, history: (start, end) => fetchHistory(start, end) });
+    const stream = createMirrorStream({ runtime, journal, tickInterval, history: (start, end) => fetchHistory(start, end) });
 
     const startBootstrap = (tick, precision) => {
         const version = generation;
@@ -49,12 +51,12 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Initial tick history timed out')), 5000); });
         const cancelled = new Promise(resolve => { cancelBootstrap = () => resolve(null); });
         bootstrapPromise = Promise.race([
-            Promise.resolve().then(() => fetchHistory(tick.epoch - initialHistoryTicks, tick.epoch - 1, precision)),
+            Promise.resolve().then(() => fetchHistory(tick.epoch - initialHistoryTicks * tickInterval, tick.epoch - tickInterval, precision)),
             timeout, cancelled,
         ]).then(ticks => {
             if (version !== generation || ticks === null) return;
-            if (ticks.length !== initialHistoryTicks || ticks[0]?.epoch !== tick.epoch - initialHistoryTicks ||
-                ticks[ticks.length - 1]?.epoch !== tick.epoch - 1 || !stream.seed(ticks, initialHistoryTicks)) {
+            if (ticks.length !== initialHistoryTicks || ticks[0]?.epoch !== tick.epoch - initialHistoryTicks * tickInterval ||
+                ticks[ticks.length - 1]?.epoch !== tick.epoch - tickInterval || !stream.seed(ticks, initialHistoryTicks)) {
                 throw new Error('Initial tick history is incomplete or out of order');
             }
             journal({ type: 'initial_history_ready', count: initialHistoryTicks });
@@ -92,18 +94,18 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
             left.tick.epoch === right.tick.epoch && left.tick.quote === right.tick.quote);
 
     const receive = (data, snapshot = false, fromResponse = false) => {
-        if (data?.msg_type === 'proposal_open_contract') runtime.settle(data.proposal_open_contract);
+        if (monitorContracts && data?.msg_type === 'proposal_open_contract') runtime.settle(data.proposal_open_contract);
         if (data?.msg_type !== 'tick') return;
         const id = data.subscription?.id ?? data.tick?.id;
-        const symbol = data.tick?.symbol;
-        if (symbol && symbol !== '1HZ75V' && id !== tickSubscriptionId) return;
+        const tickSymbol = data.tick?.symbol;
+        if (tickSymbol && tickSymbol !== symbol && id !== tickSubscriptionId) return;
         if (!tickSubscriptionId) {
-            if (reuseFirstTick && id && symbol === '1HZ75V') tickSubscriptionId = id;
+            if (reuseFirstTick && id && tickSymbol === symbol) tickSubscriptionId = id;
             else if (!reuseFirstTick) { earlyTicks.push(data); return; }
             else return;
         }
         if (id !== tickSubscriptionId) return;
-        if (!data.tick || (symbol && symbol !== '1HZ75V')) {
+        if (!data.tick || (tickSymbol && tickSymbol !== symbol)) {
             stream.fail('Invalid tick from the mirror subscription');
             return;
         }
@@ -120,7 +122,7 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         const epoch = data.tick.epoch === null || data.tick.epoch === undefined || data.tick.epoch === ''
             ? null : Number(data.tick.epoch);
         const tick = { epoch, quote: data.tick.quote, snapshot, digit: mirrorTickDigit(data.tick.quote, pip),
-            receivedAt: initialHistoryTicks > 0 ? Date.now() : null };
+            receivedAt: initialHistoryTicks > 0 || runtime.staleBufferedAnalysisOnly ? Date.now() : null };
         if (!initialSeedAttempted) {
             initialSeedAttempted = true;
             if (initialHistoryTicks > 0 && Number.isInteger(epoch) && tick.digit !== null) {
@@ -132,11 +134,11 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
                 const list = Array.isArray(cached) ? cached : [];
                 let end = list.length;
                 while (end > 0 && list[end - 1]?.epoch != null && Number(list[end - 1].epoch) >= epoch) end -= 1;
-                const previous = list.slice(Math.max(0, end - 2), end).map(item => ({
+                const previous = list.slice(Math.max(0, end - initialCachedTicks), end).map(item => ({
                     epoch: item?.epoch == null || item.epoch === '' ? null : Number(item.epoch),
                     quote: item?.quote, digit: mirrorTickDigit(item?.quote, pip),
                 }));
-                if (previous.length === 2 && previous[1].epoch === epoch - 1) stream.seed(previous);
+                if (previous.length === initialCachedTicks && previous[previous.length - 1].epoch === epoch - tickInterval) stream.seed(previous, initialCachedTicks);
             } catch (error) {
                 journal({ type: 'initial_tick_history_unavailable', reason: error?.message || String(error) });
             }
@@ -162,7 +164,7 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
         subscription = api.onMessage().subscribe(({ data }) => receive(data));
         let response;
         try {
-            response = await api.send({ ticks: '1HZ75V', subscribe: 1 });
+            response = await api.send({ ticks: symbol, subscribe: 1 });
         } catch (error) {
             if (current !== generation) return;
             if (error?.error?.code !== 'AlreadySubscribed' && error?.code !== 'AlreadySubscribed') throw error;
@@ -175,7 +177,7 @@ export const createMirrorDerivStream = ({ runtime, getApi, journal, onDisconnect
             return;
         }
         if (response?.error?.code === 'AlreadySubscribed') {
-            const matchingTick = earlyTicks.find(item => item.tick?.symbol === '1HZ75V');
+            const matchingTick = earlyTicks.find(item => item.tick?.symbol === symbol);
             tickSubscriptionId = getExistingSubscription() || matchingTick?.subscription?.id || matchingTick?.tick?.id || null;
             reuseFirstTick = !tickSubscriptionId;
         } else {

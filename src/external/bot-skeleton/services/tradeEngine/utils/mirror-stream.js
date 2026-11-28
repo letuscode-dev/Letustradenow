@@ -1,8 +1,8 @@
 /**
- * Orders the 1-second stream and fills observed epoch gaps before evaluating
+ * Orders a market's tick stream and fills observed epoch gaps before evaluating
  * later ticks. History is analysis-only because those contracts are stale.
  */
-export const createMirrorStream = ({ runtime, history, journal }) => {
+export const createMirrorStream = ({ runtime, history, journal, tickInterval = 1 }) => {
     let lastEpoch = null;
     let lastQuote = null;
     let recovering = false;
@@ -53,17 +53,18 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
                 continue;
             }
             if (lastEpoch !== null && tick.epoch <= lastEpoch) return fail('Duplicate or out-of-order tick');
-            if (lastEpoch !== null && tick.epoch > lastEpoch + 1) {
-                const start = lastEpoch + 1;
-                const end = tick.epoch - 1;
+            if (lastEpoch !== null && (tick.epoch - lastEpoch) % tickInterval !== 0) return fail('Unexpected tick interval; continuity cannot be verified');
+            if (lastEpoch !== null && tick.epoch > lastEpoch + tickInterval) {
+                const start = lastEpoch + tickInterval;
+                const end = tick.epoch - tickInterval;
                 const recoveryGeneration = generation;
                 recovering = true;
                 queue.unshift(tick);
                 journal({ type: 'tick_gap', start, end });
                 Promise.resolve().then(() => history(start, end)).then(ticks => {
                     if (recoveryGeneration !== generation || failed) return;
-                    if (!Array.isArray(ticks) || ticks.length !== end - start + 1 ||
-                        !ticks.every((item, index) => valid(item) && item.epoch === start + index)) {
+                    if (!Array.isArray(ticks) || ticks.length !== (end - start) / tickInterval + 1 ||
+                        !ticks.every((item, index) => valid(item) && item.epoch === start + index * tickInterval)) {
                         throw new Error('Tick history did not fully restore the missing sequence');
                     }
                     ticks.forEach(item => process(item, false));
@@ -76,7 +77,7 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
             }
             // During gap recovery later ticks may already be buffered. Analyze
             // each in order, but only the latest can still be an immediate entry.
-            const stale = tick.receivedAt != null && Date.now() - tick.receivedAt >= 1000;
+            const stale = tick.receivedAt != null && Date.now() - tick.receivedAt >= tickInterval * 1000;
             process(tick, !(runtime.staleBufferedAnalysisOnly && (queue.length || stale)));
         }
         resolveWaiters();
@@ -86,7 +87,7 @@ export const createMirrorStream = ({ runtime, history, journal }) => {
         seed: (ticks, expected = 2) => {
             if (lastEpoch !== null || queue.length || recovering || failed || !Array.isArray(ticks) ||
                 !Number.isInteger(expected) || expected < 1 || ticks.length !== expected ||
-                !ticks.every((tick, index) => valid(tick) && (index === 0 || tick.epoch === ticks[index - 1].epoch + 1))) return false;
+                !ticks.every((tick, index) => valid(tick) && (index === 0 || tick.epoch === ticks[index - 1].epoch + tickInterval))) return false;
             ticks.forEach(tick => process(tick, false));
             return true;
         },

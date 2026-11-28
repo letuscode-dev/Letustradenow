@@ -21,6 +21,19 @@ describe('mirror tick stream ordering', () => {
         expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 2, false], [7, 3, true], [4, 4, true]]);
     });
 
+    it('recovers missing standard-market ticks at two-second intervals', async () => {
+        const runtime = makeRuntime();
+        const history = jest.fn().mockResolvedValue([{ epoch: 3, digit: 4 }]);
+        const stream = createMirrorStream({ runtime, history, journal: jest.fn(), tickInterval: 2 });
+        stream.ingest({ epoch: 1, digit: 7 });
+        stream.ingest({ epoch: 5, digit: 7 });
+        await flush();
+        expect(history).toHaveBeenCalledWith(3, 3);
+        expect(runtime.tick.mock.calls).toEqual([[7, 1, true], [4, 3, false], [7, 5, true]]);
+        stream.ingest({ epoch: 6, digit: 4 });
+        expect(runtime.stop).toHaveBeenCalledWith('Unexpected tick interval; continuity cannot be verified');
+    });
+
     it('stops on missing history and refuses out-of-order ticks', async () => {
         const runtime = makeRuntime();
         const stream = createMirrorStream({ runtime, history: async () => [], journal: jest.fn() });
