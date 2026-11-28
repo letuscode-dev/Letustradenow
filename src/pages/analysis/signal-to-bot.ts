@@ -1,15 +1,8 @@
-import type { TFormData } from '../bot-builder/quick-strategy/types';
 import type { AnalysisIdea, AnalysisSnapshot, IdeaDirection, OptionFamily } from './analysis-types';
 
-export type SignalBotAction = 'LOAD' | 'RUN';
+type TFormData = Record<string, string | number | boolean>;
 
-export type SignalBotStrategy =
-    | 'MARTINGALE'
-    | 'D_ALEMBERT'
-    | 'REVERSE_MARTINGALE'
-    | 'REVERSE_D_ALEMBERT'
-    | 'OSCARS_GRIND'
-    | 'STRATEGY_1_3_2_6';
+export type SignalBotAction = 'LOAD' | 'RUN';
 
 type TSignalContract = {
     last_digit_prediction?: string;

@@ -30,7 +30,7 @@ export const DBOT_ONBOARDING = [
                 label={<Localize i18n_default_text='Build from scratch' />}
                 content={[
                     <>
-                        <Localize i18n_default_text='Create your bot using our drag-and-drop blocks or click Quick Strategy to choose from the ready-to-use bot templates.' />
+                        <Localize i18n_default_text='Create your bot using our drag-and-drop blocks or choose a bot from Free Bots.' />
                     </>,
                     <>
                         <Localize i18n_default_text='We also provide a guide on the Tutorial tab to show you how you can build and execute a simple strategy.' />

@@ -2,6 +2,7 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import Dialog from '@/components/shared_ui/dialog';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -12,7 +13,7 @@ import ToolbarButton from './toolbar-button';
 import WorkspaceGroup from './workspace-group';
 
 const Toolbar = observer(() => {
-    const { run_panel, toolbar, quick_strategy } = useStore();
+    const { run_panel, toolbar, dashboard } = useStore();
     const { isDesktop } = useDevice();
     const [is_digit_open, setDigitOpen] = React.useState(false);
     const toggleDigit = () => setDigitOpen(open => !open);
@@ -48,11 +49,10 @@ const Toolbar = observer(() => {
     };
     const { is_dialog_open, closeResetDialog, onResetOkButtonClick: onOkButtonClick } = toolbar;
     const { is_running } = run_panel;
-    const { setFormVisibility } = quick_strategy;
     const confirm_button_text = is_running ? localize('Yes') : localize('OK');
     const cancel_button_text = is_running ? localize('No') : localize('Cancel');
-    const handleQuickStrategyOpen = () => {
-        setFormVisibility(true);
+    const handleFreeBotsOpen = () => {
+        dashboard.setActiveTab(DBOT_TABS.FREE_BOTS);
         /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
         /* [/AI] */
     };
@@ -62,11 +62,11 @@ const Toolbar = observer(() => {
                 <div className='toolbar__section'>
                     {!isDesktop && (
                         <ToolbarButton
-                            popover_message={localize('Click here to start building your Deriv Bot.')}
+                            popover_message={localize('Click here to view Free Bots.')}
                             button_id='db-toolbar__get-started-button'
                             button_classname='toolbar__btn toolbar__btn--icon toolbar__btn--start'
-                            buttonOnClick={handleQuickStrategyOpen}
-                            button_text={localize('Quick strategy')}
+                            buttonOnClick={handleFreeBotsOpen}
+                            button_text={localize('Free Bots')}
                             is_bot_running={is_running}
                         />
                     )}

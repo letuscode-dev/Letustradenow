@@ -12,7 +12,7 @@ import { BOT_BUILDER_MOBILE } from '../tour-content';
 import { highlightLoadModalButton } from '../utils';
 
 const BotBuilderTourMobile = observer(() => {
-    const { dashboard, load_modal, quick_strategy } = useStore();
+    const { dashboard, load_modal } = useStore();
     const { toggleTourLoadModal } = load_modal;
     const {
         onTourEnd,
@@ -23,7 +23,6 @@ const BotBuilderTourMobile = observer(() => {
         setShowMobileTourDialog,
         setTourDialogVisibility,
     } = dashboard;
-    const { is_open } = quick_strategy;
     const [tour_step, setTourStep] = React.useState<number>(1);
     const content_data = BOT_BUILDER_MOBILE.find(({ tour_step_key }) => {
         return tour_step_key === tour_step;
@@ -40,11 +39,7 @@ const BotBuilderTourMobile = observer(() => {
         else if (active_tour !== '') toggleTourLoadModal(false);
         const token = getSetting('bot_builder_token');
         if (!token && active_tab === 1) {
-            if (is_open) {
-                setTourDialogVisibility(false);
-            } else {
-                setTourDialogVisibility(true);
-            }
+            setTourDialogVisibility(true);
             setShowMobileTourDialog(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

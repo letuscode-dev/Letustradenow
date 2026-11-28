@@ -4,7 +4,6 @@ import clsx from 'clsx';
 import { observer } from 'mobx-react-lite';
 import { Outlet } from 'react-router-dom';
 import { api_base } from '@/external/bot-skeleton';
-import { useStore } from '@/hooks/useStore';
 import { useDevice } from '@deriv-com/ui';
 import { crypto_currencies_display_order, fiat_currencies_display_order } from '../shared';
 import Footer from './footer';
@@ -14,8 +13,6 @@ import './layout.scss';
 
 const Layout = observer(() => {
     const { isDesktop } = useDevice();
-    const store = useStore();
-    const is_quick_strategy_active = store?.quick_strategy?.is_open;
     const isCallbackPage = window.location.pathname === '/callback';
 
     const checkClientAccount = JSON.parse(localStorage.getItem('clientAccounts') ?? '{}');
@@ -146,7 +143,6 @@ const Layout = observer(() => {
         <div
             className={clsx('layout', {
                 responsive: isDesktop,
-                'quick-strategy-active': is_quick_strategy_active && !isDesktop,
             })}
         >
             {!isCallbackPage && <AppHeader isAuthenticating={isAuthenticating || !isInitialAuthCheckComplete} />}

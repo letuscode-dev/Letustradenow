@@ -6,7 +6,6 @@ import { formatDate } from '@/components/shared';
 import { run_panel } from '@/constants/run-panel';
 import { LogTypes, MessageTypes } from '@/external/bot-skeleton';
 import { config } from '@/external/bot-skeleton/constants/config';
-import { RESET_STRATEGIES, RESET_STRATEGIES_BLOCK_IDS, STRATEGIES } from '@/pages/bot-builder/quick-strategy/config';
 /* [AI] - Analytics removed - utility functions moved to @/utils/account-helpers */
 import { isVirtualAccount } from '@/utils/account-helpers';
 import { localize } from '@deriv-com/translations';
@@ -210,27 +209,12 @@ export default class JournalStore {
     }
 
     onNotify(data: TNotifyData) {
-        const { run_panel, dbot, quick_strategy } = this.root_store;
+        const { run_panel, dbot } = this.root_store;
 
         const { message, className, message_type, sound, block_id, variable_name } = data;
-        const selected_quick_strategy = quick_strategy.selected_strategy_for_notofy;
-
-        // Special handling for stat notifications by block_id
-        const isStatNotification =
-            RESET_STRATEGIES_BLOCK_IDS?.includes(block_id || '') &&
-            RESET_STRATEGIES?.includes(STRATEGIES()[selected_quick_strategy]?.name || '');
-
-        // Create a custom pushMessage handler that uses updateStatMessage for stats
+        const isStatNotification = false;
         const customPushMessage = (parsed_message: string) => {
-            if (isStatNotification) {
-                this.updateStatMessage(
-                    parsed_message,
-                    run_panel?.SetpurchaseInProgress,
-                    run_panel.is_contract_buying_in_progress
-                );
-            } else {
-                this.pushMessage(parsed_message, message_type || MessageTypes.NOTIFY, className);
-            }
+            this.pushMessage(parsed_message, message_type || MessageTypes.NOTIFY, className);
         };
 
         if (

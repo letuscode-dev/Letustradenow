@@ -27,7 +27,6 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
     const {
         load_modal: { toggleLoadModal },
         dashboard: { showVideoDialog },
-        quick_strategy: { setFormVisibility },
     } = useStore();
     const [is_announce_dialog_open, setIsAnnounceDialogOpen] = React.useState(false);
     const [is_open_announce_list, setIsOpenAnnounceList] = React.useState(false);
@@ -140,9 +139,6 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
         /* [/AI] */
         if (selected_announcement?.switch_tab_on_confirm) {
             handleTabChange(selected_announcement.switch_tab_on_confirm);
-        }
-        if (selected_announcement?.should_toggle_qs_modal) {
-            setFormVisibility(true);
         }
         if (selected_announcement?.should_toggle_load_modal) {
             toggleLoadModal();

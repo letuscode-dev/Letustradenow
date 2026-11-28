@@ -5,7 +5,6 @@ import { useStore } from '@/hooks/useStore';
 import { localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import NoSearchResult from './common/no-search-result-found';
-import QuickStrategyGuides from './quick-strategy-content/quick-strategy-guides';
 import FAQContent from './faq-content';
 import GuideContent from './guide-content';
 import TutorialsTabDesktop from './tutorials-tab-desktop';
@@ -31,11 +30,10 @@ const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
         guide_tab_content,
         faq_tab_content,
         is_dialog_open,
-        quick_strategy_tab_content,
     } = dashboard;
 
     React.useEffect(() => {
-        if ([0, 1, 2].includes(active_tab_tutorials)) {
+        if ([0, 1].includes(active_tab_tutorials)) {
             setPrevActiveTutorialsTab(active_tab_tutorials);
         }
     }, [active_tab_tutorials]);
@@ -43,8 +41,7 @@ const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
     const has_content_guide_tab =
         guide_tab_content().length > 0 ||
         video_tab_content().length > 0 ||
-        faq_tab_content().length > 0 ||
-        quick_strategy_tab_content().length > 0;
+        faq_tab_content().length > 0;
 
     const tutorial_tabs: TTutorialsTabItem[] = [
         {
@@ -62,10 +59,6 @@ const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
             content: <FAQContent faq_list={faq_tab_content()} handleTabChange={handleTabChange} />,
         },
         {
-            label: localize('Quick strategy guides'),
-            content: <QuickStrategyGuides quick_strategy_tab_content={quick_strategy_tab_content()} />,
-        },
-        {
             label: localize('Search'),
             content: has_content_guide_tab ? (
                 <>
@@ -75,7 +68,6 @@ const TutorialsTab = observer(({ handleTabChange }: TTutorialsTab) => {
                         video_tab_content={video_tab_content()}
                     />
                     <FAQContent faq_list={faq_tab_content()} />
-                    <QuickStrategyGuides quick_strategy_tab_content={quick_strategy_tab_content()} />
                 </>
             ) : (
                 <NoSearchResult />

@@ -3,9 +3,6 @@ import JournalStore from '../journal-store';
 jest.mock('@/components/shared', () => ({ formatDate: jest.fn() }));
 jest.mock('@/external/bot-skeleton', () => ({ LogTypes: {}, MessageTypes: {} }));
 jest.mock('@/external/bot-skeleton/constants/config', () => ({ config: jest.fn() }));
-jest.mock('@/pages/bot-builder/quick-strategy/config', () => ({
-    RESET_STRATEGIES: {}, RESET_STRATEGIES_BLOCK_IDS: {}, STRATEGIES: {},
-}));
 jest.mock('../../utils/journal-notifications', () => ({ isCustomJournalMessage: jest.fn() }));
 
 describe('journal clock', () => {

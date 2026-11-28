@@ -6,13 +6,6 @@ export type TGuideContent = Omit<TContent, 'title' | 'description'>;
 
 export type TUserGuideContent = Omit<TContent, 'title' | 'description'>;
 
-export type TQuickStrategyContent = {
-    qs_name: string;
-    type: string;
-    content: string[];
-    search_id: string;
-};
-
 export type TContent = {
     content?: string;
     description: TDescription[];

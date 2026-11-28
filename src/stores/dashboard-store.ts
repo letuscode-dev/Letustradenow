@@ -4,12 +4,9 @@ import { action, makeObservable, observable, reaction } from 'mobx';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import { notification_message, NOTIFICATION_TYPE } from '@/components/bot-notification/bot-notification-utils';
 import { TStores } from '@deriv/stores/types';
-import * as strategy_description from '../constants/quick-strategies';
-import { TDescriptionItem } from '../pages/bot-builder/quick-strategy/types';
 import {
     faq_content,
     guide_content,
-    quick_strategy_content,
     USER_GUIDE,
     user_guide_content,
     VIDEOS,
@@ -18,7 +15,6 @@ import { setTourSettings, tour_type, TTourType } from '../pages/tutorials/dbot-t
 import {
     TFaqContent,
     TGuideContent,
-    TQuickStrategyContent,
     TUserGuideContent,
 } from '../pages/tutorials/tutorials.types';
 import RootStore from './root-store';
@@ -67,7 +63,7 @@ export interface IDashboardStore {
 export default class DashboardStore implements IDashboardStore {
     root_store: RootStore;
     core: TStores;
-    tutorials_combined_content: (TFaqContent | TGuideContent | TUserGuideContent | TQuickStrategyContent)[] = [];
+    tutorials_combined_content: (TFaqContent | TGuideContent | TUserGuideContent)[] = [];
     combined_search: string[] = [];
     bot_builder_symbol: string | null = null;
 
@@ -115,7 +111,6 @@ export default class DashboardStore implements IDashboardStore {
             toast_message: observable,
             guide_tab_content: observable,
             faq_tab_content: observable,
-            quick_strategy_tab_content: observable,
             video_tab_content: observable,
             setStrategySaveType: action.bound,
             setShowMobileTourDialog: action.bound,
@@ -143,29 +138,10 @@ export default class DashboardStore implements IDashboardStore {
                 .join(' ')}`;
         });
 
-        const getQSDescriptionContent = (strategy: any) => {
-            if (!strategy) return [];
-            const content: string[] = [];
-            strategy().forEach((item: TDescriptionItem) => {
-                if (item?.type !== 'media') {
-                    item.content?.forEach((text: string) => content.push(text));
-                }
-            });
-            return content;
-        };
-
-        const getQuickStrategyContent = quick_strategy_content().map(item => {
-            const qs_card_content = item.content.join(' ')?.toLowerCase();
-            let qs_description_content = getQSDescriptionContent(strategy_description?.[item.qs_name]);
-            qs_description_content = qs_description_content.join(' ')?.toLowerCase();
-            return `${item.search_id}# ${item.type?.toLowerCase()} ${qs_description_content + qs_card_content}`;
-        });
-
         this.combined_search = [
             ...getUserGuideContent,
             ...getVideoContent,
             ...getFaqContent,
-            ...getQuickStrategyContent,
         ];
 
         reaction(
@@ -202,7 +178,6 @@ export default class DashboardStore implements IDashboardStore {
     guide_tab_content = user_guide_content;
     video_tab_content = guide_content;
     faq_tab_content = faq_content;
-    quick_strategy_tab_content = quick_strategy_content;
     filtered_tab_list = [];
     is_chart_modal_visible = false;
     is_trading_view_modal_visible = false;
@@ -216,7 +191,6 @@ export default class DashboardStore implements IDashboardStore {
         this.guide_tab_content = user_guide_content;
         this.video_tab_content = guide_content;
         this.faq_tab_content = faq_content;
-        this.quick_strategy_tab_content = quick_strategy_content;
     };
 
     filterTuotrialTab = (search_param: string) => {
@@ -228,7 +202,6 @@ export default class DashboardStore implements IDashboardStore {
         const filtered_user_guide: [] = [];
         const filter_video_guide: [] = [];
         const filtered_faq_content: [] = [];
-        const filtered_quick_strategy_content: [] = [];
 
         const filtered_tutorial_content = foundItems.map(item => {
             const identifier = item.split('#')[0];
@@ -243,14 +216,12 @@ export default class DashboardStore implements IDashboardStore {
                 filtered_faq_content.push(faq_content()[Number(index)]);
                 return faq_content()[Number(index)];
             }
-            filtered_quick_strategy_content.push(quick_strategy_content()[Number(index)]);
-            return quick_strategy_content()[Number(index)];
+            return undefined;
         });
 
         this.guide_tab_content = () => filtered_user_guide;
         this.video_tab_content = () => filter_video_guide;
         this.faq_tab_content = () => filtered_faq_content;
-        this.quick_strategy_tab_content = () => filtered_quick_strategy_content;
 
         return filtered_tutorial_content;
     };

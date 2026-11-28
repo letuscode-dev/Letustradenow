@@ -63,8 +63,6 @@ export default class RunPanelStore {
             toggleStatisticsInfoModal: action,
             setActiveTabIndex: action,
             onCloseDialog: action,
-            stopMyBot: action,
-            closeMultiplierContract: action,
             showStopMultiplierContractDialog: action,
             showLoginDialog: action,
             showRealAccountDialog: action,
@@ -309,35 +307,6 @@ export default class RunPanelStore {
 
     onCloseDialog = () => {
         this.is_dialog_open = false;
-    };
-
-    stopMyBot = () => {
-        const { summary_card, quick_strategy } = this.root_store;
-        const { ui } = this.core;
-        const { toggleStopBotDialog } = quick_strategy;
-
-        ui.setPromptHandler(false);
-        this.dbot.terminateBot();
-        this.onCloseDialog();
-        summary_card.clear();
-        toggleStopBotDialog();
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
-        if (window.sendRequestsStatistic) {
-            window.sendRequestsStatistic(true);
-            performance.clearMeasures();
-        }
-    };
-
-    closeMultiplierContract = () => {
-        const { quick_strategy } = this.root_store;
-        const { toggleStopBotDialog } = quick_strategy;
-
-        this.onClickSell();
-        this.stopBot();
-        this.onCloseDialog();
-        toggleStopBotDialog();
     };
 
     showStopMultiplierContractDialog = () => {

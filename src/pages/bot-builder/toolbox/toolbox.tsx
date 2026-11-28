@@ -3,6 +3,7 @@ import React from 'react';
 import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
+import { DBOT_TABS } from '@/constants/bot-contents';
 import { useStore } from '@/hooks/useStore';
 import { LabelPairedChevronDownMdFillIcon } from '@deriv/quill-icons/LabelPaired';
 import { localize } from '@deriv-com/translations';
@@ -15,7 +16,7 @@ import { ToolboxItems } from './toolbox-items';
 
 const Toolbox = observer(() => {
     const { isDesktop } = useDevice();
-    const { toolbox, flyout, quick_strategy } = useStore();
+    const { toolbox, flyout, dashboard } = useStore();
     const {
         hasSubCategory,
         is_search_loading,
@@ -30,7 +31,6 @@ const Toolbox = observer(() => {
         toolbox_dom,
     } = toolbox;
 
-    const { setFormVisibility } = quick_strategy;
     const { setVisibility, selected_category } = flyout;
 
     const toolbox_ref = React.useRef(ToolboxItems());
@@ -43,8 +43,8 @@ const Toolbox = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleQuickStrategyOpen = () => {
-        setFormVisibility(true);
+    const handleFreeBotsOpen = () => {
+        dashboard.setActiveTab(DBOT_TABS.FREE_BOTS);
         /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
         /* [/AI] */
     };
@@ -53,11 +53,11 @@ const Toolbox = observer(() => {
         return (
             <div className='db-toolbox' data-testid='dashboard__toolbox'>
                 <ToolbarButton
-                    popover_message={localize('Click here to start building your Deriv Bot.')}
+                    popover_message={localize('Click here to view Free Bots.')}
                     button_id='db-toolbar__get-started-button'
                     button_classname='toolbar__btn toolbar__btn--icon toolbar__btn--start'
-                    buttonOnClick={handleQuickStrategyOpen}
-                    button_text={localize('Quick strategy')}
+                    buttonOnClick={handleFreeBotsOpen}
+                    button_text={localize('Free Bots')}
                 />
                 <div id='gtm-toolbox' className='db-toolbox__content'>
                     <div className='db-toolbox__header'>

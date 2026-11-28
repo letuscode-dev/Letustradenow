@@ -11,7 +11,6 @@ import FlyoutStore from './flyout-store';
 import GoogleDriveStore from './google-drive-store';
 import JournalStore from './journal-store';
 import LoadModalStore from './load-modal-store';
-import QuickStrategyStore from './quick-strategy-store';
 import RunPanelStore from './run-panel-store';
 import SaveModalStore from './save-modal-store';
 import SummaryCardStore from './summary-card-store';
@@ -35,7 +34,6 @@ export default class RootStore {
     public transactions: TransactionsStore;
     public toolbar: ToolbarStore;
     public toolbox: ToolboxStore;
-    public quick_strategy: QuickStrategyStore;
 
     public dashboard: DashboardStore;
 
@@ -76,7 +74,6 @@ export default class RootStore {
         this.transactions = new TransactionsStore(this, this.core);
         this.toolbar = new ToolbarStore(this);
         this.toolbox = new ToolboxStore(this, this.core);
-        this.quick_strategy = new QuickStrategyStore(this);
 
         this.dashboard = new DashboardStore(this, this.core);
 

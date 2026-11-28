@@ -53,7 +53,7 @@ const FreeBots = lazy(() => import('../free-bots'));
 
 const AppWrapper = observer(() => {
     const { connectionStatus } = useApiBase();
-    const { dashboard, load_modal, run_panel, quick_strategy, summary_card, blockly_store } = useStore();
+    const { dashboard, load_modal, run_panel, summary_card, blockly_store } = useStore();
     const { is_loading } = blockly_store;
     const {
         active_tab,
@@ -63,7 +63,6 @@ const AppWrapper = observer(() => {
         setActiveTab,
         setWebSocketState,
         setActiveTour,
-        setTourDialogVisibility,
     } = dashboard;
     const { dashboard_strategies } = load_modal;
     const {
@@ -75,7 +74,6 @@ const AppWrapper = observer(() => {
         onOkButtonClick,
         stopBot,
     } = run_panel;
-    const { is_open } = quick_strategy;
     const { cancel_button_text, ok_button_text, title, message, dismissable, is_closed_on_cancel } = dialog_options as {
         [key: string]: string;
     };
@@ -227,9 +225,6 @@ const AppWrapper = observer(() => {
     }, [active_tab, is_loading]);
 
     React.useEffect(() => {
-        if (is_open) {
-            setTourDialogVisibility(false);
-        }
         if (init_render.current) {
             setActiveTab(Number(active_hash_tab));
             if (!isDesktop) handleTabChange(Number(active_hash_tab));
@@ -453,7 +448,7 @@ const AppWrapper = observer(() => {
                 <ChartModal />
                 <TradingViewModal />
             </DesktopWrapper>
-            <MobileWrapper>{!is_open && <RunPanel />}</MobileWrapper>
+            <MobileWrapper><RunPanel /></MobileWrapper>
             <Dialog
                 cancel_button_text={cancel_button_text || localize('Cancel')}
                 className='dc-dialog__wrapper--fixed'

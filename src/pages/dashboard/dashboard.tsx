@@ -60,10 +60,10 @@ const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
                             >
                                 {is_google_drive_configured
                                     ? localize(
-                                          'Import a bot from your computer or Google Drive, build it from scratch, or start with a quick strategy.'
+                                          'Import a bot from your computer or Google Drive, build it from scratch, or choose a free bot.'
                                       )
                                     : localize(
-                                          'Import a bot from your computer, build it from scratch, or start with a quick strategy.'
+                                          'Import a bot from your computer, build it from scratch, or choose a free bot.'
                                       )}
                             </Text>
                         </div>

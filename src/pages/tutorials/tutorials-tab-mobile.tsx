@@ -40,7 +40,7 @@ const TutorialsTabMobile = observer(({ tutorial_tabs, prev_active_tutorials }: T
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tutorial_tabs]);
 
-    const onFocusSearch = () => setActiveTabTutorial(3);
+    const onFocusSearch = () => setActiveTabTutorial(2);
 
     const scrollToTop = () => {
         if (scroll_ref.current) {
@@ -84,7 +84,7 @@ const TutorialsTabMobile = observer(({ tutorial_tabs, prev_active_tutorials }: T
 
         if (selectElement) {
             const parent_element = selectElement;
-            const child_element = selectElement?.options?.[3];
+            const child_element = selectElement?.options?.[2];
 
             if (parent_element && child_element && parent_element?.contains(child_element)) {
                 parent_element?.removeChild(child_element);
@@ -152,8 +152,7 @@ const TutorialsTabMobile = observer(({ tutorial_tabs, prev_active_tutorials }: T
                 className={classNames({
                     'tutorials-mobile__guide': active_tab_tutorials === 0,
                     'tutorials-mobile__faq': active_tab_tutorials === 1,
-                    'tutorials-mobile__qs-guide': active_tab_tutorials === 2,
-                    'tutorials-mobile__search': active_tab_tutorials === 3,
+                    'tutorials-mobile__search': active_tab_tutorials === 2,
                 })}
                 ref={scroll_ref}
             >

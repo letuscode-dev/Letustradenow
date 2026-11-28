@@ -24,7 +24,7 @@ const SearchInput = observer(({ faq_value, setFaqSearchContent, prev_active_tuto
         debounce(
             value => {
                 filterTuotrialTab(value);
-                setActiveTabTutorial(3);
+                setActiveTabTutorial(2);
                 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
                 /* [/AI] */
                 if (value === '') {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import classNames from 'classnames';
 import Text from '@/components/shared_ui/text';
-import { useStore } from '@/hooks/useStore';
 import { LabelPairedMinusCaptionRegularIcon, LabelPairedPlusCaptionRegularIcon } from '@deriv/quill-icons/LabelPaired';
 
 type TContentData = {
@@ -35,14 +34,11 @@ const Accordion = ({
     ...props
 }: TAccordion) => {
     const [is_open, setOpen] = useState(expanded);
-    const {
-        quick_strategy: { selected_strategy },
-    } = useStore();
     if (!content_data) return null;
     const { content, header } = content_data;
 
     const { expanded_subtitles_storage, setExpandedSubtitlesStorage } = props;
-    const accordion_subtitle = `${header}__${selected_strategy}`.split(' ').join('_').toLocaleLowerCase();
+    const accordion_subtitle = `${header}`.split(' ').join('_').toLocaleLowerCase();
     const is_expanded_section = expanded_subtitles_storage ? expanded_subtitles_storage[accordion_subtitle] : false;
     const should_be_expanded = is_expanded_section || is_open || !has_subtitle;
 

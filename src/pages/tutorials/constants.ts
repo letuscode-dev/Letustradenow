@@ -2,11 +2,10 @@ import { getImageLocation } from '../../public-path';
 import { localizeAccumulators } from '@/utils/conditional-localize';
 import { isGoogleDriveConfigured } from '@/utils/is-google-drive-configured';
 import { localize } from '@deriv-com/translations';
-import { TFaqContent, TGuideContent, TQuickStrategyContent, TUserGuideContent } from './tutorials.types';
+import { TFaqContent, TGuideContent, TUserGuideContent } from './tutorials.types';
 
 export const USER_GUIDE = 'user guide';
 export const VIDEOS = 'videos on deriv bot';
-export const QUICK_STRATEGY_GUIDES = 'quick strategy guides';
 
 export const user_guide_content = (): TUserGuideContent[] => [
     {
@@ -151,52 +150,12 @@ export const faq_content = (): TFaqContent[] => [
     },
     {
         title: localize('Do you offer pre-built trading bots on Deriv Bot?'),
-        description: [
-            {
-                type: 'text',
-                content: `${localize("Yes, you can get started with a pre-built bot using the <strong>Quick strategy</strong> feature. You'll find some of the most popular trading strategies here:")} Martingale, D'Alembert, ${localize('and')} Oscar's Grind. ${localize('Just select the strategy, enter your trade parameters, and your bot will be created for you. You can always tweak the parameters later.')}`,
-            },
-        ],
+        description: [{ type: 'text', content: localize('Yes. Choose Least Digit Decrease Differs or Alternating Over/Under from Free Bots.') }],
         search_id: 'faq-4',
     },
     {
-        title: localize('What is a quick strategy?'),
-        description: [
-            {
-                type: 'text',
-                content: `${localize('A quick strategy is a ready-made strategy that you can use in Deriv Bot. There are 3 quick strategies you can choose from:')} Martingale, D'Alembert, ${localize('and')} Oscar's Grind.`,
-            },
-            {
-                type: 'text',
-                content: localize('<strong>Using a quick strategy</strong>'),
-            },
-            {
-                type: 'text',
-                content: localize('1. Go to <strong>Quick strategy</strong> and select the strategy you want.'),
-            },
-            {
-                type: 'text',
-                content: localize('2. Select the asset and trade type.'),
-            },
-            {
-                type: 'text',
-                content: localize('3. Set your trade parameters and hit <strong>Run</strong>.'),
-            },
-            {
-                type: 'text',
-                content: localize(
-                    '4. Once the blocks are loaded onto the workspace, tweak the parameters if you want, or hit <strong>Run</strong> to start trading.'
-                ),
-            },
-            {
-                type: 'text',
-                content: isGoogleDriveConfigured()
-                    ? localize(
-                          '5. Hit <strong>Save</strong> to download your bot. You can choose to download your bot to your device or your Google Drive.'
-                      )
-                    : localize('5. Hit <strong>Save</strong> to download your bot to your device.'),
-            },
-        ],
+        title: localize('How do I load a free bot?'),
+        description: [{ type: 'text', content: localize('Open Free Bots, select a bot, and load it into Bot Builder to configure it.') }],
         search_id: 'faq-5',
     },
     {
@@ -446,7 +405,7 @@ export const faq_content = (): TFaqContent[] => [
         description: [
             {
                 type: 'text',
-                content: `${localize('Three of the most commonly used strategies in automated trading are')} Martingale, D'Alembert, ${localize('and')} Oscar's Grind — ${localize('you can find them all ready-made and waiting for you in Deriv Bot.')}`,
+                content: localize('Explore the two available strategies in Free Bots, or use Bot Builder to create your own.'),
             },
         ],
         search_id: 'faq-16',
@@ -462,62 +421,5 @@ export const faq_content = (): TFaqContent[] => [
             },
         ],
         search_id: 'faq-17',
-    },
-];
-
-export const quick_strategy_content = (): TQuickStrategyContent[] => [
-    {
-        qs_name: 'MARTINGALE',
-        type: `${localize('About')} Martingale`,
-        content: [
-            `${localize('Exploring the')} Martingale ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} Martingale ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-0`,
-    },
-    {
-        qs_name: 'D_ALEMBERT',
-        type: `${localize('About')} D'Alembert`,
-        content: [
-            `${localize('Exploring the')} D'Alembert ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} D'Alembert ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-1`,
-    },
-    {
-        qs_name: 'OSCARS_GRIND',
-        type: `${localize('About')} Oscar's Grind`,
-        content: [
-            `${localize('Exploring the')} Oscar's Grind ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} Oscar's Grind ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-2`,
-    },
-    {
-        qs_name: 'REVERSE_MARTINGALE',
-        type: `${localize('About')} Reverse Martingale`,
-        content: [
-            `${localize('Exploring the')} Reverse Martingale ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} Reverse Martingale ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-3`,
-    },
-    {
-        qs_name: 'REVERSE_D_ALEMBERT',
-        type: `${localize('About')} Reverse D'Alembert`,
-        content: [
-            `${localize('Exploring the')} Reverse D'Alembert ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} Reverse D'Alembert ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-4`,
-    },
-    {
-        qs_name: 'STRATEGY_1_3_2_6',
-        type: `${localize('About')} 1-3-2-6`,
-        content: [
-            `${localize('Exploring the')} 1-3-2-6 ${localize('strategy in Deriv Bot')}`,
-            `${localize('An example of')} 1-3-2-6 ${localize('strategy')}`,
-        ],
-        search_id: `${QUICK_STRATEGY_GUIDES}-5`,
     },
 ];

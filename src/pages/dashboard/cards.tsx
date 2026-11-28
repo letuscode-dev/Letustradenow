@@ -15,7 +15,6 @@ import {
     DerivLightGoogleDriveIcon,
     DerivLightLocalDeviceIcon,
     DerivLightMyComputerIcon,
-    DerivLightQuickStrategyIcon,
 } from '@deriv/quill-icons/Illustration';
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
@@ -36,12 +35,11 @@ type TCardArray = {
 };
 
 const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => {
-    const { dashboard, load_modal, quick_strategy, google_drive } = useStore();
+    const { dashboard, load_modal, google_drive } = useStore();
     const { toggleLoadModal, setActiveTabIndex } = load_modal;
     const { is_google_drive_configured } = google_drive;
     const { isDesktop } = useDevice();
     const { onCloseDialog, dialog_options, is_dialog_open, setActiveTab, setPreviewOnPopup } = dashboard;
-    const { setFormVisibility } = quick_strategy;
 
     const openFileLoader = () => {
         toggleLoadModal();
@@ -92,12 +90,11 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
             },
         },
         {
-            id: 'quick-strategy',
-            icon: <DerivLightQuickStrategyIcon height='48px' width='48px' />,
-            content: <Localize i18n_default_text='Quick strategy' />,
+            id: 'free-bots',
+            icon: <DerivLightBotBuilderIcon height='48px' width='48px' />,
+            content: <Localize i18n_default_text='Free Bots' />,
             callback: () => {
-                setActiveTab(DBOT_TABS.BOT_BUILDER);
-                setFormVisibility(true);
+                setActiveTab(DBOT_TABS.FREE_BOTS);
                 /* [AI] - Analytics event tracking removed - see migrate-docs/MONITORING_PACKAGES.md for re-implementation guide */
                 /* [/AI] */
             },
