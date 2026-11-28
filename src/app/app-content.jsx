@@ -4,7 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import AuthLoadingWrapper from '@/components/auth-loading-wrapper';
 import { botNotification } from '@/components/bot-notification/bot-notification';
 import useLiveChat from '@/components/chat/useLiveChat';
-import ChunkLoader from '@/components/loader/chunk-loader';
+import StartupLoader from '@/components/loader/startup-loader';
 import { getUrlBase } from '@/components/shared';
 import TransactionDetailsModal from '@/components/transaction-details';
 import { api_base, ApiHelpers, ServerTime } from '@/external/bot-skeleton';
@@ -36,6 +36,8 @@ const PreviewBranding =
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
     const [is_loading, setIsLoading] = React.useState(true);
+    const [loading_error, setLoadingError] = React.useState('');
+    const active_symbols_request = React.useRef(0);
 
     const store = useStore();
     const { app, transactions, common, client } = store;
@@ -137,33 +139,31 @@ const AppContent = observer(() => {
     };
 
     const changeActiveSymbolLoadingState = () => {
-        init();
-
-        const retrieveActiveSymbols = () => {
-            const { active_symbols } = ApiHelpers.instance;
-
-            active_symbols.retrieveActiveSymbols(true).then(() => {
-                setIsLoading(false);
-            });
-        };
-
-        if (ApiHelpers?.instance?.active_symbols) {
-            retrieveActiveSymbols();
-        } else {
-            // This is a workaround to fix the issue where the active symbols are not loaded immediately
-            // when the API is initialized. Should be replaced with RxJS pubsub
-            const intervalId = setInterval(() => {
-                if (ApiHelpers?.instance?.active_symbols) {
-                    clearInterval(intervalId);
-                    retrieveActiveSymbols();
+        const request = ++active_symbols_request.current;
+        setLoadingError('');
+        try {
+            init();
+            const active_symbols = ApiHelpers?.instance?.active_symbols;
+            if (!active_symbols) throw new Error('Market data service is unavailable');
+            Promise.resolve(active_symbols.retrieveActiveSymbols(true)).then(symbols => {
+                if (request !== active_symbols_request.current) return;
+                if (active_symbols.has_initialization_error && (!Array.isArray(symbols) || symbols.length === 0)) {
+                    throw new Error('Market data could not be loaded');
                 }
-            }, 1000);
+                setIsLoading(false);
+            }).catch(error => {
+                if (request !== active_symbols_request.current) return;
+                console.error('Unable to load market data:', error);
+                setLoadingError(localize('Could not load market data. Check your connection and try again.'));
+            });
+        } catch (error) {
+            console.error('Unable to initialize market data:', error);
+            setLoadingError(localize('Could not load market data. Check your connection and try again.'));
         }
     };
 
     React.useEffect(() => {
         if (is_api_initialized) {
-            init();
             setIsLoading(true);
             if (!client.is_logged_in) {
                 changeActiveSymbolLoadingState();
@@ -179,6 +179,8 @@ const AppContent = observer(() => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [is_api_initialized, client.loginid]);
 
+    React.useEffect(() => () => { active_symbols_request.current += 1; }, []);
+
     if (common?.error) return null;
 
     return (
@@ -189,7 +191,7 @@ const AppContent = observer(() => {
                 </Suspense>
             )}
             {is_loading ? (
-                <ChunkLoader message={localize('Initializing Deriv Bot account...')} />
+                <StartupLoader message={localize('Initializing Deriv Bot account...')} error={loading_error} />
             ) : (
                 <AuthLoadingWrapper>
                     <ThemeProvider theme={is_dark_mode_on ? 'dark' : 'light'}>

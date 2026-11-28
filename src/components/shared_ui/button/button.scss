@@ -307,18 +307,12 @@
         background-color: unset;
 
         /* postcss-bem-linter: ignore */
-        .initial-loader__barspinner--rect {
-            background-color: var(--text-colored-background);
-        }
-
-        /* postcss-bem-linter: ignore */
-        .barspinner {
-            margin: 0.6rem 4px 0 -4px;
-
-            /* postcss-bem-linter: ignore */
-            &__rect {
-                height: 35%;
-            }
+        .initial-loader__spinner {
+            width: 1.6rem;
+            height: 1.6rem;
+            margin: 0;
+            border-color: rgb(255 255 255 / 35%);
+            border-top-color: var(--text-colored-background);
         }
     }
 }

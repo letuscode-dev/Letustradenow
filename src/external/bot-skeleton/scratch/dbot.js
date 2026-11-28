@@ -24,9 +24,10 @@ class DBot {
     /**
      * Initialises the workspace and mounts it to a container element (app_contents).
      */
-    async initWorkspace(public_path, store, api_helpers_store, is_mobile, is_dark_mode) {
+    async initWorkspace(public_path, store, api_helpers_store, is_mobile, is_dark_mode, isActive = () => true) {
         await loadBlockly(is_dark_mode);
         const recent_files = await getSavedWorkspaces();
+        if (!isActive()) throw new Error('Bot Builder initialization was cancelled');
         this.interpreter = Interpreter();
 
         // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -129,6 +130,7 @@ class DBot {
                 }
                 const el_scratch_div = document.getElementById('scratch_div');
                 if (!el_scratch_div) {
+                    reject(new Error('Bot Builder container is unavailable'));
                     return;
                 }
 

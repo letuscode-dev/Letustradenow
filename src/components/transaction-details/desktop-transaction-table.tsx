@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import classNames from 'classnames';
-import ContentLoader from 'react-content-loader';
+import { localize } from '@deriv-com/translations';
 import { transaction_elements } from '@/constants/transactions';
 import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
@@ -42,19 +42,7 @@ const IconWrapper = ({ message, icon }: { message: string; icon: ReactElement })
     </div>
 );
 
-const CellLoader = () => (
-    <ContentLoader
-        className='transactions__loader-text'
-        data-testid='transaction_details_table_cell_loader'
-        height={10}
-        width={30}
-        speed={3}
-        backgroundColor={'var(--general-section-2)'}
-        foregroundColor={'var(--general-hover)'}
-    >
-        <rect x='0' y='0' rx='0' ry='0' width='60' height='12' />
-    </ContentLoader>
-);
+const CellLoader = () => <span data-testid='transaction_details_table_cell_loader' aria-label={localize('Waiting for data')}>—</span>;
 
 export default function DesktopTransactionTable({
     result,

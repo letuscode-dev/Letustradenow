@@ -1,5 +1,6 @@
 import React from 'react';
 import classNames from 'classnames';
+import { localize } from '@deriv-com/translations';
 import Text from '../text/text';
 
 export type TLoadingProps = React.HTMLProps<HTMLDivElement> & {
@@ -10,7 +11,6 @@ export type TLoadingProps = React.HTMLProps<HTMLDivElement> & {
 };
 
 const Loading = ({ className, id, is_fullscreen = true, is_slow_loading, status, theme }: Partial<TLoadingProps>) => {
-    const theme_class = theme ? `barspinner-${theme}` : 'barspinner-light';
     return (
         <div
             data-testid='dt_initial_loader'
@@ -22,16 +22,7 @@ const Loading = ({ className, id, is_fullscreen = true, is_slow_loading, status,
                 className
             )}
         >
-            <div id={id} className={classNames('initial-loader__barspinner', 'barspinner', theme_class)}>
-                {Array.from(new Array(5)).map((x, inx) => (
-                    <div
-                        key={inx}
-                        className={`initial-loader__barspinner--rect barspinner__rect barspinner__rect--${
-                            inx + 1
-                        } rect${inx + 1}`}
-                    />
-                ))}
-            </div>
+            <div id={id} className={classNames('initial-loader__spinner', { 'initial-loader__spinner--dark': theme === 'dark' })} role='status' aria-label={localize('Loading')} />
             {is_slow_loading &&
                 status?.map((text, inx) => (
                     <Text as='h3' color='prominent' size='xs' align='center' key={inx}>

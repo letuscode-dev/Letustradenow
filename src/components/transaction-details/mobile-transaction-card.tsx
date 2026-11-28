@@ -1,6 +1,5 @@
 import { ReactElement } from 'react';
 import classNames from 'classnames';
-import ContentLoader from 'react-content-loader';
 import { getContractTypeName } from '@/external/bot-skeleton';
 import { isDbotRTL } from '@/external/bot-skeleton/utils/workspace';
 import { getSymbolDisplayNameSync } from '@/utils/symbol-display-name';
@@ -21,19 +20,7 @@ type TCardRow = {
     loader: boolean;
 };
 
-const CellLoader = () => (
-    <ContentLoader
-        className='transactions__loader-text'
-        data-testid='transaction_details_card_cell_loader'
-        height={10}
-        width={80}
-        speed={3}
-        foregroundColor={'var(--general-section-2)'}
-        backgroundColor={'var(--general-hover)'}
-    >
-        <rect x='0' y='0' rx='0' ry='0' width='100' height='12' />
-    </ContentLoader>
-);
+const CellLoader = () => <span data-testid='transaction_details_card_cell_loader' aria-label={localize('Waiting for data')}>—</span>;
 
 const CardColumn = ({
     label = '',

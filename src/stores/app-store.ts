@@ -16,6 +16,7 @@ export default class AppStore {
     disposeSwitchAccountListener: unknown;
 
     disposeResidenceChangeReaction: unknown;
+    workspaceMountVersion = 0;
 
     constructor(root_store: RootStore, core: RootStore['core']) {
         makeObservable(this, {
@@ -37,6 +38,7 @@ export default class AppStore {
     }
 
     onMount = async () => {
+        const mountVersion = ++this.workspaceMountVersion;
         const { blockly_store, run_panel } = this.root_store;
         const { ui } = this.core;
 
@@ -45,22 +47,35 @@ export default class AppStore {
         this.timer = setInterval(() => {
             if (window.sendRequestsStatistic) {
                 window.sendRequestsStatistic(false);
-                performance.clearMeasures();
-                if (timer_counter === 6 || run_panel?.is_running) {
-                    if (this.timer) clearInterval(this.timer);
-                } else {
-                    timer_counter++;
-                }
+                performance.clearMeasures?.();
             }
+            if (timer_counter === 6 || run_panel?.is_running) {
+                if (this.timer) clearInterval(this.timer);
+                this.timer = null;
+            } else timer_counter++;
         }, 10000);
 
         if (!this.dbot_store) return;
 
+        blockly_store.setLoadError(null);
         blockly_store.setLoading(true);
-        await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false);
+        try {
+            await DBot.initWorkspace('/', this.dbot_store, this.api_helpers_store, ui.is_mobile, false,
+                () => mountVersion === this.workspaceMountVersion);
+            if (mountVersion !== this.workspaceMountVersion) return;
+            blockly_store.setContainerSize();
+        } catch (error) {
+            if (mountVersion === this.workspaceMountVersion) {
+                console.error('Unable to load Bot Builder:', error);
+                blockly_store.setLoadError('Bot Builder could not load. Check your connection and try again.');
+                if (this.timer) clearInterval(this.timer);
+            }
+            return;
+        } finally {
+            if (mountVersion === this.workspaceMountVersion) blockly_store.setLoading(false);
+        }
 
-        blockly_store.setContainerSize();
-        blockly_store.setLoading(false);
+        if (mountVersion !== this.workspaceMountVersion) return;
 
         this.registerCurrencyReaction.call(this);
         this.registerOnAccountSwitch.call(this);
@@ -73,6 +88,9 @@ export default class AppStore {
     };
 
     onUnmount = () => {
+        this.workspaceMountVersion += 1;
+        this.root_store.blockly_store.setLoading(false);
+        this.root_store.blockly_store.setLoadError(null);
         DBot.terminateBot();
         DBot.terminateConnection();
         if (window.Blockly?.derivWorkspace) {
@@ -103,7 +121,7 @@ export default class AppStore {
         ui.setPromptHandler(false);
 
         if (this.timer) clearInterval(this.timer);
-        performance.clearMeasures();
+        performance.clearMeasures?.();
     };
 
     registerCurrencyReaction = () => {
