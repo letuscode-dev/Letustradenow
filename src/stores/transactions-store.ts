@@ -129,7 +129,7 @@ export default class TransactionsStore {
             ...data,
             is_completed,
             run_id,
-            date_start: formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
+            date_start: data.date_start == null ? undefined : formatDate(data.date_start, 'YYYY-M-D HH:mm:ss [GMT]'),
             entry_tick: data.entry_spot,
             entry_tick_time: data.entry_tick_time && formatDate(data.entry_tick_time, 'YYYY-M-D HH:mm:ss [GMT]'),
             exit_tick: (data as any).exit_spot || data.exit_tick,

@@ -6,7 +6,12 @@ describe('mirror contract display', () => {
 
     it('shows a confirmed buy while leaving its result pending', () => {
         expect(mirrorContractForDisplay(base)).toMatchObject({ accountID: 'A', contract_id: 11,
-            transaction_ids: { buy: 101 }, status: 'open', buy_price: 0.62, barrier: 6, date_start: 1795810210 });
+            transaction_ids: { buy: 101 }, status: 'open', buy_price: 0.62, barrier: 6, tick_count: 1, date_start: null });
+    });
+
+    it('uses the actual purchase time when it is supplied', () => {
+        const result = mirrorContractForDisplay({ ...base, buy: { ...base.buy, start_time: 1795810211 } });
+        expect(result.date_start).toBe(1795810211);
     });
 
     it('uses the actual settled profit and sell price, preserving the buy transaction id', () => {

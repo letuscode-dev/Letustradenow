@@ -14,6 +14,7 @@ import { MarketIcon } from '../market/market-icon';
 import { convertDateFormat } from '../shared';
 import Popover from '../shared_ui/popover';
 import { TradeTypeIcon } from '../trade-type/trade-type-icon';
+import { getTransactionIdentity } from './transaction-identity';
 
 type TTransactionIconWithText = {
     icon: React.ReactElement;
@@ -34,8 +35,8 @@ type TPopoverContent = {
 
 type TTransaction = {
     contract?: TContractInfo | null;
-    onClickTransaction?: (transaction_id: null | number) => void;
-    active_transaction_id?: number | null;
+    onClickTransaction?: (transaction_id: string | null) => void;
+    active_transaction_id?: string | null;
 };
 
 const TransactionIconWithText = ({ icon, title, message, className }: TTransactionIconWithText) => (
@@ -90,6 +91,11 @@ const PopoverItem = ({ icon, title, children }: TPopoverItem) => (
 
 const PopoverContent = ({ contract }: TPopoverContent) => (
     <div className='transactions__popover-content'>
+        {contract.contract_id != null && (
+            <PopoverItem title={localize('Contract ID')}>
+                <div className='transactions__popover-value'>{contract.contract_id}</div>
+            </PopoverItem>
+        )}
         {contract.transaction_ids && (
             <PopoverItem title={<Localize i18n_default_text='Reference IDs' />}>
                 {contract.transaction_ids.buy && (
@@ -109,7 +115,7 @@ const PopoverContent = ({ contract }: TPopoverContent) => (
                 <div className='transactions__popover-value'>{`${contract.tick_count} ${localize('ticks')}`}</div>
             </PopoverItem>
         )}
-        {(contract.barrier && (
+        {(contract.barrier !== null && contract.barrier !== undefined && contract.barrier !== '' && (
             <PopoverItem title={localize('Barrier')}>
                 <div className='transactions__popover-value'>{contract.barrier}</div>
             </PopoverItem>
@@ -160,18 +166,19 @@ const PopoverContent = ({ contract }: TPopoverContent) => (
 );
 
 const Transaction = ({ contract, active_transaction_id, onClickTransaction }: TTransaction) => {
+    const transaction_id = getTransactionIdentity(contract);
     return (
         <Popover
             zIndex={popover_zindex.TRANSACTION.toString()}
             alignment={isDbotRTL() ? 'right' : 'left'}
             className='transactions__item-wrapper'
-            is_open={!!(contract && active_transaction_id === contract?.transaction_ids?.buy)}
+            is_open={!!(transaction_id && active_transaction_id === transaction_id)}
             message={contract && <PopoverContent contract={contract} />}
         >
             <div
                 data-testid='dt_transactions_item'
                 className='transactions__item'
-                onClick={() => onClickTransaction && onClickTransaction(contract?.transaction_ids?.buy || null)}
+                onClick={() => onClickTransaction && onClickTransaction(transaction_id)}
             >
                 <div className='transactions__cell transactions__trade-type'>
                     <div className='transactions__loader-container'>

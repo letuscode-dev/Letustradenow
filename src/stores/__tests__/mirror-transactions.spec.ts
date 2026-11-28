@@ -2,6 +2,7 @@ import { observable, runInAction } from 'mobx';
 import { observer as botObserver } from '@/external/bot-skeleton/utils/observer';
 import { getStoredItemsByKey } from '@/utils/session-storage';
 import { createMirrorBotSession } from '@/external/bot-skeleton/services/tradeEngine/utils/mirror-bot-session';
+import { tripleHitConcentrationStrategy } from '@/external/bot-skeleton/services/tradeEngine/utils/triple-hit-concentration';
 import TransactionsStore from '../transactions-store';
 
 jest.mock('@/components/shared', () => ({
@@ -107,6 +108,45 @@ describe('mirror contracts in Transactions', () => {
         expect(store.transactions).toHaveLength(1);
         expect(store.transactions[0].data).toMatchObject({ contract_id: 22054422119, profit: 0.05, is_completed: true });
         expect(store.statistics).toMatchObject({ number_of_runs: 1, total_profit: 0.05, total_payout: 0.67 });
+        store.disposeReactionsFn();
+        store.disposeMirrorListener();
+    });
+
+    it('shows a confirmed Triple-Hit purchase immediately and updates its final result', async () => {
+        const client = observable({ loginid: 'A' });
+        const store = new TransactionsStore({ run_panel: { run_id: 'run-1' } } as any, { client } as any);
+        let listener: (message: any) => void = () => {};
+        const tick = (epoch: number, digit: number) => ({ msg_type: 'tick', subscription: { id: 'ticks' },
+            tick: { symbol: '1HZ75V', epoch, quote: 100 + digit / 100, pip_size: 2 } });
+        const api = {
+            connection: { readyState: 1, addEventListener: jest.fn(), removeEventListener: jest.fn() },
+            onMessage: () => ({ subscribe: (callback: (message: any) => void) => {
+                listener = callback; return { unsubscribe: jest.fn() };
+            } }),
+            send: jest.fn(async (request: any) => {
+                if (request.ticks) { const first = tick(1, 0); listener({ data: first }); return first; }
+                if (request.proposal_open_contract && !request.contract_id) return { subscription: { id: 'all' } };
+                if (request.buy) return { buy: { contract_id: 777, buy_price: request.price } };
+                return {};
+            }),
+        };
+        const session = createMirrorBotSession({ getApi: () => api, getAccount: () => 'A', account: 'A', currency: 'USD',
+            settings: { stake: 5, maxLosses: 2, profitThreshold: 10, recoveryMultiplier: 100 / 9.6 },
+            strategy: tripleHitConcentrationStrategy, journal: jest.fn(), onStop: jest.fn(), round: (value: number) => value,
+            onContract: (contract: any) => botObserver.emit('mirror.contract', contract) });
+        await session.attach();
+        [7, 0, 2, 0, 9, 1, 0, 6, 0].forEach((digit, index) => listener({ data: tick(index + 2, digit) }));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(store.transactions).toHaveLength(1);
+        expect(store.transactions[0].data).toMatchObject({ contract_id: 777, contract_type: 'DIGITDIFF',
+            barrier: 0, tick_count: 1, buy_price: 5, is_completed: false });
+        expect((store.transactions[0].data as any).date_start).toBeUndefined();
+        listener({ data: { msg_type: 'proposal_open_contract', proposal_open_contract: {
+            contract_id: 777, status: 'won', sell_price: 5.48, profit: 0.48,
+        } } });
+        expect(store.transactions).toHaveLength(1);
+        expect(store.transactions[0].data).toMatchObject({ contract_id: 777, profit: 0.48, is_completed: true });
+        session.stop();
         store.disposeReactionsFn();
         store.disposeMirrorListener();
     });

@@ -113,6 +113,24 @@ describe('Triple-Hit Concentration', () => {
         expect(buy).toHaveBeenCalledTimes(1);
     });
 
+    it('reports a confirmed purchase before an early settlement and stop', async () => {
+        let confirm;
+        const events = [];
+        const onPurchase = jest.fn();
+        const runtime = createMirrorRuntime({ strategy, settings: { ...settings, maxLosses: 1 },
+            journal: event => events.push(event), onPurchase, onStop: jest.fn(), round,
+            buy: () => new Promise(resolve => { confirm = resolve; }), refreshContract: async () => ({}) });
+        [4, 7, 4, 2, 4, 9, 1, 4, 6, 4].forEach((digit, index) => runtime.tick(digit, index));
+        runtime.settle({ contract_id: 1, status: 'lost', sell_price: 0, profit: -5 });
+        confirm({ buy: { contract_id: 1, buy_price: 5 } });
+        await flush();
+        const types = events.map(event => event.type);
+        expect(types.indexOf('purchase')).toBeLessThan(types.indexOf('settlement'));
+        expect(types.indexOf('settlement')).toBeLessThan(types.indexOf('stop'));
+        expect(events.find(event => event.type === 'purchase').statistics).toMatchObject({ executedTrades: 1, losses: 0 });
+        expect(onPurchase).toHaveBeenCalledTimes(1);
+    });
+
     it('stops on an unconfirmed purchase without assuming it did not execute', async () => {
         const onStop = jest.fn();
         const runtime = createMirrorRuntime({ strategy, settings, journal: jest.fn(), onStop,

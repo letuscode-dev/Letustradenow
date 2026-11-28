@@ -5,7 +5,7 @@ import { applyMirrorSettlement, createMirrorRiskState } from './mirror-risk';
 /** Core runtime: transport supplies ordered live ticks, a direct buy, and settlement messages. */
 export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: writeJournal, round = value => value, onStop = () => {}, onChange = () => {}, onPurchase = () => {}, onContractUpdate = () => {}, strategy = null }) => {
     const risk = strategy ? strategy.createRisk(settings) : createMirrorRiskState(settings);
-    const journal = event => writeJournal(strategy?.statistics ? { ...event, statistics: strategy.statistics(risk) } : event);
+    const journal = event => writeJournal(strategy?.statistics ? { ...event, statistics: event.statistics ?? strategy.statistics(risk) } : event);
     const detector = strategy ? strategy.createDetector() : createThreeDigitMirrorState();
     const tracker = createMirrorContractTracker();
     const signals = [];
@@ -154,14 +154,19 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
                 signal.executed = true;
                 strategy.recordPurchase(risk);
             }
+            const purchaseEvent = { type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
+                barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
+                confirmed: true };
+            if (strategy?.reportPurchaseBeforeSettlement && strategy.statistics) purchaseEvent.statistics = strategy.statistics(risk);
+            const earlySettlement = earlySettlements.get(String(signal.contractId));
             const displayPurchase = () => {
                 try {
                     onPurchase(response.buy, signal);
                 } catch (error) {
                     journal({ type: 'display_error', contractId: signal.contractId, reason: error?.message || String(error) });
                 }
+                if (earlySettlement && strategy?.reportPurchaseBeforeSettlement) journal(purchaseEvent);
             };
-            const earlySettlement = earlySettlements.get(String(signal.contractId));
             earlySettlements.clear();
             if (earlySettlement && strategy?.prioritizeExecution) {
                 // A terminal update can precede the buy response. Confirm the buy,
@@ -173,9 +178,7 @@ export const createMirrorRuntime = ({ settings, buy, refreshContract, journal: w
                 if (earlySettlement) settle(earlySettlement);
                 finishPurchase();
             }
-            journal({ type: 'purchase', signal, contractId: signal.contractId, stake: response.buy.buy_price,
-                barrier: signal.barrier, duration: 1, entryTimestamp: response.buy.start_time ?? response.buy.purchase_time ?? null,
-                confirmed: true });
+            if (!(earlySettlement && strategy?.reportPurchaseBeforeSettlement)) journal(purchaseEvent);
             if (tracker.settled.has(String(signal.contractId))) return;
             return Promise.resolve(refreshContract(signal.contractId)).then(result => settle(result?.proposal_open_contract));
         }).catch(error => {

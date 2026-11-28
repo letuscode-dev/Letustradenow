@@ -70,6 +70,12 @@ it('keeps evaluating ticks during a pending buy and applies an early loss to the
     expect(api.send.mock.calls.filter(([request]) => request.buy)).toHaveLength(1);
     confirmFirst({ buy: { contract_id: 11, buy_price: 5 } });
     await flush();
+    const firstEvents = journal.mock.calls.map(([event]) => event);
+    const purchase = firstEvents.findIndex(event => event.type === 'purchase' && event.contractId === 11);
+    const settlement = firstEvents.findIndex(event => event.type === 'settlement' && event.contract_id === 11);
+    expect(purchase).toBeGreaterThanOrEqual(0);
+    expect(settlement).toBeGreaterThan(purchase);
+    expect(firstEvents[purchase].statistics).toMatchObject({ executedTrades: 1, losses: 0 });
     expect(session.runtime.risk.stake).toBe(52.08);
     listener({ data: tick(12, 4) });
     expect(api.send.mock.calls.filter(([request]) => request.buy).map(([request]) => request.price)).toEqual([5, 52.08]);

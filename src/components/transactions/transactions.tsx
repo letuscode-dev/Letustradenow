@@ -15,6 +15,7 @@ import { Localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import ThemedScrollbars from '../shared_ui/themed-scrollbars';
 import Transaction from './transaction';
+import { getTransactionIdentity } from './transaction-identity';
 
 type TTransactions = {
     is_drawer_open: boolean;
@@ -25,8 +26,8 @@ type TTransactionItem = {
         type: string;
         data: TContractInfo;
     };
-    onClickTransaction?: (transaction_id: null | number) => void;
-    active_transaction_id?: number | null;
+    onClickTransaction?: (transaction_id: string | null) => void;
+    active_transaction_id?: string | null;
 };
 
 const TransactionItem = ({ row = false, onClickTransaction, active_transaction_id }: TTransactionItem) => {
@@ -55,7 +56,7 @@ const TransactionItem = ({ row = false, onClickTransaction, active_transaction_i
 };
 
 const Transactions = observer(({ is_drawer_open }: TTransactions) => {
-    const [active_transaction_id, setActiveTransactionId] = React.useState<number | null>(null);
+    const [active_transaction_id, setActiveTransactionId] = React.useState<string | null>(null);
     const { run_panel, transactions } = useStore();
     const { contract_stage } = run_panel;
     const { transactions: transaction_list, toggleTransactionDetailsModal, recoverPendingContracts } = transactions;
@@ -87,7 +88,7 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
         }
     };
 
-    const onClickTransaction = (transaction_id: null | number) => {
+    const onClickTransaction = (transaction_id: string | null) => {
         // Toggle transaction popover if passed transaction_id is the same.
         if (transaction_id && active_transaction_id === transaction_id) {
             setActiveTransactionId(null);
@@ -149,7 +150,7 @@ const Transactions = observer(({ is_drawer_open }: TTransactions) => {
                             keyMapper={row => {
                                 switch (row.type) {
                                     case transaction_elements.CONTRACT: {
-                                        return row.data.transaction_ids.buy;
+                                        return getTransactionIdentity(row.data);
                                     }
                                     case transaction_elements.DIVIDER: {
                                         return row.data;

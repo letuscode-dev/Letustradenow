@@ -5,6 +5,7 @@ import { contract as emitContract } from '../utils/broadcast';
 import { createMirrorBotSession } from '../utils/mirror-bot-session';
 import { fixedDigitDiffersStrategy } from '../utils/fixed-digit-differs';
 import { tripleHitConcentrationStrategy } from '../utils/triple-hit-concentration';
+import { formatTripleHitJournal } from '../utils/triple-hit-journal';
 import { createTrackerState, evaluateAdaptiveDigitGap, releaseAdaptiveDigitGapActiveTrade } from '../utils/adaptive-digit-gap';
 import {
     createAscendingRankNextState,
@@ -463,7 +464,12 @@ const getBotInterface = tradeEngine => {
             getInitialTicks: () => seedHistory ? tradeEngine.$scope.ticksService?.getCachedTicks?.('1HZ75V') || [] : [],
             account, getAccount, currency, settings, strategy,
             round: value => getRoundedNumber(value, currency),
-            journal: event => notifyHedge(`${label} | ${JSON.stringify(event)}`, 'journal__text'),
+            journal: event => {
+                if (strategy === tripleHitConcentrationStrategy) {
+                    const notice = formatTripleHitJournal(event, currency);
+                    notifyHedge(notice.message, notice.className);
+                } else notifyHedge(`${label} | ${JSON.stringify(event)}`, 'journal__text');
+            },
             onContract: contract => globalObserver.emit('mirror.contract', contract),
             onStop: () => {
                 if (!tradeEngine.$scope.stopped) globalObserver.emit('bot.stop_button_click');
@@ -475,6 +481,9 @@ const getBotInterface = tradeEngine => {
         });
         globalObserver.register('bot.stop', userStop);
         globalObserver.register('api.authorize', authorized);
+        if (strategy === tripleHitConcentrationStrategy) {
+            notifyHedge(`Triple-Hit Concentration | STARTING — Volatility 75 (1s), 1HZ75V | Initial stake: ${settings.stake} ${currency} | Maximum consecutive losses: ${settings.maxLosses} | Profit threshold: ${settings.profitThreshold} ${currency} | Recovery multiplier: ${settings.recoveryMultiplier} | Waiting for 10 completed ticks.`);
+        }
         await session.attach();
         await session.finished;
     };

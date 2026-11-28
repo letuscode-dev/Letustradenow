@@ -11,6 +11,7 @@ export const tripleHitConcentrationStrategy = {
     bufferEarlySettlements: true,
     monitorAllContracts: true,
     prioritizeExecution: true,
+    reportPurchaseBeforeSettlement: true,
     skipBusySignals: true,
     staleBufferedAnalysisOnly: true,
     createRisk({ stake, maxLosses, profitThreshold, recoveryMultiplier }) {
