@@ -1,6 +1,7 @@
-import { OVER_3_UNDER_6_XML } from '../bots/over-3-under-6';
+import { ALTERNATING_OVER_UNDER_XML } from '../bots/alternating-over-under';
+import { validOverUnderSwitchSettings } from '../../../external/bot-skeleton/services/tradeEngine/utils/over-under-loss-switch';
 
-const documentForBot = () => new DOMParser().parseFromString(OVER_3_UNDER_6_XML, 'text/xml');
+const documentForBot = () => new DOMParser().parseFromString(ALTERNATING_OVER_UNDER_XML, 'text/xml');
 const childBlock = (parent: Element | null, selector: string) =>
     parent?.querySelector(`:scope > ${selector} > block`) || parent?.querySelector(`:scope > ${selector} > shadow`) || null;
 const field = (block: Element, name: string) => block.querySelector(`:scope > field[name="${name}"]`);
@@ -27,6 +28,7 @@ const createRunner = () => {
             case 'math_single': return -value('NUM');
             case 'math_arithmetic': return value('A') * value('B');
             case 'over_under_switch_round': return Math.round((value('VALUE') + Number.EPSILON) * 100) / 100;
+            case 'over_under_switch_validate': return validOverUnderSwitchSettings(value('OVER'), value('UNDER'), value('STAKE'), value('MULTIPLIER'), value('TARGET'));
             case 'logic_compare': {
                 const a = value('A'); const b = value('B');
                 switch (field(block, 'OP')?.textContent) {
@@ -82,9 +84,32 @@ it('loads the supplied defaults and uses direct purchases with current-tick mode
     expect(bot.doc.querySelector('field[name="RESTARTONERROR"]')?.textContent).toBe('FALSE');
     expect(bot.doc.querySelectorAll('block[type="apollo_purchase"]')).toHaveLength(0);
     expect(bot.doc.querySelectorAll('block[type="over_under_switch_purchase"]')).toHaveLength(2);
+    expect(bot.doc.querySelector('block[id="aou_set_over"] field[name="NUM"]')?.textContent).toBe('3');
+    expect(bot.doc.querySelector('block[id="aou_set_under"] field[name="NUM"]')?.textContent).toBe('6');
     bot.init();
     expect(bot.state.catchTick).toBe(true);
     expect(bot.order()).toEqual(['DIGITOVER', 3, 0.5]);
+});
+
+it.each([[0, 1], [2, 7], [8, 9]])('uses configurable Over %i and Under %i predictions on their respective trades', (over, under) => {
+    const bot = createRunner();
+    bot.doc.querySelector('block[id="aou_set_over"] field[name="NUM"]')!.textContent = String(over);
+    bot.doc.querySelector('block[id="aou_set_under"] field[name="NUM"]')!.textContent = String(under);
+    bot.init();
+    expect(bot.order()).toEqual(['DIGITOVER', over, 0.5]);
+    expect(bot.settle('win', 0.2)).toBe(true);
+    expect(bot.order()).toEqual(['DIGITUNDER', under, 0.5]);
+    expect(bot.settle('loss', -0.3)).toBe(true);
+    expect(bot.order()).toEqual(['DIGITOVER', over, 1.25]);
+});
+
+it.each([[9, 6], [3, 0], [-1, 6], [3, 10], [2.5, 6]])('blocks purchase when either configured prediction is invalid: %s, %s', (over, under) => {
+    const bot = createRunner();
+    bot.doc.querySelector('block[id="aou_set_over"] field[name="NUM"]')!.textContent = String(over);
+    bot.doc.querySelector('block[id="aou_set_under"] field[name="NUM"]')!.textContent = String(under);
+    bot.init();
+    bot.order();
+    expect(bot.state.purchase).toBe('');
 });
 
 it('alternates after wins and losses, applies rounded Martingale, and resets on a win', () => {

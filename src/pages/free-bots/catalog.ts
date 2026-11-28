@@ -4,7 +4,7 @@ import { THREE_DIGIT_MIRROR_XML } from './bots/three-digit-mirror';
 import { FIXED_DIGIT_DIFFERS_XML } from './bots/fixed-digit-differs';
 import { TRIPLE_HIT_CONCENTRATION_XML } from './bots/triple-hit-concentration';
 import { DIGIT_PERCENTAGE_INCREASE_XML } from './bots/digit-percentage-increase';
-import { OVER_3_UNDER_6_XML } from './bots/over-3-under-6';
+import { ALTERNATING_OVER_UNDER_XML } from './bots/alternating-over-under';
 import type { FreeBot } from './types';
 
 /**
@@ -15,11 +15,11 @@ import type { FreeBot } from './types';
  */
 export const FREE_BOTS: FreeBot[] = [
     {
-        id: 'over-3-under-6-v1',
-        title: 'Over 3 & Under 6',
-        description: 'Starts with Over 3 and alternates with Under 6 after each settled trade. Includes optional Martingale, take profit and stop loss.',
+        id: 'alternating-over-under-v1',
+        title: 'Alternating Over/Under',
+        description: 'Starts with Over and alternates with Under after each settled trade. Configure both predictions, optional Martingale, take profit and stop loss.',
         tags: ['Over/Under', 'Alternating', 'Martingale', 'Take Profit', 'Stop Loss'],
-        xml: OVER_3_UNDER_6_XML,
+        xml: ALTERNATING_OVER_UNDER_XML,
     },
     {
         id: 'digit-percentage-increase-v1',

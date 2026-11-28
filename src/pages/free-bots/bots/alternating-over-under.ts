@@ -1,6 +1,8 @@
-/** Imported Over 3 / Under 6 strategy. The direct purchase and tick-speed blocks reduce execution latency; uncertain buys do not auto-restart. */
-export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
+/** Imported alternating strategy with configurable barriers and direct purchases. */
+export const ALTERNATING_OVER_UNDER_XML = `<xml xmlns="https://developers.google.com/blockly/xml" is_dbot="true" collection="false">
   <variables>
+    <variable id="aou_over_prediction">Over Prediction</variable>
+    <variable id="aou_under_prediction">Under Prediction</variable>
     <variable id="r3#,*L{|k_*_oikco?~E">Stake</variable>
     <variable id="iexW!(p-QSL[kDvWK\`o-">Take Profit</variable>
     <variable id="AwGIX3K\`=6@AOl/-\`G)O">Stop Loss</variable>
@@ -51,6 +53,8 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
     </statement>
     <statement name="INITIALIZATION">
       <block type="set_catch_every_tick" id="ou36_tick_speed"><value name="ENABLED"><block type="math_number"><field name="NUM">1</field></block></value><next>
+      <block type="variables_set" id="aou_set_over"><field name="VAR" id="aou_over_prediction">Over Prediction</field><value name="VALUE"><block type="math_number"><field name="NUM">3</field></block></value><next>
+      <block type="variables_set" id="aou_set_under"><field name="VAR" id="aou_under_prediction">Under Prediction</field><value name="VALUE"><block type="math_number"><field name="NUM">6</field></block></value><next>
       <block type="variables_set" id="VtinTUlRho|l^-0R$7%A">
         <field name="VAR" id="r3#,*L{|k_*_oikco?~E">Stake</field>
         <value name="VALUE">
@@ -119,6 +123,7 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
           </block>
         </next>
       </block>
+      </next></block></next></block>
       </next></block>
     </statement>
     <statement name="SUBMARKET">
@@ -160,8 +165,8 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
               <shadow type="math_number_positive" id="*;vuggdXL:P~0WSl#a@n">
                 <field name="NUM">1</field>
               </shadow>
-              <block type="math_number" id=":#),L7:nJWVfkXw;?Py:">
-                <field name="NUM">3</field>
+              <block type="variables_get" id=":#),L7:nJWVfkXw;?Py:">
+                <field name="VAR" id="aou_over_prediction">Over Prediction</field>
               </block>
             </value>
           </block>
@@ -187,8 +192,8 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
               <shadow type="math_number_positive" id="[z=h{F#Gyh8q;{Y1xM!0">
                 <field name="NUM">1</field>
               </shadow>
-              <block type="math_number" id=",BH2l#9FN8I/f9TWD]0b">
-                <field name="NUM">6</field>
+              <block type="variables_get" id=",BH2l#9FN8I/f9TWD]0b">
+                <field name="VAR" id="aou_under_prediction">Under Prediction</field>
               </block>
             </value>
           </block>
@@ -416,6 +421,15 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
   </block>
   <block type="before_purchase" id="V/jf;#b@;*@3ATM]D)=;" collapsed="true" deletable="false" x="0" y="1106">
     <statement name="BEFOREPURCHASE_STACK">
+      <block type="controls_if" id="aou_validate_barriers">
+        <value name="IF0"><block type="over_under_switch_validate">
+          <value name="OVER"><block type="variables_get"><field name="VAR" id="aou_over_prediction">Over Prediction</field></block></value>
+          <value name="UNDER"><block type="variables_get"><field name="VAR" id="aou_under_prediction">Under Prediction</field></block></value>
+          <value name="STAKE"><block type="variables_get"><field name="VAR" id="!(67Y!ov*~[U/$pjZ,0.">Stake win</field></block></value>
+          <value name="MULTIPLIER"><block type="math_number"><field name="NUM">1</field></block></value>
+          <value name="TARGET"><block type="math_number"><field name="NUM">1</field></block></value>
+        </block></value>
+        <statement name="DO0">
       <block type="controls_if" id="42TJOh33!rm$JB,Q#Gc+">
         <mutation xmlns="http://www.w3.org/1999/xhtml" else="1"></mutation>
         <value name="IF0">
@@ -442,6 +456,8 @@ export const OVER_3_UNDER_6_XML = `<xml xmlns="https://developers.google.com/blo
           <block type="over_under_switch_purchase" id="FCvo9t6WR?3TptKI\`BI.">
             <field name="SIDE">DIGITUNDER</field>
           </block>
+        </statement>
+      </block>
         </statement>
       </block>
     </statement>

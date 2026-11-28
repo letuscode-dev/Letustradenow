@@ -13,7 +13,7 @@ const parse = (xml: string) => new DOMParser().parseFromString(xml, 'text/xml');
 describe('free bot catalog XML', () => {
     it('lists Triple-Hit Concentration, the fixed prediction and mirror bots, and both Over/Under bots', () => {
         expect(FREE_BOTS).toHaveLength(7);
-        expect(FREE_BOTS.find(bot => bot.id === 'over-3-under-6-v1')).toMatchObject({ title: 'Over 3 & Under 6' });
+        expect(FREE_BOTS.find(bot => bot.id === 'alternating-over-under-v1')).toMatchObject({ title: 'Alternating Over/Under' });
         expect(FREE_BOTS.find(bot => bot.id === 'digit-percentage-increase-v1')).toMatchObject({ title: 'Digit Percentage Increase Differs' });
         expect(FREE_BOTS.find(bot => bot.id === 'triple-hit-concentration-v1')).toMatchObject({ title: 'Triple-Hit Concentration' });
         expect(FREE_BOTS.find(bot => bot.id === 'fixed-digit-differs-v1')).toMatchObject({ title: 'Digit Differs — Fixed Prediction' });
