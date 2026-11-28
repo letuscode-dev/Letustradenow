@@ -64,6 +64,7 @@ export default class TransactionsStore {
     recovered_transactions: number[] = [];
     is_called_proposal_open_contract = false;
     is_transaction_details_modal_open = false;
+    persistenceReactionsActive = false;
 
     get transactions(): TTransaction[] {
         if (this.core?.client?.loginid) return this.elements[this.core?.client?.loginid] ?? [];
@@ -188,7 +189,10 @@ export default class TransactionsStore {
         }
 
         this.elements = { ...this.elements }; // force update
-        if (account_override) {
+        // The active account is already persisted by the reaction below. Late
+        // updates after unmount, or updates for a different account, still need
+        // their own write because that reaction cannot observe them.
+        if (account_override && (!this.persistenceReactionsActive || account_override !== this.core?.client?.loginid)) {
             const stored_transactions = getStoredItemsByKey(this.TRANSACTION_CACHE, {});
             stored_transactions[account_override] = this.elements[account_override]?.slice(0, 5000) ?? [];
             setStoredItemsByKey(this.TRANSACTION_CACHE, stored_transactions);
@@ -206,6 +210,7 @@ export default class TransactionsStore {
 
     registerReactions() {
         const { client } = this.core;
+        this.persistenceReactionsActive = true;
 
         // Write transactions to session storage on each change in transaction elements.
         const disposeTransactionElementsListener = reaction(
@@ -226,6 +231,7 @@ export default class TransactionsStore {
         );
 
         return () => {
+            this.persistenceReactionsActive = false;
             disposeTransactionElementsListener();
             disposeRecoverContracts();
         };

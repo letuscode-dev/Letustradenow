@@ -24,6 +24,7 @@ it('shows a confirmed contract with barrier zero and opens its details without a
     expect(screen.getByText('Barrier')).toBeTruthy();
     expect(screen.getByText('0')).toBeTruthy();
     expect(screen.getByText('5 USD')).toBeTruthy();
+    expect(screen.getAllByLabelText('Waiting for data').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByTestId('dt_transactions_item'));
     expect(onClick).toHaveBeenCalledWith('contract:777');
     expect(getTransactionIdentity({ transaction_ids: { buy: 777 }, contract_id: 888 })).toBe('buy:777');

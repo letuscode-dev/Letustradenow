@@ -1,6 +1,7 @@
 import { observable, runInAction } from 'mobx';
 import { observer as botObserver } from '@/external/bot-skeleton/utils/observer';
 import { getStoredItemsByKey } from '@/utils/session-storage';
+import * as sessionStorageUtils from '@/utils/session-storage';
 import { createMirrorBotSession } from '@/external/bot-skeleton/services/tradeEngine/utils/mirror-bot-session';
 import { tripleHitConcentrationStrategy } from '@/external/bot-skeleton/services/tradeEngine/utils/triple-hit-concentration';
 import TransactionsStore from '../transactions-store';
@@ -66,6 +67,23 @@ describe('mirror contracts in Transactions', () => {
         }
         expect(store.transactions).toHaveLength(2);
         store.disposeReactionsFn();
+        store.disposeMirrorListener();
+    });
+
+    it('persists a current-account contract once, and still persists updates after reactions are disposed', () => {
+        const client = observable({ loginid: 'A' });
+        const store = new TransactionsStore({ run_panel: { run_id: 'run-1' } } as any, { client } as any);
+        const persist = jest.spyOn(sessionStorageUtils, 'setStoredItemsByKey');
+        botObserver.emit('mirror.contract', { accountID: 'A', contract_id: 21, transaction_ids: {}, status: 'open',
+            date_start: 1, currency: 'USD', buy_price: 1 });
+        expect(persist).toHaveBeenCalledTimes(1);
+        store.disposeReactionsFn();
+        persist.mockClear();
+        botObserver.emit('mirror.contract', { accountID: 'A', contract_id: 21, transaction_ids: {}, status: 'won',
+            date_start: 1, currency: 'USD', buy_price: 1, payout: 1.1, profit: 0.1 });
+        expect(persist).toHaveBeenCalledTimes(1);
+        expect(getStoredItemsByKey('transaction_cache', {}).A[0].data.profit).toBe(0.1);
+        persist.mockRestore();
         store.disposeMirrorListener();
     });
 

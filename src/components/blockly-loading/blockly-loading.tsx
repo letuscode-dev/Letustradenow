@@ -1,6 +1,7 @@
 import { observer } from 'mobx-react-lite';
 import { useStore } from '@/hooks/useStore';
-import { Loader } from '@deriv-com/ui';
+import { localize } from '@deriv-com/translations';
+import LoadingIndicator from '../loader/loading-indicator';
 
 const BlocklyLoading = observer(() => {
     const { blockly_store } = useStore();
@@ -10,8 +11,7 @@ const BlocklyLoading = observer(() => {
         <>
             {is_loading && (
                 <div className='bot__loading' data-testid='blockly-loader'>
-                    <Loader />
-                    <div>Loading Blockly...</div>
+                    <LoadingIndicator message={localize('Loading Bot Builder...')} />
                 </div>
             )}
         </>

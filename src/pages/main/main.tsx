@@ -86,8 +86,6 @@ const AppWrapper = observer(() => {
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
-    const [left_tab_shadow, setLeftTabShadow] = useState<boolean>(false);
-    const [right_tab_shadow, setRightTabShadow] = useState<boolean>(false);
 
     // Trade type modal state
     const [tradeTypeModalState, setTradeTypeModalState] = useState(getModalState());
@@ -148,41 +146,6 @@ const AppWrapper = observer(() => {
     }, [location.search]);
 
     React.useEffect(() => {
-        const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-tutorials');
-
-        const observer_dashboard = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setLeftTabShadow(false);
-                    return;
-                }
-                setLeftTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5, // set offset 0.1 means trigger if atleast 10% of element in viewport
-            }
-        );
-
-        const observer_tutorial = new window.IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setRightTabShadow(false);
-                    return;
-                }
-                setRightTabShadow(true);
-            },
-            {
-                root: null,
-                threshold: 0.5, // set offset 0.1 means trigger if atleast 10% of element in viewport
-            }
-        );
-        observer_dashboard.observe(el_dashboard);
-        observer_tutorial.observe(el_tutorial);
-    });
-
-    React.useEffect(() => {
         if (connectionStatus !== CONNECTION_STATUS.OPENED) {
             const is_bot_running = document.getElementById('db-animation__stop-button') !== null;
             if (is_bot_running) {
@@ -193,19 +156,6 @@ const AppWrapper = observer(() => {
             }
         }
     }, [clear, connectionStatus, setWebSocketState, stopBot]);
-
-    // Update tab shadows height to match bot builder height
-    const updateTabShadowsHeight = () => {
-        const botBuilderEl = document.getElementById('id-bot-builder');
-        const leftShadow = document.querySelector('.tabs-shadow--left') as HTMLElement;
-        const rightShadow = document.querySelector('.tabs-shadow--right') as HTMLElement;
-
-        if (botBuilderEl && leftShadow && rightShadow) {
-            const height = botBuilderEl.offsetHeight;
-            leftShadow.style.height = `${height}px`;
-            rightShadow.style.height = `${height}px`;
-        }
-    };
 
     React.useEffect(() => {
         let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -277,9 +227,6 @@ const AppWrapper = observer(() => {
     }, [active_tab, is_loading]);
 
     React.useEffect(() => {
-        // Run on mount and when active tab changes
-        updateTabShadowsHeight();
-
         if (is_open) {
             setTourDialogVisibility(false);
         }
@@ -380,7 +327,6 @@ const AppWrapper = observer(() => {
                     })}
                 >
                     <div>
-                        {!isDesktop && left_tab_shadow && <span className='tabs-shadow tabs-shadow--left' />}{' '}
                         <Tabs active_index={active_tab} className='main__tabs' onTabItemClick={handleTabChange} top>
                             <div
                                 label={
@@ -496,7 +442,6 @@ const AppWrapper = observer(() => {
                                 </Suspense>
                             </div>
                         </Tabs>
-                        {!isDesktop && right_tab_shadow && <span className='tabs-shadow tabs-shadow--right' />}{' '}
                     </div>
                 </div>
             </div>

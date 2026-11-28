@@ -5,8 +5,8 @@ import './contract-card-loading.scss';
 
 export const message_running_bot = localize('Your bot is running and waiting for a signal to buy a contract.');
 
-const ContractCardRunningBot = () => (
-    <div className='db-contract-card-running-loader'>
+const ContractCardRunningBot = ({ message = message_running_bot }: { message?: string }) => (
+    <div className='db-contract-card-running-loader' role='status'>
         <LabelPairedLoaderMdBoldIcon id='rotate-icon' fontSize={16} fill='var(--text-general)' />
         <Text
             color='less-prominent'
@@ -16,7 +16,7 @@ const ContractCardRunningBot = () => (
             align='center'
             className='dc-contract-card-message'
         >
-            {message_running_bot}
+            {message}
         </Text>
     </div>
 );

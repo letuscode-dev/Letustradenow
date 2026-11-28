@@ -1,5 +1,5 @@
 // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
-import { action, computed, makeObservable, observable, reaction, when } from 'mobx';
+import { action, computed, makeObservable, observable, reaction, runInAction, when } from 'mobx';
 import { v4 as uuidv4 } from 'uuid';
 /* [/AI] */
 import { formatDate } from '@/components/shared';
@@ -11,6 +11,7 @@ import { RESET_STRATEGIES, RESET_STRATEGIES_BLOCK_IDS, STRATEGIES } from '@/page
 import { isVirtualAccount } from '@/utils/account-helpers';
 import { localize } from '@deriv-com/translations';
 import { isCustomJournalMessage } from '../utils/journal-notifications';
+import { createBatchedJournalWriter } from '../utils/batched-journal-writer';
 import { getStoredItemsByKey, getStoredItemsByUser, setStoredItemsByKey } from '../utils/session-storage';
 import { getSetting, storeSetting } from '../utils/settings';
 import { TAccountList } from './client-store';
@@ -337,14 +338,23 @@ export default class JournalStore {
 
     registerReactions() {
         const client = this.core.client as RootStore['client'];
+        let journalAccount = client?.loginid;
+        let disposed = false;
+        const writer = createBatchedJournalWriter<TMessageItem>(
+            () => getStoredItemsByKey(this.JOURNAL_CACHE, {}),
+            stored_journals => setStoredItemsByKey(this.JOURNAL_CACHE, stored_journals)
+        );
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') writer.flush();
+        };
+        window.addEventListener('pagehide', writer.flush);
+        document.addEventListener('visibilitychange', onVisibilityChange);
 
-        // Write journal messages to session storage on each change in unfiltered messages.
+        // Keep the journal visible immediately, but batch expensive storage compression.
         const disposeWriteJournalMessageListener = reaction(
             () => this.unfiltered_messages,
             unfiltered_messages => {
-                const stored_journals = getStoredItemsByKey(this.JOURNAL_CACHE, {});
-                stored_journals[client.loginid as string] = unfiltered_messages?.slice(0, MAX_JOURNAL_MESSAGES);
-                setStoredItemsByKey(this.JOURNAL_CACHE, stored_journals);
+                writer.schedule(journalAccount, unfiltered_messages?.slice(0, MAX_JOURNAL_MESSAGES));
             }
         );
 
@@ -352,25 +362,31 @@ export default class JournalStore {
         const disposeJournalMessageListener = reaction(
             () => client?.loginid,
             async loginid => {
+                writer.flush();
+                journalAccount = loginid || undefined;
+                const cached = loginid ? getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []) : [];
+                const hadCachedMessages = cached.length > 0;
+                runInAction(() => { this.unfiltered_messages = cached; });
+                if (!loginid) return;
                 await when(() => {
                     const has_account = client.account_list?.find(
                         (account: TAccountList[number]) => account.loginid === loginid
                     );
                     return !!has_account;
                 });
-                this.unfiltered_messages = getStoredItemsByUser(this.JOURNAL_CACHE, loginid, []);
-                if (this.unfiltered_messages.length === 0) {
-                    this.pushMessage(LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
-                } else if (this.unfiltered_messages.length > 0) {
-                    this.pushMessage(LogTypes.WELCOME_BACK, MessageTypes.SUCCESS, 'journal__text');
-                }
+                if (disposed || client.loginid !== loginid) return;
+                this.pushMessage(hadCachedMessages ? LogTypes.WELCOME_BACK : LogTypes.WELCOME, MessageTypes.SUCCESS, 'journal__text');
             },
             { fireImmediately: true } // For initial welcome message
         );
 
         return () => {
+            disposed = true;
             disposeWriteJournalMessageListener();
             disposeJournalMessageListener();
+            writer.flush();
+            window.removeEventListener('pagehide', writer.flush);
+            document.removeEventListener('visibilitychange', onVisibilityChange);
         };
     }
 }

@@ -62,7 +62,7 @@ const Tabs = ({
     single_tab_has_no_label = false,
     top,
 }: TTabsProps) => {
-    const [active_line_style, updateActiveLineStyle] = React.useState({});
+    const [active_line_style, updateActiveLineStyle] = React.useState<{ left?: number; width?: number }>({});
     const active_tab_ref = React.useRef<HTMLLIElement>(null);
     const tabs_wrapper_ref = React.useRef<HTMLUListElement>(null);
     const pushHash = (hash: string) => {
@@ -73,14 +73,9 @@ const Tabs = ({
         const tabs_wrapper_bounds = tabs_wrapper_ref?.current?.getBoundingClientRect();
         const active_tab_bounds = active_tab_ref?.current?.getBoundingClientRect();
         if (tabs_wrapper_bounds && active_tab_bounds) {
-            updateActiveLineStyle({
-                left: active_tab_bounds.left - tabs_wrapper_bounds.left,
-                width: active_tab_bounds.width,
-            });
-        } else {
-            setTimeout(() => {
-                setActiveLineStyle();
-            }, 500);
+            const left = active_tab_bounds.left - tabs_wrapper_bounds.left;
+            const width = active_tab_bounds.width;
+            updateActiveLineStyle(previous => previous.left === left && previous.width === width ? previous : { left, width });
         }
     }, []);
 
@@ -106,7 +101,6 @@ const Tabs = ({
                 }
             }
         }
-        setActiveLineStyle();
     });
 
     const [active_tab_index, setActiveTabIndex] = React.useState(initial_index_to_show);

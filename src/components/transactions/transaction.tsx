@@ -1,7 +1,6 @@
 // @ts-nocheck — vendored bot code with known upstream type gaps; see AGENTS.md
 import React from 'react';
 import classNames from 'classnames';
-import ContentLoader from 'react-content-loader';
 import Money from '@/components/shared_ui/money';
 import { TContractInfo } from '@/components/summary/summary-card.types';
 import { popover_zindex } from '@/constants/z-indexes';
@@ -53,31 +52,9 @@ const TransactionIconWithText = ({ icon, title, message, className }: TTransacti
     </React.Fragment>
 );
 
-const TransactionFieldLoader = () => (
-    <ContentLoader
-        className='transactions__loader-text'
-        height={10}
-        width={80}
-        speed={3}
-        backgroundColor={'var(--general-section-2)'}
-        foregroundColor={'var(--general-hover)'}
-    >
-        <rect x='0' y='0' rx='0' ry='0' width='100' height='12' />
-    </ContentLoader>
-);
+const TransactionFieldLoader = () => <span aria-label={localize('Waiting for data')}>—</span>;
 
-const TransactionIconLoader = () => (
-    <ContentLoader
-        className='transactions__loader-icon'
-        speed={3}
-        width={24}
-        height={24}
-        backgroundColor={'var(--general-section-1)'}
-        foregroundColor={'var(--general-hover)'}
-    >
-        <rect x='0' y='0' rx='5' ry='5' width='24' height='24' />
-    </ContentLoader>
-);
+const TransactionIconLoader = () => <span aria-hidden='true'>—</span>;
 
 const PopoverItem = ({ icon, title, children }: TPopoverItem) => (
     <div className='transactions__popover-item'>
